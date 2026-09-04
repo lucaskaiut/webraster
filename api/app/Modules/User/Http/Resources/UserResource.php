@@ -24,6 +24,12 @@ class UserResource extends JsonResource
             'phone' => $this->phone,
             'document' => $this->document,
             'is_master' => (bool) $this->is_master,
+            'client_id' => $this->when(
+                $this->client_id !== null,
+                fn () => $this->relationLoaded('client')
+                    ? $this->client?->uuid
+                    : $this->client()->value('uuid'),
+            ),
             'roles' => RoleResource::collection($this->whenLoaded('roles')),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),

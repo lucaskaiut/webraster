@@ -57,3 +57,21 @@ export function useLogout() {
     },
   })
 }
+
+export function useForgotPassword() {
+  return useMutation({
+    mutationFn: authService.forgotPassword,
+  })
+}
+
+export function useResetPassword() {
+  const navigate = useNavigate()
+
+  return useMutation({
+    mutationFn: authService.resetPassword,
+    onSuccess: () => {
+      toast.success('Senha redefinida', 'Você já pode entrar com a nova senha.')
+      navigate('/auth/login', { replace: true })
+    },
+  })
+}

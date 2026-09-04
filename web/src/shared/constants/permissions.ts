@@ -35,6 +35,16 @@ export const Permission = {
   AUDIT_VIEW: 'audit.view',
 
   ASSISTANT_VIEW: 'assistant.view',
+
+  CLIENT_CREATE: 'client.create',
+  CLIENT_READ: 'client.read',
+  CLIENT_UPDATE: 'client.update',
+  CLIENT_DELETE: 'client.delete',
+
+  DRIVER_CREATE: 'driver.create',
+  DRIVER_READ: 'driver.read',
+  DRIVER_UPDATE: 'driver.update',
+  DRIVER_DELETE: 'driver.delete',
 } as const
 
 export type Permission = (typeof Permission)[keyof typeof Permission]
@@ -71,41 +81,62 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { value: Permission.ROLE_DELETE, label: 'Remover perfis' },
     ],
   },
-  {
-    label: 'Tokens de API',
-    permissions: [
-      { value: Permission.API_TOKEN_READ, label: 'Visualizar tokens' },
-      { value: Permission.API_TOKEN_CREATE, label: 'Criar tokens' },
-      { value: Permission.API_TOKEN_DELETE, label: 'Revogar tokens' },
-    ],
-  },
-  {
-    label: 'Webhooks',
-    permissions: [
-      { value: Permission.WEBHOOK_READ, label: 'Visualizar webhooks' },
-      { value: Permission.WEBHOOK_CREATE, label: 'Criar webhooks' },
-      { value: Permission.WEBHOOK_UPDATE, label: 'Editar webhooks' },
-      { value: Permission.WEBHOOK_DELETE, label: 'Remover webhooks' },
-    ],
-  },
+  // Tokens de API e Webhooks ocultos no frontend
+  // {
+  //   label: 'Tokens de API',
+  //   permissions: [
+  //     { value: Permission.API_TOKEN_READ, label: 'Visualizar tokens' },
+  //     { value: Permission.API_TOKEN_CREATE, label: 'Criar tokens' },
+  //     { value: Permission.API_TOKEN_DELETE, label: 'Revogar tokens' },
+  //   ],
+  // },
+  // {
+  //   label: 'Webhooks',
+  //   permissions: [
+  //     { value: Permission.WEBHOOK_READ, label: 'Visualizar webhooks' },
+  //     { value: Permission.WEBHOOK_CREATE, label: 'Criar webhooks' },
+  //     { value: Permission.WEBHOOK_UPDATE, label: 'Editar webhooks' },
+  //     { value: Permission.WEBHOOK_DELETE, label: 'Remover webhooks' },
+  //   ],
+  // },
   {
     label: 'Auditoria',
     permissions: [{ value: Permission.AUDIT_VIEW, label: 'Visualizar auditoria' }],
   },
+  // Assistente de IA oculto no frontend
+  // {
+  //   label: 'Assistente de IA',
+  //   permissions: [{ value: Permission.ASSISTANT_VIEW, label: 'Usar o assistente de IA' }],
+  // },
+  // Controle de assinatura desabilitado neste sistema
+  // {
+  //   label: 'Assinaturas',
+  //   permissions: [
+  //     { value: Permission.PLAN_READ, label: 'Visualizar planos' },
+  //     { value: Permission.PLAN_CREATE, label: 'Criar planos' },
+  //     { value: Permission.PLAN_UPDATE, label: 'Editar planos' },
+  //     { value: Permission.PLAN_DELETE, label: 'Inativar planos' },
+  //     { value: Permission.SUBSCRIPTION_READ, label: 'Visualizar assinatura' },
+  //     { value: Permission.SUBSCRIPTION_UPDATE, label: 'Gerenciar assinatura' },
+  //     { value: Permission.INVOICE_READ, label: 'Visualizar cobranças' },
+  //   ],
+  // },
   {
-    label: 'Assistente de IA',
-    permissions: [{ value: Permission.ASSISTANT_VIEW, label: 'Usar o assistente de IA' }],
+    label: 'Clientes',
+    permissions: [
+      { value: Permission.CLIENT_READ, label: 'Visualizar clientes' },
+      { value: Permission.CLIENT_CREATE, label: 'Criar clientes' },
+      { value: Permission.CLIENT_UPDATE, label: 'Editar clientes' },
+      { value: Permission.CLIENT_DELETE, label: 'Remover clientes' },
+    ],
   },
   {
-    label: 'Assinaturas',
+    label: 'Motoristas',
     permissions: [
-      { value: Permission.PLAN_READ, label: 'Visualizar planos' },
-      { value: Permission.PLAN_CREATE, label: 'Criar planos' },
-      { value: Permission.PLAN_UPDATE, label: 'Editar planos' },
-      { value: Permission.PLAN_DELETE, label: 'Inativar planos' },
-      { value: Permission.SUBSCRIPTION_READ, label: 'Visualizar assinatura' },
-      { value: Permission.SUBSCRIPTION_UPDATE, label: 'Gerenciar assinatura' },
-      { value: Permission.INVOICE_READ, label: 'Visualizar cobranças' },
+      { value: Permission.DRIVER_READ, label: 'Visualizar motoristas' },
+      { value: Permission.DRIVER_CREATE, label: 'Criar motoristas' },
+      { value: Permission.DRIVER_UPDATE, label: 'Editar motoristas' },
+      { value: Permission.DRIVER_DELETE, label: 'Remover motoristas' },
     ],
   },
 ]

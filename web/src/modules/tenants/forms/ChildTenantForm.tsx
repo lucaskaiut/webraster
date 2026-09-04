@@ -1,32 +1,85 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Button, ButtonLink, Card, CardContent, Form, Section, SelectField, TextField } from '@/shared/design-system'
+import {
+  Button,
+  ButtonLink,
+  Card,
+  CardContent,
+  Form,
+  Section,
+  TextField,
+} from '@/shared/design-system'
 import { isApiError } from '@/shared/api/errors'
 import { applyApiErrorsToForm } from '@/shared/utils/forms'
 import { onlyDigits } from '@/shared/utils/document'
-import { usePlansQuery } from '@/modules/billing/hooks/useBilling'
-import type { CreateChildTenantPayload } from '../services/tenants.service'
-import { childTenantSchema, type ChildTenantFormValues } from '../schemas/tenant.schema'
+import type {
+  CreateChildTenantPayload,
+  UpdateChildTenantPayload,
+} from '../services/tenants.service'
+import {
+  createChildTenantSchema,
+  updateChildTenantSchema,
+  type CreateChildTenantFormValues,
+  type UpdateChildTenantFormValues,
+} from '../schemas/tenant.schema'
 
-export function ChildTenantForm({
+type CreateProps = {
+  mode: 'create'
+  submitting: boolean
+  onSubmit: (payload: CreateChildTenantPayload) => Promise<unknown>
+  defaultValues?: Partial<CreateChildTenantFormValues>
+}
+
+type EditProps = {
+  mode: 'edit'
+  submitting: boolean
+  onSubmit: (payload: UpdateChildTenantPayload) => Promise<unknown>
+  defaultValues?: Partial<UpdateChildTenantFormValues>
+}
+
+type ChildTenantFormProps = CreateProps | EditProps
+
+export function ChildTenantForm(props: ChildTenantFormProps) {
+  const { mode, submitting } = props
+
+  if (mode === 'create') {
+    return (
+      <CreateForm
+        submitting={submitting}
+        defaultValues={props.defaultValues}
+        onSubmit={props.onSubmit}
+      />
+    )
+  }
+
+  return (
+    <EditForm
+      submitting={submitting}
+      defaultValues={props.defaultValues}
+      onSubmit={props.onSubmit}
+    />
+  )
+}
+
+function CreateForm({
   submitting,
+  defaultValues,
   onSubmit,
 }: {
   submitting: boolean
+  defaultValues?: Partial<CreateChildTenantFormValues>
   onSubmit: (payload: CreateChildTenantPayload) => Promise<unknown>
 }) {
-  const { data: plans } = usePlansQuery()
-
-  const form = useForm<ChildTenantFormValues>({
-    resolver: zodResolver(childTenantSchema),
+  const form = useForm<CreateChildTenantFormValues>({
+    resolver: zodResolver(createChildTenantSchema),
     defaultValues: {
       tenant: { name: '', document: '', email: '', phone: '', domain: '' },
       user: { name: '', email: '', password: '' },
-      plan_id: null,
+      ...defaultValues,
     },
   })
 
-  const handleSubmit = async (values: ChildTenantFormValues) => {
+  const handleSubmit = async (values: CreateChildTenantFormValues) => {
     const payload: CreateChildTenantPayload = {
       tenant: {
         name: values.tenant.name,
@@ -40,7 +93,6 @@ export function ChildTenantForm({
         email: values.user.email,
         password: values.user.password,
       },
-      plan_id: values.plan_id || null,
     }
 
     try {
@@ -56,56 +108,106 @@ export function ChildTenantForm({
     <Card>
       <CardContent>
         <Form form={form} onSubmit={handleSubmit} className="space-y-8">
-          <Section title="Dados da empresa">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <TextField name="tenant.name" label="Nome" required className="sm:col-span-2" />
-              <TextField name="tenant.document" label="CPF / CNPJ" required placeholder="Somente números" />
-              <TextField name="tenant.email" label="E-mail" type="email" required />
-              <TextField name="tenant.phone" label="Telefone" required placeholder="(41) 99999-9999" />
-              <TextField name="tenant.domain" label="Domínio" required placeholder="empresa.com.br" />
-            </div>
-          </Section>
-
-          <Section
-            title="Administrador"
-            description="Credenciais do usuário que administrará esta empresa."
-          >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <TextField name="user.name" label="Nome" required className="sm:col-span-2" />
-              <TextField name="user.email" label="E-mail" type="email" required />
-              <TextField
-                name="user.password"
-                label="Senha"
-                type="password"
-                autoComplete="new-password"
-                required
-                hint="Mínimo de 8 caracteres"
-              />
-            </div>
-          </Section>
-
-          <Section
-            title="Plano (opcional)"
-            description="Associe um plano à empresa. Sem plano, ela não poderá acessar o sistema."
-          >
-            <SelectField
-              name="plan_id"
-              label="Plano"
-              options={(plans ?? []).map((plan) => ({ value: plan.id, label: plan.name }))}
-              placeholder="Sem plano"
-            />
-          </Section>
-
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <ButtonLink to="/tenants" variant="secondary">
-              Cancelar
-            </ButtonLink>
-            <Button type="submit" loading={submitting}>
-              Criar empresa
-            </Button>
-          </div>
+          <TenantFields />
+          <AdminFields />
+          <FormActions submitting={submitting} submitLabel="Criar empresa" />
         </Form>
       </CardContent>
     </Card>
+  )
+}
+
+function EditForm({
+  submitting,
+  defaultValues,
+  onSubmit,
+}: {
+  submitting: boolean
+  defaultValues?: Partial<UpdateChildTenantFormValues>
+  onSubmit: (payload: UpdateChildTenantPayload) => Promise<unknown>
+}) {
+  const form = useForm<UpdateChildTenantFormValues>({
+    resolver: zodResolver(updateChildTenantSchema),
+    defaultValues: {
+      tenant: { name: '', document: '', email: '', phone: '', domain: '' },
+      ...defaultValues,
+    },
+  })
+
+  const handleSubmit = async (values: UpdateChildTenantFormValues) => {
+    const payload: UpdateChildTenantPayload = {
+      tenant: {
+        name: values.tenant.name,
+        document: onlyDigits(values.tenant.document),
+        email: values.tenant.email,
+        phone: values.tenant.phone,
+        domain: values.tenant.domain,
+      },
+    }
+
+    try {
+      await onSubmit(payload)
+    } catch (error) {
+      if (isApiError(error) && error.status === 422) {
+        applyApiErrorsToForm(form, error)
+      }
+    }
+  }
+
+  return (
+    <Card>
+      <CardContent>
+        <Form form={form} onSubmit={handleSubmit} className="space-y-8">
+          <TenantFields />
+          <FormActions submitting={submitting} submitLabel="Salvar alterações" />
+        </Form>
+      </CardContent>
+    </Card>
+  )
+}
+
+function TenantFields() {
+  return (
+    <Section title="Dados da empresa">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <TextField name="tenant.name" label="Nome" required className="sm:col-span-2" />
+        <TextField name="tenant.document" label="CPF / CNPJ" required placeholder="Somente números" />
+        <TextField name="tenant.email" label="E-mail" type="email" required />
+        <TextField name="tenant.phone" label="Telefone" required placeholder="(41) 99999-9999" />
+        <TextField name="tenant.domain" label="Domínio" required placeholder="empresa.com.br" />
+      </div>
+    </Section>
+  )
+}
+
+function AdminFields() {
+  return (
+    <Section title="Administrador" description="Credenciais do usuário que administrará esta empresa.">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <TextField name="user.name" label="Nome" required className="sm:col-span-2" />
+        <TextField name="user.email" label="E-mail" type="email" required />
+        <TextField
+          name="user.password"
+          label="Senha"
+          type="password"
+          autoComplete="new-password"
+          required
+          hint="Mínimo de 8 caracteres"
+        />
+      </div>
+    </Section>
+  )
+}
+
+function FormActions({ submitting, submitLabel }: { submitting: boolean; submitLabel: string }) {
+  return (
+    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+      <ButtonLink to="/tenants" variant="secondary">
+        Cancelar
+      </ButtonLink>
+      <Button type="submit" loading={submitting}>
+        {submitLabel}
+      </Button>
+    </div>
   )
 }

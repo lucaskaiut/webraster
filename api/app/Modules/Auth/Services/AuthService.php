@@ -22,10 +22,12 @@ use App\Modules\Tenant\Support\CurrentTenant;
 use App\Modules\User\Models\User;
 use App\Modules\User\Services\UserService;
 use Carbon\CarbonImmutable;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\PersonalAccessToken;
 
@@ -120,6 +122,7 @@ class AuthService
     {
         $user = User::query()
             ->withoutTenancy()
+            ->withoutClientScope()
             ->where('email', $email)
             ->first();
 
@@ -160,6 +163,41 @@ class AuthService
             Auth::guard('web')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
+        }
+    }
+
+    public function sendPasswordResetLink(string $email): void
+    {
+        Password::broker()->sendResetLink(['email' => $email]);
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    public function resetPassword(string $email, string $password, string $token): void
+    {
+        $status = Password::broker()->reset(
+            [
+                'email' => $email,
+                'password' => $password,
+                'password_confirmation' => $password,
+                'token' => $token,
+            ],
+            function (User $user, string $password): void {
+                $user->forceFill([
+                    'password' => $password,
+                ])->save();
+
+                $user->tokens()->delete();
+
+                event(new PasswordReset($user));
+            },
+        );
+
+        if ($status !== Password::PASSWORD_RESET) {
+            throw ValidationException::withMessages([
+                'email' => [__($status)],
+            ]);
         }
     }
 

@@ -12,6 +12,7 @@ class UserService
     {
         return User::query()
             ->with('roles.permissions')
+            ->whereNull('client_id')
             ->when(filled($search), function ($query) use ($search): void {
                 $query->where(function ($query) use ($search): void {
                     $query->where('name', 'like', "%{$search}%")

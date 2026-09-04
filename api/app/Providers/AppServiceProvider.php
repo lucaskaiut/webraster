@@ -14,6 +14,10 @@ use App\Modules\Billing\Models\Subscription;
 use App\Modules\Billing\Policies\InvoicePolicy;
 use App\Modules\Billing\Policies\PlanPolicy;
 use App\Modules\Billing\Policies\SubscriptionPolicy;
+use App\Modules\Client\Models\Client;
+use App\Modules\Client\Policies\ClientPolicy;
+use App\Modules\Driver\Models\Driver;
+use App\Modules\Driver\Policies\DriverPolicy;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Tenant\Policies\TenantPolicy;
 use App\Modules\User\Models\User;
@@ -69,5 +73,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Plan::class, PlanPolicy::class);
         Gate::policy(Subscription::class, SubscriptionPolicy::class);
         Gate::policy(Invoice::class, InvoicePolicy::class);
+        Gate::policy(Client::class, ClientPolicy::class);
+        Gate::policy(Driver::class, DriverPolicy::class);
     }
 }

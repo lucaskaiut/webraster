@@ -495,7 +495,7 @@ class BillingFlowTest extends TestCase
         $this->assertSame(SubscriptionStatus::SUSPENDED, $subscription->fresh()->status);
     }
 
-    public function test_middleware_blocks_child_without_active_subscription(): void
+    public function test_middleware_allows_child_without_active_subscription(): void
     {
         $umbrella = $this->createTenantWithRoles();
         $child = $this->createChildTenant($umbrella);
@@ -507,8 +507,7 @@ class BillingFlowTest extends TestCase
             fn () => response()->json(['ok' => true]),
         );
 
-        $this->assertSame(402, $result->getStatusCode());
-        $this->assertStringContainsString('Assinatura', $result->getContent());
+        $this->assertSame(200, $result->getStatusCode());
     }
 
     public function test_list_invoices_for_current_tenant(): void

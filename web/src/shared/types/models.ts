@@ -28,6 +28,7 @@ export interface Tenant {
   domain: string
   is_umbrella?: boolean
   users_count?: number
+  subscription?: Subscription | null
   created_at: string | null
   updated_at: string | null
 }
@@ -125,6 +126,9 @@ export interface Subscription {
   last_billed_at: string | null
   next_billing_at: string | null
   cancelled_at: string | null
+  is_complimentary?: boolean
+  is_complimentary_active?: boolean
+  complimentary_ends_at?: string | null
   plan?: Plan
   events?: SubscriptionEvent[]
   created_at: string | null
@@ -178,6 +182,40 @@ export interface Conversation {
   id: string
   title: string
   messages: AssistantMessage[]
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface Client {
+  id: string
+  name: string
+  document: string
+  email: string | null
+  phone: string | null
+  street: string | null
+  number: string | null
+  complement: string | null
+  neighborhood: string | null
+  city: string | null
+  state: string | null
+  zip: string | null
+  is_active: boolean
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface Driver {
+  id: string
+  client_id: string
+  client?: Client
+  name: string
+  document: string | null
+  phone: string | null
+  email: string | null
+  cnh_number: string | null
+  cnh_expires_at: string | null
+  notes: string | null
+  is_active: boolean
   created_at: string | null
   updated_at: string | null
 }

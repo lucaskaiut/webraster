@@ -58,8 +58,14 @@ class RegisterTest extends TestCase
         $tenantId = $this->getTenantId();
 
         $this->assertDatabaseHas('roles', ['tenant_id' => $tenantId, 'name' => DefaultRole::ADMINISTRATOR->value]);
-        $this->assertDatabaseHas('roles', ['tenant_id' => $tenantId, 'name' => DefaultRole::USER->value]);
-        $this->assertDatabaseCount('role_permissions', count(Permission::cases()) + 1);
+        $this->assertDatabaseHas('roles', ['tenant_id' => $tenantId, 'name' => DefaultRole::OPERATOR->value]);
+        $this->assertDatabaseHas('roles', ['tenant_id' => $tenantId, 'name' => DefaultRole::CLIENT->value]);
+        $this->assertDatabaseCount(
+            'role_permissions',
+            count(Permission::cases())
+                + count(DefaultRole::OPERATOR->permissions())
+                + count(DefaultRole::CLIENT->permissions()),
+        );
         $this->assertDatabaseCount('user_roles', 1);
 
         $token = $response->json('data.token');

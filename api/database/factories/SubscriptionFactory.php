@@ -30,6 +30,8 @@ class SubscriptionFactory extends Factory
             'last_billed_at' => null,
             'next_billing_at' => now()->addDays(7),
             'cancelled_at' => null,
+            'is_complimentary' => false,
+            'complimentary_ends_at' => null,
         ];
     }
 
@@ -69,6 +71,17 @@ class SubscriptionFactory extends Factory
     {
         return $this->state(fn (): array => [
             'status' => SubscriptionStatus::SUSPENDED,
+        ]);
+    }
+
+    public function complimentary(?\DateTimeInterface $endsAt = null): static
+    {
+        return $this->state(fn (): array => [
+            'status' => SubscriptionStatus::ACTIVE,
+            'is_complimentary' => true,
+            'complimentary_ends_at' => $endsAt,
+            'trial_ends_at' => null,
+            'next_billing_at' => null,
         ]);
     }
 

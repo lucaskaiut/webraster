@@ -61,7 +61,7 @@ class UserCrudTest extends TestCase
 
         Sanctum::actingAs($this->createAdmin($tenant));
 
-        $userRoleId = $this->roleFor($tenant, DefaultRole::USER)->getKey();
+        $userRoleId = $this->roleFor($tenant, DefaultRole::OPERATOR)->getKey();
 
         $this->postJson('/api/users', [
             'name' => 'Novo Usuário',
@@ -74,7 +74,7 @@ class UserCrudTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.email', 'novo@empresa.com')
             ->assertJsonPath('data.document', '52998224725')
-            ->assertJsonPath('data.roles.0.name', DefaultRole::USER->value);
+            ->assertJsonPath('data.roles.0.name', DefaultRole::OPERATOR->value);
 
         $this->assertDatabaseHas('users', [
             'email' => 'novo@empresa.com',
@@ -89,7 +89,7 @@ class UserCrudTest extends TestCase
 
         Sanctum::actingAs($this->createAdmin($tenantA));
 
-        $foreignRoleId = $this->roleFor($tenantB, DefaultRole::USER)->getKey();
+        $foreignRoleId = $this->roleFor($tenantB, DefaultRole::OPERATOR)->getKey();
 
         $this->postJson('/api/users', [
             'name' => 'Novo Usuário',
@@ -116,7 +116,7 @@ class UserCrudTest extends TestCase
             'name' => 'X',
             'email' => 'admin@empresa.com',
             'password' => '12345678',
-            'role_ids' => [$this->roleFor($tenant, DefaultRole::USER)->getKey()],
+            'role_ids' => [$this->roleFor($tenant, DefaultRole::OPERATOR)->getKey()],
         ])->assertUnprocessable()->assertJsonValidationErrors(['email']);
 
         $this->postJson('/api/users', [
@@ -124,7 +124,7 @@ class UserCrudTest extends TestCase
             'email' => 'x@empresa.com',
             'document' => '123',
             'password' => '12345678',
-            'role_ids' => [$this->roleFor($tenant, DefaultRole::USER)->getKey()],
+            'role_ids' => [$this->roleFor($tenant, DefaultRole::OPERATOR)->getKey()],
         ])->assertUnprocessable()->assertJsonValidationErrors(['document']);
     }
 
@@ -132,7 +132,7 @@ class UserCrudTest extends TestCase
     {
         $tenant = $this->createTenantWithRoles();
         $user = User::factory()->for($tenant)->create();
-        $user->assignRole($this->roleFor($tenant, DefaultRole::USER));
+        $user->assignRole($this->roleFor($tenant, DefaultRole::OPERATOR));
 
         Sanctum::actingAs($this->createAdmin($tenant));
 
@@ -153,7 +153,7 @@ class UserCrudTest extends TestCase
         ]);
         $this->assertDatabaseMissing('user_roles', [
             'user_id' => $user->getKey(),
-            'role_id' => $this->roleFor($tenant, DefaultRole::USER)->getKey(),
+            'role_id' => $this->roleFor($tenant, DefaultRole::OPERATOR)->getKey(),
         ]);
     }
 
@@ -195,12 +195,12 @@ class UserCrudTest extends TestCase
         $this->deleteJson("/api/users/{$admin->uuid}")->assertForbidden();
     }
 
-    public function test_member_cannot_create_update_or_delete_users(): void
+    public function test_client_cannot_create_update_or_delete_users(): void
     {
         $tenant = $this->createTenantWithRoles();
         $target = User::factory()->for($tenant)->create();
 
-        Sanctum::actingAs($this->createMember($tenant));
+        Sanctum::actingAs($this->createClient($tenant));
 
         $this->postJson('/api/users', [])->assertForbidden();
         $this->putJson("/api/users/{$target->uuid}", ['name' => 'X'])->assertForbidden();

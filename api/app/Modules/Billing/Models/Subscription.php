@@ -30,6 +30,8 @@ class Subscription extends Model
         'last_billed_at',
         'next_billing_at',
         'cancelled_at',
+        'is_complimentary',
+        'complimentary_ends_at',
     ];
 
     protected $hidden = [
@@ -47,6 +49,8 @@ class Subscription extends Model
             'last_billed_at' => 'datetime',
             'next_billing_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            'is_complimentary' => 'boolean',
+            'complimentary_ends_at' => 'datetime',
         ];
     }
 
@@ -67,7 +71,16 @@ class Subscription extends Model
 
     public function allowsAccess(): bool
     {
-        return $this->status->allowsAccess();
+        return $this->isComplimentaryActive() || $this->status->allowsAccess();
+    }
+
+    public function isComplimentaryActive(): bool
+    {
+        if (! $this->is_complimentary) {
+            return false;
+        }
+
+        return $this->complimentary_ends_at === null || $this->complimentary_ends_at->gte(now());
     }
 
     public function isOnTrial(): bool

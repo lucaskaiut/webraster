@@ -253,4 +253,71 @@ class SubscriptionServiceTest extends TestCase
             ->assertJsonPath('data.status', 'PENDING')
             ->assertJsonPath('data.awaiting_payment_method', true);
     }
+
+    public function test_complimentary_subscription_is_excluded_from_due_for_billing(): void
+    {
+        Carbon::setTestNow('2026-09-03 12:00:00');
+
+        $umbrella = $this->createTenantWithRoles();
+        $child = $this->createChildTenant($umbrella);
+        $plan = Plan::factory()->forTenant($umbrella)->withoutTrial()->create();
+
+        $service = app(SubscriptionService::class);
+        $service->grantComplimentary($child, $plan);
+
+        $this->assertCount(0, $service->dueForBilling());
+
+        $paidChild = $this->createChildTenant($umbrella, [
+            'domain' => 'paga.com.br',
+            'email' => 'contato@paga.com.br',
+        ]);
+        $paid = $service->createForTenant($paidChild, $plan);
+        $paid->forceFill(['next_billing_at' => now()->subMinute()])->save();
+
+        $due = $service->dueForBilling();
+        $this->assertCount(1, $due);
+        $this->assertSame($paid->getKey(), $due->first()->getKey());
+    }
+
+    public function test_expire_complimentary_revokes_and_schedules_billing(): void
+    {
+        Carbon::setTestNow('2026-09-03 12:00:00');
+
+        $umbrella = $this->createTenantWithRoles();
+        $child = $this->createChildTenant($umbrella);
+        $plan = Plan::factory()->forTenant($umbrella)->withoutTrial()->create();
+
+        $service = app(SubscriptionService::class);
+        $subscription = $service->grantComplimentary(
+            $child,
+            $plan,
+            Carbon::parse('2026-09-01')->endOfDay(),
+        );
+
+        $this->assertTrue($subscription->is_complimentary);
+        $this->assertFalse($subscription->fresh()->isComplimentaryActive());
+
+        \Illuminate\Support\Facades\Artisan::call('billing:suspend-expired-subscriptions');
+
+        $subscription->refresh();
+
+        $this->assertFalse($subscription->is_complimentary);
+        $this->assertNotNull($subscription->next_billing_at);
+        $this->assertDatabaseHas('subscription_events', [
+            'subscription_id' => $subscription->getKey(),
+            'event' => 'COMPLIMENTARY_EXPIRED',
+        ]);
+    }
+
+    public function test_should_not_suspend_active_complimentary_subscription(): void
+    {
+        $umbrella = $this->createTenantWithRoles();
+        $child = $this->createChildTenant($umbrella);
+        $plan = Plan::factory()->forTenant($umbrella)->withoutTrial()->create();
+
+        $subscription = app(SubscriptionService::class)->grantComplimentary($child, $plan);
+        $subscription->forceFill(['started_at' => now()->subDays(60)])->save();
+
+        $this->assertFalse(app(\App\Modules\Billing\Services\BillingService::class)->shouldSuspend($subscription->fresh()));
+    }
 }

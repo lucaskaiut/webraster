@@ -7,8 +7,10 @@ use App\Modules\Auth\DTOs\AuthenticatedUser;
 use App\Modules\Auth\DTOs\NewTenantData;
 use App\Modules\Auth\DTOs\NewUserData;
 use App\Modules\Auth\DTOs\RegisterResult;
+use App\Modules\Auth\Http\Requests\ForgotPasswordRequest;
 use App\Modules\Auth\Http\Requests\LoginRequest;
 use App\Modules\Auth\Http\Requests\RegisterRequest;
+use App\Modules\Auth\Http\Requests\ResetPasswordRequest;
 use App\Modules\Auth\Http\Requests\SelectTenantRequest;
 use App\Modules\Auth\Services\AuthService;
 use App\Modules\Billing\Http\Resources\InvoiceResource;
@@ -61,6 +63,27 @@ class AuthController extends ApiController
         $this->service->logout($request->user());
 
         return $this->success(null, 'Logout realizado com sucesso.');
+    }
+
+    public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
+    {
+        $this->service->sendPasswordResetLink($request->validated('email'));
+
+        return $this->success(
+            null,
+            'Se o e-mail informado estiver cadastrado, você receberá as instruções para redefinir a senha.',
+        );
+    }
+
+    public function resetPassword(ResetPasswordRequest $request): JsonResponse
+    {
+        $this->service->resetPassword(
+            $request->validated('email'),
+            $request->validated('password'),
+            $request->validated('token'),
+        );
+
+        return $this->success(null, 'Senha redefinida com sucesso.');
     }
 
     public function me(Request $request): JsonResponse

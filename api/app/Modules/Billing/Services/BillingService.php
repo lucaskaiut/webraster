@@ -503,6 +503,7 @@ class BillingService
         $candidates = Subscription::query()
             ->withoutTenancy()
             ->with('invoices')
+            ->where('is_complimentary', false)
             ->whereIn('status', [
                 SubscriptionStatus::PAST_DUE->value,
                 SubscriptionStatus::ACTIVE->value,
@@ -525,6 +526,10 @@ class BillingService
 
     public function shouldSuspend(Subscription $subscription): bool
     {
+        if ($subscription->isComplimentaryActive()) {
+            return false;
+        }
+
         $expiredCount = Invoice::query()
             ->withoutTenancy()
             ->where('subscription_id', $subscription->getKey())

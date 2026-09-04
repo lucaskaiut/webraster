@@ -2,14 +2,17 @@
 
 namespace App\Modules\Billing\Services;
 
+use App\Modules\Billing\Enums\InvoiceStatus;
 use App\Modules\Billing\Enums\SubscriptionEventType;
 use App\Modules\Billing\Enums\SubscriptionStatus;
 use App\Modules\Billing\Events\SubscriptionCreated;
+use App\Modules\Billing\Models\Invoice;
 use App\Modules\Billing\Models\Plan;
 use App\Modules\Billing\Models\Subscription;
 use App\Modules\Billing\Support\PaymentGatewayResolver;
 use App\Modules\Tenant\Models\Tenant;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -218,6 +221,126 @@ class SubscriptionService
     }
 
     /**
+     * Libera acesso cortesia (parceria) para o tenant filho.
+     * Mantém status ACTIVE, zera next_billing_at e cancela faturas abertas.
+     */
+    public function grantComplimentary(
+        Tenant $tenant,
+        Plan|string $plan,
+        ?CarbonInterface $endsAt = null,
+    ): Subscription {
+        if (is_string($plan)) {
+            $plan = $this->plans->findActiveForSubscription($plan, $tenant);
+        }
+
+        $endsAtImmutable = $endsAt !== null
+            ? CarbonImmutable::instance($endsAt)->endOfDay()
+            : null;
+
+        return DB::transaction(function () use ($tenant, $plan, $endsAtImmutable): Subscription {
+            $subscription = Subscription::query()
+                ->withoutTenancy()
+                ->where('tenant_id', $tenant->getKey())
+                ->first();
+
+            $now = CarbonImmutable::now();
+
+            if ($subscription === null) {
+                $subscription = Subscription::query()->withoutTenancy()->create([
+                    'tenant_id' => $tenant->getKey(),
+                    'plan_id' => $plan->getKey(),
+                    'payment_gateway' => null,
+                    'status' => SubscriptionStatus::ACTIVE,
+                    'started_at' => $now,
+                    'trial_ends_at' => null,
+                    'last_billed_at' => null,
+                    'next_billing_at' => null,
+                    'cancelled_at' => null,
+                    'is_complimentary' => true,
+                    'complimentary_ends_at' => $endsAtImmutable,
+                ]);
+
+                $this->events->record($subscription, SubscriptionEventType::SUBSCRIPTION_CREATED, [
+                    'plan_id' => $plan->uuid,
+                    'status' => SubscriptionStatus::ACTIVE->value,
+                    'action' => 'complimentary',
+                ]);
+            } else {
+                $subscription->plan_id = $plan->getKey();
+                $subscription->status = SubscriptionStatus::ACTIVE;
+                $subscription->cancelled_at = null;
+                $subscription->trial_ends_at = null;
+                $subscription->next_billing_at = null;
+                $subscription->is_complimentary = true;
+                $subscription->complimentary_ends_at = $endsAtImmutable;
+                $subscription->save();
+            }
+
+            $this->cancelOpenInvoices($subscription);
+
+            $this->events->record($subscription, SubscriptionEventType::COMPLIMENTARY_GRANTED, [
+                'plan_id' => $plan->uuid,
+                'complimentary_ends_at' => $endsAtImmutable?->toIso8601String(),
+            ]);
+
+            return $subscription->refresh()->load('plan');
+        });
+    }
+
+    /**
+     * Remove a cortesia e reativa o fluxo de cobrança (next_billing_at = agora).
+     */
+    public function revokeComplimentary(
+        Subscription $subscription,
+        SubscriptionEventType $event = SubscriptionEventType::COMPLIMENTARY_REVOKED,
+    ): Subscription {
+        if (! $subscription->is_complimentary) {
+            return $subscription;
+        }
+
+        $subscription->loadMissing('plan');
+        $now = CarbonImmutable::now();
+
+        $subscription->is_complimentary = false;
+        $subscription->complimentary_ends_at = null;
+        $subscription->status = SubscriptionStatus::ACTIVE;
+        $subscription->cancelled_at = null;
+        $subscription->next_billing_at = $now;
+        $subscription->save();
+
+        $this->events->record($subscription, $event, [
+            'next_billing_at' => $now->toIso8601String(),
+        ]);
+
+        return $subscription->refresh()->load('plan');
+    }
+
+    /**
+     * @return list<Subscription>
+     */
+    public function expireComplimentarySubscriptions(): array
+    {
+        $expired = [];
+
+        $candidates = Subscription::query()
+            ->withoutTenancy()
+            ->with('plan')
+            ->where('is_complimentary', true)
+            ->whereNotNull('complimentary_ends_at')
+            ->where('complimentary_ends_at', '<', now())
+            ->get();
+
+        foreach ($candidates as $subscription) {
+            $expired[] = $this->revokeComplimentary(
+                $subscription,
+                SubscriptionEventType::COMPLIMENTARY_EXPIRED,
+            );
+        }
+
+        return $expired;
+    }
+
+    /**
      * @return \Illuminate\Database\Eloquent\Collection<int, Subscription>
      */
     public function dueForBilling(): \Illuminate\Database\Eloquent\Collection
@@ -232,7 +355,21 @@ class SubscriptionService
                 SubscriptionStatus::ACTIVE->value,
                 SubscriptionStatus::TRIALING->value,
             ])
+            ->where('is_complimentary', false)
+            ->whereNotNull('next_billing_at')
             ->where('next_billing_at', '<=', $threshold)
             ->get();
+    }
+
+    private function cancelOpenInvoices(Subscription $subscription): void
+    {
+        Invoice::query()
+            ->withoutTenancy()
+            ->where('subscription_id', $subscription->getKey())
+            ->whereIn('status', [
+                InvoiceStatus::PENDING->value,
+                InvoiceStatus::PROCESSING->value,
+            ])
+            ->update(['status' => InvoiceStatus::CANCELLED->value]);
     }
 }

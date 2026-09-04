@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { Outlet } from 'react-router'
-import { Building2, CreditCard, LayoutDashboard, KeyRound, LogOut, Menu, Receipt, ScrollText, ShieldCheck, Sparkles, Users, Webhook, Zap } from 'lucide-react'
+import { Building2, Contact, IdCard, LayoutDashboard, LogOut, Menu, ScrollText, ShieldCheck, Users, Zap } from 'lucide-react'
 import { TenantSelector } from '@/modules/auth/components/TenantSelector'
 import { useSessionStore } from '@/shared/stores/session.store'
 import { useTenantContextStore } from '@/shared/stores/tenant.store'
@@ -9,7 +9,7 @@ import { Permission } from '@/shared/constants/permissions'
 import { useIsUmbrellaTenant } from '@/shared/hooks/useIsUmbrellaTenant'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import { useLogout } from '@/modules/auth/hooks/useAuth'
-import { AssistantWidget } from '@/modules/assistant/components/AssistantWidget'
+// import { AssistantWidget } from '@/modules/assistant/components/AssistantWidget'
 import {
   Avatar,
   Container,
@@ -54,20 +54,28 @@ function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
   /** Funcionalidades de uso final só no tenant filho (empresa operacional). */
   const isOperatingTenant = !isUmbrella
 
-  const showPlans = isUmbrella && can(Permission.PLAN_READ)
-  const showSubscription = isOperatingTenant && can(Permission.SUBSCRIPTION_READ)
-  const showInvoices = isOperatingTenant && can(Permission.INVOICE_READ)
-  const showBillingGroup = showPlans || showSubscription || showInvoices
+  // Controle de assinatura desabilitado neste sistema
+  // const showPlans = isUmbrella && can(Permission.PLAN_READ)
+  // const showSubscription = isOperatingTenant && can(Permission.SUBSCRIPTION_READ)
+  // const showInvoices = isOperatingTenant && can(Permission.INVOICE_READ)
+  // const showBillingGroup = showPlans || showSubscription || showInvoices
+
+  const showClients = isOperatingTenant && can(Permission.CLIENT_READ)
+  const showDrivers = isOperatingTenant && can(Permission.DRIVER_READ)
+  const showCadastrosGroup = showClients || showDrivers
 
   return (
     <Sidebar header={<Brand />}>
       <SidebarGroup label="Geral">
         <SidebarItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" onNavigate={onNavigate} />
+        {/* Assistente de IA oculto no frontend
         {can(Permission.ASSISTANT_VIEW) && (
           <SidebarItem to="/assistant" icon={Sparkles} label="Assistente de IA" onNavigate={onNavigate} />
         )}
+        */}
       </SidebarGroup>
 
+      {/* Controle de assinatura desabilitado neste sistema
       {showBillingGroup && (
         <SidebarGroup label="Assinaturas">
           {showPlans && (
@@ -91,6 +99,18 @@ function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
           )}
         </SidebarGroup>
       )}
+      */}
+
+      {showCadastrosGroup && (
+        <SidebarGroup label="Cadastros">
+          {showClients && (
+            <SidebarItem to="/clients" icon={Contact} label="Clientes" onNavigate={onNavigate} />
+          )}
+          {showDrivers && (
+            <SidebarItem to="/drivers" icon={IdCard} label="Motoristas" onNavigate={onNavigate} />
+          )}
+        </SidebarGroup>
+      )}
 
       <SidebarGroup label="Gestão">
         {isUmbrella && can(Permission.TENANT_READ) && (
@@ -102,12 +122,14 @@ function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
         {can(Permission.ROLE_READ) && (
           <SidebarItem to="/roles" icon={ShieldCheck} label="Perfis de acesso" onNavigate={onNavigate} />
         )}
+        {/* Tokens de API e Webhooks ocultos no frontend
         {can(Permission.API_TOKEN_READ) && (
           <SidebarItem to="/api-tokens" icon={KeyRound} label="Tokens de API" onNavigate={onNavigate} />
         )}
         {can(Permission.WEBHOOK_READ) && (
           <SidebarItem to="/webhooks" icon={Webhook} label="Webhooks" onNavigate={onNavigate} />
         )}
+        */}
         {can(Permission.AUDIT_VIEW) && (
           <SidebarItem to="/audit" icon={ScrollText} label="Auditoria" onNavigate={onNavigate} />
         )}
@@ -204,7 +226,9 @@ export function AppLayout() {
         </main>
       </div>
 
+      {/* Assistente de IA oculto no frontend
       {can(Permission.ASSISTANT_VIEW) && <AssistantWidget />}
+      */}
     </div>
   )
 }

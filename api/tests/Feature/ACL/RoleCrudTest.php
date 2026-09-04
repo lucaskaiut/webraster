@@ -30,7 +30,7 @@ class RoleCrudTest extends TestCase
 
         $names = collect($response->json('data'))->pluck('name');
 
-        $this->assertSame(3, $response->json('meta.total'));
+        $this->assertSame(4, $response->json('meta.total'));
         $this->assertTrue($names->contains('Suporte'));
         $this->assertFalse($names->contains('Financeiro'));
     }
@@ -147,16 +147,16 @@ class RoleCrudTest extends TestCase
     public function test_default_roles_can_be_updated_and_deleted(): void
     {
         $tenant = $this->createTenantWithRoles();
-        $userRole = $this->roleFor($tenant, DefaultRole::USER);
+        $userRole = $this->roleFor($tenant, DefaultRole::OPERATOR);
 
         Sanctum::actingAs($this->createAdmin($tenant));
 
         $this->putJson("/api/roles/{$userRole->getKey()}", [
-            'name' => 'Usuário Renomeado',
+            'name' => 'Operador Renomeado',
             'permissions' => [Permission::USER_READ->value],
         ])
             ->assertOk()
-            ->assertJsonPath('data.name', 'Usuário Renomeado');
+            ->assertJsonPath('data.name', 'Operador Renomeado');
 
         $this->deleteJson("/api/roles/{$userRole->getKey()}")->assertOk();
 
@@ -178,12 +178,12 @@ class RoleCrudTest extends TestCase
         $this->assertDatabaseHas('roles', ['id' => $foreign->getKey(), 'name' => 'Financeiro']);
     }
 
-    public function test_member_without_permission_cannot_manage_roles(): void
+    public function test_client_without_permission_cannot_manage_roles(): void
     {
         $tenant = $this->createTenantWithRoles();
         $role = Role::factory()->for($tenant)->create(['name' => 'Suporte']);
 
-        Sanctum::actingAs($this->createMember($tenant));
+        Sanctum::actingAs($this->createClient($tenant));
 
         $this->getJson('/api/roles')->assertForbidden();
         $this->postJson('/api/roles', ['name' => 'X'])->assertForbidden();

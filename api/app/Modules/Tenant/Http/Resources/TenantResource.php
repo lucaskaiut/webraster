@@ -2,6 +2,7 @@
 
 namespace App\Modules\Tenant\Http\Resources;
 
+use App\Modules\Billing\Http\Resources\SubscriptionResource;
 use App\Modules\Tenant\Models\Tenant;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -25,6 +26,7 @@ class TenantResource extends JsonResource
             'domain' => $this->domain,
             'is_umbrella' => $this->isUmbrella(),
             'users_count' => $this->whenCounted('users'),
+            'subscription' => SubscriptionResource::make($this->whenLoaded('subscription')),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

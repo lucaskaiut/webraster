@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { useSearchParams } from 'react-router'
-import { Building2, Plus } from 'lucide-react'
+import { useNavigate, useSearchParams } from 'react-router'
+import { Building2, Pencil, Plus } from 'lucide-react'
 import {
+  Button,
   ButtonLink,
   DataTable,
   EmptyState,
@@ -16,6 +17,9 @@ import {
 import { Can } from '@/app/guards/PermissionGuard'
 import { Permission } from '@/shared/constants/permissions'
 import { useDebounce } from '@/shared/hooks/useDebounce'
+import { useIsUmbrellaTenant } from '@/shared/hooks/useIsUmbrellaTenant'
+import { usePermissions } from '@/shared/hooks/usePermissions'
+import { useSessionStore } from '@/shared/stores/session.store'
 import { formatDate } from '@/shared/utils/format'
 import { formatDocument } from '@/shared/utils/document'
 import type { Tenant } from '@/shared/types/models'
@@ -28,8 +32,22 @@ export default function TenantsListPage() {
   const [search, setSearch] = useState(searchParams.get('search') ?? '')
   const debouncedSearch = useDebounce(search)
   const page = Number(searchParams.get('page') ?? 1)
+  const navigate = useNavigate()
+  const { can } = usePermissions()
 
   const query = useTenantChildrenQuery({ page, per_page: PER_PAGE, search: debouncedSearch || undefined })
+
+  const isMaster = useSessionStore((state) => state.isMaster)
+  const isUmbrella = useIsUmbrellaTenant()
+  const showCreateButton = isMaster && isUmbrella
+  const canUpdate = can(Permission.TENANT_UPDATE) && isMaster && isUmbrella
+
+  const createButton = (
+    <ButtonLink to="/tenants/create">
+      <Plus className="size-4" />
+      Nova empresa
+    </ButtonLink>
+  )
 
   const updateParams = (next: { page?: number; search?: string }) => {
     setSearchParams(
@@ -78,6 +96,27 @@ export default function TenantsListPage() {
       header: 'Criada em',
       render: (tenant) => <span className="text-muted">{formatDate(tenant.created_at)}</span>,
     },
+    ...(canUpdate
+      ? [
+          {
+            key: 'actions',
+            header: <span className="sr-only">Ações</span>,
+            className: 'w-16 text-right',
+            render: (tenant: Tenant) => (
+              <div className="flex items-center justify-end">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate(`/tenants/${tenant.id}/edit`)}
+                  aria-label={`Editar ${tenant.name}`}
+                >
+                  <Pencil className="size-4" />
+                </Button>
+              </div>
+            ),
+          } satisfies Column<Tenant>,
+        ]
+      : []),
   ]
 
   return (
@@ -86,14 +125,7 @@ export default function TenantsListPage() {
         title="Empresas"
         description="Gerencie as empresas do seu grupo."
         breadcrumb={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Empresas' }]}
-        actions={
-          <Can permission={Permission.TENANT_CREATE} requiresUmbrella>
-            <ButtonLink to="/tenants/create">
-              <Plus className="size-4" />
-              Nova empresa
-            </ButtonLink>
-          </Can>
-        }
+        actions={showCreateButton ? createButton : undefined}
       />
 
       <PageContent>
@@ -125,13 +157,8 @@ export default function TenantsListPage() {
                   : 'Crie a primeira empresa do seu grupo.'
               }
               action={
-                !debouncedSearch ? (
-                  <Can permission={Permission.TENANT_CREATE} requiresUmbrella>
-                    <ButtonLink to="/tenants/create">
-                      <Plus className="size-4" />
-                      Nova empresa
-                    </ButtonLink>
-                  </Can>
+                !debouncedSearch && showCreateButton ? (
+                  <Can permission={Permission.TENANT_CREATE}>{createButton}</Can>
                 ) : undefined
               }
             />

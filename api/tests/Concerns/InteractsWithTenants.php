@@ -33,7 +33,15 @@ trait InteractsWithTenants
     protected function createMember(Tenant $tenant, array $attributes = []): User
     {
         $user = User::factory()->for($tenant)->create($attributes);
-        $user->assignRole($this->roleFor($tenant, DefaultRole::USER));
+        $user->assignRole($this->roleFor($tenant, DefaultRole::OPERATOR));
+
+        return $user;
+    }
+
+    protected function createClient(Tenant $tenant, array $attributes = []): User
+    {
+        $user = User::factory()->for($tenant)->create($attributes);
+        $user->assignRole($this->roleFor($tenant, DefaultRole::CLIENT));
 
         return $user;
     }

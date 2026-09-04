@@ -1,0 +1,94 @@
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '@/shared/constants/query-keys'
+import type { ListParams } from '@/shared/types/api'
+import { toast } from '@/shared/stores/toast.store'
+import {
+  clientsService,
+  type ClientPayload,
+  type ClientUserPayload,
+} from '../services/clients.service'
+
+export function useClientsQuery(params: ListParams) {
+  return useQuery({
+    queryKey: queryKeys.clients.list(params),
+    queryFn: () => clientsService.list(params),
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useClientQuery(id: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.clients.detail(id ?? ''),
+    queryFn: () => clientsService.get(id!),
+    enabled: !!id,
+  })
+}
+
+export function useCreateClient() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: ClientPayload) => clientsService.create(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.clients.all })
+      toast.success('Cliente criado', 'O cliente foi cadastrado com sucesso.')
+    },
+  })
+}
+
+export function useUpdateClient(id: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: ClientPayload) => clientsService.update(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.clients.all })
+      toast.success('Cliente atualizado', 'As alterações foram salvas.')
+    },
+  })
+}
+
+export function useDeleteClient() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => clientsService.remove(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.clients.all })
+      toast.success('Cliente removido', 'O cliente foi excluído com sucesso.')
+    },
+  })
+}
+
+export function useClientUsersQuery(clientId: string | undefined, params: ListParams) {
+  return useQuery({
+    queryKey: queryKeys.clients.users(clientId ?? '', params),
+    queryFn: () => clientsService.listUsers(clientId!, params),
+    enabled: !!clientId,
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useCreateClientUser(clientId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: ClientUserPayload) => clientsService.createUser(clientId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.clients.all })
+      toast.success('Usuário criado', 'O usuário do cliente foi cadastrado.')
+    },
+  })
+}
+
+export function useDeleteClientUser(clientId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (userId: string) => clientsService.removeUser(clientId, userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.clients.all })
+      toast.success('Usuário removido', 'O usuário do cliente foi excluído.')
+    },
+  })
+}

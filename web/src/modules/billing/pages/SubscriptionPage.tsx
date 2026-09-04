@@ -54,6 +54,9 @@ const eventLabel: Record<string, string> = {
   SUBSCRIPTION_SUSPENDED: 'Assinatura suspensa',
   SUBSCRIPTION_REACTIVATED: 'Assinatura reativada',
   SUBSCRIPTION_CANCELLED: 'Assinatura cancelada',
+  COMPLIMENTARY_GRANTED: 'Acesso cortesia concedido',
+  COMPLIMENTARY_REVOKED: 'Acesso cortesia revogado',
+  COMPLIMENTARY_EXPIRED: 'Acesso cortesia expirado',
 }
 
 export default function SubscriptionPage() {
@@ -107,9 +110,14 @@ export default function SubscriptionPage() {
                       {formatDateTime(subscription.next_billing_at)}
                     </p>
                   </div>
-                  <Badge variant={statusVariant[subscription.status]}>
-                    {statusLabel[subscription.status]}
-                  </Badge>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {subscription.is_complimentary_active && (
+                      <Badge variant="primary">Parceria</Badge>
+                    )}
+                    <Badge variant={statusVariant[subscription.status]}>
+                      {statusLabel[subscription.status]}
+                    </Badge>
+                  </div>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-4">

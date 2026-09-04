@@ -41,6 +41,16 @@ enum Permission: string
 
     case ASSISTANT_VIEW = 'assistant.view';
 
+    case CLIENT_CREATE = 'client.create';
+    case CLIENT_READ = 'client.read';
+    case CLIENT_UPDATE = 'client.update';
+    case CLIENT_DELETE = 'client.delete';
+
+    case DRIVER_CREATE = 'driver.create';
+    case DRIVER_READ = 'driver.read';
+    case DRIVER_UPDATE = 'driver.update';
+    case DRIVER_DELETE = 'driver.delete';
+
     /**
      * @return list<string>
      */

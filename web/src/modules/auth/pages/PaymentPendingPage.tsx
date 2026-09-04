@@ -454,7 +454,7 @@ export default function PaymentPendingPage() {
               )}
 
               {isTerminal && (
-                <ButtonLink to="/billing/subscription" className="w-full sm:w-auto sm:min-w-64">
+                <ButtonLink to="/dashboard" className="w-full sm:w-auto sm:min-w-64">
                   Ir para assinatura
                 </ButtonLink>
               )}

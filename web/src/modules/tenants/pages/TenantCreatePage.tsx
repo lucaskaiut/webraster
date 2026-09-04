@@ -21,6 +21,7 @@ export default function TenantCreatePage() {
 
       <PageContent>
         <ChildTenantForm
+          mode="create"
           submitting={createChildTenant.isPending}
           onSubmit={async (payload) => {
             await createChildTenant.mutateAsync(payload)

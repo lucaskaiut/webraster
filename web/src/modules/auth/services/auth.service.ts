@@ -10,6 +10,17 @@ export interface LoginPayload {
   password: string
 }
 
+export interface ForgotPasswordPayload {
+  email: string
+}
+
+export interface ResetPasswordPayload {
+  email: string
+  token: string
+  password: string
+  password_confirmation: string
+}
+
 export interface RegisterPayload {
   tenant: {
     name: string
@@ -31,6 +42,16 @@ export const authService = {
   async login(payload: LoginPayload): Promise<void> {
     await ensureCsrfCookie()
     await http.post('/auth/login', payload)
+  },
+
+  async forgotPassword(payload: ForgotPasswordPayload): Promise<void> {
+    await ensureCsrfCookie()
+    await http.post('/auth/forgot-password', payload)
+  },
+
+  async resetPassword(payload: ResetPasswordPayload): Promise<void> {
+    await ensureCsrfCookie()
+    await http.post('/auth/reset-password', payload)
   },
 
   async register(payload: RegisterPayload): Promise<void> {

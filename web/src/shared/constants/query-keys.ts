@@ -35,6 +35,7 @@ export const queryKeys = {
   tenants: {
     all: ['tenants'] as const,
     children: (params: ListParams) => ['tenants', 'children', params] as const,
+    detail: (id: string) => ['tenants', 'detail', id] as const,
   },
 
   assistant: {
@@ -62,5 +63,19 @@ export const queryKeys = {
       list: () => ['billing', 'invoices', 'list'] as const,
       detail: (id: string) => ['billing', 'invoices', 'detail', id] as const,
     },
+  },
+
+  clients: {
+    all: ['clients'] as const,
+    list: (params: ListParams) => ['clients', 'list', params] as const,
+    detail: (id: string) => ['clients', 'detail', id] as const,
+    users: (clientId: string, params: ListParams) =>
+      ['clients', clientId, 'users', params] as const,
+  },
+
+  drivers: {
+    all: ['drivers'] as const,
+    list: (params: ListParams & { client_id?: string }) => ['drivers', 'list', params] as const,
+    detail: (id: string) => ['drivers', 'detail', id] as const,
   },
 } as const

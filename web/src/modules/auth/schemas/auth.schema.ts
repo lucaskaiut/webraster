@@ -8,6 +8,13 @@ export const loginSchema = z.object({
 
 export type LoginFormValues = z.infer<typeof loginSchema>
 
+export {
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  type ForgotPasswordFormValues,
+  type ResetPasswordFormValues,
+} from './password.schema'
+
 const DOMAIN_REGEX = /^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i
 
 export const registerSchema = z.object({

@@ -63,7 +63,7 @@ class Tenant extends Model
 
     public function subscription(): HasOne
     {
-        return $this->hasOne(Subscription::class);
+        return $this->hasOne(Subscription::class)->withoutTenancy();
     }
 
     public function isUmbrella(): bool

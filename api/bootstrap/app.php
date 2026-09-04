@@ -4,6 +4,7 @@ use App\Modules\ACL\Http\Middleware\EnsurePermission;
 use App\Modules\ApiToken\Http\Middleware\AuthenticateApiToken;
 use App\Modules\ApiToken\Http\Middleware\MultiAuthenticate;
 use App\Modules\Billing\Http\Middleware\EnsureActiveSubscription;
+use App\Modules\Client\Http\Middleware\ResolveClientScope;
 use App\Modules\Shared\Http\ApiError;
 use App\Modules\Tenant\Exceptions\TenantAccessForbidden;
 use App\Modules\Tenant\Exceptions\TenantCouldNotBeResolved;
@@ -38,6 +39,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'tenant' => ResolveTenant::class,
+            'client.scope' => ResolveClientScope::class,
             'permission' => EnsurePermission::class,
             'auth.api-token' => AuthenticateApiToken::class,
             'auth.multi' => MultiAuthenticate::class,
@@ -47,6 +49,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->prependToPriorityList(
             SubstituteBindings::class,
+            ResolveClientScope::class,
+        );
+
+        $middleware->prependToPriorityList(
+            ResolveClientScope::class,
             ResolveTenant::class,
         );
 

@@ -54,6 +54,14 @@ export default function LoginPage() {
             autoComplete="current-password"
             required
           />
+          <div className="-mt-2 mb-1 flex justify-end">
+            <Link
+              to="/auth/forgot-password"
+              className="text-sm font-medium text-primary hover:text-primary-hover"
+            >
+              Esqueci minha senha
+            </Link>
+          </div>
           <Button type="submit" className="w-full" loading={login.isPending}>
             Entrar
           </Button>

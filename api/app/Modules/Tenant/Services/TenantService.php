@@ -9,8 +9,10 @@ use App\Modules\Billing\Services\SubscriptionService;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\User\Models\User;
 use App\Modules\User\Services\UserService;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class TenantService
 {
@@ -52,6 +54,7 @@ class TenantService
     {
         return Tenant::query()
             ->where('parent_id', $umbrella->getKey())
+            ->with(['subscription.plan'])
             ->withCount('users')
             ->when(filled($search), function ($query) use ($search): void {
                 $query->where(function ($query) use ($search): void {
@@ -64,6 +67,17 @@ class TenantService
             ->paginate(min(max($perPage, 1), 100));
     }
 
+    public function findChild(Tenant $umbrella, Tenant $child): Tenant
+    {
+        if ((int) $child->parent_id !== (int) $umbrella->getKey()) {
+            throw ValidationException::withMessages([
+                'child' => ['Empresa não encontrada neste grupo.'],
+            ]);
+        }
+
+        return $child->load(['subscription.plan']);
+    }
+
     /**
      * Provisiona um tenant filho sob o umbrella: tenant + perfis padrão +
      * usuário administrador (não master) e, opcionalmente, assinatura.
@@ -72,9 +86,22 @@ class TenantService
      * @param  array{name: string, email: string, phone?: ?string, document?: ?string, password: string}  $userData
      * @return array{tenant: Tenant, user: User, subscription: ?Subscription}
      */
-    public function createChild(Tenant $umbrella, array $tenantData, array $userData, ?string $planId = null): array
-    {
-        return DB::transaction(function () use ($umbrella, $tenantData, $userData, $planId): array {
+    public function createChild(
+        Tenant $umbrella,
+        array $tenantData,
+        array $userData,
+        ?string $planId = null,
+        bool $isComplimentary = false,
+        ?string $complimentaryEndsAt = null,
+    ): array {
+        return DB::transaction(function () use (
+            $umbrella,
+            $tenantData,
+            $userData,
+            $planId,
+            $isComplimentary,
+            $complimentaryEndsAt,
+        ): array {
             $tenant = $this->create([
                 ...$tenantData,
                 'parent_id' => $umbrella->getKey(),
@@ -85,16 +112,50 @@ class TenantService
             $user = $this->users->createForTenant($tenant, $userData);
             $user->assignRole($roles[DefaultRole::ADMINISTRATOR->value]);
 
-            $subscription = $planId !== null
-                ? $this->subscriptions->createForTenant($tenant, $planId)
-                : null;
+            $subscription = null;
+
+            if ($isComplimentary) {
+                $subscription = $this->subscriptions->grantComplimentary(
+                    $tenant,
+                    $planId,
+                    $this->parseEndsAt($complimentaryEndsAt),
+                );
+            } elseif ($planId !== null) {
+                $subscription = $this->subscriptions->createForTenant($tenant, $planId);
+            }
 
             return [
-                'tenant' => $tenant,
+                'tenant' => $tenant->load(['subscription.plan']),
                 'user' => $user->load('roles.permissions'),
                 'subscription' => $subscription,
             ];
         });
+    }
+
+    /**
+     * Atualiza dados da empresa filha.
+     * Controle de assinatura desabilitado — plano/cortesia não são alterados aqui.
+     *
+     * @param  array{name: string, document: string, email: string, phone: ?string, domain: string}  $tenantData
+     */
+    public function updateChild(
+        Tenant $umbrella,
+        Tenant $child,
+        array $tenantData,
+    ): Tenant {
+        $this->findChild($umbrella, $child);
+        $this->update($child, $tenantData);
+
+        return $child->refresh()->load(['subscription.plan']);
+    }
+
+    private function parseEndsAt(?string $value): ?CarbonImmutable
+    {
+        if (blank($value)) {
+            return null;
+        }
+
+        return CarbonImmutable::parse($value)->endOfDay();
     }
 
     /**

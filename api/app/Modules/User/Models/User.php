@@ -3,6 +3,8 @@
 namespace App\Modules\User\Models;
 
 use App\Modules\ACL\Models\Concerns\HasRoles;
+use App\Modules\Auth\Notifications\ResetPasswordNotification;
+use App\Modules\Client\Models\Concerns\BelongsToClient;
 use App\Modules\Shared\Models\Concerns\HasUuid;
 use App\Modules\Tenant\Models\Concerns\BelongsToTenant;
 use App\Modules\Tenant\Models\Tenant;
@@ -17,6 +19,7 @@ use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
+    use BelongsToClient;
     use BelongsToTenant;
     use HasApiTokens;
 
@@ -35,6 +38,7 @@ class User extends Authenticatable
         'document',
         'password',
         'is_master',
+        'client_id',
     ];
 
     protected $hidden = [
@@ -54,12 +58,22 @@ class User extends Authenticatable
         return app(MasterTenantAccessService::class)->canAccess($this, $tenant);
     }
 
+    public function isClientUser(): bool
+    {
+        return $this->client_id !== null;
+    }
+
     /**
      * @return Collection<int, Tenant>
      */
     public function availableTenants(): Collection
     {
         return app(MasterTenantAccessService::class)->availableTenants($this);
+    }
+
+    public function sendPasswordResetNotification(#[\SensitiveParameter] $token): void
+    {
+        $this->notify(new ResetPasswordNotification($token));
     }
 
     protected static function newFactory(): UserFactory

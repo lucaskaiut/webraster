@@ -10,6 +10,9 @@ use App\Modules\Billing\Http\Controllers\InvoiceController;
 use App\Modules\Billing\Http\Controllers\PaymentMethodController;
 use App\Modules\Billing\Http\Controllers\PlanController;
 use App\Modules\Billing\Http\Controllers\SubscriptionController;
+use App\Modules\Client\Http\Controllers\ClientController;
+use App\Modules\Client\Http\Controllers\ClientUserController;
+use App\Modules\Driver\Http\Controllers\DriverController;
 use App\Modules\Shared\Http\Controllers\FileUploadController;
 use App\Modules\Tenant\Http\Controllers\TenantController;
 use App\Modules\User\Http\Controllers\UserController;
@@ -19,8 +22,10 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('auth')->group(function (): void {
     Route::post('register', [AuthController::class, 'register'])->middleware('throttle:auth');
     Route::post('login', [AuthController::class, 'login'])->middleware('throttle:auth');
+    Route::post('forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:auth');
+    Route::post('reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:auth');
 
-    Route::middleware(['auth:sanctum', 'tenant'])->group(function (): void {
+    Route::middleware(['auth:sanctum', 'tenant', 'client.scope'])->group(function (): void {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('me', [AuthController::class, 'me']);
         Route::post('select-tenant', [AuthController::class, 'selectTenant']);
@@ -35,7 +40,7 @@ Route::get('payment-methods', [PaymentMethodController::class, 'index']);
 /*
  * Pagamento e regularização ficam acessíveis mesmo com assinatura PAST_DUE/SUSPENDED.
  */
-Route::middleware(['auth.multi:sanctum', 'tenant'])->group(function (): void {
+Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(function (): void {
     Route::middleware('tenant.child')->group(function (): void {
         Route::get('billing/subscription', [SubscriptionController::class, 'show'])->middleware('permission:subscription.read');
         Route::get('billing/invoices', [InvoiceController::class, 'index'])->middleware('permission:invoice.read');
@@ -57,18 +62,37 @@ Route::middleware(['auth.multi:sanctum', 'tenant'])->group(function (): void {
     });
 });
 
-Route::middleware(['auth.multi:sanctum', 'tenant', 'subscription.active'])->group(function (): void {
+Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(function (): void {
     Route::get('tenant', [TenantController::class, 'show'])->middleware('permission:tenant.read');
     Route::match(['put', 'patch'], 'tenant', [TenantController::class, 'update'])->middleware('permission:tenant.update');
 
     Route::get('tenant/children', [TenantController::class, 'index'])->middleware('permission:tenant.read');
     Route::post('tenant/children', [TenantController::class, 'store'])->middleware('permission:tenant.create');
+    Route::get('tenant/children/{child}', [TenantController::class, 'showChild'])->middleware('permission:tenant.read');
+    Route::match(['put', 'patch'], 'tenant/children/{child}', [TenantController::class, 'updateChild'])->middleware('permission:tenant.update');
 
     Route::get('users', [UserController::class, 'index'])->middleware('permission:user.read');
     Route::post('users', [UserController::class, 'store'])->middleware('permission:user.create');
     Route::get('users/{user}', [UserController::class, 'show'])->middleware('permission:user.read');
     Route::match(['put', 'patch'], 'users/{user}', [UserController::class, 'update'])->middleware('permission:user.update');
     Route::delete('users/{user}', [UserController::class, 'destroy'])->middleware('permission:user.delete');
+
+    Route::get('clients', [ClientController::class, 'index'])->middleware('permission:client.read');
+    Route::post('clients', [ClientController::class, 'store'])->middleware('permission:client.create');
+    Route::get('clients/{client}', [ClientController::class, 'show'])->middleware('permission:client.read');
+    Route::match(['put', 'patch'], 'clients/{client}', [ClientController::class, 'update'])->middleware('permission:client.update');
+    Route::delete('clients/{client}', [ClientController::class, 'destroy'])->middleware('permission:client.delete');
+
+    Route::get('clients/{client}/users', [ClientUserController::class, 'index'])->middleware('permission:client.read');
+    Route::post('clients/{client}/users', [ClientUserController::class, 'store'])->middleware('permission:client.update');
+    Route::match(['put', 'patch'], 'clients/{client}/users/{user}', [ClientUserController::class, 'update'])->middleware('permission:client.update');
+    Route::delete('clients/{client}/users/{user}', [ClientUserController::class, 'destroy'])->middleware('permission:client.update');
+
+    Route::get('drivers', [DriverController::class, 'index'])->middleware('permission:driver.read');
+    Route::post('drivers', [DriverController::class, 'store'])->middleware('permission:driver.create');
+    Route::get('drivers/{driver}', [DriverController::class, 'show'])->middleware('permission:driver.read');
+    Route::match(['put', 'patch'], 'drivers/{driver}', [DriverController::class, 'update'])->middleware('permission:driver.update');
+    Route::delete('drivers/{driver}', [DriverController::class, 'destroy'])->middleware('permission:driver.delete');
 
     Route::get('roles', [RoleController::class, 'index'])->middleware('permission:role.read');
     Route::post('roles', [RoleController::class, 'store'])->middleware('permission:role.create');
