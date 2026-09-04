@@ -1,0 +1,211 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --app-bg: #f6f7f9;
+  --app-surface: #ffffff;
+  --app-surface-2: #eef0f3;
+  --app-surface-3: #e4e7eb;
+  --app-fg: #16181d;
+  --app-fg-muted: #667085;
+  --app-fg-subtle: #98a2b3;
+  --app-primary: #4f46e5;
+  --app-primary-hover: #4338ca;
+  --app-primary-soft: #eef2ff;
+  --app-primary-fg: #ffffff;
+  --app-danger: #dc2626;
+  --app-danger-hover: #b91c1c;
+  --app-danger-soft: #fef2f2;
+  --app-success: #059669;
+  --app-success-soft: #ecfdf5;
+  --app-warning: #b45309;
+  --app-warning-soft: #fffbeb;
+  --app-ring: rgb(79 70 229 / 0.45);
+  --app-overlay: rgb(15 18 25 / 0.45);
+  --app-shadow-card: 0 1px 2px rgb(16 24 40 / 0.05), 0 2px 8px rgb(16 24 40 / 0.04);
+  --app-shadow-raised: 0 2px 4px rgb(16 24 40 / 0.05), 0 8px 20px rgb(16 24 40 / 0.08);
+  --app-shadow-pop: 0 8px 16px -4px rgb(16 24 40 / 0.1), 0 20px 48px -8px rgb(16 24 40 / 0.18);
+}
+
+.dark {
+  --app-bg: #101114;
+  --app-surface: #17181c;
+  --app-surface-2: #212327;
+  --app-surface-3: #2b2d33;
+  --app-fg: #f2f3f5;
+  --app-fg-muted: #9aa1ac;
+  --app-fg-subtle: #6c737e;
+  --app-primary: #6366f1;
+  --app-primary-hover: #7679f3;
+  --app-primary-soft: rgb(99 102 241 / 0.14);
+  --app-primary-fg: #ffffff;
+  --app-danger: #ef4444;
+  --app-danger-hover: #f26a6a;
+  --app-danger-soft: rgb(239 68 68 / 0.12);
+  --app-success: #34d399;
+  --app-success-soft: rgb(52 211 153 / 0.12);
+  --app-warning: #fbbf24;
+  --app-warning-soft: rgb(251 191 36 / 0.12);
+  --app-ring: rgb(99 102 241 / 0.55);
+  --app-overlay: rgb(0 0 0 / 0.6);
+  --app-shadow-card: 0 1px 2px rgb(0 0 0 / 0.5);
+  --app-shadow-raised: 0 2px 6px rgb(0 0 0 / 0.45), 0 10px 24px rgb(0 0 0 / 0.35);
+  --app-shadow-pop: 0 12px 32px rgb(0 0 0 / 0.6);
+}
+
+@theme inline {
+  --font-sans: 'Inter', 'Inter var', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+
+  --color-background: var(--app-bg);
+  --color-surface: var(--app-surface);
+  --color-surface-2: var(--app-surface-2);
+  --color-surface-3: var(--app-surface-3);
+  --color-foreground: var(--app-fg);
+  --color-muted: var(--app-fg-muted);
+  --color-subtle: var(--app-fg-subtle);
+  --color-primary: var(--app-primary);
+  --color-primary-hover: var(--app-primary-hover);
+  --color-primary-soft: var(--app-primary-soft);
+  --color-primary-foreground: var(--app-primary-fg);
+  --color-danger: var(--app-danger);
+  --color-danger-hover: var(--app-danger-hover);
+  --color-danger-soft: var(--app-danger-soft);
+  --color-success: var(--app-success);
+  --color-success-soft: var(--app-success-soft);
+  --color-warning: var(--app-warning);
+  --color-warning-soft: var(--app-warning-soft);
+  --color-ring: var(--app-ring);
+  --color-overlay: var(--app-overlay);
+
+  --shadow-card: var(--app-shadow-card);
+  --shadow-raised: var(--app-shadow-raised);
+  --shadow-pop: var(--app-shadow-pop);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-background font-sans text-[0.9375rem] text-foreground antialiased;
+}
+
+.app-viewport-height {
+  height: 100vh;
+  height: 100dvh;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--app-ring);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+::selection {
+  background: var(--app-primary);
+  color: var(--app-primary-fg);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-toast-in {
+  animation: toast-in 0.2s ease-out;
+}
+
+.animate-modal-in {
+  animation: modal-in 0.18s ease-out;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.15s ease-out;
+}
+
+@keyframes slide-in {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes message-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.2s ease-out;
+}
+
+.animate-message-in {
+  animation: message-in 0.25s ease-out;
+}
+
+.animate-rise-in {
+  animation: rise-in 0.3s ease-out;
+}
+
+.animate-blink {
+  animation: blink 1s step-end infinite;
+}
