@@ -13,9 +13,18 @@ use App\Modules\Billing\Http\Controllers\SubscriptionController;
 use App\Modules\Client\Http\Controllers\ClientController;
 use App\Modules\Client\Http\Controllers\ClientUserController;
 use App\Modules\Driver\Http\Controllers\DriverController;
+use App\Modules\Alert\Http\Controllers\AlertConfigController;
+use App\Modules\Alert\Http\Controllers\AlertController;
+use App\Modules\Alert\Http\Controllers\NotificationController;
+use App\Modules\Equipment\Http\Controllers\EquipmentController;
+use App\Modules\Geofence\Http\Controllers\GeofenceController;
+use App\Modules\Geofence\Http\Controllers\GeofenceEventController;
+use App\Modules\Poi\Http\Controllers\PoiController;
 use App\Modules\Shared\Http\Controllers\FileUploadController;
 use App\Modules\Tenant\Http\Controllers\TenantController;
+use App\Modules\Tracking\Http\Controllers\TrackingController;
 use App\Modules\User\Http\Controllers\UserController;
+use App\Modules\Vehicle\Http\Controllers\VehicleController;
 use App\Modules\Webhook\Http\Controllers\WebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -93,6 +102,61 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::get('drivers/{driver}', [DriverController::class, 'show'])->middleware('permission:driver.read');
     Route::match(['put', 'patch'], 'drivers/{driver}', [DriverController::class, 'update'])->middleware('permission:driver.update');
     Route::delete('drivers/{driver}', [DriverController::class, 'destroy'])->middleware('permission:driver.delete');
+
+    Route::get('vehicles', [VehicleController::class, 'index'])->middleware('permission:vehicle.read');
+    Route::post('vehicles', [VehicleController::class, 'store'])->middleware('permission:vehicle.create');
+    Route::get('vehicles/{vehicle}', [VehicleController::class, 'show'])->middleware('permission:vehicle.read');
+    Route::match(['put', 'patch'], 'vehicles/{vehicle}', [VehicleController::class, 'update'])->middleware('permission:vehicle.update');
+    Route::delete('vehicles/{vehicle}', [VehicleController::class, 'destroy'])->middleware('permission:vehicle.delete');
+    Route::get('vehicles/{vehicle}/equipment-history', [VehicleController::class, 'assignmentHistory'])->middleware('permission:vehicle.read');
+    Route::post('vehicles/{vehicle}/equipment/install', [VehicleController::class, 'installEquipment'])->middleware('permission:vehicle.update');
+    Route::post('vehicles/{vehicle}/equipment/remove', [VehicleController::class, 'removeEquipment'])->middleware('permission:vehicle.update');
+    Route::post('vehicles/{vehicle}/equipment/swap', [VehicleController::class, 'swapEquipment'])->middleware('permission:vehicle.update');
+
+    Route::get('equipments', [EquipmentController::class, 'index'])->middleware('permission:equipment.read');
+    Route::post('equipments', [EquipmentController::class, 'store'])->middleware('permission:equipment.create');
+    Route::get('equipments/{equipment}', [EquipmentController::class, 'show'])->middleware('permission:equipment.read');
+    Route::match(['put', 'patch'], 'equipments/{equipment}', [EquipmentController::class, 'update'])->middleware('permission:equipment.update');
+    Route::delete('equipments/{equipment}', [EquipmentController::class, 'destroy'])->middleware('permission:equipment.delete');
+    Route::get('equipments/{equipment}/assignment-history', [EquipmentController::class, 'assignmentHistory'])->middleware('permission:equipment.read');
+
+    Route::get('tracking/status', [TrackingController::class, 'status'])->middleware('permission:tracking.read');
+    Route::get('tracking/live', [TrackingController::class, 'live'])->middleware('permission:tracking.read');
+    Route::get('tracking/vehicles/{vehicle}/history', [TrackingController::class, 'history'])->middleware('permission:tracking.read');
+
+    Route::get('geofences', [GeofenceController::class, 'index'])->middleware('permission:geofence.read');
+    Route::get('geofences/map', [GeofenceController::class, 'map'])->middleware('permission:geofence.read');
+    Route::post('geofences', [GeofenceController::class, 'store'])->middleware('permission:geofence.create');
+    Route::get('geofences/{geofence}', [GeofenceController::class, 'show'])->middleware('permission:geofence.read');
+    Route::match(['put', 'patch'], 'geofences/{geofence}', [GeofenceController::class, 'update'])->middleware('permission:geofence.update');
+    Route::delete('geofences/{geofence}', [GeofenceController::class, 'destroy'])->middleware('permission:geofence.delete');
+
+    Route::get('geofence-events', [GeofenceEventController::class, 'index'])->middleware('permission:geofence.read');
+
+    Route::get('pois', [PoiController::class, 'index'])->middleware('permission:poi.read');
+    Route::get('pois/map', [PoiController::class, 'map'])->middleware('permission:poi.read');
+    Route::get('poi-categories', [PoiController::class, 'categories'])->middleware('permission:poi.read');
+    Route::post('pois', [PoiController::class, 'store'])->middleware('permission:poi.create');
+    Route::get('pois/{poi}', [PoiController::class, 'show'])->middleware('permission:poi.read');
+    Route::match(['put', 'patch'], 'pois/{poi}', [PoiController::class, 'update'])->middleware('permission:poi.update');
+    Route::delete('pois/{poi}', [PoiController::class, 'destroy'])->middleware('permission:poi.delete');
+
+    Route::get('alerts', [AlertController::class, 'index'])->middleware('permission:alert.read');
+    Route::get('alerts/map', [AlertController::class, 'map'])->middleware('permission:alert.read');
+    Route::get('alerts/dashboard', [AlertController::class, 'dashboard'])->middleware('permission:alert.read');
+    Route::get('alerts/{alert}', [AlertController::class, 'show'])->middleware('permission:alert.read');
+    Route::post('alerts/{alert}/acknowledge', [AlertController::class, 'acknowledge'])->middleware('permission:alert.manage');
+    Route::post('alerts/{alert}/resolve', [AlertController::class, 'resolve'])->middleware('permission:alert.manage');
+
+    Route::get('alert-configs', [AlertConfigController::class, 'index'])->middleware('permission:alert-config.read');
+    Route::post('alert-configs', [AlertConfigController::class, 'store'])->middleware('permission:alert-config.update');
+    Route::match(['put', 'patch'], 'alert-configs/{alertConfig}', [AlertConfigController::class, 'update'])->middleware('permission:alert-config.update');
+    Route::delete('alert-configs/{alertConfig}', [AlertConfigController::class, 'destroy'])->middleware('permission:alert-config.update');
+
+    Route::get('notifications', [NotificationController::class, 'index']);
+    Route::get('notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::post('notifications/read-all', [NotificationController::class, 'markAllRead']);
+    Route::post('notifications/{notification}/read', [NotificationController::class, 'markRead']);
 
     Route::get('roles', [RoleController::class, 'index'])->middleware('permission:role.read');
     Route::post('roles', [RoleController::class, 'store'])->middleware('permission:role.create');

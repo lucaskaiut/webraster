@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Alert\Jobs\CheckOfflineDevicesJob;
 use App\Modules\Billing\Console\Commands\CheckInvoiceStatusCommand;
 use App\Modules\Billing\Console\Commands\GenerateInvoicesCommand;
 use App\Modules\Billing\Console\Commands\SuspendExpiredSubscriptionsCommand;
@@ -14,3 +15,4 @@ Artisan::command('inspire', function () {
 Schedule::command(GenerateInvoicesCommand::class)->hourly();
 Schedule::command(CheckInvoiceStatusCommand::class)->everyFifteenMinutes();
 Schedule::command(SuspendExpiredSubscriptionsCommand::class)->daily();
+Schedule::job(new CheckOfflineDevicesJob)->everyMinute();

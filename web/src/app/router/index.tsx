@@ -43,6 +43,22 @@ const ClientEditPage = lazy(() => import('@/modules/clients/pages/ClientEditPage
 const DriversListPage = lazy(() => import('@/modules/drivers/pages/DriversListPage'))
 const DriverCreatePage = lazy(() => import('@/modules/drivers/pages/DriverCreatePage'))
 const DriverEditPage = lazy(() => import('@/modules/drivers/pages/DriverEditPage'))
+const VehiclesListPage = lazy(() => import('@/modules/vehicles/pages/VehiclesListPage'))
+const VehicleCreatePage = lazy(() => import('@/modules/vehicles/pages/VehicleCreatePage'))
+const VehicleEditPage = lazy(() => import('@/modules/vehicles/pages/VehicleEditPage'))
+const EquipmentsListPage = lazy(() => import('@/modules/equipments/pages/EquipmentsListPage'))
+const EquipmentCreatePage = lazy(() => import('@/modules/equipments/pages/EquipmentCreatePage'))
+const EquipmentEditPage = lazy(() => import('@/modules/equipments/pages/EquipmentEditPage'))
+const MonitoringPage = lazy(() => import('@/modules/tracking/pages/MonitoringPage'))
+const GeofencesListPage = lazy(() => import('@/modules/geofences/pages/GeofencesListPage'))
+const GeofenceCreatePage = lazy(() => import('@/modules/geofences/pages/GeofenceCreatePage'))
+const GeofenceEditPage = lazy(() => import('@/modules/geofences/pages/GeofenceEditPage'))
+const GeofenceEventsPage = lazy(() => import('@/modules/geofences/pages/GeofenceEventsPage'))
+const PoisListPage = lazy(() => import('@/modules/pois/pages/PoisListPage'))
+const PoiCreatePage = lazy(() => import('@/modules/pois/pages/PoiCreatePage'))
+const PoiEditPage = lazy(() => import('@/modules/pois/pages/PoiEditPage'))
+const AlertsListPage = lazy(() => import('@/modules/alerts/pages/AlertsListPage'))
+const AlertConfigPage = lazy(() => import('@/modules/alerts/pages/AlertConfigPage'))
 
 export const router = createBrowserRouter([
   {
@@ -71,6 +87,14 @@ export const router = createBrowserRouter([
         children: [
           { path: '/', element: <Navigate to="/dashboard" replace /> },
           { path: '/dashboard', element: <DashboardPage /> },
+          {
+            path: '/monitoring',
+            element: (
+              <PermissionGuard permission={Permission.TRACKING_READ} requiresChildTenant>
+                <MonitoringPage />
+              </PermissionGuard>
+            ),
+          },
           {
             path: '/users',
             element: (
@@ -278,6 +302,126 @@ export const router = createBrowserRouter([
             element: (
               <PermissionGuard permission={Permission.DRIVER_UPDATE} requiresChildTenant>
                 <DriverEditPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/vehicles',
+            element: (
+              <PermissionGuard permission={Permission.VEHICLE_READ} requiresChildTenant>
+                <VehiclesListPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/vehicles/create',
+            element: (
+              <PermissionGuard permission={Permission.VEHICLE_CREATE} requiresChildTenant>
+                <VehicleCreatePage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/vehicles/:id/edit',
+            element: (
+              <PermissionGuard permission={Permission.VEHICLE_UPDATE} requiresChildTenant>
+                <VehicleEditPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/equipments',
+            element: (
+              <PermissionGuard permission={Permission.EQUIPMENT_READ} requiresChildTenant>
+                <EquipmentsListPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/equipments/create',
+            element: (
+              <PermissionGuard permission={Permission.EQUIPMENT_CREATE} requiresChildTenant>
+                <EquipmentCreatePage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/equipments/:id/edit',
+            element: (
+              <PermissionGuard permission={Permission.EQUIPMENT_UPDATE} requiresChildTenant>
+                <EquipmentEditPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/geofences',
+            element: (
+              <PermissionGuard permission={Permission.GEOFENCE_READ} requiresChildTenant>
+                <GeofencesListPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/geofences/create',
+            element: (
+              <PermissionGuard permission={Permission.GEOFENCE_CREATE} requiresChildTenant>
+                <GeofenceCreatePage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/geofences/:id/edit',
+            element: (
+              <PermissionGuard permission={Permission.GEOFENCE_UPDATE} requiresChildTenant>
+                <GeofenceEditPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/geofence-events',
+            element: (
+              <PermissionGuard permission={Permission.GEOFENCE_READ} requiresChildTenant>
+                <GeofenceEventsPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/pois',
+            element: (
+              <PermissionGuard permission={Permission.POI_READ} requiresChildTenant>
+                <PoisListPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/pois/create',
+            element: (
+              <PermissionGuard permission={Permission.POI_CREATE} requiresChildTenant>
+                <PoiCreatePage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/pois/:id/edit',
+            element: (
+              <PermissionGuard permission={Permission.POI_UPDATE} requiresChildTenant>
+                <PoiEditPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/alerts',
+            element: (
+              <PermissionGuard permission={Permission.ALERT_READ} requiresChildTenant>
+                <AlertsListPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/alert-configs',
+            element: (
+              <PermissionGuard permission={Permission.ALERT_CONFIG_READ} requiresChildTenant>
+                <AlertConfigPage />
               </PermissionGuard>
             ),
           },

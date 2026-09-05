@@ -9,9 +9,12 @@ const apiTarget = process.env.VITE_API_PROXY_TARGET ?? 'http://nginx:80'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, 'src'),
-    },
+    alias: [
+      {
+        find: /^@\//,
+        replacement: `${path.resolve(__dirname, 'src')}/`,
+      },
+    ],
   },
   server: {
     proxy: {

@@ -18,10 +18,24 @@ use App\Modules\Client\Models\Client;
 use App\Modules\Client\Policies\ClientPolicy;
 use App\Modules\Driver\Models\Driver;
 use App\Modules\Driver\Policies\DriverPolicy;
+use App\Modules\Equipment\Models\Equipment;
+use App\Modules\Equipment\Policies\EquipmentPolicy;
+use App\Modules\Geofence\Models\Geofence;
+use App\Modules\Geofence\Models\GeofenceEvent;
+use App\Modules\Geofence\Policies\GeofenceEventPolicy;
+use App\Modules\Geofence\Policies\GeofencePolicy;
+use App\Modules\Alert\Models\Alert;
+use App\Modules\Alert\Models\AlertConfig;
+use App\Modules\Alert\Policies\AlertConfigPolicy;
+use App\Modules\Alert\Policies\AlertPolicy;
+use App\Modules\Poi\Models\Poi;
+use App\Modules\Poi\Policies\PoiPolicy;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Tenant\Policies\TenantPolicy;
 use App\Modules\User\Models\User;
 use App\Modules\User\Policies\UserPolicy;
+use App\Modules\Vehicle\Models\Vehicle;
+use App\Modules\Vehicle\Policies\VehiclePolicy;
 use App\Modules\Webhook\Models\Webhook;
 use App\Modules\Webhook\Policies\WebhookPolicy;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -75,5 +89,12 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Invoice::class, InvoicePolicy::class);
         Gate::policy(Client::class, ClientPolicy::class);
         Gate::policy(Driver::class, DriverPolicy::class);
+        Gate::policy(Vehicle::class, VehiclePolicy::class);
+        Gate::policy(Equipment::class, EquipmentPolicy::class);
+        Gate::policy(Geofence::class, GeofencePolicy::class);
+        Gate::policy(GeofenceEvent::class, GeofenceEventPolicy::class);
+        Gate::policy(Poi::class, PoiPolicy::class);
+        Gate::policy(Alert::class, AlertPolicy::class);
+        Gate::policy(AlertConfig::class, AlertConfigPolicy::class);
     }
 }

@@ -1,7 +1,8 @@
 import { Suspense } from 'react'
-import { Outlet } from 'react-router'
-import { Building2, Contact, IdCard, LayoutDashboard, LogOut, Menu, ScrollText, ShieldCheck, Users, Zap } from 'lucide-react'
+import { Outlet, useLocation } from 'react-router'
+import { Building2, BellRing, Car, Contact, Cpu, Hexagon, History, IdCard, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, ScrollText, Settings2, ShieldCheck, Users, Zap } from 'lucide-react'
 import { TenantSelector } from '@/modules/auth/components/TenantSelector'
+import { NotificationBell } from '@/modules/notifications/components/NotificationBell'
 import { useSessionStore } from '@/shared/stores/session.store'
 import { useTenantContextStore } from '@/shared/stores/tenant.store'
 import { useUiStore } from '@/shared/stores/ui.store'
@@ -62,12 +63,24 @@ function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
 
   const showClients = isOperatingTenant && can(Permission.CLIENT_READ)
   const showDrivers = isOperatingTenant && can(Permission.DRIVER_READ)
-  const showCadastrosGroup = showClients || showDrivers
+  const showVehicles = isOperatingTenant && can(Permission.VEHICLE_READ)
+  const showEquipments = isOperatingTenant && can(Permission.EQUIPMENT_READ)
+  const showTracking = isOperatingTenant && can(Permission.TRACKING_READ)
+  const showGeofences = isOperatingTenant && can(Permission.GEOFENCE_READ)
+  const showPois = isOperatingTenant && can(Permission.POI_READ)
+  const showAlerts = isOperatingTenant && can(Permission.ALERT_READ)
+  const showAlertConfig = isOperatingTenant && can(Permission.ALERT_CONFIG_READ)
+  const showCadastrosGroup = showClients || showDrivers || showVehicles || showEquipments
+  const showGeoGroup = showGeofences || showPois
+  const showAlertsGroup = showAlerts || showAlertConfig
 
   return (
     <Sidebar header={<Brand />}>
       <SidebarGroup label="Geral">
         <SidebarItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" onNavigate={onNavigate} />
+        {showTracking && (
+          <SidebarItem to="/monitoring" icon={MapPinned} label="Monitoramento" onNavigate={onNavigate} />
+        )}
         {/* Assistente de IA oculto no frontend
         {can(Permission.ASSISTANT_VIEW) && (
           <SidebarItem to="/assistant" icon={Sparkles} label="Assistente de IA" onNavigate={onNavigate} />
@@ -108,6 +121,37 @@ function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
           )}
           {showDrivers && (
             <SidebarItem to="/drivers" icon={IdCard} label="Motoristas" onNavigate={onNavigate} />
+          )}
+          {showVehicles && (
+            <SidebarItem to="/vehicles" icon={Car} label="Veículos" onNavigate={onNavigate} />
+          )}
+          {showEquipments && (
+            <SidebarItem to="/equipments" icon={Cpu} label="Equipamentos" onNavigate={onNavigate} />
+          )}
+        </SidebarGroup>
+      )}
+
+      {showGeoGroup && (
+        <SidebarGroup label="Geocercas e POIs">
+          {showGeofences && (
+            <SidebarItem to="/geofences" icon={Hexagon} label="Geocercas" onNavigate={onNavigate} />
+          )}
+          {showGeofences && (
+            <SidebarItem to="/geofence-events" icon={History} label="Eventos" onNavigate={onNavigate} />
+          )}
+          {showPois && (
+            <SidebarItem to="/pois" icon={MapPin} label="POIs" onNavigate={onNavigate} />
+          )}
+        </SidebarGroup>
+      )}
+
+      {showAlertsGroup && (
+        <SidebarGroup label="Alertas">
+          {showAlerts && (
+            <SidebarItem to="/alerts" icon={BellRing} label="Alertas" onNavigate={onNavigate} />
+          )}
+          {showAlertConfig && (
+            <SidebarItem to="/alert-configs" icon={Settings2} label="Configuração" onNavigate={onNavigate} />
           )}
         </SidebarGroup>
       )}
@@ -173,10 +217,11 @@ function UserMenu() {
 }
 
 export function AppLayout() {
-  const { can } = usePermissions()
+  const location = useLocation()
   const sidebarOpen = useUiStore((state) => state.sidebarOpen)
   const closeSidebar = useUiStore((state) => state.closeSidebar)
   const openSidebar = useUiStore((state) => state.openSidebar)
+  const isMonitoring = location.pathname === '/monitoring'
 
   return (
     <div className="flex h-dvh overflow-hidden">
@@ -200,7 +245,7 @@ export function AppLayout() {
         <SidebarNavigation onNavigate={closeSidebar} />
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+      <div className={cn('flex min-w-0 flex-1 flex-col', isMonitoring ? 'overflow-hidden' : 'overflow-y-auto')}>
         <Topbar>
           <button
             type="button"
@@ -211,14 +256,15 @@ export function AppLayout() {
             <Menu className="size-5" />
           </button>
           <div className="ml-auto flex items-center gap-1.5">
+            <NotificationBell />
             <TenantSelector />
             <ThemeToggle />
             <UserMenu />
           </div>
         </Topbar>
 
-        <main className="flex-1">
-          <Container className="pt-2">
+        <main className={cn('flex-1', isMonitoring && 'flex min-h-0 flex-col overflow-hidden')}>
+          <Container className={cn('pt-2', isMonitoring && 'flex min-h-0 flex-1 flex-col px-3 pb-3 lg:px-4')}>
             <Suspense fallback={<Loading />}>
               <Outlet />
             </Suspense>

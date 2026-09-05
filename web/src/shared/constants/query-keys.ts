@@ -78,4 +78,81 @@ export const queryKeys = {
     list: (params: ListParams & { client_id?: string }) => ['drivers', 'list', params] as const,
     detail: (id: string) => ['drivers', 'detail', id] as const,
   },
+
+  vehicles: {
+    all: ['vehicles'] as const,
+    list: (params: ListParams & { client_id?: string }) => ['vehicles', 'list', params] as const,
+    detail: (id: string) => ['vehicles', 'detail', id] as const,
+    history: (id: string) => ['vehicles', 'history', id] as const,
+  },
+
+  equipments: {
+    all: ['equipments'] as const,
+    list: (params: ListParams & { available?: boolean; vehicle_id?: string }) =>
+      ['equipments', 'list', params] as const,
+    detail: (id: string) => ['equipments', 'detail', id] as const,
+    history: (id: string) => ['equipments', 'history', id] as const,
+  },
+
+  tracking: {
+    all: ['tracking'] as const,
+    live: (search?: string) => ['tracking', 'live', search ?? ''] as const,
+    history: (vehicleId: string, from: string, to: string) =>
+      ['tracking', 'history', vehicleId, from, to] as const,
+    status: () => ['tracking', 'status'] as const,
+  },
+
+  geofences: {
+    all: ['geofences'] as const,
+    list: (params: ListParams & { client_id?: string; type?: string; is_active?: boolean }) =>
+      ['geofences', 'list', params] as const,
+    detail: (id: string) => ['geofences', 'detail', id] as const,
+    map: (params?: { client_id?: string; is_active?: boolean }) =>
+      ['geofences', 'map', params ?? {}] as const,
+    events: (
+      params: ListParams & {
+        vehicle_id?: string
+        geofence_id?: string
+        client_id?: string
+        type?: string
+        from?: string
+        to?: string
+      },
+    ) => ['geofences', 'events', params] as const,
+  },
+
+  pois: {
+    all: ['pois'] as const,
+    list: (params: ListParams & { client_id?: string; category_id?: string; is_active?: boolean }) =>
+      ['pois', 'list', params] as const,
+    detail: (id: string) => ['pois', 'detail', id] as const,
+    map: (params?: { client_id?: string; category_id?: string; is_active?: boolean }) =>
+      ['pois', 'map', params ?? {}] as const,
+    categories: () => ['pois', 'categories'] as const,
+  },
+
+  alerts: {
+    all: ['alerts'] as const,
+    list: (
+      params: ListParams & {
+        vehicle_id?: string
+        type?: string
+        status?: string
+        severity?: string
+        from?: string
+        to?: string
+        sort?: string
+      },
+    ) => ['alerts', 'list', params] as const,
+    detail: (id: string) => ['alerts', 'detail', id] as const,
+    map: (status?: string) => ['alerts', 'map', status ?? 'open'] as const,
+    dashboard: () => ['alerts', 'dashboard'] as const,
+    configs: () => ['alerts', 'configs'] as const,
+  },
+
+  notifications: {
+    all: ['notifications'] as const,
+    list: (params: ListParams & { unread?: boolean }) => ['notifications', 'list', params] as const,
+    unreadCount: () => ['notifications', 'unread-count'] as const,
+  },
 } as const

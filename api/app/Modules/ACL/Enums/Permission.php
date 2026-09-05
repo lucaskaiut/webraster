@@ -51,6 +51,34 @@ enum Permission: string
     case DRIVER_UPDATE = 'driver.update';
     case DRIVER_DELETE = 'driver.delete';
 
+    case VEHICLE_CREATE = 'vehicle.create';
+    case VEHICLE_READ = 'vehicle.read';
+    case VEHICLE_UPDATE = 'vehicle.update';
+    case VEHICLE_DELETE = 'vehicle.delete';
+
+    case EQUIPMENT_CREATE = 'equipment.create';
+    case EQUIPMENT_READ = 'equipment.read';
+    case EQUIPMENT_UPDATE = 'equipment.update';
+    case EQUIPMENT_DELETE = 'equipment.delete';
+
+    case TRACKING_READ = 'tracking.read';
+
+    case GEOFENCE_CREATE = 'geofence.create';
+    case GEOFENCE_READ = 'geofence.read';
+    case GEOFENCE_UPDATE = 'geofence.update';
+    case GEOFENCE_DELETE = 'geofence.delete';
+
+    case POI_CREATE = 'poi.create';
+    case POI_READ = 'poi.read';
+    case POI_UPDATE = 'poi.update';
+    case POI_DELETE = 'poi.delete';
+
+    case ALERT_READ = 'alert.read';
+    case ALERT_MANAGE = 'alert.manage';
+    case ALERT_CONFIG_READ = 'alert-config.read';
+    case ALERT_CONFIG_UPDATE = 'alert-config.update';
+    case NOTIFICATION_READ = 'notification.read';
+
     /**
      * @return list<string>
      */

@@ -219,3 +219,232 @@ export interface Driver {
   created_at: string | null
   updated_at: string | null
 }
+
+export interface Equipment {
+  id: string
+  vehicle_id: string | null
+  vehicle?: Vehicle
+  imei: string
+  model: string | null
+  iccid: string | null
+  carrier: string | null
+  is_active: boolean
+  is_assigned: boolean
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface Vehicle {
+  id: string
+  client_id: string
+  client?: Client
+  equipment?: Equipment | null
+  plate: string
+  chassis: string | null
+  renavam: string | null
+  brand: string | null
+  model: string | null
+  color: string | null
+  year: number | null
+  is_active: boolean
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface EquipmentAssignmentEvent {
+  id: string
+  vehicle_id: string
+  vehicle?: Vehicle
+  equipment_id: string
+  equipment?: Equipment
+  previous_equipment_id: string | null
+  previous_equipment?: Equipment | null
+  event: 'installation' | 'removal' | 'swap'
+  occurred_at: string
+  notes: string | null
+  created_at: string | null
+}
+
+export interface GpsPosition {
+  id: string
+  vehicle_id?: string | null
+  latitude: number
+  longitude: number
+  recorded_at: string
+  speed: number | null
+  ignition: boolean | null
+  battery: number | null
+  heading: number | null
+  altitude: number | null
+  motion?: boolean | null
+  odometer?: number | null
+  charging?: boolean | null
+  protocol?: string | null
+}
+
+export interface TrackingLiveVehicle {
+  id: string
+  plate: string
+  brand: string | null
+  model: string | null
+  color: string | null
+  year: number | null
+  client_id: string | null
+  client?: Client | null
+  equipment?: Equipment | null
+  online: boolean
+  position: GpsPosition | null
+}
+
+export interface TrackingGatewayStatus {
+  enabled: boolean
+  configured: boolean
+  base_url: string | null
+}
+
+export interface GeofencePoint {
+  latitude: number
+  longitude: number
+}
+
+export interface Geofence {
+  id: string
+  client_id: string | null
+  client?: Client | null
+  name: string
+  description: string | null
+  type: 'circle' | 'polygon'
+  is_active: boolean
+  center_latitude: number | null
+  center_longitude: number | null
+  radius_meters: number | null
+  geometry: GeofencePoint[] | null
+  bbox?: {
+    min_lat: number | null
+    max_lat: number | null
+    min_lng: number | null
+    max_lng: number | null
+  }
+  events_count?: number
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface GeofenceEvent {
+  id: string
+  type: 'entry' | 'exit'
+  latitude: number
+  longitude: number
+  speed: number | null
+  recorded_at: string | null
+  processed_at: string | null
+  meta?: Record<string, unknown> | null
+  client_id?: string | null
+  client?: Client | null
+  vehicle_id?: string | null
+  vehicle?: Vehicle | null
+  geofence_id?: string | null
+  geofence?: Geofence | null
+  created_at: string | null
+}
+
+export interface PoiCategory {
+  id: string
+  name: string
+  slug: string
+  color: string | null
+  is_active: boolean
+  sort_order: number
+}
+
+export interface Poi {
+  id: string
+  client_id: string | null
+  client?: Client | null
+  category_id: string | null
+  category?: PoiCategory | null
+  name: string
+  description: string | null
+  latitude: number
+  longitude: number
+  address: string | null
+  is_active: boolean
+  created_at: string | null
+  updated_at: string | null
+}
+
+export type AlertType =
+  | 'speed'
+  | 'ignition_on'
+  | 'ignition_off'
+  | 'sos'
+  | 'offline'
+  | 'online'
+  | 'battery'
+  | 'jamming'
+
+export type AlertSeverity = 'low' | 'medium' | 'high' | 'critical'
+export type AlertStatus = 'open' | 'acknowledged' | 'resolved'
+
+export interface Alert {
+  id: string
+  type: AlertType
+  type_label?: string
+  severity: AlertSeverity
+  status: AlertStatus
+  title: string
+  description: string | null
+  latitude: number | null
+  longitude: number | null
+  speed: number | null
+  speed_kmh: number | null
+  meta?: Record<string, unknown> | null
+  occurred_at: string | null
+  acknowledged_at: string | null
+  resolved_at: string | null
+  vehicle_id?: string | null
+  vehicle?: Vehicle | null
+  client_id?: string | null
+  client?: Client | null
+  created_at: string | null
+}
+
+export interface AlertConfig {
+  id: string
+  name: string | null
+  type: AlertType
+  type_label?: string
+  is_enabled: boolean
+  notify_in_app: boolean
+  notify_email: boolean
+  settings: {
+    speed_limit_kmh?: number
+    min_duration_seconds?: number
+    offline_minutes?: number
+    battery_threshold?: number
+  }
+  client_id?: string | null
+  client?: Pick<Client, 'id' | 'name'> | null
+  vehicle_id?: string | null
+  vehicle?: Pick<Vehicle, 'id' | 'plate'> | null
+  scope: 'all' | 'client' | 'vehicle'
+  created_at?: string | null
+  updated_at: string | null
+}
+
+export interface AlertDashboardStats {
+  totals: { today: number; week: number; month: number }
+  by_type: Record<string, number>
+  critical_open: Alert[]
+}
+
+export interface AppNotification {
+  id: string
+  type: string
+  title: string
+  body: string | null
+  data?: Record<string, unknown> | null
+  read_at: string | null
+  alert?: Alert | null
+  created_at: string | null
+}

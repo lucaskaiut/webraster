@@ -35,6 +35,7 @@ until php -r '
     fi
     sleep 2
 done
-log "MySQL disponível. Iniciando queue worker..."
+log "MySQL disponível. Iniciando scheduler + queue worker..."
 
+php artisan schedule:work &
 exec php artisan queue:work --sleep=3 --tries=3 --max-time=3600

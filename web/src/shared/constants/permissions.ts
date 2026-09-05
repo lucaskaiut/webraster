@@ -45,6 +45,34 @@ export const Permission = {
   DRIVER_READ: 'driver.read',
   DRIVER_UPDATE: 'driver.update',
   DRIVER_DELETE: 'driver.delete',
+
+  VEHICLE_CREATE: 'vehicle.create',
+  VEHICLE_READ: 'vehicle.read',
+  VEHICLE_UPDATE: 'vehicle.update',
+  VEHICLE_DELETE: 'vehicle.delete',
+
+  EQUIPMENT_CREATE: 'equipment.create',
+  EQUIPMENT_READ: 'equipment.read',
+  EQUIPMENT_UPDATE: 'equipment.update',
+  EQUIPMENT_DELETE: 'equipment.delete',
+
+  TRACKING_READ: 'tracking.read',
+
+  GEOFENCE_CREATE: 'geofence.create',
+  GEOFENCE_READ: 'geofence.read',
+  GEOFENCE_UPDATE: 'geofence.update',
+  GEOFENCE_DELETE: 'geofence.delete',
+
+  POI_CREATE: 'poi.create',
+  POI_READ: 'poi.read',
+  POI_UPDATE: 'poi.update',
+  POI_DELETE: 'poi.delete',
+
+  ALERT_READ: 'alert.read',
+  ALERT_MANAGE: 'alert.manage',
+  ALERT_CONFIG_READ: 'alert-config.read',
+  ALERT_CONFIG_UPDATE: 'alert-config.update',
+  NOTIFICATION_READ: 'notification.read',
 } as const
 
 export type Permission = (typeof Permission)[keyof typeof Permission]
@@ -137,6 +165,56 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { value: Permission.DRIVER_CREATE, label: 'Criar motoristas' },
       { value: Permission.DRIVER_UPDATE, label: 'Editar motoristas' },
       { value: Permission.DRIVER_DELETE, label: 'Remover motoristas' },
+    ],
+  },
+  {
+    label: 'Veículos',
+    permissions: [
+      { value: Permission.VEHICLE_READ, label: 'Visualizar veículos' },
+      { value: Permission.VEHICLE_CREATE, label: 'Criar veículos' },
+      { value: Permission.VEHICLE_UPDATE, label: 'Editar veículos' },
+      { value: Permission.VEHICLE_DELETE, label: 'Remover veículos' },
+    ],
+  },
+  {
+    label: 'Equipamentos',
+    permissions: [
+      { value: Permission.EQUIPMENT_READ, label: 'Visualizar equipamentos' },
+      { value: Permission.EQUIPMENT_CREATE, label: 'Criar equipamentos' },
+      { value: Permission.EQUIPMENT_UPDATE, label: 'Editar equipamentos' },
+      { value: Permission.EQUIPMENT_DELETE, label: 'Remover equipamentos' },
+    ],
+  },
+  {
+    label: 'Monitoramento',
+    permissions: [{ value: Permission.TRACKING_READ, label: 'Visualizar mapa e histórico' }],
+  },
+  {
+    label: 'Geocercas',
+    permissions: [
+      { value: Permission.GEOFENCE_READ, label: 'Visualizar geocercas' },
+      { value: Permission.GEOFENCE_CREATE, label: 'Criar geocercas' },
+      { value: Permission.GEOFENCE_UPDATE, label: 'Editar geocercas' },
+      { value: Permission.GEOFENCE_DELETE, label: 'Remover geocercas' },
+    ],
+  },
+  {
+    label: 'POIs',
+    permissions: [
+      { value: Permission.POI_READ, label: 'Visualizar POIs' },
+      { value: Permission.POI_CREATE, label: 'Criar POIs' },
+      { value: Permission.POI_UPDATE, label: 'Editar POIs' },
+      { value: Permission.POI_DELETE, label: 'Remover POIs' },
+    ],
+  },
+  {
+    label: 'Alertas',
+    permissions: [
+      { value: Permission.ALERT_READ, label: 'Visualizar alertas' },
+      { value: Permission.ALERT_MANAGE, label: 'Gerenciar alertas' },
+      { value: Permission.ALERT_CONFIG_READ, label: 'Visualizar configuração de alertas' },
+      { value: Permission.ALERT_CONFIG_UPDATE, label: 'Editar configuração de alertas' },
+      { value: Permission.NOTIFICATION_READ, label: 'Visualizar notificações' },
     ],
   },
 ]
