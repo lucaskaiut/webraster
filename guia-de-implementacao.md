@@ -473,6 +473,7 @@ Fluxo financeiro completo.
 * Veículos online
 * Offline
 * Alertas
+* Ordens de serviço
 
 ## Financeiro
 

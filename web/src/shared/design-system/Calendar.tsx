@@ -23,9 +23,10 @@ export interface CalendarProps {
   min?: string
   max?: string
   className?: string
+  showTodayAction?: boolean
 }
 
-export function Calendar({ value, onSelect, min, max, className }: CalendarProps) {
+export function Calendar({ value, onSelect, min, max, className, showTodayAction = true }: CalendarProps) {
   const selectedDate = value ? parseIsoDate(value) : null
   const today = useMemo(() => new Date(), [])
   const [viewDate, setViewDate] = useState(() => selectedDate ?? today)
@@ -116,15 +117,17 @@ export function Calendar({ value, onSelect, min, max, className }: CalendarProps
         })}
       </div>
 
-      <div className="mt-3 flex justify-center border-t border-surface-2 pt-3">
-        <button
-          type="button"
-          onClick={selectToday}
-          className="cursor-pointer rounded-full px-3 py-1.5 text-[13px] font-medium text-primary transition-colors hover:bg-primary-soft"
-        >
-          Hoje
-        </button>
-      </div>
+      {showTodayAction && (
+        <div className="mt-3 flex justify-center border-t border-surface-2 pt-3">
+          <button
+            type="button"
+            onClick={selectToday}
+            className="cursor-pointer rounded-full px-3 py-1.5 text-[13px] font-medium text-primary transition-colors hover:bg-primary-soft"
+          >
+            Hoje
+          </button>
+        </div>
+      )}
     </div>
   )
 }

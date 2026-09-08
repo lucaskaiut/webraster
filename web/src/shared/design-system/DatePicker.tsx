@@ -10,20 +10,31 @@ import {
   type FocusEvent,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { CalendarDays } from 'lucide-react'
+import { CalendarDays, Clock3 } from 'lucide-react'
 import { cn } from '@/shared/utils/cn'
 import {
+  combineIsoDateAndTime,
+  extractIsoDate,
+  extractLocalTime,
   formatDisplayDate,
+  formatDisplayDateTime,
   isDateInRange,
   maskDateInput,
+  maskDateTimeInput,
   parseDisplayDate,
+  parseDisplayDateTime,
   parseIsoDate,
+  parseLocalDateTime,
+  toIsoDate,
+  toLocalDateTimeValue,
 } from '@/shared/utils/date'
 import { Calendar } from './Calendar'
 
 export interface DatePickerProps extends Omit<ComponentProps<'input'>, 'type'> {
   invalid?: boolean
   placeholder?: string
+  /** Quando true, permite selecionar data e horário (`YYYY-MM-DDTHH:mm`). */
+  withTime?: boolean
 }
 
 export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(function DatePicker(
@@ -38,7 +49,8 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(function
     id,
     min,
     max,
-    placeholder = 'DD/MM/AAAA',
+    withTime = false,
+    placeholder,
     'aria-label': ariaLabel,
     ...props
   },
@@ -50,15 +62,21 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(function
   const popoverRef = useRef<HTMLDivElement>(null)
   const hiddenInputRef = useRef<HTMLInputElement>(null)
   const textInputRef = useRef<HTMLInputElement>(null)
+  const hourInputRef = useRef<HTMLInputElement>(null)
 
   const [open, setOpen] = useState(false)
   const [popoverStyle, setPopoverStyle] = useState<CSSProperties>({})
   const [textValue, setTextValue] = useState('')
   const [focused, setFocused] = useState(false)
+  const [draftDate, setDraftDate] = useState('')
+  const [draftTime, setDraftTime] = useState('00:00')
 
-  const minDate = min !== undefined ? String(min) : undefined
-  const maxDate = max !== undefined ? String(max) : undefined
+  const minDate = min !== undefined ? extractIsoDate(String(min)) ?? undefined : undefined
+  const maxDate = max !== undefined ? extractIsoDate(String(max)) ?? undefined : undefined
   const stringValue = value === undefined || value === null ? '' : String(value)
+  const resolvedPlaceholder = placeholder ?? (withTime ? 'DD/MM/AAAA HH:mm' : 'DD/MM/AAAA')
+
+  const formatValue = (next: string) => (withTime ? formatDisplayDateTime(next) : formatDisplayDate(next))
 
   const setRef = (node: HTMLInputElement | null) => {
     hiddenInputRef.current = node
@@ -77,8 +95,8 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(function
     } as ChangeEvent<HTMLInputElement>)
   }
 
-  const isWithinBounds = (iso: string): boolean => {
-    const date = parseIsoDate(iso)
+  const isWithinBounds = (candidate: string): boolean => {
+    const date = withTime ? parseLocalDateTime(candidate) : parseIsoDate(candidate)
 
     if (!date) {
       return false
@@ -96,25 +114,38 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(function
       return ''
     }
 
-    const iso = parseDisplayDate(trimmed)
+    const next = withTime ? parseDisplayDateTime(trimmed) : parseDisplayDate(trimmed)
 
-    if (!iso || !isWithinBounds(iso)) {
-      const fallback = stringValue ? formatDisplayDate(stringValue) : ''
+    if (!next || !isWithinBounds(next)) {
+      const fallback = stringValue ? formatValue(stringValue) : ''
       setTextValue(fallback)
       return stringValue
     }
 
-    emitChange(iso)
-    const formatted = formatDisplayDate(iso)
-    setTextValue(formatted)
-    return iso
+    emitChange(next)
+    setTextValue(formatValue(next))
+    return next
   }
 
   useEffect(() => {
     if (!focused) {
-      setTextValue(stringValue ? formatDisplayDate(stringValue) : '')
+      setTextValue(stringValue ? formatValue(stringValue) : '')
     }
-  }, [stringValue, focused])
+  }, [stringValue, focused, withTime])
+
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+
+    if (withTime) {
+      setDraftDate(extractIsoDate(stringValue) ?? '')
+      setDraftTime(stringValue ? extractLocalTime(stringValue) : '09:00')
+      return
+    }
+
+    setDraftDate(extractIsoDate(stringValue) ?? '')
+  }, [open, stringValue, withTime])
 
   const updatePosition = () => {
     const anchor = containerRef.current
@@ -124,7 +155,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(function
     }
 
     const rect = anchor.getBoundingClientRect()
-    const popoverHeight = 340
+    const popoverHeight = withTime ? 420 : 340
     const spaceBelow = window.innerHeight - rect.bottom
     const openUp = spaceBelow < popoverHeight && rect.top > popoverHeight
 
@@ -151,6 +182,14 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(function
         return
       }
 
+      if (withTime && draftDate) {
+        const next = combineIsoDateAndTime(draftDate, draftTime)
+        if (next && isWithinBounds(next)) {
+          emitChange(next)
+          setTextValue(formatValue(next))
+        }
+      }
+
       setOpen(false)
     }
 
@@ -173,9 +212,9 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(function
       window.removeEventListener('resize', onReposition)
       window.removeEventListener('scroll', onReposition, true)
     }
-  }, [open])
+  }, [open, withTime, draftDate, draftTime])
 
-  const handleSelect = (nextValue: string) => {
+  const applyDateOnly = (nextValue: string) => {
     emitChange(nextValue)
     setTextValue(formatDisplayDate(nextValue))
     setOpen(false)
@@ -186,15 +225,51 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(function
     } as FocusEvent<HTMLInputElement>)
   }
 
+  const applyDateTime = (isoDate: string, time: string, close = false) => {
+    const next = combineIsoDateAndTime(isoDate, time)
+
+    if (!next || !isWithinBounds(next)) {
+      return
+    }
+
+    setDraftDate(isoDate)
+    setDraftTime(time)
+    emitChange(next)
+    setTextValue(formatDisplayDateTime(next))
+
+    if (close) {
+      setOpen(false)
+      textInputRef.current?.focus()
+      onBlur?.({
+        target: { name, value: next, id: inputId },
+        currentTarget: { name, value: next, id: inputId },
+      } as FocusEvent<HTMLInputElement>)
+    }
+  }
+
+  const handleSelect = (nextDate: string) => {
+    if (!withTime) {
+      applyDateOnly(nextDate)
+      return
+    }
+
+    applyDateTime(nextDate, draftTime || '09:00')
+    hourInputRef.current?.focus()
+  }
+
   const handleTextChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const masked = maskDateInput(event.target.value)
+    const masked = withTime ? maskDateTimeInput(event.target.value) : maskDateInput(event.target.value)
     setTextValue(masked)
 
-    if (masked.length === 10) {
-      const iso = parseDisplayDate(masked)
-
-      if (iso && isWithinBounds(iso)) {
-        emitChange(iso)
+    if (withTime && masked.length === 16) {
+      const next = parseDisplayDateTime(masked)
+      if (next && isWithinBounds(next)) {
+        emitChange(next)
+      }
+    } else if (!withTime && masked.length === 10) {
+      const next = parseDisplayDate(masked)
+      if (next && isWithinBounds(next)) {
+        emitChange(next)
       }
     } else if (!masked) {
       emitChange('')
@@ -208,6 +283,32 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(function
       target: { name, value: nextValue, id: inputId },
       currentTarget: { name, value: nextValue, id: inputId },
     } as FocusEvent<HTMLInputElement>)
+  }
+
+  const handleNow = () => {
+    const now = new Date()
+    const next = withTime ? toLocalDateTimeValue(now) : toIsoDate(now)
+
+    if (!isWithinBounds(next)) {
+      return
+    }
+
+    if (withTime) {
+      applyDateTime(toIsoDate(now), extractLocalTime(next), true)
+      return
+    }
+
+    applyDateOnly(next)
+  }
+
+  const normalizeTimeInput = (raw: string): string => {
+    const digits = raw.replace(/\D/g, '').slice(0, 4)
+
+    if (digits.length <= 2) {
+      return digits
+    }
+
+    return `${digits.slice(0, 2)}:${digits.slice(2)}`
   }
 
   const fieldClasses = cn(
@@ -238,7 +339,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(function
             type="button"
             tabIndex={-1}
             disabled={disabled}
-            aria-label="Abrir calendário"
+            aria-label={withTime ? 'Abrir calendário e horário' : 'Abrir calendário'}
             onClick={() => {
               if (disabled) {
                 return
@@ -259,8 +360,8 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(function
             autoComplete="off"
             disabled={disabled}
             value={textValue}
-            placeholder={placeholder}
-            aria-label={ariaLabel ?? 'Data'}
+            placeholder={resolvedPlaceholder}
+            aria-label={ariaLabel ?? (withTime ? 'Data e horário' : 'Data')}
             aria-invalid={invalid || undefined}
             onFocus={() => setFocused(true)}
             onChange={handleTextChange}
@@ -287,11 +388,82 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(function
           <div
             ref={popoverRef}
             role="dialog"
-            aria-label="Calendário"
+            aria-label={withTime ? 'Calendário e horário' : 'Calendário'}
             style={popoverStyle}
             className="animate-rise-in overflow-hidden rounded-2xl border border-surface-3 bg-surface shadow-pop"
           >
-            <Calendar value={stringValue} min={minDate} max={maxDate} onSelect={handleSelect} />
+            <Calendar
+              value={draftDate || extractIsoDate(stringValue) || undefined}
+              min={minDate}
+              max={maxDate}
+              onSelect={handleSelect}
+              showTodayAction={!withTime}
+            />
+
+            {withTime && (
+              <div className="space-y-3 border-t border-surface-2 px-3 pb-3">
+                <div className="flex items-center gap-2 pt-3">
+                  <Clock3 className="size-4 text-subtle" aria-hidden="true" />
+                  <span className="text-[13px] font-medium text-muted">Horário</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={hourInputRef}
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    aria-label="Horário"
+                    placeholder="HH:mm"
+                    value={draftTime}
+                    onChange={(event) => {
+                      const nextTime = normalizeTimeInput(event.target.value)
+                      setDraftTime(nextTime)
+
+                      if (draftDate && /^\d{2}:\d{2}$/.test(nextTime)) {
+                        applyDateTime(draftDate, nextTime)
+                      }
+                    }}
+                    onBlur={() => {
+                      if (!/^\d{2}:\d{2}$/.test(draftTime)) {
+                        setDraftTime(stringValue ? extractLocalTime(stringValue) : '09:00')
+                        return
+                      }
+
+                      if (draftDate) {
+                        applyDateTime(draftDate, draftTime)
+                      }
+                    }}
+                    className="h-10 w-24 rounded-lg bg-surface-2 px-3 text-sm text-foreground outline-none shadow-[inset_0_0_0_1px_var(--app-surface-3)] focus:shadow-[inset_0_0_0_2px_color-mix(in_srgb,var(--app-primary)_45%,transparent)]"
+                  />
+
+                  <div className="ml-auto flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleNow}
+                      className="cursor-pointer rounded-lg px-3 py-2 text-[13px] font-medium text-primary transition-colors hover:bg-primary-soft"
+                    >
+                      Agora
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!draftDate || !/^\d{2}:\d{2}$/.test(draftTime)}
+                      onClick={() => {
+                        if (!draftDate) {
+                          return
+                        }
+
+                        applyDateTime(draftDate, draftTime, true)
+                      }}
+                      className="cursor-pointer rounded-lg bg-primary px-3 py-2 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Confirmar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
           </div>,
           document.body,
         )}

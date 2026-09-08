@@ -64,6 +64,12 @@ enum DefaultRole: string
                 Permission::ALERT_CONFIG_READ,
                 Permission::ALERT_CONFIG_UPDATE,
                 Permission::NOTIFICATION_READ,
+                Permission::DEVICE_COMMANDS_SEND,
+                Permission::SERVICE_ORDER_CREATE,
+                Permission::SERVICE_ORDER_READ,
+                Permission::SERVICE_ORDER_UPDATE,
+                Permission::SERVICE_ORDER_DELETE,
+                Permission::SERVICE_ORDER_CHANGE_STATUS,
             ],
             self::CLIENT => [
                 Permission::SUBSCRIPTION_READ,
@@ -75,6 +81,7 @@ enum DefaultRole: string
                 Permission::POI_READ,
                 Permission::ALERT_READ,
                 Permission::NOTIFICATION_READ,
+                Permission::SERVICE_ORDER_READ,
             ],
         };
     }

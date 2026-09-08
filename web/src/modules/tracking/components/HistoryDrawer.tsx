@@ -1,29 +1,31 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
-import { Button, Modal, TextField } from '@/shared/design-system'
-import { FormProvider, useForm } from 'react-hook-form'
+import { Button, DateRangeFilter, Modal } from '@/shared/design-system'
 import { parseApiError } from '@/shared/api/errors'
 import { queryKeys } from '@/shared/constants/query-keys'
 import { toast } from '@/shared/stores/toast.store'
 import type { GpsPosition, TrackingLiveVehicle } from '@/shared/types/models'
 import { formatDateTime } from '@/shared/utils/format'
+import { parseIsoDate, type DateRange } from '@/shared/utils/date'
+import { resolvePresetRange } from '@/shared/utils/date-range'
 import { trackingService } from '../services/tracking.service'
 import { deriveRouteEvents, formatDuration, formatMeters, formatSpeed, summarizeRoute, vehicleLabel } from '../lib/tracking'
 
 const PLAYBACK_SPEEDS = [0.5, 1, 2, 4, 8] as const
+const MAX_RANGE_MS = 31 * 24 * 60 * 60 * 1000
 
-function toLocalInputValue(date: Date): string {
-  const pad = (value: number) => String(value).padStart(2, '0')
+function rangeToApiBounds(range: DateRange): { from: string; to: string } | null {
+  const start = parseIsoDate(range.from)
+  const end = parseIsoDate(range.to)
 
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
+  if (!start || !end || start > end) {
+    return null
+  }
 
-function defaultRange(): { from: string; to: string } {
-  const now = new Date()
-  const from = new Date(now)
-  from.setHours(from.getHours() - 24)
+  start.setHours(0, 0, 0, 0)
+  end.setHours(23, 59, 59, 999)
 
-  return { from: toLocalInputValue(from), to: toLocalInputValue(now) }
+  return { from: start.toISOString(), to: end.toISOString() }
 }
 
 export function HistoryDrawer({
@@ -54,16 +56,64 @@ export function HistoryDrawer({
   showEvents: boolean
 }) {
   const queryClient = useQueryClient()
-  const defaults = useMemo(() => defaultRange(), [vehicle?.id])
-  const form = useForm({ defaultValues: defaults })
+  const defaults = useMemo(() => resolvePresetRange('today'), [vehicle?.id])
+  const [range, setRange] = useState<DateRange>(defaults)
   const [loading, setLoading] = useState(false)
   const stats = useMemo(() => summarizeRoute(route), [route])
   const events = useMemo(() => deriveRouteEvents(route), [route])
   const current = route[playbackIndex] ?? null
 
   useEffect(() => {
-    form.reset(defaults)
-  }, [defaults, form])
+    setRange(defaults)
+  }, [defaults])
+
+  const loadHistory = async () => {
+    if (!vehicle) {
+      return
+    }
+
+    const bounds = rangeToApiBounds(range)
+
+    if (!bounds) {
+      toast.error('Período inválido', 'Informe um intervalo válido.')
+      return
+    }
+
+    const start = parseIsoDate(range.from)
+    const end = parseIsoDate(range.to)
+
+    if (start && end && end.getTime() - start.getTime() > MAX_RANGE_MS) {
+      toast.error('Período muito longo', 'O intervalo máximo é de 31 dias.')
+      return
+    }
+
+    onPlayingChange(false)
+    onPlaybackIndexChange(0)
+    setLoading(true)
+
+    try {
+      const points = await queryClient.fetchQuery({
+        queryKey: queryKeys.tracking.history(vehicle.id, bounds.from, bounds.to),
+        queryFn: () => trackingService.history(vehicle.id, bounds.from, bounds.to),
+        staleTime: 0,
+      })
+      const routePoints = Array.isArray(points) ? points : []
+      onRouteChange(routePoints)
+
+      if (routePoints.length === 0) {
+        toast.info('Nenhum ponto no período', 'Não há posições GPS neste intervalo.')
+      }
+    } catch (error) {
+      const apiError = parseApiError(error)
+      toast.error(
+        'Não foi possível carregar o percurso',
+        Object.values(apiError.fieldErrors).flat()[0] ?? apiError.message,
+      )
+      onRouteChange([])
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <Modal
@@ -77,62 +127,19 @@ export function HistoryDrawer({
         <p className="text-sm text-muted">Selecione um veículo para consultar o histórico.</p>
       ) : (
         <div className="space-y-4">
-          <FormProvider {...form}>
-            <form
-              className="grid gap-3 sm:grid-cols-2"
-              onSubmit={form.handleSubmit(async (values) => {
-                const fromDate = new Date(values.from)
-                const toDate = new Date(values.to)
-
-                if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime()) || fromDate > toDate) {
-                  toast.error('Período inválido', 'Informe um intervalo válido.')
-                  return
-                }
-
-                if (toDate.getTime() - fromDate.getTime() > 31 * 24 * 60 * 60 * 1000) {
-                  toast.error('Período muito longo', 'O intervalo máximo é de 31 dias.')
-                  return
-                }
-
-                onPlayingChange(false)
-                onPlaybackIndexChange(0)
-                setLoading(true)
-
-                try {
-                  const from = fromDate.toISOString()
-                  const to = toDate.toISOString()
-                  const points = await queryClient.fetchQuery({
-                    queryKey: queryKeys.tracking.history(vehicle.id, from, to),
-                    queryFn: () => trackingService.history(vehicle.id, from, to),
-                    staleTime: 0,
-                  })
-                  const routePoints = Array.isArray(points) ? points : []
-                  onRouteChange(routePoints)
-
-                  if (routePoints.length === 0) {
-                    toast.info('Nenhum ponto no período', 'Não há posições GPS neste intervalo.')
-                  }
-                } catch (error) {
-                  const apiError = parseApiError(error)
-                  toast.error(
-                    'Não foi possível carregar o percurso',
-                    Object.values(apiError.fieldErrors).flat()[0] ?? apiError.message,
-                  )
-                  onRouteChange([])
-                } finally {
-                  setLoading(false)
-                }
-              })}
-            >
-              <TextField name="from" label="De" type="datetime-local" required />
-              <TextField name="to" label="Até" type="datetime-local" required />
-              <div className="sm:col-span-2">
-                <Button type="submit" loading={loading}>
-                  Carregar percurso
-                </Button>
-              </div>
-            </form>
-          </FormProvider>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="min-w-0 flex-1">
+              <DateRangeFilter
+                label="Período"
+                from={range.from}
+                to={range.to}
+                onChange={setRange}
+              />
+            </div>
+            <Button type="button" loading={loading} onClick={() => void loadHistory()}>
+              Carregar percurso
+            </Button>
+          </div>
 
           {route.length > 0 && (
             <>

@@ -22,7 +22,6 @@ export default function MonitoringPage() {
   const [playing, setPlaying] = useState(false)
   const [playbackSpeed, setPlaybackSpeed] = useState<0.5 | 1 | 2 | 4 | 8>(1)
   const [follow, setFollow] = useState(false)
-  const [detailsOpen, setDetailsOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [showEvents, setShowEvents] = useState(false)
   const [now, setNow] = useState(() => Date.now())
@@ -182,8 +181,6 @@ export default function MonitoringPage() {
                     setShowEvents(true)
                     setHistoryOpen(true)
                   }}
-                  onDetails={() => setDetailsOpen((value) => !value)}
-                  detailsOpen={detailsOpen}
                 />
               </div>
             </div>

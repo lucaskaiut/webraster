@@ -448,3 +448,55 @@ export interface AppNotification {
   alert?: Alert | null
   created_at: string | null
 }
+
+export type ServiceOrderType = 'installation' | 'maintenance' | 'removal'
+export type ServiceOrderStatus = 'open' | 'in_progress' | 'completed' | 'cancelled'
+export type ServiceOrderPriority = 'low' | 'normal' | 'high' | 'urgent'
+
+export interface ServiceOrderHistory {
+  id: string
+  action: string
+  field: string | null
+  old_value: string | null
+  new_value: string | null
+  meta?: Record<string, unknown> | null
+  user?: Pick<User, 'id' | 'name'> | null
+  created_at: string | null
+}
+
+export interface ServiceOrder {
+  id: string
+  number: number
+  code: string
+  type: ServiceOrderType
+  type_label?: string
+  status: ServiceOrderStatus
+  status_label?: string
+  priority: ServiceOrderPriority
+  priority_label?: string
+  client_id?: string | null
+  client?: Pick<Client, 'id' | 'name'> | null
+  vehicle_id?: string | null
+  vehicle?: Pick<Vehicle, 'id' | 'plate' | 'brand' | 'model'> | null
+  equipment_id?: string | null
+  equipment?: Pick<Equipment, 'id' | 'imei' | 'model'> | null
+  technician_id?: string | null
+  technician?: Pick<User, 'id' | 'name'> | null
+  scheduled_start_at: string | null
+  scheduled_end_at: string | null
+  description: string | null
+  notes: string | null
+  execution_notes: string | null
+  cancellation_reason: string | null
+  created_by?: Pick<User, 'id' | 'name'> | null
+  completed_by?: Pick<User, 'id' | 'name'> | null
+  cancelled_by?: Pick<User, 'id' | 'name'> | null
+  completed_at: string | null
+  cancelled_at: string | null
+  created_at: string | null
+  updated_at: string | null
+  histories?: ServiceOrderHistory[]
+}
+
+export type ServiceOrderKanban = Record<ServiceOrderStatus, ServiceOrder[]>
+

@@ -30,6 +30,8 @@ use App\Modules\Alert\Policies\AlertConfigPolicy;
 use App\Modules\Alert\Policies\AlertPolicy;
 use App\Modules\Poi\Models\Poi;
 use App\Modules\Poi\Policies\PoiPolicy;
+use App\Modules\ServiceOrder\Models\ServiceOrder;
+use App\Modules\ServiceOrder\Policies\ServiceOrderPolicy;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Tenant\Policies\TenantPolicy;
 use App\Modules\User\Models\User;
@@ -42,6 +44,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -61,6 +64,15 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureRateLimiting();
         $this->configurePolicies();
+        $this->configureRouteBindings();
+    }
+
+    private function configureRouteBindings(): void
+    {
+        // /api/devices/{device} resolve o equipamento local (fonte do traccar_device_id).
+        Route::bind('device', function (string $value) {
+            return Equipment::query()->where('uuid', $value)->firstOrFail();
+        });
     }
 
     private function configureRateLimiting(): void
@@ -96,5 +108,6 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Poi::class, PoiPolicy::class);
         Gate::policy(Alert::class, AlertPolicy::class);
         Gate::policy(AlertConfig::class, AlertConfigPolicy::class);
+        Gate::policy(ServiceOrder::class, ServiceOrderPolicy::class);
     }
 }

@@ -61,7 +61,8 @@ export function TextField({
   const { register, control } = useFormContext()
   const error = useFieldError(name)
   const { type, ...inputProps } = props
-  const isDateField = type === 'date'
+  const withTime = type === 'datetime-local'
+  const isDateField = type === 'date' || withTime
 
   return (
     <Field label={label} hint={hint} error={error} required={required} htmlFor={name} className={className}>
@@ -73,6 +74,7 @@ export function TextField({
             <DatePicker
               id={name}
               invalid={!!error}
+              withTime={withTime}
               value={(field.value as string) ?? ''}
               onChange={field.onChange}
               onBlur={field.onBlur}

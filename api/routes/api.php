@@ -12,6 +12,8 @@ use App\Modules\Billing\Http\Controllers\PlanController;
 use App\Modules\Billing\Http\Controllers\SubscriptionController;
 use App\Modules\Client\Http\Controllers\ClientController;
 use App\Modules\Client\Http\Controllers\ClientUserController;
+use App\Modules\DeviceCommand\Http\Controllers\DeviceCommandController;
+use App\Modules\ServiceOrder\Http\Controllers\ServiceOrderController;
 use App\Modules\Driver\Http\Controllers\DriverController;
 use App\Modules\Alert\Http\Controllers\AlertConfigController;
 use App\Modules\Alert\Http\Controllers\AlertController;
@@ -119,6 +121,19 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::match(['put', 'patch'], 'equipments/{equipment}', [EquipmentController::class, 'update'])->middleware('permission:equipment.update');
     Route::delete('equipments/{equipment}', [EquipmentController::class, 'destroy'])->middleware('permission:equipment.delete');
     Route::get('equipments/{equipment}/assignment-history', [EquipmentController::class, 'assignmentHistory'])->middleware('permission:equipment.read');
+
+    Route::get('devices/{device}/commands', [DeviceCommandController::class, 'index'])->middleware('permission:device.commands.send');
+    Route::post('devices/{device}/commands', [DeviceCommandController::class, 'store'])->middleware('permission:device.commands.send');
+
+    Route::get('service-orders', [ServiceOrderController::class, 'index'])->middleware('permission:service-order.read');
+    Route::get('service-orders/kanban', [ServiceOrderController::class, 'kanban'])->middleware('permission:service-order.read');
+    Route::get('service-orders/calendar', [ServiceOrderController::class, 'calendar'])->middleware('permission:service-order.read');
+    Route::post('service-orders', [ServiceOrderController::class, 'store'])->middleware('permission:service-order.create');
+    Route::get('service-orders/{serviceOrder}', [ServiceOrderController::class, 'show'])->middleware('permission:service-order.read');
+    Route::match(['put', 'patch'], 'service-orders/{serviceOrder}', [ServiceOrderController::class, 'update'])->middleware('permission:service-order.update');
+    Route::delete('service-orders/{serviceOrder}', [ServiceOrderController::class, 'destroy'])->middleware('permission:service-order.delete');
+    Route::patch('service-orders/{serviceOrder}/status', [ServiceOrderController::class, 'changeStatus'])->middleware('permission:service-order.change-status');
+    Route::get('service-orders/{serviceOrder}/history', [ServiceOrderController::class, 'history'])->middleware('permission:service-order.read');
 
     Route::get('tracking/status', [TrackingController::class, 'status'])->middleware('permission:tracking.read');
     Route::get('tracking/live', [TrackingController::class, 'live'])->middleware('permission:tracking.read');

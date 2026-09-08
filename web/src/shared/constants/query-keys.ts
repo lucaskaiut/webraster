@@ -100,6 +100,7 @@ export const queryKeys = {
     history: (vehicleId: string, from: string, to: string) =>
       ['tracking', 'history', vehicleId, from, to] as const,
     status: () => ['tracking', 'status'] as const,
+    commands: (deviceId: string) => ['tracking', 'commands', deviceId] as const,
   },
 
   geofences: {
@@ -154,5 +155,14 @@ export const queryKeys = {
     all: ['notifications'] as const,
     list: (params: ListParams & { unread?: boolean }) => ['notifications', 'list', params] as const,
     unreadCount: () => ['notifications', 'unread-count'] as const,
+  },
+
+  serviceOrders: {
+    all: ['service-orders'] as const,
+    list: (params: ListParams & Record<string, unknown>) => ['service-orders', 'list', params] as const,
+    detail: (id: string) => ['service-orders', 'detail', id] as const,
+    kanban: (params?: Record<string, unknown>) => ['service-orders', 'kanban', params ?? {}] as const,
+    calendar: (params?: Record<string, unknown>) => ['service-orders', 'calendar', params ?? {}] as const,
+    history: (id: string) => ['service-orders', 'history', id] as const,
   },
 } as const

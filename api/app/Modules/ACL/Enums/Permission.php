@@ -79,6 +79,14 @@ enum Permission: string
     case ALERT_CONFIG_UPDATE = 'alert-config.update';
     case NOTIFICATION_READ = 'notification.read';
 
+    case DEVICE_COMMANDS_SEND = 'device.commands.send';
+
+    case SERVICE_ORDER_CREATE = 'service-order.create';
+    case SERVICE_ORDER_READ = 'service-order.read';
+    case SERVICE_ORDER_UPDATE = 'service-order.update';
+    case SERVICE_ORDER_DELETE = 'service-order.delete';
+    case SERVICE_ORDER_CHANGE_STATUS = 'service-order.change-status';
+
     /**
      * @return list<string>
      */

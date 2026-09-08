@@ -58,6 +58,14 @@ export const Permission = {
 
   TRACKING_READ: 'tracking.read',
 
+  DEVICE_COMMANDS_SEND: 'device.commands.send',
+
+  SERVICE_ORDER_CREATE: 'service-order.create',
+  SERVICE_ORDER_READ: 'service-order.read',
+  SERVICE_ORDER_UPDATE: 'service-order.update',
+  SERVICE_ORDER_DELETE: 'service-order.delete',
+  SERVICE_ORDER_CHANGE_STATUS: 'service-order.change-status',
+
   GEOFENCE_CREATE: 'geofence.create',
   GEOFENCE_READ: 'geofence.read',
   GEOFENCE_UPDATE: 'geofence.update',
@@ -187,7 +195,10 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
   },
   {
     label: 'Monitoramento',
-    permissions: [{ value: Permission.TRACKING_READ, label: 'Visualizar mapa e histórico' }],
+    permissions: [
+      { value: Permission.TRACKING_READ, label: 'Visualizar mapa e histórico' },
+      { value: Permission.DEVICE_COMMANDS_SEND, label: 'Enviar comandos ao dispositivo' },
+    ],
   },
   {
     label: 'Geocercas',
@@ -205,6 +216,16 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { value: Permission.POI_CREATE, label: 'Criar POIs' },
       { value: Permission.POI_UPDATE, label: 'Editar POIs' },
       { value: Permission.POI_DELETE, label: 'Remover POIs' },
+    ],
+  },
+  {
+    label: 'Ordens de serviço',
+    permissions: [
+      { value: Permission.SERVICE_ORDER_READ, label: 'Visualizar ordens de serviço' },
+      { value: Permission.SERVICE_ORDER_CREATE, label: 'Criar ordens de serviço' },
+      { value: Permission.SERVICE_ORDER_UPDATE, label: 'Editar ordens de serviço' },
+      { value: Permission.SERVICE_ORDER_DELETE, label: 'Remover ordens de serviço' },
+      { value: Permission.SERVICE_ORDER_CHANGE_STATUS, label: 'Alterar status de OS' },
     ],
   },
   {

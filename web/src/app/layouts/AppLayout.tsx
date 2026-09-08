@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { Outlet, useLocation } from 'react-router'
-import { Building2, BellRing, Car, Contact, Cpu, Hexagon, History, IdCard, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, ScrollText, Settings2, ShieldCheck, Users, Zap } from 'lucide-react'
+import { Building2, BellRing, Car, ClipboardList, Contact, Cpu, Hexagon, History, IdCard, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, ScrollText, Settings2, ShieldCheck, Users, Zap } from 'lucide-react'
 import { TenantSelector } from '@/modules/auth/components/TenantSelector'
 import { NotificationBell } from '@/modules/notifications/components/NotificationBell'
 import { useSessionStore } from '@/shared/stores/session.store'
@@ -70,9 +70,11 @@ function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
   const showPois = isOperatingTenant && can(Permission.POI_READ)
   const showAlerts = isOperatingTenant && can(Permission.ALERT_READ)
   const showAlertConfig = isOperatingTenant && can(Permission.ALERT_CONFIG_READ)
+  const showServiceOrders = isOperatingTenant && can(Permission.SERVICE_ORDER_READ)
   const showCadastrosGroup = showClients || showDrivers || showVehicles || showEquipments
   const showGeoGroup = showGeofences || showPois
   const showAlertsGroup = showAlerts || showAlertConfig
+  const showOpsGroup = showServiceOrders
 
   return (
     <Sidebar header={<Brand />}>
@@ -88,6 +90,18 @@ function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
         */}
       </SidebarGroup>
 
+      {showOpsGroup && (
+        <SidebarGroup label="Operação">
+          {showServiceOrders && (
+            <SidebarItem
+              to="/service-orders"
+              icon={ClipboardList}
+              label="Ordens de serviço"
+              onNavigate={onNavigate}
+            />
+          )}
+        </SidebarGroup>
+      )}
       {/* Controle de assinatura desabilitado neste sistema
       {showBillingGroup && (
         <SidebarGroup label="Assinaturas">

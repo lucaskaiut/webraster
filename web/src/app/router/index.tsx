@@ -59,6 +59,12 @@ const PoiCreatePage = lazy(() => import('@/modules/pois/pages/PoiCreatePage'))
 const PoiEditPage = lazy(() => import('@/modules/pois/pages/PoiEditPage'))
 const AlertsListPage = lazy(() => import('@/modules/alerts/pages/AlertsListPage'))
 const AlertConfigPage = lazy(() => import('@/modules/alerts/pages/AlertConfigPage'))
+const ServiceOrdersListPage = lazy(() => import('@/modules/service-orders/pages/ServiceOrdersListPage'))
+const ServiceOrderCreatePage = lazy(() => import('@/modules/service-orders/pages/ServiceOrderCreatePage'))
+const ServiceOrderEditPage = lazy(() => import('@/modules/service-orders/pages/ServiceOrderEditPage'))
+const ServiceOrderDetailPage = lazy(() => import('@/modules/service-orders/pages/ServiceOrderDetailPage'))
+const ServiceOrdersKanbanPage = lazy(() => import('@/modules/service-orders/pages/ServiceOrdersKanbanPage'))
+const ServiceOrdersCalendarPage = lazy(() => import('@/modules/service-orders/pages/ServiceOrdersCalendarPage'))
 
 export const router = createBrowserRouter([
   {
@@ -422,6 +428,54 @@ export const router = createBrowserRouter([
             element: (
               <PermissionGuard permission={Permission.ALERT_CONFIG_READ} requiresChildTenant>
                 <AlertConfigPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/service-orders',
+            element: (
+              <PermissionGuard permission={Permission.SERVICE_ORDER_READ} requiresChildTenant>
+                <ServiceOrdersListPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/service-orders/kanban',
+            element: (
+              <PermissionGuard permission={Permission.SERVICE_ORDER_READ} requiresChildTenant>
+                <ServiceOrdersKanbanPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/service-orders/calendar',
+            element: (
+              <PermissionGuard permission={Permission.SERVICE_ORDER_READ} requiresChildTenant>
+                <ServiceOrdersCalendarPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/service-orders/create',
+            element: (
+              <PermissionGuard permission={Permission.SERVICE_ORDER_CREATE} requiresChildTenant>
+                <ServiceOrderCreatePage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/service-orders/:id',
+            element: (
+              <PermissionGuard permission={Permission.SERVICE_ORDER_READ} requiresChildTenant>
+                <ServiceOrderDetailPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/service-orders/:id/edit',
+            element: (
+              <PermissionGuard permission={Permission.SERVICE_ORDER_UPDATE} requiresChildTenant>
+                <ServiceOrderEditPage />
               </PermissionGuard>
             ),
           },
