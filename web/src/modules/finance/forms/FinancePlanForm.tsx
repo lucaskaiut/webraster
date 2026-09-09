@@ -1,5 +1,4 @@
 import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
 import {
   Button,
   ButtonLink,
@@ -13,7 +12,7 @@ import {
   TextField,
 } from '@/shared/design-system'
 import { isApiError } from '@/shared/api/errors'
-import { applyApiErrorsToForm } from '@/shared/utils/forms'
+import { applyApiErrorsToForm, formResolver } from '@/shared/utils/forms'
 import type { FinancePlan } from '@/shared/types/models'
 import type { FinancePlanPayload } from '../services/finance.service'
 import { financePlanSchema, type FinancePlanFormValues } from '../schemas/plan.schema'
@@ -28,7 +27,7 @@ interface FinancePlanFormProps {
 
 export function FinancePlanForm({ mode, initial, submitting, onSubmit }: FinancePlanFormProps) {
   const form = useForm<FinancePlanFormValues>({
-    resolver: zodResolver(financePlanSchema),
+    resolver: formResolver<FinancePlanFormValues>(financePlanSchema),
     defaultValues: {
       name: initial?.name ?? '',
       description: initial?.description ?? '',

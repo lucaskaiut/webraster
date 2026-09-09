@@ -1,5 +1,4 @@
 import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
 import {
   Button,
   ButtonLink,
@@ -14,7 +13,7 @@ import {
   TextField,
 } from '@/shared/design-system'
 import { isApiError } from '@/shared/api/errors'
-import { applyApiErrorsToForm } from '@/shared/utils/forms'
+import { applyApiErrorsToForm, formResolver } from '@/shared/utils/forms'
 import { toLocalIsoDate } from '@/shared/utils/format'
 import { clientsService } from '@/modules/clients/services/clients.service'
 import type { FinanceContract } from '@/shared/types/models'
@@ -72,7 +71,7 @@ export function FinanceContractForm({
   onSubmit,
 }: FinanceContractFormProps) {
   const form = useForm<FinanceContractFormValues>({
-    resolver: zodResolver(financeContractSchema),
+    resolver: formResolver<FinanceContractFormValues>(financeContractSchema),
     defaultValues: {
       client_id: initial?.client_id ?? '',
       plan_id: initial?.plan_id ?? '',
