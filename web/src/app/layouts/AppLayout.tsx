@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import { Outlet, useLocation } from 'react-router'
-import { Building2, BellRing, Car, ClipboardList, Contact, Cpu, Hexagon, History, IdCard, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, ScrollText, Settings2, ShieldCheck, Users, Zap } from 'lucide-react'
+import { Building2, BellRing, Car, ClipboardList, Contact, Cpu, Hexagon, History, IdCard, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, ScrollText, Settings2, ShieldCheck, Users } from 'lucide-react'
+import { AppLogo } from '@/shared/brand/AppLogo'
 import { TenantSelector } from '@/modules/auth/components/TenantSelector'
 import { NotificationBell } from '@/modules/notifications/components/NotificationBell'
 import { useSessionStore } from '@/shared/stores/session.store'
@@ -37,14 +38,11 @@ function Brand() {
     : tenant?.name
 
   return (
-    <div className="flex items-center gap-2.5 px-1">
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-card">
-        <Zap className="size-4.5" aria-hidden="true" />
-      </span>
-      <span className="min-w-0">
-        <span className="block text-sm leading-tight font-semibold text-foreground">Web Raster</span>
-        <span className="block truncate text-xs text-muted">{activeName}</span>
-      </span>
+    <div className="px-1">
+      <AppLogo size="sm" />
+      {activeName ? (
+        <span className="mt-1 block truncate text-xs text-muted">{activeName}</span>
+      ) : null}
     </div>
   )
 }

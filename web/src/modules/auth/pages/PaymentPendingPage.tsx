@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { Check, CheckCircle2, Copy, ExternalLink, Loader2, RefreshCw, Zap } from 'lucide-react'
+import { Check, CheckCircle2, Copy, ExternalLink, Loader2, RefreshCw } from 'lucide-react'
+import { AppLogo } from '@/shared/brand/AppLogo'
 import {
   Alert,
   Badge,
@@ -243,11 +244,8 @@ export default function PaymentPendingPage() {
         <ThemeToggle />
       </div>
 
-      <div className="mb-8 flex items-center gap-2.5">
-        <span className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-raised">
-          <Zap className="size-5.5" aria-hidden="true" />
-        </span>
-        <span className="text-lg font-semibold tracking-tight text-foreground">Web Raster</span>
+      <div className="mb-8">
+        <AppLogo size="lg" />
       </div>
 
       {loading ? (

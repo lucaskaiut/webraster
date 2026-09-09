@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { Outlet } from 'react-router'
-import { Zap } from 'lucide-react'
+import { AppLogo } from '@/shared/brand/AppLogo'
 import { Loading, ThemeToggle } from '@/shared/design-system'
 
 export function AuthLayout() {
@@ -10,11 +10,8 @@ export function AuthLayout() {
         <ThemeToggle />
       </div>
 
-      <div className="mb-8 flex items-center gap-2.5">
-        <span className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-raised">
-          <Zap className="size-5.5" aria-hidden="true" />
-        </span>
-        <span className="text-lg font-semibold tracking-tight text-foreground">Web Raster</span>
+      <div className="mb-8">
+        <AppLogo size="lg" />
       </div>
 
       <Suspense fallback={<Loading />}>
