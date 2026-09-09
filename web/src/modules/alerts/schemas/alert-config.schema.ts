@@ -1,17 +1,21 @@
 import { z } from 'zod'
 
+export const ALERT_CONFIG_TYPES = [
+  'speed',
+  'ignition_on',
+  'ignition_off',
+  'sos',
+  'offline',
+  'battery',
+  'jamming',
+] as const
+
+export type AlertConfigType = (typeof ALERT_CONFIG_TYPES)[number]
+
 export const alertConfigSchema = z
   .object({
     name: z.string().max(150).optional().or(z.literal('')),
-    type: z.enum([
-      'speed',
-      'ignition_on',
-      'ignition_off',
-      'sos',
-      'offline',
-      'battery',
-      'jamming',
-    ]),
+    type: z.enum(ALERT_CONFIG_TYPES),
     client_id: z.string().optional().or(z.literal('')),
     vehicle_id: z.string().optional().or(z.literal('')),
     is_enabled: z.boolean(),

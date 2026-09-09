@@ -18,14 +18,19 @@ import { Checkbox } from './Checkbox'
 import { Switch } from './Switch'
 import { RadioGroup, type RadioOption } from './RadioGroup'
 
-interface FormProps<T extends FieldValues> {
-  form: UseFormReturn<T>
-  onSubmit: SubmitHandler<T>
+interface FormProps<T extends FieldValues, TTransformed extends FieldValues = T> {
+  form: UseFormReturn<T, unknown, TTransformed>
+  onSubmit: SubmitHandler<TTransformed>
   children: ReactNode
   className?: string
 }
 
-export function Form<T extends FieldValues>({ form, onSubmit, children, className }: FormProps<T>) {
+export function Form<T extends FieldValues, TTransformed extends FieldValues = T>({
+  form,
+  onSubmit,
+  children,
+  className,
+}: FormProps<T, TTransformed>) {
   return (
     <FormProvider {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} noValidate className={cn('space-y-5', className)}>

@@ -1,5 +1,4 @@
 import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate } from 'react-router'
 import {
   Button,
@@ -17,7 +16,7 @@ import {
   TextField,
 } from '@/shared/design-system'
 import { isApiError } from '@/shared/api/errors'
-import { applyApiErrorsToForm } from '@/shared/utils/forms'
+import { applyApiErrorsToForm, formResolver } from '@/shared/utils/forms'
 import { useCreatePlan } from '../hooks/useBilling'
 import { planSchema, RECURRENCE_UNITS, type PlanFormValues } from '../schemas/plan.schema'
 
@@ -26,7 +25,7 @@ export default function PlanCreatePage() {
   const createPlan = useCreatePlan()
 
   const form = useForm<PlanFormValues>({
-    resolver: zodResolver(planSchema),
+    resolver: formResolver<PlanFormValues>(planSchema),
     defaultValues: {
       name: '',
       description: '',

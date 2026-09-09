@@ -1,6 +1,5 @@
 import { useCallback } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
 import {
   Button,
   ButtonLink,
@@ -15,7 +14,7 @@ import {
   TextField,
 } from '@/shared/design-system'
 import { isApiError } from '@/shared/api/errors'
-import { applyApiErrorsToForm } from '@/shared/utils/forms'
+import { applyApiErrorsToForm, formResolver } from '@/shared/utils/forms'
 import { clientsService } from '@/modules/clients/services/clients.service'
 import type { GeofencePayload } from '../services/geofences.service'
 import { geofenceSchema, type GeofenceFormValues } from '../schemas/geofence.schema'
@@ -44,7 +43,7 @@ async function resolveClientLabel(value: string) {
 
 export function GeofenceForm({ mode, defaultValues, submitting, onSubmit }: GeofenceFormProps) {
   const form = useForm<GeofenceFormValues>({
-    resolver: zodResolver(geofenceSchema),
+    resolver: formResolver<GeofenceFormValues>(geofenceSchema),
     defaultValues: {
       client_id: '',
       name: '',

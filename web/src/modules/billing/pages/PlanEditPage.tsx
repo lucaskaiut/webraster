@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate, useParams } from 'react-router'
 import {
   Button,
@@ -19,7 +18,7 @@ import {
   TextField,
 } from '@/shared/design-system'
 import { isApiError } from '@/shared/api/errors'
-import { applyApiErrorsToForm } from '@/shared/utils/forms'
+import { applyApiErrorsToForm, formResolver } from '@/shared/utils/forms'
 import { usePlanQuery, useUpdatePlan } from '../hooks/useBilling'
 import { planSchema, RECURRENCE_UNITS, type PlanFormValues } from '../schemas/plan.schema'
 
@@ -30,7 +29,7 @@ export default function PlanEditPage() {
   const updatePlan = useUpdatePlan()
 
   const form = useForm<PlanFormValues>({
-    resolver: zodResolver(planSchema),
+    resolver: formResolver<PlanFormValues>(planSchema),
     defaultValues: {
       name: '',
       description: '',

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, ConfirmDialog, SegmentedControl, Spinner, Switch, Textarea } from '@/shared/design-system'
+import { Button, SegmentedControl, Switch } from '@/shared/design-system'
 import type { TrackingLiveVehicle } from '@/shared/types/models'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import { Permission } from '@/shared/constants/permissions'

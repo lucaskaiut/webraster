@@ -1,5 +1,16 @@
 import type { ListParams } from '@/shared/types/api'
 
+type ServiceOrderQueryParams = ListParams & {
+  status?: string
+  type?: string
+  priority?: string
+  client_id?: string
+  vehicle_id?: string
+  technician_id?: string
+  from?: string
+  to?: string
+}
+
 export const queryKeys = {
   session: ['session'] as const,
 
@@ -159,10 +170,11 @@ export const queryKeys = {
 
   serviceOrders: {
     all: ['service-orders'] as const,
-    list: (params: ListParams & Record<string, unknown>) => ['service-orders', 'list', params] as const,
+    list: (params: ServiceOrderQueryParams) => ['service-orders', 'list', params] as const,
     detail: (id: string) => ['service-orders', 'detail', id] as const,
-    kanban: (params?: Record<string, unknown>) => ['service-orders', 'kanban', params ?? {}] as const,
-    calendar: (params?: Record<string, unknown>) => ['service-orders', 'calendar', params ?? {}] as const,
+    kanban: (params?: ServiceOrderQueryParams) => ['service-orders', 'kanban', params ?? {}] as const,
+    calendar: (params?: ServiceOrderQueryParams) =>
+      ['service-orders', 'calendar', params ?? {}] as const,
     history: (id: string) => ['service-orders', 'history', id] as const,
   },
 } as const

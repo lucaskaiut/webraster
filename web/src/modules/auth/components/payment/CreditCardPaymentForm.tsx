@@ -1,6 +1,6 @@
 import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { Button, CheckboxField, Form, SelectField, TextField } from '@/shared/design-system'
+import { formResolver } from '@/shared/utils/forms'
 import { formatCurrency } from '@/shared/utils/format'
 import { onlyDigits } from '@/shared/utils/document'
 import {
@@ -40,7 +40,7 @@ export function CreditCardPaymentForm({
   onSubmit,
 }: CreditCardPaymentFormProps) {
   const form = useForm<CreditCardValues>({
-    resolver: zodResolver(creditCardSchema),
+    resolver: formResolver<CreditCardValues>(creditCardSchema),
     defaultValues: {
       holder_name: '',
       number: '',

@@ -1,5 +1,4 @@
 import { useForm, useWatch } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
 import {
   Button,
   Card,
@@ -14,12 +13,17 @@ import {
   TextField,
 } from '@/shared/design-system'
 import { isApiError } from '@/shared/api/errors'
-import { applyApiErrorsToForm } from '@/shared/utils/forms'
+import { applyApiErrorsToForm, formResolver } from '@/shared/utils/forms'
 import { clientsService } from '@/modules/clients/services/clients.service'
 import { vehiclesService } from '@/modules/vehicles/services/vehicles.service'
-import type { AlertConfig } from '@/shared/types/models'
+import type { AlertConfig, AlertType } from '@/shared/types/models'
 import type { AlertConfigPayload } from '../services/alerts.service'
-import { alertConfigSchema, type AlertConfigFormValues } from '../schemas/alert-config.schema'
+import {
+  ALERT_CONFIG_TYPES,
+  alertConfigSchema,
+  type AlertConfigFormValues,
+  type AlertConfigType,
+} from '../schemas/alert-config.schema'
 
 const TYPE_OPTIONS = [
   { value: 'speed', label: 'Excesso de velocidade' },
@@ -65,6 +69,13 @@ async function resolveVehicleLabel(value: string) {
   }
 }
 
+function toAlertConfigType(type: AlertType | undefined): AlertConfigType {
+  if (type && (ALERT_CONFIG_TYPES as readonly string[]).includes(type)) {
+    return type as AlertConfigType
+  }
+  return 'speed'
+}
+
 interface AlertConfigFormProps {
   mode: 'create' | 'edit'
   initial?: AlertConfig | null
@@ -75,10 +86,10 @@ interface AlertConfigFormProps {
 
 export function AlertConfigForm({ mode, initial, submitting, onSubmit, onCancel }: AlertConfigFormProps) {
   const form = useForm<AlertConfigFormValues>({
-    resolver: zodResolver(alertConfigSchema),
+    resolver: formResolver<AlertConfigFormValues>(alertConfigSchema),
     defaultValues: {
       name: initial?.name ?? '',
-      type: initial?.type ?? 'speed',
+      type: toAlertConfigType(initial?.type),
       client_id: initial?.client_id ?? '',
       vehicle_id: initial?.vehicle_id ?? '',
       is_enabled: initial?.is_enabled ?? true,
