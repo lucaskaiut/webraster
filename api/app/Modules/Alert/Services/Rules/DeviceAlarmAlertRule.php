@@ -28,75 +28,73 @@ class DeviceAlarmAlertRule implements AlertRule
         $attributes = is_array($position->attributes) ? $position->attributes : [];
         $events = collect();
 
-        $restored = TraccarAttributeReader::extractRestoredAlarm($attributes);
-
-        if ($restored !== null) {
+        foreach (TraccarAttributeReader::extractRestoredAlarms($attributes) as $restored) {
             $base = TraccarAttributeReader::restoredBaseAlarm($restored);
 
             if ($base !== null) {
                 $this->deactivateAlarm($vehicle, $position, $base);
             }
-
-            return $events;
         }
 
-        $alarm = TraccarAttributeReader::extractDeviceAlarm($attributes);
+        $alarms = TraccarAttributeReader::extractDeviceAlarms($attributes);
 
-        if ($alarm === null) {
+        if ($alarms === []) {
             $this->deactivateAllDeviceAlarms($vehicle, $position);
 
             return $events;
         }
 
-        $scopeId = AlertStateStore::scopeIdForDeviceAlarm($alarm);
-        $state = $this->states->get(
-            (int) $vehicle->tenant_id,
-            (int) $vehicle->getKey(),
-            AlertType::DEVICE_ALARM,
-            $scopeId,
-        );
+        foreach ($alarms as $alarm) {
+            $scopeId = AlertStateStore::scopeIdForDeviceAlarm($alarm);
+            $state = $this->states->get(
+                (int) $vehicle->tenant_id,
+                (int) $vehicle->getKey(),
+                AlertType::DEVICE_ALARM,
+                $scopeId,
+            );
 
-        if (! $state->is_active) {
-            $label = TraccarAttributeReader::deviceAlarmLabel($alarm);
-            $severity = TraccarAttributeReader::deviceAlarmSeverity($alarm);
+            if (! $state->is_active) {
+                $label = TraccarAttributeReader::deviceAlarmLabel($alarm);
+                $severity = TraccarAttributeReader::deviceAlarmSeverity($alarm);
 
-            foreach ($this->configs->matchingForVehicle($vehicle, AlertType::DEVICE_ALARM) as $config) {
-                $alert = $this->dispatcher->dispatch(
-                    $config,
-                    AlertType::DEVICE_ALARM,
-                    $vehicle,
-                    [
-                        'gps_position_id' => $position->getKey(),
-                        'equipment_id' => $position->equipment_id,
-                        'title' => $label,
-                        'description' => sprintf(
-                            'Alarme "%s" no veículo %s.',
-                            $label,
-                            $vehicle->plate,
-                        ),
-                        'latitude' => $position->latitude,
-                        'longitude' => $position->longitude,
-                        'occurred_at' => $position->recorded_at,
-                        'meta' => [
-                            'alarm_code' => $alarm,
-                            'attributes' => array_intersect_key($attributes, array_flip(['alarm', 'event'])),
-                            'alert_config_id' => $config->uuid,
+                foreach ($this->configs->matchingForVehicle($vehicle, AlertType::DEVICE_ALARM) as $config) {
+                    $alert = $this->dispatcher->dispatch(
+                        $config,
+                        AlertType::DEVICE_ALARM,
+                        $vehicle,
+                        [
+                            'gps_position_id' => $position->getKey(),
+                            'equipment_id' => $position->equipment_id,
+                            'title' => $label,
+                            'description' => sprintf(
+                                'Alarme "%s" no veículo %s.',
+                                $label,
+                                $vehicle->plate,
+                            ),
+                            'latitude' => $position->latitude,
+                            'longitude' => $position->longitude,
+                            'occurred_at' => $position->recorded_at,
+                            'meta' => [
+                                'alarm_code' => $alarm,
+                                'attributes' => array_intersect_key($attributes, array_flip(['alarm', 'event'])),
+                                'alert_config_id' => $config->uuid,
+                            ],
                         ],
-                    ],
-                    $severity,
-                );
+                        $severity,
+                    );
 
-                if ($alert) {
-                    $events->push($alert);
+                    if ($alert) {
+                        $events->push($alert);
+                    }
                 }
-            }
 
-            $this->states->activate($state, $position, ['alarm_code' => $alarm]);
-        } else {
-            $this->states->touch($state, $position, ['alarm_code' => $alarm]);
+                $this->states->activate($state, $position, ['alarm_code' => $alarm]);
+            } else {
+                $this->states->touch($state, $position, ['alarm_code' => $alarm]);
+            }
         }
 
-        $this->deactivateOtherAlarms($vehicle, $position, $alarm);
+        $this->deactivateAlarmsExcept($vehicle, $position, $alarms);
 
         return $events;
     }
@@ -115,7 +113,10 @@ class DeviceAlarmAlertRule implements AlertRule
         }
     }
 
-    private function deactivateOtherAlarms(Vehicle $vehicle, GpsPosition $position, string $activeAlarm): void
+    /**
+     * @param  list<string>  $activeAlarms
+     */
+    private function deactivateAlarmsExcept(Vehicle $vehicle, GpsPosition $position, array $activeAlarms): void
     {
         $activeStates = AlertState::query()
             ->withoutGlobalScopes()
@@ -127,7 +128,7 @@ class DeviceAlarmAlertRule implements AlertRule
         foreach ($activeStates as $state) {
             $code = is_array($state->meta) ? ($state->meta['alarm_code'] ?? null) : null;
 
-            if ($code !== null && $code !== $activeAlarm) {
+            if ($code !== null && ! in_array($code, $activeAlarms, true)) {
                 $this->states->deactivate($state, $position);
             }
         }

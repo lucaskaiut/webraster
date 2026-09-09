@@ -81,10 +81,13 @@ final class TraccarAttributeReader
             return true;
         }
 
-        $alarm = self::normalizeAlarmCode($attributes['alarm'] ?? null);
+        foreach (self::parseAlarmCodes($attributes['alarm'] ?? null) as $alarm) {
+            if (in_array($alarm, ['sos', 'emergency', 'panic'], true) || str_contains($alarm, 'sos')) {
+                return true;
+            }
+        }
 
-        return in_array($alarm, ['sos', 'emergency', 'panic'], true)
-            || str_contains($alarm, 'sos');
+        return false;
     }
 
     /**
@@ -102,10 +105,13 @@ final class TraccarAttributeReader
             }
         }
 
-        $alarm = self::normalizeAlarmCode($attributes['alarm'] ?? null);
+        foreach (self::parseAlarmCodes($attributes['alarm'] ?? null) as $alarm) {
+            if (in_array($alarm, ['jamming', 'gpsjamming', 'gsmjamming'], true) || str_contains($alarm, 'jam')) {
+                return true;
+            }
+        }
 
-        return in_array($alarm, ['jamming', 'gpsjamming', 'gsmjamming'], true)
-            || str_contains($alarm, 'jam');
+        return false;
     }
 
     /**
@@ -121,10 +127,11 @@ final class TraccarAttributeReader
         }
 
         $codes = [];
-        $alarm = self::normalizeAlarmCode($attributes['alarm'] ?? null);
 
-        if ($alarm !== '' && ! self::isRestoredAlarm($alarm)) {
-            $codes[] = $alarm;
+        foreach (self::parseAlarmCodes($attributes['alarm'] ?? null) as $alarm) {
+            if (! self::isRestoredAlarm($alarm)) {
+                $codes[] = $alarm;
+            }
         }
 
         if (self::isSos($attributes) && ! in_array('sos', $codes, true)) {
@@ -143,19 +150,44 @@ final class TraccarAttributeReader
      *
      * @param  array<string, mixed>|null  $attributes
      */
-    public static function extractDeviceAlarm(?array $attributes): ?string
+    /**
+     * @param  array<string, mixed>|null  $attributes
+     * @return list<string>
+     */
+    public static function extractDeviceAlarms(?array $attributes): array
     {
         if ($attributes === null || $attributes === []) {
-            return null;
+            return [];
         }
 
-        $alarm = self::normalizeAlarmCode($attributes['alarm'] ?? null);
+        return array_values(array_filter(
+            self::parseAlarmCodes($attributes['alarm'] ?? null),
+            fn (string $alarm) => ! self::isRestoredAlarm($alarm) && ! self::isExcludedDeviceAlarm($alarm),
+        ));
+    }
 
-        if ($alarm === '' || self::isRestoredAlarm($alarm) || self::isExcludedDeviceAlarm($alarm)) {
-            return null;
+    /**
+     * @param  array<string, mixed>|null  $attributes
+     */
+    public static function extractDeviceAlarm(?array $attributes): ?string
+    {
+        return self::extractDeviceAlarms($attributes)[0] ?? null;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $attributes
+     * @return list<string>
+     */
+    public static function extractRestoredAlarms(?array $attributes): array
+    {
+        if ($attributes === null || $attributes === []) {
+            return [];
         }
 
-        return $alarm;
+        return array_values(array_filter(
+            self::parseAlarmCodes($attributes['alarm'] ?? null),
+            fn (string $alarm) => self::isRestoredAlarm($alarm),
+        ));
     }
 
     /**
@@ -163,17 +195,7 @@ final class TraccarAttributeReader
      */
     public static function extractRestoredAlarm(?array $attributes): ?string
     {
-        if ($attributes === null || $attributes === []) {
-            return null;
-        }
-
-        $alarm = self::normalizeAlarmCode($attributes['alarm'] ?? null);
-
-        if ($alarm === '' || ! self::isRestoredAlarm($alarm)) {
-            return null;
-        }
-
-        return $alarm;
+        return self::extractRestoredAlarms($attributes)[0] ?? null;
     }
 
     public static function isRestoredAlarm(string $alarm): bool
@@ -282,6 +304,31 @@ final class TraccarAttributeReader
         }
 
         return $value;
+    }
+
+    /**
+     * Traccar pode enviar vários alarmes no mesmo atributo, separados por vírgula.
+     *
+     * @return list<string>
+     */
+    public static function parseAlarmCodes(mixed $value): array
+    {
+        if ($value === null || $value === '') {
+            return [];
+        }
+
+        $parts = preg_split('/\s*,\s*/', (string) $value) ?: [];
+        $codes = [];
+
+        foreach ($parts as $part) {
+            $code = self::normalizeAlarmCode($part);
+
+            if ($code !== '') {
+                $codes[] = $code;
+            }
+        }
+
+        return array_values(array_unique($codes));
     }
 
     public static function normalizeAlarmCode(mixed $value): string

@@ -3,7 +3,7 @@ import { SearchInput, Skeleton } from '@/shared/design-system'
 import { cn } from '@/shared/utils/cn'
 import type { TrackingLiveVehicle } from '@/shared/types/models'
 import { AlertTriangle } from 'lucide-react'
-import { Badge } from '@/shared/design-system'
+import { VehicleAlarmTooltip } from './VehicleAlarmTooltip'
 import {
   connectionStatus,
   fleetStats,
@@ -57,7 +57,7 @@ export function FleetSidebar({
   )
 
   return (
-    <aside className={cn('flex min-h-0 flex-col overflow-hidden rounded-xl bg-surface shadow-card', className)}>
+    <aside className={cn('flex min-h-0 flex-col rounded-xl bg-surface shadow-card', className)}>
       <div className="space-y-3 p-3">
         <SearchInput
           className="sm:max-w-none"
@@ -77,7 +77,7 @@ export function FleetSidebar({
           <Stat label="Parados" value={stats.stopped} />
         </div>
         {stats.withAlarm > 0 && (
-          <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+          <div className="flex items-center gap-2 px-1 text-xs text-warning">
             <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
             <span>
               {stats.withAlarm} veículo{stats.withAlarm === 1 ? '' : 's'} com alarme ativo
@@ -164,29 +164,21 @@ const VehicleListItem = memo(function VehicleListItem({
         type="button"
         onClick={() => onSelect(vehicle.id)}
         className={cn(
-          'flex w-full flex-col gap-1 rounded-lg px-2.5 py-2.5 text-left transition-colors hover:bg-surface-2',
+          'group/item flex w-full flex-col gap-1 rounded-lg px-2.5 py-2.5 text-left transition-colors hover:bg-surface-2',
           selected && 'bg-surface-2',
-          hasActiveAlarm(vehicle) && 'border border-warning/30 bg-warning/5',
+          alarms.length > 0 && 'relative z-10',
         )}
       >
         <div className="flex items-center justify-between gap-2">
           <span className="flex items-center gap-2 font-medium text-foreground">
-            <StatusDot status={connection} alarm={hasActiveAlarm(vehicle)} />
+            <StatusDot status={connection} />
             {vehicle.plate}
+            <VehicleAlarmTooltip alarms={alarms} />
           </span>
           <span className="text-[11px] text-muted">
             {connection === 'online' ? 'Online' : connection === 'offline' ? 'Offline' : 'Sem sinal'}
           </span>
         </div>
-        {alarms.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {alarms.map((alarm) => (
-              <Badge key={alarm.code} variant={alarm.severity === 'critical' ? 'danger' : 'warning'}>
-                {alarm.label}
-              </Badge>
-            ))}
-          </div>
-        )}
         <p className="truncate text-[13px] text-muted">
           {vehicleLabel(vehicle)}
           {vehicle.client?.name ? ` · ${vehicle.client.name}` : ''}
@@ -203,22 +195,15 @@ const VehicleListItem = memo(function VehicleListItem({
   )
 })
 
-function StatusDot({
-  status,
-  alarm,
-}: {
-  status: 'online' | 'offline' | 'no_position'
-  alarm?: boolean
-}) {
+function StatusDot({ status }: { status: 'online' | 'offline' | 'no_position' }) {
   return (
     <span
       aria-hidden="true"
       className={cn(
         'size-2 rounded-full',
-        alarm && 'bg-danger ring-2 ring-danger/30',
-        !alarm && status === 'online' && 'bg-success',
-        !alarm && status === 'offline' && 'bg-muted',
-        !alarm && status === 'no_position' && 'bg-warning',
+        status === 'online' && 'bg-success',
+        status === 'offline' && 'bg-muted',
+        status === 'no_position' && 'bg-warning',
       )}
     />
   )

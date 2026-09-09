@@ -65,4 +65,17 @@ class AlertSupportTest extends TestCase
         $this->assertTrue(TraccarAttributeReader::isRestoredAlarm('powerRestored'));
         $this->assertSame('powercut', TraccarAttributeReader::restoredBaseAlarm('powerRestored'));
     }
+
+    #[Test]
+    public function splits_comma_separated_traccar_alarms(): void
+    {
+        $this->assertSame(
+            ['powercut', 'vibration'],
+            TraccarAttributeReader::activeAlarms(['alarm' => 'powerCut, vibration']),
+        );
+        $this->assertSame(
+            ['powercut', 'lowbattery'],
+            TraccarAttributeReader::extractDeviceAlarms(['alarm' => 'powerCut, lowBattery']),
+        );
+    }
 }
