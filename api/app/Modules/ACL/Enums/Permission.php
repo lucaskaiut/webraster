@@ -87,6 +87,32 @@ enum Permission: string
     case SERVICE_ORDER_DELETE = 'service-order.delete';
     case SERVICE_ORDER_CHANGE_STATUS = 'service-order.change-status';
 
+    case FINANCE_PLAN_CREATE = 'finance-plan.create';
+    case FINANCE_PLAN_READ = 'finance-plan.read';
+    case FINANCE_PLAN_UPDATE = 'finance-plan.update';
+    case FINANCE_PLAN_DELETE = 'finance-plan.delete';
+
+    case FINANCE_CONTRACT_CREATE = 'finance-contract.create';
+    case FINANCE_CONTRACT_READ = 'finance-contract.read';
+    case FINANCE_CONTRACT_UPDATE = 'finance-contract.update';
+    case FINANCE_CONTRACT_DELETE = 'finance-contract.delete';
+
+    case FINANCE_SUBSCRIPTION_CREATE = 'finance-subscription.create';
+    case FINANCE_SUBSCRIPTION_READ = 'finance-subscription.read';
+    case FINANCE_SUBSCRIPTION_UPDATE = 'finance-subscription.update';
+
+    case FINANCE_RECEIVABLE_CREATE = 'finance-receivable.create';
+    case FINANCE_RECEIVABLE_READ = 'finance-receivable.read';
+    case FINANCE_RECEIVABLE_UPDATE = 'finance-receivable.update';
+    case FINANCE_RECEIVABLE_CHARGE = 'finance-receivable.charge';
+
+    case FINANCE_ASAAS_CONFIG_READ = 'finance-asaas-config.read';
+    case FINANCE_ASAAS_CONFIG_UPDATE = 'finance-asaas-config.update';
+
+    case FINANCE_DASHBOARD_READ = 'finance-dashboard.read';
+    case FINANCE_REPORT_READ = 'finance-report.read';
+    case FINANCE_PORTAL_VIEW = 'finance-portal.view';
+
     /**
      * @return list<string>
      */

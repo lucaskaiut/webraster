@@ -1,6 +1,13 @@
-import type { GpsPosition, TrackingLiveVehicle } from '@/shared/types/models'
+import type { DeviceAlarm, GpsPosition, TrackingLiveVehicle } from '@/shared/types/models'
 
-export type FleetFilter = 'all' | 'online' | 'offline' | 'moving' | 'stopped' | 'no_signal'
+export type FleetFilter =
+  | 'all'
+  | 'online'
+  | 'offline'
+  | 'moving'
+  | 'stopped'
+  | 'no_signal'
+  | 'with_alarm'
 export type ConnectionStatus = 'online' | 'offline' | 'no_position'
 export type MotionStatus = 'moving' | 'stopped'
 
@@ -75,6 +82,14 @@ export function connectionStatus(vehicle: TrackingLiveVehicle): ConnectionStatus
   return vehicle.online ? 'online' : 'offline'
 }
 
+export function vehicleAlarms(vehicle: TrackingLiveVehicle): DeviceAlarm[] {
+  return vehicle.position?.alarms ?? []
+}
+
+export function hasActiveAlarm(vehicle: TrackingLiveVehicle): boolean {
+  return vehicleAlarms(vehicle).length > 0
+}
+
 export function motionStatus(vehicle: TrackingLiveVehicle): MotionStatus | null {
   if (!vehicle.position || !vehicle.online) return null
 
@@ -101,6 +116,8 @@ export function matchesFleetFilter(vehicle: TrackingLiveVehicle, filter: FleetFi
       return motion === 'moving'
     case 'stopped':
       return motion === 'stopped'
+    case 'with_alarm':
+      return hasActiveAlarm(vehicle)
     default:
       return true
   }
@@ -139,10 +156,11 @@ export function fleetStats(vehicles: TrackingLiveVehicle[]) {
       if (connection === 'no_position') stats.noSignal += 1
       if (motion === 'moving') stats.moving += 1
       if (motion === 'stopped') stats.stopped += 1
+      if (hasActiveAlarm(vehicle)) stats.withAlarm += 1
 
       return stats
     },
-    { total: 0, online: 0, offline: 0, moving: 0, stopped: 0, noSignal: 0 },
+    { total: 0, online: 0, offline: 0, moving: 0, stopped: 0, noSignal: 0, withAlarm: 0 },
   )
 }
 
@@ -239,6 +257,18 @@ export function deriveRouteEvents(route: GpsPosition[]): DerivedEvent[] {
         at: point.recorded_at,
         label: moving ? 'Veículo em movimento' : 'Veículo parado',
         tone: moving ? 'success' : 'neutral',
+      })
+    }
+
+    const previousAlarms = new Set((previous?.alarms ?? []).map((alarm) => alarm.code))
+    for (const alarm of point.alarms ?? []) {
+      if (previousAlarms.has(alarm.code)) continue
+
+      events.push({
+        id: `${point.id}-alarm-${alarm.code}`,
+        at: point.recorded_at,
+        label: alarm.label,
+        tone: alarm.severity === 'critical' || alarm.severity === 'high' ? 'warning' : 'neutral',
       })
     }
 

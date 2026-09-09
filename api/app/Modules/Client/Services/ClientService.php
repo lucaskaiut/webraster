@@ -60,8 +60,12 @@ class ClientService
     {
         return Arr::only($data, [
             'name',
+            'legal_name',
+            'trade_name',
             'document',
+            'state_registration',
             'email',
+            'financial_email',
             'phone',
             'street',
             'number',

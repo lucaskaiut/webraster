@@ -30,6 +30,7 @@ const TYPE_OPTIONS = [
   { value: 'online', label: 'Online' },
   { value: 'battery', label: 'Bateria' },
   { value: 'jamming', label: 'Jamming' },
+  { value: 'device_alarm', label: 'Alarme do dispositivo' },
 ]
 
 export default function AlertsListPage() {

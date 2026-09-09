@@ -60,7 +60,9 @@ class AlertConfigService
                 'type' => $type,
                 'is_enabled' => true,
                 'notify_in_app' => true,
-                'notify_email' => $type === AlertType::SOS || $type === AlertType::JAMMING,
+                'notify_email' => $type === AlertType::SOS
+                    || $type === AlertType::JAMMING
+                    || $type === AlertType::DEVICE_ALARM,
                 'settings' => self::defaultSettings($type),
             ])->save();
         }

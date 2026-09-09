@@ -33,6 +33,7 @@ const TYPE_OPTIONS = [
   { value: 'offline', label: 'Dispositivo offline' },
   { value: 'battery', label: 'Bateria baixa' },
   { value: 'jamming', label: 'Jamming' },
+  { value: 'device_alarm', label: 'Alarmes do dispositivo (Traccar)' },
 ]
 
 async function loadClientOptions(search: string) {

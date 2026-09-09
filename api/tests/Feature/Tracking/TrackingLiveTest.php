@@ -88,6 +88,51 @@ class TrackingLiveTest extends TestCase
         ]);
     }
 
+    public function test_live_exposes_device_alarms_from_traccar_attributes(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create(['plate' => 'PWR1234']);
+        Equipment::factory()->assignedTo($vehicle)->create([
+            'imei' => '359633100000077',
+            'traccar_device_id' => 77,
+        ]);
+
+        config([
+            'traccar.enabled' => true,
+            'traccar.base_url' => 'http://traccar.test',
+            'traccar.token' => 'test-token',
+            'traccar.timeout' => 5,
+        ]);
+
+        $this->app->instance(TraccarGateway::class, $this->app->make(HttpTraccarGateway::class));
+
+        Http::fake([
+            'traccar.test/api/positions*' => Http::response([
+                [
+                    'id' => 2001,
+                    'deviceId' => 77,
+                    'latitude' => -25.4284,
+                    'longitude' => -49.2733,
+                    'deviceTime' => now()->toIso8601String(),
+                    'speed' => 0,
+                    'attributes' => [
+                        'alarm' => 'powerCut',
+                        'charge' => false,
+                    ],
+                ],
+            ]),
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->getJson('/api/tracking/live')
+            ->assertOk()
+            ->assertJsonPath('data.0.position.alarms.0.code', 'powercut')
+            ->assertJsonPath('data.0.position.alarms.0.label', 'Alimentação cortada')
+            ->assertJsonPath('data.0.position.alarms.0.severity', 'critical');
+    }
+
     public function test_history_returns_route_points(): void
     {
         [, $tenant] = $this->createOperationalChild();

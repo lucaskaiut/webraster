@@ -21,6 +21,8 @@ class StoreClientRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
+            'legal_name' => ['nullable', 'string', 'max:255'],
+            'trade_name' => ['nullable', 'string', 'max:255'],
             'document' => [
                 'required',
                 'string',
@@ -29,7 +31,9 @@ class StoreClientRequest extends FormRequest
                     fn ($query) => $query->where('tenant_id', TenantContext::tenantId())->whereNull('deleted_at'),
                 ),
             ],
+            'state_registration' => ['nullable', 'string', 'max:30'],
             'email' => ['nullable', 'string', 'email', 'max:255'],
+            'financial_email' => ['nullable', 'string', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:20'],
             'street' => ['nullable', 'string', 'max:255'],
             'number' => ['nullable', 'string', 'max:20'],

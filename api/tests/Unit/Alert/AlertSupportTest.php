@@ -41,4 +41,28 @@ class AlertSupportTest extends TestCase
         $this->assertNull(TraccarAttributeReader::batteryPercent(12.6));
         $this->assertSame(10.0, TraccarAttributeReader::batteryPercent(null, ['batteryLevel' => 10]));
     }
+
+    #[Test]
+    public function extracts_device_alarms_and_labels(): void
+    {
+        $this->assertSame('powercut', TraccarAttributeReader::extractDeviceAlarm(['alarm' => 'powerCut']));
+        $this->assertSame('Alimentação cortada', TraccarAttributeReader::deviceAlarmLabel('powerCut'));
+        $this->assertNull(TraccarAttributeReader::extractDeviceAlarm(['alarm' => 'sos']));
+        $this->assertNull(TraccarAttributeReader::extractDeviceAlarm(['alarm' => 'powerRestored']));
+    }
+
+    #[Test]
+    public function lists_active_alarms_for_monitoring(): void
+    {
+        $this->assertSame(['powercut'], TraccarAttributeReader::activeAlarms(['alarm' => 'powerCut']));
+        $this->assertSame(['sos'], TraccarAttributeReader::activeAlarms(['sos' => true]));
+        $this->assertSame([], TraccarAttributeReader::activeAlarms(['alarm' => 'powerRestored']));
+    }
+
+    #[Test]
+    public function maps_restored_alarms_to_base_codes(): void
+    {
+        $this->assertTrue(TraccarAttributeReader::isRestoredAlarm('powerRestored'));
+        $this->assertSame('powercut', TraccarAttributeReader::restoredBaseAlarm('powerRestored'));
+    }
 }

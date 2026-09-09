@@ -24,6 +24,8 @@ class UpdateClientRequest extends FormRequest
 
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'legal_name' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'trade_name' => ['sometimes', 'nullable', 'string', 'max:255'],
             'document' => [
                 'sometimes',
                 'required',
@@ -33,7 +35,9 @@ class UpdateClientRequest extends FormRequest
                     ->where(fn ($query) => $query->where('tenant_id', TenantContext::tenantId())->whereNull('deleted_at'))
                     ->ignore($client->getKey()),
             ],
+            'state_registration' => ['sometimes', 'nullable', 'string', 'max:30'],
             'email' => ['sometimes', 'nullable', 'string', 'email', 'max:255'],
+            'financial_email' => ['sometimes', 'nullable', 'string', 'email', 'max:255'],
             'phone' => ['sometimes', 'nullable', 'string', 'max:20'],
             'street' => ['sometimes', 'nullable', 'string', 'max:255'],
             'number' => ['sometimes', 'nullable', 'string', 'max:20'],

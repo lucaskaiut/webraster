@@ -8,6 +8,7 @@ export const ALERT_CONFIG_TYPES = [
   'offline',
   'battery',
   'jamming',
+  'device_alarm',
 ] as const
 
 export type AlertConfigType = (typeof ALERT_CONFIG_TYPES)[number]

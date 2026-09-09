@@ -4,8 +4,12 @@ import type { Client, User } from '@/shared/types/models'
 
 export interface ClientPayload {
   name: string
+  legal_name?: string | null
+  trade_name?: string | null
   document: string
+  state_registration?: string | null
   email?: string | null
+  financial_email?: string | null
   phone?: string | null
   street?: string | null
   number?: string | null

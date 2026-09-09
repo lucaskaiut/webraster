@@ -31,13 +31,20 @@ class Equipment extends Model
         'iccid',
         'carrier',
         'is_active',
+        'billing_suspended_at',
     ];
 
     protected function casts(): array
     {
         return [
             'is_active' => 'boolean',
+            'billing_suspended_at' => 'datetime',
         ];
+    }
+
+    public function isBillingSuspended(): bool
+    {
+        return $this->billing_suspended_at !== null;
     }
 
     public function vehicle(): BelongsTo

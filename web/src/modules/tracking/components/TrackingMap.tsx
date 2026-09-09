@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { Crosshair, Locate } from 'lucide-react'
 import type { Alert, Geofence, GpsPosition, Poi, TrackingLiveVehicle } from '@/shared/types/models'
 import { cn } from '@/shared/utils/cn'
-import { connectionStatus } from '../lib/tracking'
+import { connectionStatus, hasActiveAlarm } from '../lib/tracking'
 import { MapLayerToggles, MapLayersOverlay } from './MapLayers'
 
 const DEFAULT_CENTER = { lat: -15.78, lng: -47.93 }
@@ -147,6 +147,7 @@ function VehicleMarker({
   if (!vehicle.position) return null
 
   const status = connectionStatus(vehicle)
+  const alarm = hasActiveAlarm(vehicle)
   const heading = vehicle.position.heading ?? 0
 
   return (
@@ -154,16 +155,18 @@ function VehicleMarker({
       position={toLatLng(vehicle.position)}
       onClick={() => onSelect(vehicle.id)}
       title={vehicle.plate}
-      zIndex={selected ? 4 : 1}
+      zIndex={selected ? 4 : alarm ? 3 : 1}
     >
       <div className="flex flex-col items-center">
         <div
           className={cn(
             'flex size-7 items-center justify-center rounded-full border-2 border-white shadow',
-            status === 'online' && 'bg-primary',
-            status === 'offline' && 'bg-muted',
-            status === 'no_position' && 'bg-warning',
+            alarm && 'bg-danger',
+            !alarm && status === 'online' && 'bg-primary',
+            !alarm && status === 'offline' && 'bg-muted',
+            !alarm && status === 'no_position' && 'bg-warning',
             selected && 'ring-2 ring-primary ring-offset-1 ring-offset-white',
+            alarm && !selected && 'ring-2 ring-danger/40 ring-offset-1 ring-offset-white',
           )}
           style={{ transform: `rotate(${heading}deg)` }}
         >

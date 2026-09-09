@@ -2,6 +2,7 @@
 
 namespace App\Modules\Tracking\Http\Resources;
 
+use App\Modules\Alert\Support\TraccarAttributeReader;
 use App\Modules\Tracking\Models\GpsPosition;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -34,6 +35,7 @@ class GpsPositionResource extends JsonResource
             'odometer' => isset($attributes['totalDistance']) ? (float) $attributes['totalDistance'] : null,
             'charging' => array_key_exists('charge', $attributes) ? (bool) $attributes['charge'] : null,
             'protocol' => isset($attributes['protocol']) ? (string) $attributes['protocol'] : null,
+            'alarms' => TraccarAttributeReader::formatAlarmsForApi($attributes),
         ];
     }
 }

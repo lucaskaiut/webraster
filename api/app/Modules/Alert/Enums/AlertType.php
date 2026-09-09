@@ -12,6 +12,7 @@ enum AlertType: string
     case ONLINE = 'online';
     case BATTERY = 'battery';
     case JAMMING = 'jamming';
+    case DEVICE_ALARM = 'device_alarm';
 
     public function label(): string
     {
@@ -24,6 +25,7 @@ enum AlertType: string
             self::ONLINE => 'Dispositivo online',
             self::BATTERY => 'Bateria baixa',
             self::JAMMING => 'Jamming',
+            self::DEVICE_ALARM => 'Alarme do dispositivo',
         };
     }
 
@@ -35,6 +37,7 @@ enum AlertType: string
             self::BATTERY => AlertSeverity::MEDIUM,
             self::OFFLINE, self::ONLINE => AlertSeverity::HIGH,
             self::SOS, self::JAMMING => AlertSeverity::CRITICAL,
+            self::DEVICE_ALARM => AlertSeverity::HIGH,
         };
     }
 
@@ -51,6 +54,7 @@ enum AlertType: string
             self::OFFLINE,
             self::BATTERY,
             self::JAMMING,
+            self::DEVICE_ALARM,
         ];
     }
 }

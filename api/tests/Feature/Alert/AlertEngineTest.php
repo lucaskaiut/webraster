@@ -220,6 +220,33 @@ class AlertEngineTest extends TestCase
         ])->assertUnprocessable();
     }
 
+    public function test_device_alarm_power_cut_and_restore(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create();
+        Equipment::factory()->assignedTo($vehicle)->create();
+        app(AlertConfigService::class)->ensureDefaults($tenant);
+
+        $engine = app(AlertEngine::class);
+        $base = CarbonImmutable::parse('2026-09-05 14:00:00');
+
+        $engine->process($this->pos($tenant, $client, $vehicle, 0, $base, 400, attributes: ['alarm' => 'powerCut']));
+        $alert = Alert::query()->withoutGlobalScopes()->where('type', 'device_alarm')->first();
+        $this->assertNotNull($alert);
+        $this->assertSame('Alimentação cortada', $alert->title);
+        $this->assertSame('powercut', $alert->meta['alarm_code'] ?? null);
+
+        // duplicate suppressed while alarm remains active
+        $engine->process($this->pos($tenant, $client, $vehicle, 0, $base->addMinute(), 401, attributes: ['alarm' => 'powerCut']));
+        $this->assertSame(1, Alert::query()->withoutGlobalScopes()->where('type', 'device_alarm')->count());
+
+        // restored clears state; new alarm can fire again later
+        $engine->process($this->pos($tenant, $client, $vehicle, 0, $base->addMinutes(2), 402, attributes: ['alarm' => 'powerRestored']));
+        $engine->process($this->pos($tenant, $client, $vehicle, 0, $base->addMinutes(3), 403, attributes: ['alarm' => 'powerCut']));
+        $this->assertSame(2, Alert::query()->withoutGlobalScopes()->where('type', 'device_alarm')->count());
+    }
+
     public function test_tenant_isolation_and_config_api(): void
     {
         [, $tenantA] = $this->createOperationalChild();

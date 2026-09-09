@@ -412,55 +412,45 @@ Status:
 
 # FASE 10
 
-# MÓDULO FINANCEIRO
+# MÓDULO FINANCEIRO (tenant → cliente)
 
-## Contratos
+Sistema de gestão financeira do SaaS de rastreamento. O Asaas é apenas o gateway.
 
-* Plano
-* Valor
-* Vencimento
+## Escopo entregue
 
-## Contas a Receber
+* Planos comerciais
+* Contratos (cliente, periodicidade, multa, juros, bloqueio)
+* Assinaturas recorrentes
+* Contas a receber (geração automática)
+* Cobranças PIX / Boleto / Cartão
+* Integração Asaas multi-tenant (customers, payments, webhooks)
+* Portal financeiro do cliente
+* Notificações (e-mail + arquitetura multi-canal)
+* Inadimplência e suspensão/reativação de dispositivos
+* Dashboard e relatórios financeiros
+* ACL + multi-tenancy
 
-* Geração automática
-
-## Cobranças
-
-* Pix
-* Boleto
-
-## Assinaturas
-
-* Recorrência
-
-## Integração Asaas
-
-Implementar:
-
-* Customers
-* Payments
-* Subscriptions
-* Webhooks
+Ver: `docs/fase-10-financeiro.md`
 
 ## Critério
 
-Fluxo financeiro completo.
+Fluxo financeiro completo (receita do cliente operacional).
 
 ---
 
 # FASE 11
 
-# INADIMPLÊNCIA
+# INADIMPLÊNCIA (refino)
 
-## Regras
+## Nota
 
-* Bloqueio automático
-* Liberação automática
+A Fase 10 já entrega bloqueio/liberação automática, tolerância por contrato e notificações básicas.
 
-## Configurações
+Esta fase pode refinar:
 
-* Dias de tolerância
-* Notificações
+* Políticas avançadas de tolerância
+* Canais WhatsApp/SMS
+* Regras por plano/cliente
 
 ---
 
@@ -477,9 +467,15 @@ Fluxo financeiro completo.
 
 ## Financeiro
 
-* Receita
-* Inadimplência
-* Recebimentos
+## Nota
+
+MRR/ARR, inadimplência e recebimentos básicos já existem na Fase 10 (`/finance` dashboard e relatórios).
+
+Esta fase pode expandir:
+
+* Visualizações avançadas
+* Comparativos periodicos
+* Exportações adicionais
 
 ---
 

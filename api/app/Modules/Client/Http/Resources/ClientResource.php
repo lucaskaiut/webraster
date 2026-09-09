@@ -19,8 +19,12 @@ class ClientResource extends JsonResource
         return [
             'id' => $this->uuid,
             'name' => $this->name,
+            'legal_name' => $this->legal_name,
+            'trade_name' => $this->trade_name,
             'document' => $this->document,
+            'state_registration' => $this->state_registration,
             'email' => $this->email,
+            'financial_email' => $this->financial_email,
             'phone' => $this->phone,
             'street' => $this->street,
             'number' => $this->number,

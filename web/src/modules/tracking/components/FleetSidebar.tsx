@@ -2,20 +2,25 @@ import { memo } from 'react'
 import { SearchInput, Skeleton } from '@/shared/design-system'
 import { cn } from '@/shared/utils/cn'
 import type { TrackingLiveVehicle } from '@/shared/types/models'
+import { AlertTriangle } from 'lucide-react'
+import { Badge } from '@/shared/design-system'
 import {
   connectionStatus,
   fleetStats,
   formatSpeed,
   formatUpdatedAt,
+  hasActiveAlarm,
   matchesFleetFilter,
   matchesSearch,
   motionStatus,
+  vehicleAlarms,
   vehicleLabel,
   type FleetFilter,
 } from '../lib/tracking'
 
 const FILTERS: Array<{ value: FleetFilter; label: string }> = [
   { value: 'all', label: 'Todos' },
+  { value: 'with_alarm', label: 'Com alarme' },
   { value: 'online', label: 'Online' },
   { value: 'offline', label: 'Offline' },
   { value: 'moving', label: 'Em movimento' },
@@ -71,6 +76,14 @@ export function FleetSidebar({
           <Stat label="Em movimento" value={stats.moving} />
           <Stat label="Parados" value={stats.stopped} />
         </div>
+        {stats.withAlarm > 0 && (
+          <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+            <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
+            <span>
+              {stats.withAlarm} veículo{stats.withAlarm === 1 ? '' : 's'} com alarme ativo
+            </span>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-1.5">
           {FILTERS.map((item) => (
@@ -143,6 +156,7 @@ const VehicleListItem = memo(function VehicleListItem({
 }) {
   const connection = connectionStatus(vehicle)
   const motion = motionStatus(vehicle)
+  const alarms = vehicleAlarms(vehicle)
 
   return (
     <li>
@@ -152,17 +166,27 @@ const VehicleListItem = memo(function VehicleListItem({
         className={cn(
           'flex w-full flex-col gap-1 rounded-lg px-2.5 py-2.5 text-left transition-colors hover:bg-surface-2',
           selected && 'bg-surface-2',
+          hasActiveAlarm(vehicle) && 'border border-warning/30 bg-warning/5',
         )}
       >
         <div className="flex items-center justify-between gap-2">
           <span className="flex items-center gap-2 font-medium text-foreground">
-            <StatusDot status={connection} />
+            <StatusDot status={connection} alarm={hasActiveAlarm(vehicle)} />
             {vehicle.plate}
           </span>
           <span className="text-[11px] text-muted">
             {connection === 'online' ? 'Online' : connection === 'offline' ? 'Offline' : 'Sem sinal'}
           </span>
         </div>
+        {alarms.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {alarms.map((alarm) => (
+              <Badge key={alarm.code} variant={alarm.severity === 'critical' ? 'danger' : 'warning'}>
+                {alarm.label}
+              </Badge>
+            ))}
+          </div>
+        )}
         <p className="truncate text-[13px] text-muted">
           {vehicleLabel(vehicle)}
           {vehicle.client?.name ? ` · ${vehicle.client.name}` : ''}
@@ -179,15 +203,22 @@ const VehicleListItem = memo(function VehicleListItem({
   )
 })
 
-function StatusDot({ status }: { status: 'online' | 'offline' | 'no_position' }) {
+function StatusDot({
+  status,
+  alarm,
+}: {
+  status: 'online' | 'offline' | 'no_position'
+  alarm?: boolean
+}) {
   return (
     <span
       aria-hidden="true"
       className={cn(
         'size-2 rounded-full',
-        status === 'online' && 'bg-success',
-        status === 'offline' && 'bg-muted',
-        status === 'no_position' && 'bg-warning',
+        alarm && 'bg-danger ring-2 ring-danger/30',
+        !alarm && status === 'online' && 'bg-success',
+        !alarm && status === 'offline' && 'bg-muted',
+        !alarm && status === 'no_position' && 'bg-warning',
       )}
     />
   )

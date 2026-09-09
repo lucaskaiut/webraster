@@ -3,13 +3,22 @@ import { isValidCpf, isValidCpfOrCnpj } from '@/shared/utils/document'
 
 export const clientSchema = z.object({
   name: z.string().min(1, 'Informe o nome'),
+  legal_name: z.string(),
+  trade_name: z.string(),
   document: z
     .string()
     .min(1, 'Informe o CPF ou CNPJ')
     .refine(isValidCpfOrCnpj, 'Informe um CPF ou CNPJ válido'),
+  state_registration: z.string(),
   email: z
     .string()
     .refine((value) => !value || z.string().email().safeParse(value).success, 'Informe um e-mail válido'),
+  financial_email: z
+    .string()
+    .refine(
+      (value) => !value || z.string().email().safeParse(value).success,
+      'Informe um e-mail financeiro válido',
+    ),
   phone: z.string(),
   street: z.string(),
   number: z.string(),

@@ -2,12 +2,72 @@
 
 namespace App\Modules\Alert\Support;
 
+use App\Modules\Alert\Enums\AlertSeverity;
+
 /**
- * Extrai indicadores SOS/jamming dos attributes Traccar quando presentes.
+ * Extrai indicadores de alarmes Traccar dos attributes quando presentes.
  * Não inventa heurísticas — só interpreta chaves conhecidas do protocolo.
  */
 final class TraccarAttributeReader
 {
+    /** Alarmes tratados por regras dedicadas (SOS, jamming, velocidade). */
+    private const EXCLUDED_DEVICE_ALARMS = [
+        'sos',
+        'emergency',
+        'panic',
+        'jamming',
+        'gpsjamming',
+        'gsmjamming',
+        'overspeed',
+    ];
+
+    /** @var array<string, string> */
+    private const RESTORED_TO_BASE = [
+        'powerrestored' => 'powercut',
+        'poweron' => 'poweroff',
+    ];
+
+    /** @var array<string, string> */
+    private const LABELS = [
+        'general' => 'Alarme geral',
+        'sos' => 'SOS',
+        'vibration' => 'Vibração',
+        'movement' => 'Movimento',
+        'overspeed' => 'Excesso de velocidade',
+        'falldown' => 'Queda',
+        'lowpower' => 'Tensão baixa',
+        'lowbattery' => 'Bateria baixa',
+        'fault' => 'Falha',
+        'poweroff' => 'Dispositivo desligado',
+        'poweron' => 'Dispositivo ligado',
+        'door' => 'Porta',
+        'lock' => 'Travamento',
+        'unlock' => 'Destravamento',
+        'geofence' => 'Geocerca',
+        'geofenceenter' => 'Entrada em geocerca',
+        'geofenceexit' => 'Saída de geocerca',
+        'gpsantennacut' => 'Antena GPS cortada',
+        'accident' => 'Acidente',
+        'tow' => 'Reboque',
+        'idle' => 'Ocioso',
+        'highrpm' => 'RPM alto',
+        'hardacceleration' => 'Aceleração brusca',
+        'hardbraking' => 'Frenagem brusca',
+        'hardcornering' => 'Curva brusca',
+        'lanechange' => 'Mudança de faixa',
+        'fatiguedriving' => 'Fadiga ao volante',
+        'powercut' => 'Alimentação cortada',
+        'powerrestored' => 'Alimentação restaurada',
+        'jamming' => 'Jamming',
+        'temperature' => 'Temperatura',
+        'parking' => 'Estacionamento',
+        'bonnet' => 'Capô',
+        'footbrake' => 'Freio de pé',
+        'fuelleak' => 'Vazamento de combustível',
+        'tampering' => 'Violação',
+        'removing' => 'Remoção',
+    ];
+
     /**
      * @param  array<string, mixed>|null  $attributes
      */
@@ -21,7 +81,7 @@ final class TraccarAttributeReader
             return true;
         }
 
-        $alarm = strtolower((string) ($attributes['alarm'] ?? ''));
+        $alarm = self::normalizeAlarmCode($attributes['alarm'] ?? null);
 
         return in_array($alarm, ['sos', 'emergency', 'panic'], true)
             || str_contains($alarm, 'sos');
@@ -42,10 +102,152 @@ final class TraccarAttributeReader
             }
         }
 
-        $alarm = strtolower((string) ($attributes['alarm'] ?? ''));
+        $alarm = self::normalizeAlarmCode($attributes['alarm'] ?? null);
 
         return in_array($alarm, ['jamming', 'gpsjamming', 'gsmjamming'], true)
             || str_contains($alarm, 'jam');
+    }
+
+    /**
+     * Alarmes ativos para exibição no monitoramento (inclui SOS/jamming).
+     *
+     * @param  array<string, mixed>|null  $attributes
+     * @return list<string>
+     */
+    public static function activeAlarms(?array $attributes): array
+    {
+        if ($attributes === null || $attributes === []) {
+            return [];
+        }
+
+        $codes = [];
+        $alarm = self::normalizeAlarmCode($attributes['alarm'] ?? null);
+
+        if ($alarm !== '' && ! self::isRestoredAlarm($alarm)) {
+            $codes[] = $alarm;
+        }
+
+        if (self::isSos($attributes) && ! in_array('sos', $codes, true)) {
+            $codes[] = 'sos';
+        }
+
+        if (self::isJamming($attributes) && ! in_array('jamming', $codes, true)) {
+            $codes[] = 'jamming';
+        }
+
+        return array_values(array_unique($codes));
+    }
+
+    /**
+     * Alarmes de dispositivo para o motor de alertas (exclui SOS/jamming/overspeed).
+     *
+     * @param  array<string, mixed>|null  $attributes
+     */
+    public static function extractDeviceAlarm(?array $attributes): ?string
+    {
+        if ($attributes === null || $attributes === []) {
+            return null;
+        }
+
+        $alarm = self::normalizeAlarmCode($attributes['alarm'] ?? null);
+
+        if ($alarm === '' || self::isRestoredAlarm($alarm) || self::isExcludedDeviceAlarm($alarm)) {
+            return null;
+        }
+
+        return $alarm;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $attributes
+     */
+    public static function extractRestoredAlarm(?array $attributes): ?string
+    {
+        if ($attributes === null || $attributes === []) {
+            return null;
+        }
+
+        $alarm = self::normalizeAlarmCode($attributes['alarm'] ?? null);
+
+        if ($alarm === '' || ! self::isRestoredAlarm($alarm)) {
+            return null;
+        }
+
+        return $alarm;
+    }
+
+    public static function isRestoredAlarm(string $alarm): bool
+    {
+        $normalized = self::normalizeAlarmCode($alarm);
+
+        if ($normalized === '') {
+            return false;
+        }
+
+        if (isset(self::RESTORED_TO_BASE[$normalized])) {
+            return true;
+        }
+
+        return str_ends_with($normalized, 'restored')
+            || str_ends_with($normalized, 'exit')
+            || in_array($normalized, ['poweron', 'alarmdisarm'], true);
+    }
+
+    public static function restoredBaseAlarm(string $restoredAlarm): ?string
+    {
+        $normalized = self::normalizeAlarmCode($restoredAlarm);
+
+        if (isset(self::RESTORED_TO_BASE[$normalized])) {
+            return self::RESTORED_TO_BASE[$normalized];
+        }
+
+        if (str_ends_with($normalized, 'restored')) {
+            return substr($normalized, 0, -strlen('restored'));
+        }
+
+        if (str_ends_with($normalized, 'exit')) {
+            return substr($normalized, 0, -strlen('exit'));
+        }
+
+        return null;
+    }
+
+    public static function deviceAlarmLabel(string $code): string
+    {
+        $normalized = self::normalizeAlarmCode($code);
+
+        if (isset(self::LABELS[$normalized])) {
+            return self::LABELS[$normalized];
+        }
+
+        return ucfirst(str_replace('_', ' ', $normalized));
+    }
+
+    public static function deviceAlarmSeverity(string $code): AlertSeverity
+    {
+        $normalized = self::normalizeAlarmCode($code);
+
+        return match (true) {
+            in_array($normalized, ['powercut', 'tampering', 'removing', 'accident', 'sos'], true) => AlertSeverity::CRITICAL,
+            in_array($normalized, ['lowbattery', 'lowpower', 'gpsantennacut', 'fuelleak', 'fault'], true) => AlertSeverity::HIGH,
+            default => AlertSeverity::MEDIUM,
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $attributes
+     * @return list<array{code: string, label: string, severity: string}>
+     */
+    public static function formatAlarmsForApi(?array $attributes): array
+    {
+        return array_map(
+            fn (string $code) => [
+                'code' => $code,
+                'label' => self::deviceAlarmLabel($code),
+                'severity' => self::deviceAlarmSeverity($code)->value,
+            ],
+            self::activeAlarms($attributes),
+        );
     }
 
     /**
@@ -80,5 +282,21 @@ final class TraccarAttributeReader
         }
 
         return $value;
+    }
+
+    public static function normalizeAlarmCode(mixed $value): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        return strtolower(trim((string) $value));
+    }
+
+    private static function isExcludedDeviceAlarm(string $alarm): bool
+    {
+        $normalized = self::normalizeAlarmCode($alarm);
+
+        return in_array($normalized, self::EXCLUDED_DEVICE_ALARMS, true);
     }
 }

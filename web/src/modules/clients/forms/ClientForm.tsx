@@ -28,8 +28,12 @@ export function ClientForm({ mode, defaultValues, submitting, onSubmit }: Client
     resolver: zodResolver(clientSchema),
     defaultValues: {
       name: '',
+      legal_name: '',
+      trade_name: '',
       document: '',
+      state_registration: '',
       email: '',
+      financial_email: '',
       phone: '',
       street: '',
       number: '',
@@ -46,8 +50,12 @@ export function ClientForm({ mode, defaultValues, submitting, onSubmit }: Client
   const handleSubmit = async (values: ClientFormValues) => {
     const payload: ClientPayload = {
       name: values.name,
+      legal_name: values.legal_name || null,
+      trade_name: values.trade_name || null,
       document: onlyDigits(values.document),
+      state_registration: values.state_registration || null,
       email: values.email || null,
+      financial_email: values.financial_email || null,
       phone: values.phone || null,
       street: values.street || null,
       number: values.number || null,
@@ -75,8 +83,12 @@ export function ClientForm({ mode, defaultValues, submitting, onSubmit }: Client
           <Section title="Informações básicas">
             <div className="grid gap-4 sm:grid-cols-2">
               <TextField name="name" label="Nome" required className="sm:col-span-2" />
+              <TextField name="legal_name" label="Razão social" className="sm:col-span-2" />
+              <TextField name="trade_name" label="Nome fantasia" className="sm:col-span-2" />
               <TextField name="document" label="CPF/CNPJ" required placeholder="Somente números" />
+              <TextField name="state_registration" label="Inscrição estadual" />
               <TextField name="email" label="E-mail" type="email" />
+              <TextField name="financial_email" label="E-mail financeiro" type="email" />
               <TextField name="phone" label="Telefone" placeholder="(41) 99999-9999" />
               <SwitchField name="is_active" label="Cliente ativo" />
             </div>

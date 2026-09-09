@@ -177,4 +177,51 @@ export const queryKeys = {
       ['service-orders', 'calendar', params ?? {}] as const,
     history: (id: string) => ['service-orders', 'history', id] as const,
   },
+
+  finance: {
+    all: ['finance'] as const,
+    plans: {
+      all: ['finance', 'plans'] as const,
+      list: (params: ListParams & { is_active?: boolean | string }) =>
+        ['finance', 'plans', 'list', params] as const,
+      detail: (id: string) => ['finance', 'plans', 'detail', id] as const,
+    },
+    contracts: {
+      all: ['finance', 'contracts'] as const,
+      list: (
+        params: ListParams & { status?: string; client_id?: string; plan_id?: string },
+      ) => ['finance', 'contracts', 'list', params] as const,
+      detail: (id: string) => ['finance', 'contracts', 'detail', id] as const,
+    },
+    subscriptions: {
+      all: ['finance', 'subscriptions'] as const,
+      list: (params: ListParams & { status?: string; client_id?: string }) =>
+        ['finance', 'subscriptions', 'list', params] as const,
+      detail: (id: string) => ['finance', 'subscriptions', 'detail', id] as const,
+    },
+    receivables: {
+      all: ['finance', 'receivables'] as const,
+      list: (
+        params: ListParams & {
+          status?: string
+          client_id?: string
+          contract_id?: string
+          due_from?: string
+          due_to?: string
+        },
+      ) => ['finance', 'receivables', 'list', params] as const,
+      detail: (id: string) => ['finance', 'receivables', 'detail', id] as const,
+    },
+    asaasConfig: () => ['finance', 'asaas-config'] as const,
+    dashboard: () => ['finance', 'dashboard'] as const,
+    reports: (params: { type: string; from?: string; to?: string; status?: string }) =>
+      ['finance', 'reports', params] as const,
+    portal: {
+      subscription: () => ['finance', 'portal', 'subscription'] as const,
+      receivables: (
+        params: ListParams & { status?: string; due_from?: string; due_to?: string },
+      ) => ['finance', 'portal', 'receivables', params] as const,
+      receivable: (id: string) => ['finance', 'portal', 'receivable', id] as const,
+    },
+  },
 } as const

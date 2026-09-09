@@ -189,8 +189,12 @@ export interface Conversation {
 export interface Client {
   id: string
   name: string
+  legal_name: string | null
+  trade_name: string | null
   document: string
+  state_registration: string | null
   email: string | null
+  financial_email: string | null
   phone: string | null
   street: string | null
   number: string | null
@@ -265,6 +269,12 @@ export interface EquipmentAssignmentEvent {
   created_at: string | null
 }
 
+export interface DeviceAlarm {
+  code: string
+  label: string
+  severity: AlertSeverity
+}
+
 export interface GpsPosition {
   id: string
   vehicle_id?: string | null
@@ -280,6 +290,7 @@ export interface GpsPosition {
   odometer?: number | null
   charging?: boolean | null
   protocol?: string | null
+  alarms?: DeviceAlarm[]
 }
 
 export interface TrackingLiveVehicle {
@@ -382,6 +393,7 @@ export type AlertType =
   | 'online'
   | 'battery'
   | 'jamming'
+  | 'device_alarm'
 
 export type AlertSeverity = 'low' | 'medium' | 'high' | 'critical'
 export type AlertStatus = 'open' | 'acknowledged' | 'resolved'
@@ -499,4 +511,162 @@ export interface ServiceOrder {
 }
 
 export type ServiceOrderKanban = Record<ServiceOrderStatus, ServiceOrder[]>
+
+export type BillingPeriodicity = 'monthly' | 'bimonthly' | 'quarterly' | 'semiannual' | 'annual'
+export type FinanceContractStatus = 'active' | 'suspended' | 'cancelled'
+export type FinanceSubscriptionStatus = 'active' | 'suspended' | 'cancelled'
+export type FinanceReceivableStatus =
+  | 'pending'
+  | 'awaiting_payment'
+  | 'received'
+  | 'overdue'
+  | 'cancelled'
+  | 'refunded'
+export type FinancePaymentMethod = 'pix' | 'boleto' | 'credit_card'
+export type AsaasEnvironment = 'sandbox' | 'production'
+
+export interface FinancePlan {
+  id: string
+  name: string
+  description: string | null
+  amount_cents: number
+  amount: string
+  periodicity: BillingPeriodicity
+  periodicity_label?: string
+  device_limit: number | null
+  is_active: boolean
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface FinanceContract {
+  id: string
+  number: number
+  code: string
+  status: FinanceContractStatus
+  status_label?: string
+  client_id: string | null
+  client?: Pick<Client, 'id' | 'name'> | null
+  plan_id: string | null
+  plan?: Pick<FinancePlan, 'id' | 'name' | 'amount_cents'> | null
+  subscription?: FinanceSubscription | null
+  starts_at: string
+  ends_at: string | null
+  periodicity: BillingPeriodicity
+  periodicity_label?: string
+  due_day: number
+  amount_cents: number
+  amount: string
+  discount_cents: number
+  net_amount_cents: number
+  fine_percent: number
+  interest_percent: number
+  device_quantity: number
+  auto_renew: boolean
+  block_on_overdue: boolean
+  block_after_days: number
+  notes: string | null
+  created_by?: Pick<User, 'id' | 'name'> | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface FinanceSubscription {
+  id: string
+  status: FinanceSubscriptionStatus
+  status_label?: string
+  client_id: string | null
+  client?: Pick<Client, 'id' | 'name'> | null
+  contract_id: string | null
+  contract?: {
+    id: string
+    code: string
+    status?: FinanceContractStatus
+    amount_cents?: number
+    plan?: Pick<FinancePlan, 'id' | 'name'> | null
+  } | null
+  periodicity: BillingPeriodicity
+  periodicity_label?: string
+  next_billing_at: string | null
+  last_billing_at: string | null
+  gateway_subscription_id: string | null
+  cancelled_at: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface FinanceReceivable {
+  id: string
+  number: number
+  code: string
+  status: FinanceReceivableStatus
+  status_label?: string
+  payment_method: FinancePaymentMethod | null
+  payment_method_label?: string | null
+  client_id: string | null
+  client?: Pick<Client, 'id' | 'name'> | null
+  contract_id: string | null
+  contract?: { id: string; code: string } | null
+  subscription_id: string | null
+  amount_cents: number
+  amount: string
+  discount_cents: number
+  fine_cents: number
+  interest_cents: number
+  total_cents: number
+  total: string
+  paid_amount_cents: number | null
+  due_at: string
+  paid_at: string | null
+  cancelled_at: string | null
+  invoice_url: string | null
+  bank_slip_url: string | null
+  pix_qr_code: string | null
+  pix_copy_paste: string | null
+  description: string | null
+  gateway_payment_id: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface TenantAsaasConfig {
+  id: string
+  environment: AsaasEnvironment
+  environment_label?: string
+  api_key_masked: string | null
+  has_api_key: boolean
+  has_webhook_token: boolean
+  is_active: boolean
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface FinanceDashboardMetrics {
+  mrr_cents: number
+  mrr: string
+  arr_cents: number
+  arr: string
+  active_clients: number
+  active_contracts: number
+  active_subscriptions: number
+  delinquent_clients: number
+  month_revenue_received_cents: number
+  month_revenue_received: string
+  month_expected_cents: number
+  month_expected: string
+  open_amount_cents: number
+  open_amount: string
+}
+
+export type FinanceReportType =
+  | 'receivables'
+  | 'delinquency'
+  | 'receipts'
+  | 'subscriptions'
+  | 'blocked_clients'
+
+export interface FinanceReportResult {
+  type: FinanceReportType | string
+  rows: Array<Record<string, unknown>>
+}
 

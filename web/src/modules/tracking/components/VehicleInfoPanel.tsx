@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Button, SegmentedControl, Switch } from '@/shared/design-system'
+import { AlertTriangle } from 'lucide-react'
+import { Badge, Button, SegmentedControl, Switch } from '@/shared/design-system'
 import type { TrackingLiveVehicle } from '@/shared/types/models'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import { Permission } from '@/shared/constants/permissions'
@@ -12,6 +13,7 @@ import {
   formatSpeed,
   formatUpdatedAt,
   motionStatus,
+  vehicleAlarms,
   vehicleLabel,
 } from '../lib/tracking'
 import { VehicleCommandsPanel } from './VehicleCommandsPanel'
@@ -40,6 +42,7 @@ export function VehicleInfoPanel({
   const connection = connectionStatus(vehicle)
   const motion = motionStatus(vehicle)
   const position = vehicle.position
+  const alarms = vehicleAlarms(vehicle)
   const canSendCommands = can(Permission.DEVICE_COMMANDS_SEND)
   const deviceId = vehicle.equipment?.id ?? null
 
@@ -64,6 +67,22 @@ export function VehicleInfoPanel({
           {motion === 'moving' ? ' · Em movimento' : motion === 'stopped' ? ' · Parado' : ''}
         </p>
       </div>
+
+      {alarms.length > 0 && (
+        <div className="mt-3 rounded-lg border border-warning/30 bg-warning/10 p-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-warning">
+            <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
+            Alarmes ativos
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {alarms.map((alarm) => (
+              <Badge key={alarm.code} variant={alarm.severity === 'critical' ? 'danger' : 'warning'}>
+                {alarm.label}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
 
       <dl className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
         <Info label="Velocidade" value={formatSpeed(position?.speed)} />
@@ -125,15 +144,38 @@ export function VehicleInfoPanel({
 
         {tab === 'events' && (
           <div className="space-y-3">
-            <p className="text-sm text-muted">
-              Consulte o histórico de posições e eventos do veículo.
-            </p>
+            {alarms.length > 0 ? (
+              <ul className="space-y-2">
+                {alarms.map((alarm) => (
+                  <li
+                    key={alarm.code}
+                    className="flex items-start gap-2 rounded-lg bg-surface-2 px-3 py-2 text-sm"
+                  >
+                    <AlertTriangle
+                      className="mt-0.5 size-4 shrink-0 text-warning"
+                      aria-hidden="true"
+                    />
+                    <div>
+                      <p className="font-medium text-foreground">{alarm.label}</p>
+                      <p className="text-xs text-muted">
+                        Alarme reportado pelo dispositivo via Traccar
+                        {position?.recorded_at
+                          ? ` · ${formatDateTime(position.recorded_at)}`
+                          : ''}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted">Nenhum alarme ativo no momento.</p>
+            )}
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="secondary" onClick={onHistory}>
                 Abrir histórico
               </Button>
               <Button size="sm" variant="secondary" onClick={onEvents}>
-                Ver eventos
+                Ver eventos do percurso
               </Button>
             </div>
           </div>

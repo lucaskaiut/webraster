@@ -30,6 +30,20 @@ use App\Modules\Alert\Policies\AlertConfigPolicy;
 use App\Modules\Alert\Policies\AlertPolicy;
 use App\Modules\Poi\Models\Poi;
 use App\Modules\Poi\Policies\PoiPolicy;
+use App\Modules\Finance\Models\FinanceContract;
+use App\Modules\Finance\Models\FinancePlan;
+use App\Modules\Finance\Models\FinanceReceivable;
+use App\Modules\Finance\Models\FinanceSubscription;
+use App\Modules\Finance\Models\TenantAsaasConfig;
+use App\Modules\Finance\Policies\FinanceContractPolicy;
+use App\Modules\Finance\Policies\FinanceDashboardPolicy;
+use App\Modules\Finance\Policies\FinancePlanPolicy;
+use App\Modules\Finance\Policies\FinanceReceivablePolicy;
+use App\Modules\Finance\Policies\FinanceReportPolicy;
+use App\Modules\Finance\Policies\FinanceSubscriptionPolicy;
+use App\Modules\Finance\Policies\TenantAsaasConfigPolicy;
+use App\Modules\Finance\Support\FinanceDashboard;
+use App\Modules\Finance\Support\FinanceReport;
 use App\Modules\ServiceOrder\Models\ServiceOrder;
 use App\Modules\ServiceOrder\Policies\ServiceOrderPolicy;
 use App\Modules\Tenant\Models\Tenant;
@@ -109,5 +123,12 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Alert::class, AlertPolicy::class);
         Gate::policy(AlertConfig::class, AlertConfigPolicy::class);
         Gate::policy(ServiceOrder::class, ServiceOrderPolicy::class);
+        Gate::policy(FinancePlan::class, FinancePlanPolicy::class);
+        Gate::policy(FinanceContract::class, FinanceContractPolicy::class);
+        Gate::policy(FinanceSubscription::class, FinanceSubscriptionPolicy::class);
+        Gate::policy(FinanceReceivable::class, FinanceReceivablePolicy::class);
+        Gate::policy(TenantAsaasConfig::class, TenantAsaasConfigPolicy::class);
+        Gate::policy(FinanceDashboard::class, FinanceDashboardPolicy::class);
+        Gate::policy(FinanceReport::class, FinanceReportPolicy::class);
     }
 }

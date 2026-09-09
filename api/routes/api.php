@@ -14,6 +14,15 @@ use App\Modules\Client\Http\Controllers\ClientController;
 use App\Modules\Client\Http\Controllers\ClientUserController;
 use App\Modules\DeviceCommand\Http\Controllers\DeviceCommandController;
 use App\Modules\ServiceOrder\Http\Controllers\ServiceOrderController;
+use App\Modules\Finance\Http\Controllers\AsaasWebhookController;
+use App\Modules\Finance\Http\Controllers\FinanceAsaasConfigController;
+use App\Modules\Finance\Http\Controllers\FinanceContractController;
+use App\Modules\Finance\Http\Controllers\FinanceDashboardController;
+use App\Modules\Finance\Http\Controllers\FinancePlanController;
+use App\Modules\Finance\Http\Controllers\FinancePortalController;
+use App\Modules\Finance\Http\Controllers\FinanceReceivableController;
+use App\Modules\Finance\Http\Controllers\FinanceReportController;
+use App\Modules\Finance\Http\Controllers\FinanceSubscriptionController;
 use App\Modules\Driver\Http\Controllers\DriverController;
 use App\Modules\Alert\Http\Controllers\AlertConfigController;
 use App\Modules\Alert\Http\Controllers\AlertController;
@@ -47,6 +56,8 @@ Route::get('billing/plans/catalog', [PlanController::class, 'catalog']);
 Route::get('plans/public', [PlanController::class, 'catalog']);
 Route::get('billing/gateways', [SubscriptionController::class, 'gateways']);
 Route::get('payment-methods', [PaymentMethodController::class, 'index']);
+
+Route::post('webhooks/asaas/{tenantUuid}', AsaasWebhookController::class)->middleware('throttle:api');
 
 /*
  * Pagamento e regularização ficam acessíveis mesmo com assinatura PAST_DUE/SUSPENDED.
@@ -134,6 +145,42 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::delete('service-orders/{serviceOrder}', [ServiceOrderController::class, 'destroy'])->middleware('permission:service-order.delete');
     Route::patch('service-orders/{serviceOrder}/status', [ServiceOrderController::class, 'changeStatus'])->middleware('permission:service-order.change-status');
     Route::get('service-orders/{serviceOrder}/history', [ServiceOrderController::class, 'history'])->middleware('permission:service-order.read');
+
+    Route::get('finance/plans', [FinancePlanController::class, 'index'])->middleware('permission:finance-plan.read');
+    Route::post('finance/plans', [FinancePlanController::class, 'store'])->middleware('permission:finance-plan.create');
+    Route::get('finance/plans/{financePlan}', [FinancePlanController::class, 'show'])->middleware('permission:finance-plan.read');
+    Route::match(['put', 'patch'], 'finance/plans/{financePlan}', [FinancePlanController::class, 'update'])->middleware('permission:finance-plan.update');
+    Route::delete('finance/plans/{financePlan}', [FinancePlanController::class, 'destroy'])->middleware('permission:finance-plan.delete');
+
+    Route::get('finance/contracts', [FinanceContractController::class, 'index'])->middleware('permission:finance-contract.read');
+    Route::post('finance/contracts', [FinanceContractController::class, 'store'])->middleware('permission:finance-contract.create');
+    Route::get('finance/contracts/{financeContract}', [FinanceContractController::class, 'show'])->middleware('permission:finance-contract.read');
+    Route::match(['put', 'patch'], 'finance/contracts/{financeContract}', [FinanceContractController::class, 'update'])->middleware('permission:finance-contract.update');
+    Route::delete('finance/contracts/{financeContract}', [FinanceContractController::class, 'destroy'])->middleware('permission:finance-contract.delete');
+    Route::patch('finance/contracts/{financeContract}/status', [FinanceContractController::class, 'changeStatus'])->middleware('permission:finance-contract.update');
+
+    Route::get('finance/subscriptions', [FinanceSubscriptionController::class, 'index'])->middleware('permission:finance-subscription.read');
+    Route::get('finance/subscriptions/{financeSubscription}', [FinanceSubscriptionController::class, 'show'])->middleware('permission:finance-subscription.read');
+    Route::post('finance/subscriptions/{financeSubscription}/cancel', [FinanceSubscriptionController::class, 'cancel'])->middleware('permission:finance-subscription.update');
+    Route::post('finance/subscriptions/{financeSubscription}/reactivate', [FinanceSubscriptionController::class, 'reactivate'])->middleware('permission:finance-subscription.update');
+
+    Route::get('finance/receivables', [FinanceReceivableController::class, 'index'])->middleware('permission:finance-receivable.read');
+    Route::post('finance/receivables', [FinanceReceivableController::class, 'store'])->middleware('permission:finance-receivable.create');
+    Route::get('finance/receivables/{financeReceivable}', [FinanceReceivableController::class, 'show'])->middleware('permission:finance-receivable.read');
+    Route::post('finance/receivables/{financeReceivable}/charge', [FinanceReceivableController::class, 'charge'])->middleware('permission:finance-receivable.charge');
+    Route::post('finance/receivables/{financeReceivable}/cancel', [FinanceReceivableController::class, 'cancel'])->middleware('permission:finance-receivable.update');
+    Route::post('finance/receivables/{financeReceivable}/mark-received', [FinanceReceivableController::class, 'markReceived'])->middleware('permission:finance-receivable.update');
+
+    Route::get('finance/asaas-config', [FinanceAsaasConfigController::class, 'show'])->middleware('permission:finance-asaas-config.read');
+    Route::match(['put', 'patch'], 'finance/asaas-config', [FinanceAsaasConfigController::class, 'update'])->middleware('permission:finance-asaas-config.update');
+
+    Route::get('finance/dashboard', [FinanceDashboardController::class, 'index'])->middleware('permission:finance-dashboard.read');
+    Route::get('finance/reports', [FinanceReportController::class, 'index'])->middleware('permission:finance-report.read');
+
+    Route::get('finance/portal/subscription', [FinancePortalController::class, 'subscription'])->middleware('permission:finance-portal.view');
+    Route::get('finance/portal/receivables', [FinancePortalController::class, 'receivables'])->middleware('permission:finance-portal.view');
+    Route::get('finance/portal/receivables/{financeReceivable}', [FinancePortalController::class, 'showReceivable'])->middleware('permission:finance-portal.view');
+    Route::post('finance/portal/receivables/{financeReceivable}/pay', [FinancePortalController::class, 'pay'])->middleware('permission:finance-portal.view');
 
     Route::get('tracking/status', [TrackingController::class, 'status'])->middleware('permission:tracking.read');
     Route::get('tracking/live', [TrackingController::class, 'live'])->middleware('permission:tracking.read');

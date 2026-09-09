@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { Outlet, useLocation } from 'react-router'
-import { Building2, BellRing, Car, ClipboardList, Contact, Cpu, Hexagon, History, IdCard, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, ScrollText, Settings2, ShieldCheck, Users } from 'lucide-react'
+import { Building2, BellRing, Car, ClipboardList, Contact, Cpu, CreditCard, FileBarChart, FileText, Hexagon, History, IdCard, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, Package, Receipt, Repeat, ScrollText, Settings2, ShieldCheck, Users, Wallet } from 'lucide-react'
 import { AppLogo } from '@/shared/brand/AppLogo'
 import { TenantSelector } from '@/modules/auth/components/TenantSelector'
 import { NotificationBell } from '@/modules/notifications/components/NotificationBell'
@@ -74,6 +74,23 @@ function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
   const showAlertsGroup = showAlerts || showAlertConfig
   const showOpsGroup = showServiceOrders
 
+  const showFinanceDashboard = isOperatingTenant && can(Permission.FINANCE_DASHBOARD_READ)
+  const showFinancePlans = isOperatingTenant && can(Permission.FINANCE_PLAN_READ)
+  const showFinanceContracts = isOperatingTenant && can(Permission.FINANCE_CONTRACT_READ)
+  const showFinanceReceivables = isOperatingTenant && can(Permission.FINANCE_RECEIVABLE_READ)
+  const showFinanceSubscriptions = isOperatingTenant && can(Permission.FINANCE_SUBSCRIPTION_READ)
+  const showFinanceReports = isOperatingTenant && can(Permission.FINANCE_REPORT_READ)
+  const showFinanceAsaas = isOperatingTenant && can(Permission.FINANCE_ASAAS_CONFIG_READ)
+  const showFinanceOperatorGroup =
+    showFinanceDashboard ||
+    showFinancePlans ||
+    showFinanceContracts ||
+    showFinanceReceivables ||
+    showFinanceSubscriptions ||
+    showFinanceReports ||
+    showFinanceAsaas
+  const showFinancePortal = isOperatingTenant && can(Permission.FINANCE_PORTAL_VIEW) && !showFinanceOperatorGroup
+
   return (
     <Sidebar header={<Brand />}>
       <SidebarGroup label="Geral">
@@ -125,6 +142,85 @@ function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
         </SidebarGroup>
       )}
       */}
+
+      {showFinanceOperatorGroup && (
+        <SidebarGroup label="Financeiro">
+          {showFinanceDashboard && (
+            <SidebarItem
+              to="/finance/dashboard"
+              icon={Wallet}
+              label="Dashboard"
+              onNavigate={onNavigate}
+            />
+          )}
+          {showFinancePlans && (
+            <SidebarItem to="/finance/plans" icon={Package} label="Planos" onNavigate={onNavigate} />
+          )}
+          {showFinanceContracts && (
+            <SidebarItem
+              to="/finance/contracts"
+              icon={FileText}
+              label="Contratos"
+              onNavigate={onNavigate}
+            />
+          )}
+          {showFinanceReceivables && (
+            <SidebarItem
+              to="/finance/receivables"
+              icon={Receipt}
+              label="Cobranças"
+              onNavigate={onNavigate}
+            />
+          )}
+          {showFinanceSubscriptions && (
+            <SidebarItem
+              to="/finance/subscriptions"
+              icon={Repeat}
+              label="Assinaturas"
+              onNavigate={onNavigate}
+            />
+          )}
+          {showFinanceReports && (
+            <SidebarItem
+              to="/finance/reports"
+              icon={FileBarChart}
+              label="Relatórios"
+              onNavigate={onNavigate}
+            />
+          )}
+          {showFinanceAsaas && (
+            <SidebarItem
+              to="/finance/asaas-config"
+              icon={CreditCard}
+              label="Config. Asaas"
+              onNavigate={onNavigate}
+            />
+          )}
+        </SidebarGroup>
+      )}
+
+      {showFinancePortal && (
+        <SidebarGroup label="Financeiro">
+          <SidebarItem
+            to="/finance/portal/receivables"
+            icon={Receipt}
+            label="Minhas faturas"
+            onNavigate={onNavigate}
+          />
+          <SidebarItem
+            to="/finance/portal/subscription"
+            icon={Repeat}
+            label="Assinatura"
+            onNavigate={onNavigate}
+          />
+          <SidebarItem
+            to="/finance/portal/history"
+            icon={History}
+            label="Histórico"
+            onNavigate={onNavigate}
+          />
+        </SidebarGroup>
+      )}
 
       {showCadastrosGroup && (
         <SidebarGroup label="Cadastros">

@@ -262,8 +262,12 @@ export default function ClientEditPage() {
               mode="edit"
               defaultValues={{
                 name: query.data.name,
+                legal_name: query.data.legal_name ?? '',
+                trade_name: query.data.trade_name ?? '',
                 document: query.data.document,
+                state_registration: query.data.state_registration ?? '',
                 email: query.data.email ?? '',
+                financial_email: query.data.financial_email ?? '',
                 phone: query.data.phone ?? '',
                 street: query.data.street ?? '',
                 number: query.data.number ?? '',

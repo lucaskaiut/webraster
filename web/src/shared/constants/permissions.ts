@@ -81,6 +81,32 @@ export const Permission = {
   ALERT_CONFIG_READ: 'alert-config.read',
   ALERT_CONFIG_UPDATE: 'alert-config.update',
   NOTIFICATION_READ: 'notification.read',
+
+  FINANCE_PLAN_CREATE: 'finance-plan.create',
+  FINANCE_PLAN_READ: 'finance-plan.read',
+  FINANCE_PLAN_UPDATE: 'finance-plan.update',
+  FINANCE_PLAN_DELETE: 'finance-plan.delete',
+
+  FINANCE_CONTRACT_CREATE: 'finance-contract.create',
+  FINANCE_CONTRACT_READ: 'finance-contract.read',
+  FINANCE_CONTRACT_UPDATE: 'finance-contract.update',
+  FINANCE_CONTRACT_DELETE: 'finance-contract.delete',
+
+  FINANCE_SUBSCRIPTION_CREATE: 'finance-subscription.create',
+  FINANCE_SUBSCRIPTION_READ: 'finance-subscription.read',
+  FINANCE_SUBSCRIPTION_UPDATE: 'finance-subscription.update',
+
+  FINANCE_RECEIVABLE_CREATE: 'finance-receivable.create',
+  FINANCE_RECEIVABLE_READ: 'finance-receivable.read',
+  FINANCE_RECEIVABLE_UPDATE: 'finance-receivable.update',
+  FINANCE_RECEIVABLE_CHARGE: 'finance-receivable.charge',
+
+  FINANCE_ASAAS_CONFIG_READ: 'finance-asaas-config.read',
+  FINANCE_ASAAS_CONFIG_UPDATE: 'finance-asaas-config.update',
+
+  FINANCE_DASHBOARD_READ: 'finance-dashboard.read',
+  FINANCE_REPORT_READ: 'finance-report.read',
+  FINANCE_PORTAL_VIEW: 'finance-portal.view',
 } as const
 
 export type Permission = (typeof Permission)[keyof typeof Permission]
@@ -236,6 +262,31 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { value: Permission.ALERT_CONFIG_READ, label: 'Visualizar configuração de alertas' },
       { value: Permission.ALERT_CONFIG_UPDATE, label: 'Editar configuração de alertas' },
       { value: Permission.NOTIFICATION_READ, label: 'Visualizar notificações' },
+    ],
+  },
+  {
+    label: 'Financeiro',
+    permissions: [
+      { value: Permission.FINANCE_PLAN_READ, label: 'Visualizar planos financeiros' },
+      { value: Permission.FINANCE_PLAN_CREATE, label: 'Criar planos financeiros' },
+      { value: Permission.FINANCE_PLAN_UPDATE, label: 'Editar planos financeiros' },
+      { value: Permission.FINANCE_PLAN_DELETE, label: 'Remover planos financeiros' },
+      { value: Permission.FINANCE_CONTRACT_READ, label: 'Visualizar contratos' },
+      { value: Permission.FINANCE_CONTRACT_CREATE, label: 'Criar contratos' },
+      { value: Permission.FINANCE_CONTRACT_UPDATE, label: 'Editar contratos' },
+      { value: Permission.FINANCE_CONTRACT_DELETE, label: 'Remover contratos' },
+      { value: Permission.FINANCE_SUBSCRIPTION_READ, label: 'Visualizar assinaturas financeiras' },
+      { value: Permission.FINANCE_SUBSCRIPTION_CREATE, label: 'Criar assinaturas financeiras' },
+      { value: Permission.FINANCE_SUBSCRIPTION_UPDATE, label: 'Gerenciar assinaturas financeiras' },
+      { value: Permission.FINANCE_RECEIVABLE_READ, label: 'Visualizar cobranças' },
+      { value: Permission.FINANCE_RECEIVABLE_CREATE, label: 'Gerar cobranças' },
+      { value: Permission.FINANCE_RECEIVABLE_UPDATE, label: 'Atualizar cobranças' },
+      { value: Permission.FINANCE_RECEIVABLE_CHARGE, label: 'Cobrar via gateway' },
+      { value: Permission.FINANCE_ASAAS_CONFIG_READ, label: 'Visualizar configuração Asaas' },
+      { value: Permission.FINANCE_ASAAS_CONFIG_UPDATE, label: 'Editar configuração Asaas' },
+      { value: Permission.FINANCE_DASHBOARD_READ, label: 'Visualizar dashboard financeiro' },
+      { value: Permission.FINANCE_REPORT_READ, label: 'Visualizar relatórios financeiros' },
+      { value: Permission.FINANCE_PORTAL_VIEW, label: 'Acessar portal financeiro do cliente' },
     ],
   },
 ]

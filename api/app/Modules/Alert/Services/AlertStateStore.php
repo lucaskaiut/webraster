@@ -10,6 +10,13 @@ use Illuminate\Support\Collection;
 
 class AlertStateStore
 {
+    public static function scopeIdForDeviceAlarm(string $alarmCode): int
+    {
+        $hash = crc32(strtolower(trim($alarmCode))) & 0x7FFFFFFF;
+
+        return $hash === 0 ? -1 : -$hash;
+    }
+
     public function get(int $tenantId, int $vehicleId, AlertType $type, ?int $alertConfigId = null): AlertState
     {
         $scopeId = $alertConfigId ?? 0;
