@@ -9,7 +9,6 @@ import {
   fleetStats,
   formatSpeed,
   formatUpdatedAt,
-  hasActiveAlarm,
   matchesFleetFilter,
   matchesSearch,
   motionStatus,
