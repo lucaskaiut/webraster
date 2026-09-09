@@ -86,7 +86,7 @@ class BillingFlowTest extends TestCase
         config([
             'asaas.api_key' => '$aact_hmlg_test_key',
             'asaas.base_url' => 'https://api-sandbox.asaas.com/v3',
-            'asaas.user_agent' => 'NoxConnectTest/1.0',
+            'asaas.user_agent' => 'WebRasterTest/1.0',
             'asaas.timeout' => 30,
             'asaas.credit_card_timeout' => 60,
         ]);
@@ -339,7 +339,7 @@ class BillingFlowTest extends TestCase
         config([
             'asaas.api_key' => '$aact_hmlg_test_key',
             'asaas.base_url' => 'https://api-sandbox.asaas.com/v3',
-            'asaas.user_agent' => 'NoxConnectTest/1.0',
+            'asaas.user_agent' => 'WebRasterTest/1.0',
             'asaas.timeout' => 30,
             'asaas.credit_card_timeout' => 60,
         ]);
@@ -407,7 +407,7 @@ class BillingFlowTest extends TestCase
         config([
             'asaas.api_key' => '$aact_hmlg_test_key',
             'asaas.base_url' => 'https://api-sandbox.asaas.com/v3',
-            'asaas.user_agent' => 'NoxConnectTest/1.0',
+            'asaas.user_agent' => 'WebRasterTest/1.0',
             'asaas.timeout' => 30,
             'asaas.credit_card_timeout' => 60,
             'billing.recurring_charge_max_attempts' => 3,

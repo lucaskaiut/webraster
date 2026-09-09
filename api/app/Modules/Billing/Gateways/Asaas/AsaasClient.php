@@ -91,7 +91,7 @@ final class AsaasClient
             ->asJson()
             ->withHeaders([
                 'access_token' => $apiKey,
-                'User-Agent' => (string) config('asaas.user_agent', 'NoxConnect/1.0'),
+                'User-Agent' => (string) config('asaas.user_agent', 'WebRaster/1.0'),
             ])
             ->timeout(max(1, $resolvedTimeout))
             ->connectTimeout(10);

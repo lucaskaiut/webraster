@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-const STORAGE_KEY = 'nox:selected-tenant-id'
+const STORAGE_KEY = 'webraster:selected-tenant-id'
 
 interface TenantContextState {
   selectedTenantId: string | null

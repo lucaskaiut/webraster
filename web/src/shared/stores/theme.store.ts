@@ -14,7 +14,7 @@ export const useThemeStore = create<ThemeState>()(
       theme: 'system',
       setTheme: (theme) => set({ theme }),
     }),
-    { name: 'nox-theme' },
+    { name: 'webraster-theme' },
   ),
 )
 

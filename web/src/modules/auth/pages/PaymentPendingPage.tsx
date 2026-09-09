@@ -247,7 +247,7 @@ export default function PaymentPendingPage() {
         <span className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-raised">
           <Zap className="size-5.5" aria-hidden="true" />
         </span>
-        <span className="text-lg font-semibold tracking-tight text-foreground">Nox</span>
+        <span className="text-lg font-semibold tracking-tight text-foreground">Web Raster</span>
       </div>
 
       {loading ? (
@@ -476,7 +476,7 @@ export default function PaymentPendingPage() {
       )}
 
       <p className="mt-8 text-xs text-subtle">
-        © {new Date().getFullYear()} Nox — Pagamento seguro
+        © {new Date().getFullYear()} Web Raster — Pagamento seguro
       </p>
     </div>
   )

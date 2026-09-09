@@ -34,7 +34,7 @@ class AlertMailNotification extends Notification implements ShouldQueue
 
         $mail = (new MailMessage)
             ->subject('[ALERTA] '.$this->alert->title)
-            ->greeting('Alerta de rastreamento')
+            ->greeting('Alerta do Web Raster')
             ->line('Tipo: '.$this->alert->type->label())
             ->line('Veículo: '.$this->vehicle->plate)
             ->line('Severidade: '.strtoupper($this->alert->severity->value))

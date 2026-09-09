@@ -24,7 +24,7 @@ class AsaasCreditCardGatewayTest extends TestCase
         config([
             'asaas.api_key' => '$aact_hmlg_test_key',
             'asaas.base_url' => 'https://api-sandbox.asaas.com/v3',
-            'asaas.user_agent' => 'NoxConnectTest/1.0',
+            'asaas.user_agent' => 'WebRasterTest/1.0',
             'asaas.timeout' => 30,
             'asaas.credit_card_timeout' => 60,
         ]);
@@ -102,7 +102,7 @@ class AsaasCreditCardGatewayTest extends TestCase
                 && $body['remoteIp'] === '203.0.113.10'
                 && ! isset($body['creditCard'])
                 && $request->hasHeader('access_token', '$aact_hmlg_test_key')
-                && $request->hasHeader('User-Agent', 'NoxConnectTest/1.0');
+                && $request->hasHeader('User-Agent', 'WebRasterTest/1.0');
         });
     }
 

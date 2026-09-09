@@ -3,7 +3,7 @@ name: template-governance
 description: Use when the user asks about governance, template rules, or before implementing changes. This skill establishes mandatory rules for what belongs in the template versus derived projects.
 ---
 
-# Template Governance — nox-skeleton
+# Template Governance — Web Raster
 
 ## Context
 
@@ -15,8 +15,8 @@ Derived projects live as sibling directories:
 
 ```
 development/
-├── nox-skeleton/       ← This template (CORE only)
-└── nox-cms/            ← Derived project (CORE + PROJECT)
+├── web-raster/         ← This template (CORE only)
+└── web-raster-app/     ← Derived project (CORE + PROJECT)
 ```
 
 There is no git remote coupling. Each repo has its own `origin`.

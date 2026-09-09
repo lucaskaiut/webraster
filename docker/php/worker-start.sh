@@ -16,7 +16,7 @@ env_get() {
 
 export DB_HOST="$(env_get DB_HOST mysql)"
 export DB_PORT="$(env_get DB_PORT 3306)"
-export DB_DATABASE="$(env_get DB_DATABASE nox_cms)"
+export DB_DATABASE="$(env_get DB_DATABASE webraster)"
 export DB_ROOT_PASSWORD="${DB_ROOT_PASSWORD:-root}"
 
 tries=0

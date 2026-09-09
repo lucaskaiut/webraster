@@ -133,6 +133,6 @@ class RegisterRequest extends FormRequest
         $slug = Str::slug(Str::ascii($name));
         $slug = $slug !== '' ? $slug : 'empresa';
 
-        return Str::lower($slug.'-'.Str::lower(Str::random(6)).'.nox.app');
+        return Str::lower($slug.'-'.Str::lower(Str::random(6)).'.webraster.app');
     }
 }

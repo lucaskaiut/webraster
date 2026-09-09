@@ -17,7 +17,7 @@ return [
 
     'base_url' => env('ASAAS_BASE_URL', 'https://api-sandbox.asaas.com/v3'),
 
-    'user_agent' => env('ASAAS_USER_AGENT', 'NoxConnect/1.0'),
+    'user_agent' => env('ASAAS_USER_AGENT', 'WebRaster/1.0'),
 
     /*
     | Timeout padrão (segundos). Cobranças com cartão usam no mínimo 60s.

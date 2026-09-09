@@ -92,7 +92,7 @@ export const useRegisterCheckoutStore = create<RegisterCheckoutState>()(
       },
     }),
     {
-      name: 'nox:register-checkout',
+      name: 'webraster:register-checkout',
       storage: createJSONStorage(() => sessionStorage),
       // SEC-30: não persistir PII (empresa/usuário/senha); só progresso e plano.
       partialize: (state) => ({

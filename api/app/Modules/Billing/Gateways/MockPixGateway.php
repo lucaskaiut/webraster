@@ -96,7 +96,7 @@ class MockPixGateway implements PaymentGatewayInterface
         $externalId = 'pay_'.Str::lower(Str::random(20));
         $expiresAt = CarbonImmutable::instance($payment->dueDate)->addDay();
         $pixCode = sprintf(
-            '00020126580014BR.GOV.BCB.PIX0136%s520400005303986540%s5802BR5925NOX CONNECT LTDA6009SAO PAULO62070503***6304ABCD',
+            '00020126580014BR.GOV.BCB.PIX0136%s520400005303986540%s5802BR5925WEB RASTER LTDA6009SAO PAULO62070503***6304ABCD',
             Str::uuid()->toString(),
             $payment->amount,
         );

@@ -1,4 +1,4 @@
-# Template Governance — nox-skeleton
+# Template Governance — Web Raster
 
 > This is the **Origin Template** — a **generic multi-tenant SaaS starter**.
 > It is NOT a CMS, ERP, or eCommerce. It contains only infrastructure that any
@@ -58,8 +58,8 @@ Projects live alongside this template as sibling directories:
 
 ```
 development/
-├── nox-skeleton/       ← This template (CORE only)
-└── nox-cms/            ← Derived project (CORE + PROJECT)
+├── web-raster/         ← This template (CORE only)
+└── web-raster-app/     ← Derived project (CORE + PROJECT)
 ```
 
 There is no git remote coupling. CORE changes are synchronized by copying

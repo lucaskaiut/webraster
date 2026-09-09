@@ -72,7 +72,7 @@ export function ConfirmStep() {
         'Conta criada com sucesso',
         result.is_trial
           ? `Seu período de teste de ${result.trial_days} dias já está ativo.`
-          : 'Bem-vindo à Nox.',
+          : 'Bem-vindo ao Web Raster.',
       )
 
       navigate('/dashboard', { replace: true })

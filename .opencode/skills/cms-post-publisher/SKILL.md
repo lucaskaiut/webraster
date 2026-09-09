@@ -5,7 +5,7 @@ description: Publica artigos no CMS via infraestrutura AI Publisher. Usa discove
 
 # CMS Post Publisher
 
-**Base URL**: `https://cms-api.noxtecnologias.com.br/api`
+**Base URL**: `https://api.webraster.app/api`
 
 ## Autenticação
 
