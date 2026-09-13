@@ -4,18 +4,17 @@ import { toast } from '@/shared/stores/toast.store'
 import { isApiError } from '@/shared/api/errors'
 import {
   financeService,
-  type AsaasConfigPayload,
-  type ChargeReceivablePayload,
-  type FinanceContractListParams,
-  type FinanceContractPayload,
+  type AssignFinanceSubscriptionPayload,
+  type ChargeBillingPayload,
+  type FinanceBillingListParams,
   type FinancePlanListParams,
   type FinancePlanPayload,
-  type FinanceReceivableListParams,
   type FinanceReportParams,
   type FinanceSubscriptionListParams,
-  type GenerateReceivablePayload,
+  type GenerateBillingPayload,
+  type PaymentGatewayConfigPayload,
+  type UpdateFinanceSubscriptionPayload,
 } from '../services/finance.service'
-import type { FinanceContractStatus } from '@/shared/types/models'
 
 function invalidateFinance(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: queryKeys.finance.all })
@@ -76,82 +75,34 @@ export function useDeleteFinancePlan() {
   })
 }
 
-export function useFinanceContractsQuery(params: FinanceContractListParams) {
-  return useQuery({
-    queryKey: queryKeys.finance.contracts.list(params),
-    queryFn: () => financeService.listContracts(params),
-    placeholderData: keepPreviousData,
-  })
-}
-
-export function useFinanceContractQuery(id: string | undefined) {
-  return useQuery({
-    queryKey: queryKeys.finance.contracts.detail(id ?? ''),
-    queryFn: () => financeService.getContract(id!),
-    enabled: !!id,
-  })
-}
-
-export function useCreateFinanceContract() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (payload: FinanceContractPayload) => financeService.createContract(payload),
-    onSuccess: () => {
-      invalidateFinance(queryClient)
-      toast.success('Contrato criado')
-    },
-    onError: (error) => {
-      if (isApiError(error)) toast.error(error.message)
-    },
-  })
-}
-
-export function useUpdateFinanceContract(id: string) {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (payload: Partial<FinanceContractPayload>) =>
-      financeService.updateContract(id, payload),
-    onSuccess: () => {
-      invalidateFinance(queryClient)
-      toast.success('Contrato atualizado')
-    },
-    onError: (error) => {
-      if (isApiError(error)) toast.error(error.message)
-    },
-  })
-}
-
-export function useDeleteFinanceContract() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => financeService.deleteContract(id),
-    onSuccess: () => {
-      invalidateFinance(queryClient)
-      toast.success('Contrato removido')
-    },
-  })
-}
-
-export function useChangeFinanceContractStatus() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: FinanceContractStatus | string }) =>
-      financeService.changeContractStatus(id, status),
-    onSuccess: () => {
-      invalidateFinance(queryClient)
-      toast.success('Status do contrato atualizado')
-    },
-    onError: (error) => {
-      if (isApiError(error)) toast.error(error.message)
-    },
-  })
-}
-
 export function useFinanceSubscriptionsQuery(params: FinanceSubscriptionListParams) {
   return useQuery({
     queryKey: queryKeys.finance.subscriptions.list(params),
     queryFn: () => financeService.listSubscriptions(params),
     placeholderData: keepPreviousData,
+  })
+}
+
+export function useFinanceSubscriptionQuery(id: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.finance.subscriptions.detail(id ?? ''),
+    queryFn: () => financeService.getSubscription(id!),
+    enabled: !!id,
+  })
+}
+
+export function useAssignFinanceSubscription() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: AssignFinanceSubscriptionPayload) =>
+      financeService.assignSubscription(payload),
+    onSuccess: () => {
+      invalidateFinance(queryClient)
+      toast.success('Plano atribuído')
+    },
+    onError: (error) => {
+      if (isApiError(error)) toast.error(error.message)
+    },
   })
 }
 
@@ -175,7 +126,7 @@ export function useReactivateFinanceSubscription() {
     mutationFn: (id: string) => financeService.reactivateSubscription(id),
     onSuccess: () => {
       invalidateFinance(queryClient)
-      toast.success('Assinatura reativada')
+      toast.success('Assinatura reativada e dispositivos liberados')
     },
     onError: (error) => {
       if (isApiError(error)) toast.error(error.message)
@@ -183,26 +134,54 @@ export function useReactivateFinanceSubscription() {
   })
 }
 
-export function useFinanceReceivablesQuery(params: FinanceReceivableListParams) {
+export function useUpdateFinanceSubscription() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string
+      payload: UpdateFinanceSubscriptionPayload
+    }) => financeService.updateSubscription(id, payload),
+    onSuccess: () => {
+      invalidateFinance(queryClient)
+      toast.success('Assinatura atualizada')
+    },
+    onError: (error) => {
+      if (isApiError(error)) toast.error(error.message)
+    },
+  })
+}
+
+export function useFinanceClientOverviewQuery(clientId: string | undefined) {
   return useQuery({
-    queryKey: queryKeys.finance.receivables.list(params),
-    queryFn: () => financeService.listReceivables(params),
+    queryKey: queryKeys.finance.clientOverview(clientId ?? ''),
+    queryFn: () => financeService.clientOverview(clientId!),
+    enabled: !!clientId,
+  })
+}
+
+export function useFinanceBillingsQuery(params: FinanceBillingListParams) {
+  return useQuery({
+    queryKey: queryKeys.finance.billings.list(params),
+    queryFn: () => financeService.listBillings(params),
     placeholderData: keepPreviousData,
   })
 }
 
-export function useFinanceReceivableQuery(id: string | undefined) {
+export function useFinanceBillingQuery(id: string | undefined) {
   return useQuery({
-    queryKey: queryKeys.finance.receivables.detail(id ?? ''),
-    queryFn: () => financeService.getReceivable(id!),
+    queryKey: queryKeys.finance.billings.detail(id ?? ''),
+    queryFn: () => financeService.getBilling(id!),
     enabled: !!id,
   })
 }
 
-export function useGenerateFinanceReceivable() {
+export function useGenerateFinanceBilling() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (payload: GenerateReceivablePayload) => financeService.generateReceivable(payload),
+    mutationFn: (payload: GenerateBillingPayload) => financeService.generateBilling(payload),
     onSuccess: () => {
       invalidateFinance(queryClient)
       toast.success('Cobrança gerada')
@@ -213,11 +192,11 @@ export function useGenerateFinanceReceivable() {
   })
 }
 
-export function useChargeFinanceReceivable() {
+export function useChargeFinanceBilling() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: ChargeReceivablePayload }) =>
-      financeService.chargeReceivable(id, payload),
+    mutationFn: ({ id, payload }: { id: string; payload: ChargeBillingPayload }) =>
+      financeService.chargeBilling(id, payload),
     onSuccess: () => {
       invalidateFinance(queryClient)
       toast.success('Cobrança enviada ao gateway')
@@ -228,10 +207,10 @@ export function useChargeFinanceReceivable() {
   })
 }
 
-export function useCancelFinanceReceivable() {
+export function useCancelFinanceBilling() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => financeService.cancelReceivable(id),
+    mutationFn: (id: string) => financeService.cancelBilling(id),
     onSuccess: () => {
       invalidateFinance(queryClient)
       toast.success('Cobrança cancelada')
@@ -242,14 +221,14 @@ export function useCancelFinanceReceivable() {
   })
 }
 
-export function useMarkFinanceReceivableReceived() {
+export function useMarkFinanceBillingPaid() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ id, paid_amount_cents }: { id: string; paid_amount_cents?: number | null }) =>
-      financeService.markReceivableReceived(id, paid_amount_cents),
+      financeService.markBillingPaid(id, paid_amount_cents),
     onSuccess: () => {
       invalidateFinance(queryClient)
-      toast.success('Cobrança marcada como recebida')
+      toast.success('Cobrança marcada como paga')
     },
     onError: (error) => {
       if (isApiError(error)) toast.error(error.message)
@@ -257,20 +236,21 @@ export function useMarkFinanceReceivableReceived() {
   })
 }
 
-export function useAsaasConfigQuery() {
+export function usePaymentGatewayConfigQuery(gateway?: string) {
   return useQuery({
-    queryKey: queryKeys.finance.asaasConfig(),
-    queryFn: () => financeService.getAsaasConfig(),
+    queryKey: [...queryKeys.finance.gatewayConfig(), gateway ?? 'default'],
+    queryFn: () => financeService.getPaymentGatewayConfig(gateway),
   })
 }
 
-export function useUpdateAsaasConfig() {
+export function useUpdatePaymentGatewayConfig() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (payload: AsaasConfigPayload) => financeService.updateAsaasConfig(payload),
+    mutationFn: (payload: PaymentGatewayConfigPayload) =>
+      financeService.updatePaymentGatewayConfig(payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.finance.asaasConfig() })
-      toast.success('Configuração Asaas salva')
+      queryClient.invalidateQueries({ queryKey: queryKeys.finance.gatewayConfig() })
+      toast.success('Configuração do gateway salva')
     },
     onError: (error) => {
       if (isApiError(error)) toast.error(error.message)
@@ -301,18 +281,18 @@ export function useFinancePortalSubscriptionQuery() {
   })
 }
 
-export function useFinancePortalReceivablesQuery(params: FinanceReceivableListParams) {
+export function useFinancePortalBillingsQuery(params: FinanceBillingListParams) {
   return useQuery({
-    queryKey: queryKeys.finance.portal.receivables(params),
-    queryFn: () => financeService.portalReceivables(params),
+    queryKey: queryKeys.finance.portal.billings(params),
+    queryFn: () => financeService.portalBillings(params),
     placeholderData: keepPreviousData,
   })
 }
 
-export function useFinancePortalReceivableQuery(id: string | undefined) {
+export function useFinancePortalBillingQuery(id: string | undefined) {
   return useQuery({
-    queryKey: queryKeys.finance.portal.receivable(id ?? ''),
-    queryFn: () => financeService.portalReceivable(id!),
+    queryKey: queryKeys.finance.portal.billing(id ?? ''),
+    queryFn: () => financeService.portalBilling(id!),
     enabled: !!id,
   })
 }
@@ -320,7 +300,7 @@ export function useFinancePortalReceivableQuery(id: string | undefined) {
 export function useFinancePortalPay() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: ChargeReceivablePayload }) =>
+    mutationFn: ({ id, payload }: { id: string; payload: ChargeBillingPayload }) =>
       financeService.portalPay(id, payload),
     onSuccess: () => {
       invalidateFinance(queryClient)

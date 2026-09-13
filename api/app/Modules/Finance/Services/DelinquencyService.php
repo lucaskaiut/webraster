@@ -3,8 +3,8 @@
 namespace App\Modules\Finance\Services;
 
 use App\Modules\Equipment\Models\Equipment;
-use App\Modules\Finance\Enums\ReceivableStatus;
-use App\Modules\Finance\Models\FinanceReceivable;
+use App\Modules\Finance\Models\FinanceBilling;
+use App\Modules\Shared\Subscription\Enums\BillingStatus;
 use App\Modules\Vehicle\Models\Vehicle;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -20,27 +20,27 @@ class DelinquencyService
         $today = CarbonImmutable::today();
         $suspendedClients = [];
 
-        FinanceReceivable::query()
-            ->with('contract')
-            ->where('status', ReceivableStatus::OVERDUE->value)
-            ->whereHas('contract', fn ($q) => $q->where('block_on_overdue', true))
+        FinanceBilling::query()
+            ->with('subscription')
+            ->where('status', BillingStatus::OVERDUE->value)
+            ->whereHas('subscription', fn ($q) => $q->where('block_on_overdue', true))
             ->orderBy('id')
-            ->chunkById(100, function ($receivables) use ($today, &$suspendedClients): void {
-                foreach ($receivables as $receivable) {
-                    /** @var FinanceReceivable $receivable */
-                    $contract = $receivable->contract;
-                    if ($contract === null || ! $contract->block_on_overdue) {
+            ->chunkById(100, function ($billings) use ($today, &$suspendedClients): void {
+                foreach ($billings as $billing) {
+                    /** @var FinanceBilling $billing */
+                    $subscription = $billing->subscription;
+                    if ($subscription === null || ! $subscription->block_on_overdue) {
                         continue;
                     }
 
-                    $blockAfter = (int) ($contract->block_after_days ?? 0);
-                    $threshold = CarbonImmutable::parse($receivable->due_at)->addDays($blockAfter);
+                    $blockAfter = (int) ($subscription->block_after_days ?? 0);
+                    $threshold = CarbonImmutable::parse($billing->due_at)->addDays($blockAfter);
 
                     if ($threshold->greaterThan($today)) {
                         continue;
                     }
 
-                    $clientId = (int) $receivable->client_id;
+                    $clientId = (int) $billing->client_id;
                     if (isset($suspendedClients[$clientId])) {
                         continue;
                     }
@@ -53,16 +53,18 @@ class DelinquencyService
         return count($suspendedClients);
     }
 
-    public function unsuspendClient(int $clientId): int
+    public function unsuspendClient(int $clientId, bool $force = false): int
     {
-        $openOverdue = FinanceReceivable::query()
-            ->where('client_id', $clientId)
-            ->where('status', ReceivableStatus::OVERDUE->value)
-            ->whereHas('contract', fn ($q) => $q->where('block_on_overdue', true))
-            ->exists();
+        if (! $force) {
+            $openOverdue = FinanceBilling::query()
+                ->where('client_id', $clientId)
+                ->where('status', BillingStatus::OVERDUE->value)
+                ->whereHas('subscription', fn ($q) => $q->where('block_on_overdue', true))
+                ->exists();
 
-        if ($openOverdue) {
-            return 0;
+            if ($openOverdue) {
+                return 0;
+            }
         }
 
         $equipments = $this->billingSuspendedEquipmentsForClient($clientId);

@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Loader2 } from 'lucide-react'
 import { cn } from '@/shared/utils/cn'
 
 export interface SelectOption {
@@ -9,11 +9,12 @@ export interface SelectOption {
 
 export interface SelectProps extends ComponentProps<'select'> {
   invalid?: boolean
+  loading?: boolean
   options: SelectOption[]
   placeholder?: string
 }
 
-export function Select({ invalid, options, placeholder, className, ...props }: SelectProps) {
+export function Select({ invalid, loading, options, placeholder, className, ...props }: SelectProps) {
   return (
     <div className="relative">
       <select
@@ -33,10 +34,17 @@ export function Select({ invalid, options, placeholder, className, ...props }: S
           </option>
         ))}
       </select>
-      <ChevronDown
-        className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-subtle"
-        aria-hidden="true"
-      />
+      {loading ? (
+        <Loader2
+          className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 animate-spin text-subtle"
+          aria-hidden="true"
+        />
+      ) : (
+        <ChevronDown
+          className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-subtle"
+          aria-hidden="true"
+        />
+      )}
     </div>
   )
 }

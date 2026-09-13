@@ -2,69 +2,32 @@
 
 namespace App\Modules\Finance\Gateways\Asaas;
 
-use App\Modules\Client\Models\Client;
-use App\Modules\Finance\Models\FinanceAsaasCustomer;
-use App\Modules\Finance\Models\TenantAsaasConfig;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 
 final class AsaasClient
 {
     public function __construct(
-        private readonly TenantAsaasConfig $config,
+        private readonly string $baseUrl,
+        private readonly string $apiKey,
     ) {}
 
     /**
+     * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
-    public function createOrUpdateCustomer(Client $client): string
+    public function createCustomer(array $payload): array
     {
-        $cached = FinanceAsaasCustomer::query()
-            ->where('client_id', $client->getKey())
-            ->first();
+        return $this->request('post', '/customers', $payload);
+    }
 
-        $payload = [
-            'name' => $client->legal_name ?: $client->name,
-            'email' => $client->financial_email ?: $client->email,
-            'cpfCnpj' => preg_replace('/\D+/', '', (string) $client->document) ?: null,
-            'phone' => preg_replace('/\D+/', '', (string) $client->phone) ?: null,
-            'mobilePhone' => preg_replace('/\D+/', '', (string) $client->phone) ?: null,
-            'address' => $client->street,
-            'addressNumber' => $client->number,
-            'complement' => $client->complement,
-            'province' => $client->neighborhood,
-            'postalCode' => preg_replace('/\D+/', '', (string) $client->zip) ?: null,
-            'externalReference' => $client->uuid,
-        ];
-
-        $payload = array_filter($payload, static fn ($value) => $value !== null && $value !== '');
-
-        if ($cached) {
-            try {
-                $this->request('put', '/customers/'.$cached->asaas_customer_id, $payload);
-
-                return $cached->asaas_customer_id;
-            } catch (AsaasException) {
-                // recreate below
-            }
-        }
-
-        $response = $this->request('post', '/customers', $payload);
-        $asaasId = (string) ($response['id'] ?? '');
-
-        if ($asaasId === '') {
-            throw new AsaasException('Asaas não retornou o ID do cliente.');
-        }
-
-        FinanceAsaasCustomer::query()->updateOrCreate(
-            [
-                'tenant_id' => $client->tenant_id,
-                'client_id' => $client->getKey(),
-            ],
-            ['asaas_customer_id' => $asaasId],
-        );
-
-        return $asaasId;
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    public function updateCustomer(string $customerId, array $payload): array
+    {
+        return $this->request('put', '/customers/'.$customerId, $payload);
     }
 
     /**
@@ -118,17 +81,15 @@ final class AsaasClient
 
     private function http(): PendingRequest
     {
-        $apiKey = (string) $this->config->api_key;
-
-        if ($apiKey === '') {
-            throw new AsaasException('API key Asaas não configurada para o tenant.');
+        if ($this->apiKey === '') {
+            throw new AsaasException('API key do gateway não configurada para o tenant.');
         }
 
-        return Http::baseUrl(rtrim($this->config->environment->baseUrl(), '/'))
+        return Http::baseUrl(rtrim($this->baseUrl, '/'))
             ->acceptJson()
             ->asJson()
             ->withHeaders([
-                'access_token' => $apiKey,
+                'access_token' => $this->apiKey,
                 'User-Agent' => 'WebRaster-Finance/1.0',
             ])
             ->timeout(30)

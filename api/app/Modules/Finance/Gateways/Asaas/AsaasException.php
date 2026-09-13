@@ -2,24 +2,12 @@
 
 namespace App\Modules\Finance\Gateways\Asaas;
 
+use App\Modules\Finance\Exceptions\GatewayException;
 use Illuminate\Http\Client\Response;
-use RuntimeException;
 
-class AsaasException extends RuntimeException
+class AsaasException extends GatewayException
 {
-    /**
-     * @param  list<array{code?: string, description?: string}>  $errors
-     */
-    public function __construct(
-        string $message,
-        public readonly int $statusCode = 0,
-        public readonly array $errors = [],
-        public readonly ?array $body = null,
-    ) {
-        parent::__construct($message);
-    }
-
-    public static function fromResponse(Response $response, string $fallback = 'Falha na comunicação com o Asaas.'): self
+    public static function fromResponse(Response $response, string $fallback = 'Falha na comunicação com o gateway de pagamento.'): self
     {
         /** @var array<string, mixed> $body */
         $body = $response->json() ?? [];

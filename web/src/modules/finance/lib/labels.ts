@@ -1,8 +1,7 @@
 import type {
   BillingPeriodicity,
-  FinanceContractStatus,
+  FinanceBillingStatus,
   FinancePaymentMethod,
-  FinanceReceivableStatus,
   FinanceReportType,
   FinanceSubscriptionStatus,
 } from '@/shared/types/models'
@@ -15,25 +14,20 @@ export const PERIODICITY_OPTIONS: Array<{ value: BillingPeriodicity; label: stri
   { value: 'annual', label: 'Anual' },
 ]
 
-export const CONTRACT_STATUS_OPTIONS: Array<{ value: FinanceContractStatus; label: string }> = [
-  { value: 'active', label: 'Ativo' },
-  { value: 'suspended', label: 'Suspenso' },
-  { value: 'cancelled', label: 'Cancelado' },
-]
-
 export const SUBSCRIPTION_STATUS_OPTIONS: Array<{
   value: FinanceSubscriptionStatus
   label: string
 }> = [
   { value: 'active', label: 'Ativa' },
+  { value: 'past_due', label: 'Em atraso' },
   { value: 'suspended', label: 'Suspensa' },
   { value: 'cancelled', label: 'Cancelada' },
 ]
 
-export const RECEIVABLE_STATUS_OPTIONS: Array<{ value: FinanceReceivableStatus; label: string }> = [
+export const BILLING_STATUS_OPTIONS: Array<{ value: FinanceBillingStatus; label: string }> = [
   { value: 'pending', label: 'Pendente' },
   { value: 'awaiting_payment', label: 'Aguardando pagamento' },
-  { value: 'received', label: 'Recebido' },
+  { value: 'paid', label: 'Pago' },
   { value: 'overdue', label: 'Vencido' },
   { value: 'cancelled', label: 'Cancelado' },
   { value: 'refunded', label: 'Estornado' },
@@ -46,32 +40,23 @@ export const PAYMENT_METHOD_OPTIONS: Array<{ value: FinancePaymentMethod; label:
 ]
 
 export const REPORT_TYPE_OPTIONS: Array<{ value: FinanceReportType; label: string }> = [
-  { value: 'receivables', label: 'Cobranças' },
+  { value: 'billings', label: 'Cobranças' },
   { value: 'delinquency', label: 'Inadimplência' },
   { value: 'receipts', label: 'Recebimentos' },
   { value: 'subscriptions', label: 'Assinaturas' },
   { value: 'blocked_clients', label: 'Clientes bloqueados' },
 ]
 
-export const ASAAS_ENVIRONMENT_OPTIONS = [
-  { value: 'sandbox', label: 'Sandbox' },
-  { value: 'production', label: 'Produção' },
-]
-
 export function periodicityLabel(value: BillingPeriodicity | string): string {
   return PERIODICITY_OPTIONS.find((item) => item.value === value)?.label ?? value
-}
-
-export function contractStatusLabel(value: FinanceContractStatus | string): string {
-  return CONTRACT_STATUS_OPTIONS.find((item) => item.value === value)?.label ?? value
 }
 
 export function subscriptionStatusLabel(value: FinanceSubscriptionStatus | string): string {
   return SUBSCRIPTION_STATUS_OPTIONS.find((item) => item.value === value)?.label ?? value
 }
 
-export function receivableStatusLabel(value: FinanceReceivableStatus | string): string {
-  return RECEIVABLE_STATUS_OPTIONS.find((item) => item.value === value)?.label ?? value
+export function billingStatusLabel(value: FinanceBillingStatus | string): string {
+  return BILLING_STATUS_OPTIONS.find((item) => item.value === value)?.label ?? value
 }
 
 export function paymentMethodLabel(value: FinancePaymentMethod | string | null | undefined): string {
@@ -79,12 +64,14 @@ export function paymentMethodLabel(value: FinancePaymentMethod | string | null |
   return PAYMENT_METHOD_OPTIONS.find((item) => item.value === value)?.label ?? value
 }
 
-export function contractStatusBadgeVariant(
-  status: FinanceContractStatus | string,
+export function subscriptionStatusBadgeVariant(
+  status: FinanceSubscriptionStatus | string,
 ): 'success' | 'warning' | 'neutral' | 'danger' {
   switch (status) {
     case 'active':
       return 'success'
+    case 'past_due':
+      return 'danger'
     case 'suspended':
       return 'warning'
     case 'cancelled':
@@ -94,30 +81,15 @@ export function contractStatusBadgeVariant(
   }
 }
 
-export function subscriptionStatusBadgeVariant(
-  status: FinanceSubscriptionStatus | string,
-): 'success' | 'warning' | 'neutral' {
-  switch (status) {
-    case 'active':
-      return 'success'
-    case 'suspended':
-      return 'warning'
-    case 'cancelled':
-      return 'neutral'
-    default:
-      return 'neutral'
-  }
-}
-
-export function receivableStatusBadgeVariant(
-  status: FinanceReceivableStatus | string,
+export function billingStatusBadgeVariant(
+  status: FinanceBillingStatus | string,
 ): 'primary' | 'warning' | 'success' | 'danger' | 'neutral' {
   switch (status) {
     case 'pending':
       return 'primary'
     case 'awaiting_payment':
       return 'warning'
-    case 'received':
+    case 'paid':
       return 'success'
     case 'overdue':
       return 'danger'

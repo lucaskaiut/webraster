@@ -14,12 +14,12 @@ import {
   type Column,
 } from '@/shared/design-system'
 import { formatCurrency, formatDate } from '@/shared/utils/format'
-import type { FinanceReceivable } from '@/shared/types/models'
-import { useFinancePortalReceivablesQuery } from '../hooks/useFinance'
+import type { FinanceBilling } from '@/shared/types/models'
+import { useFinancePortalBillingsQuery } from '../hooks/useFinance'
 import {
+  billingStatusBadgeVariant,
+  billingStatusLabel,
   paymentMethodLabel,
-  receivableStatusBadgeVariant,
-  receivableStatusLabel,
 } from '../lib/labels'
 
 const PER_PAGE = 10
@@ -27,22 +27,22 @@ const PER_PAGE = 10
 export default function FinancePortalHistoryPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const page = Number(searchParams.get('page') ?? 1)
-  const status = searchParams.get('status') ?? 'received'
+  const status = searchParams.get('status') ?? 'paid'
   const navigate = useNavigate()
 
-  const query = useFinancePortalReceivablesQuery({
+  const query = useFinancePortalBillingsQuery({
     page,
     per_page: PER_PAGE,
     status: status || undefined,
   })
 
-  const columns: Array<Column<FinanceReceivable>> = [
+  const columns: Array<Column<FinanceBilling>> = [
     {
       key: 'code',
       header: 'Fatura',
       render: (item) => (
         <Link
-          to={`/finance/portal/receivables/${item.id}`}
+          to={`/finance/portal/billings/${item.id}`}
           className="font-medium text-primary hover:underline"
         >
           {item.code}
@@ -67,15 +67,14 @@ export default function FinancePortalHistoryPage() {
     {
       key: 'payment_method',
       header: 'Método',
-      render: (item) =>
-        item.payment_method_label ?? paymentMethodLabel(item.payment_method),
+      render: (item) => item.payment_method_label ?? paymentMethodLabel(item.payment_method),
     },
     {
       key: 'status',
       header: 'Status',
       render: (item) => (
-        <Badge variant={receivableStatusBadgeVariant(item.status)}>
-          {item.status_label ?? receivableStatusLabel(item.status)}
+        <Badge variant={billingStatusBadgeVariant(item.status)}>
+          {item.status_label ?? billingStatusLabel(item.status)}
         </Badge>
       ),
     },
@@ -88,7 +87,7 @@ export default function FinancePortalHistoryPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate(`/finance/portal/receivables/${item.id}`)}
+            onClick={() => navigate(`/finance/portal/billings/${item.id}`)}
             aria-label={`Ver ${item.code}`}
           >
             <Eye className="size-4" />
@@ -102,7 +101,7 @@ export default function FinancePortalHistoryPage() {
     <Page>
       <PageHeader
         title="Histórico financeiro"
-        description="Faturas recebidas ou canceladas."
+        description="Faturas pagas ou canceladas."
         breadcrumb={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Histórico' }]}
       />
       <PageContent>
@@ -122,7 +121,7 @@ export default function FinancePortalHistoryPage() {
               )
             }}
             options={[
-              { value: 'received', label: 'Recebidas' },
+              { value: 'paid', label: 'Pagas' },
               { value: 'cancelled', label: 'Canceladas' },
               { value: 'refunded', label: 'Estornadas' },
             ]}

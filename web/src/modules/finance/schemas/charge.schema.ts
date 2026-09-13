@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const chargeReceivableSchema = z
+export const chargeBillingSchema = z
   .object({
     payment_method: z.enum(['pix', 'boleto', 'credit_card']),
     holderName: z.string(),
@@ -28,10 +28,10 @@ export const chargeReceivableSchema = z
     }
   })
 
-export type ChargeReceivableFormValues = z.infer<typeof chargeReceivableSchema>
+export type ChargeBillingFormValues = z.infer<typeof chargeBillingSchema>
 
-export const markReceivedSchema = z.object({
+export const markPaidSchema = z.object({
   paid_amount: z.string(),
 })
 
-export type MarkReceivedFormValues = z.infer<typeof markReceivedSchema>
+export type MarkPaidFormValues = z.infer<typeof markPaidSchema>

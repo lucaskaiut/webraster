@@ -21,10 +21,10 @@ class StoreClientUserRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')->whereNull('deleted_at')],
             'phone' => ['nullable', 'string', 'max:20'],
             'document' => ['nullable', 'string', new Cpf],
-            'password' => ['required', 'string', 'min:8', 'max:255'],
+            'password' => ['nullable', 'string', 'min:8', 'max:255'],
             'role_ids' => ['sometimes', 'array', 'min:1'],
             'role_ids.*' => [
                 'integer',

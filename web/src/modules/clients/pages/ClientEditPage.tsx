@@ -1,44 +1,27 @@
-import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { useNavigate, useParams } from 'react-router'
-import { Contact, Plus, Trash2, UserX } from 'lucide-react'
+import { useMemo } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router'
+import { UserX } from 'lucide-react'
 import {
-  Button,
   ButtonLink,
   Card,
   CardContent,
-  ConfirmDialog,
-  DataTable,
   EmptyState,
-  Form,
   Page,
   PageContent,
   PageHeader,
-  Section,
+  SegmentedControl,
   Skeleton,
-  TextField,
-  type Column,
 } from '@/shared/design-system'
-import { Can } from '@/app/guards/PermissionGuard'
 import { Permission } from '@/shared/constants/permissions'
-import { isApiError } from '@/shared/api/errors'
-import { applyApiErrorsToForm } from '@/shared/utils/forms'
-import { onlyDigits } from '@/shared/utils/document'
-import type { User } from '@/shared/types/models'
-import { RolesField } from '@/modules/users/components/RolesField'
+import { usePermissions } from '@/shared/hooks/usePermissions'
 import { ClientForm } from '../forms/ClientForm'
-import {
-  useClientQuery,
-  useClientUsersQuery,
-  useCreateClientUser,
-  useDeleteClientUser,
-  useUpdateClient,
-} from '../hooks/useClients'
-import {
-  createClientUserSchema,
-  type ClientUserFormValues,
-} from '../schemas/client.schema'
+import { ClientFinanceSection } from '../components/ClientFinanceSection'
+import { ClientOrderSection } from '../components/ClientOrderSection'
+import { ClientUsersSection } from '../components/ClientUsersSection'
+import { ClientVehiclesSection } from '../components/ClientVehiclesSection'
+import { useClientQuery, useUpdateClient } from '../hooks/useClients'
+
+type ClientEditTab = 'dados' | 'usuarios' | 'veiculos' | 'pedido'
 
 function FormSkeleton() {
   return (
@@ -61,170 +44,52 @@ function FormSkeleton() {
   )
 }
 
-function ClientUsersSection({ clientId }: { clientId: string }) {
-  const [userToDelete, setUserToDelete] = useState<User | null>(null)
-  const usersQuery = useClientUsersQuery(clientId, { per_page: 50 })
-  const createUser = useCreateClientUser(clientId)
-  const deleteUser = useDeleteClientUser(clientId)
-
-  const form = useForm<ClientUserFormValues>({
-    resolver: zodResolver(createClientUserSchema),
-    defaultValues: {
-      name: '',
-      email: '',
-      phone: '',
-      document: '',
-      password: '',
-      role_ids: [],
-    },
-  })
-
-  const handleCreate = async (values: ClientUserFormValues) => {
-    try {
-      await createUser.mutateAsync({
-        name: values.name,
-        email: values.email,
-        phone: values.phone || null,
-        document: values.document ? onlyDigits(values.document) : null,
-        password: values.password,
-        ...(values.role_ids.length > 0 ? { role_ids: values.role_ids } : {}),
-      })
-      form.reset({
-        name: '',
-        email: '',
-        phone: '',
-        document: '',
-        password: '',
-        role_ids: [],
-      })
-    } catch (error) {
-      if (isApiError(error) && error.status === 422) {
-        applyApiErrorsToForm(form, error)
-      }
-    }
-  }
-
-  const columns: Array<Column<User>> = [
-    {
-      key: 'name',
-      header: 'Usuário',
-      render: (user) => (
-        <div className="min-w-0">
-          <p className="truncate font-medium text-foreground">{user.name}</p>
-          <p className="truncate text-[13px] text-muted">{user.email}</p>
-        </div>
-      ),
-    },
-    {
-      key: 'phone',
-      header: 'Telefone',
-      render: (user) => <span className="text-muted">{user.phone ?? '—'}</span>,
-    },
-    {
-      key: 'actions',
-      header: <span className="sr-only">Ações</span>,
-      className: 'w-16 text-right',
-      render: (user) => (
-        <div className="flex justify-end">
-          <Can permission={Permission.CLIENT_UPDATE}>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setUserToDelete(user)}
-              aria-label={`Excluir ${user.name}`}
-              className="text-danger hover:bg-danger-soft hover:text-danger"
-            >
-              <Trash2 className="size-4" />
-            </Button>
-          </Can>
-        </div>
-      ),
-    },
-  ]
-
-  return (
-    <>
-      <Card>
-        <CardContent className="space-y-8">
-          <Section
-            title="Usuários do cliente"
-            description="Contas de acesso vinculadas a este cliente. Se nenhum perfil for selecionado, a API atribui o perfil Cliente."
-          >
-            <DataTable
-              caption="Usuários do cliente"
-              columns={columns}
-              rows={usersQuery.data?.data ?? []}
-              rowKey={(user) => user.id}
-              loading={usersQuery.isPending}
-              emptyState={
-                <EmptyState
-                  icon={Contact}
-                  title="Nenhum usuário vinculado"
-                  description="Cadastre o primeiro usuário para este cliente."
-                />
-              }
-            />
-          </Section>
-
-          <Can permission={Permission.CLIENT_UPDATE}>
-            <Section title="Novo usuário" description="Crie um acesso para este cliente.">
-              <Form form={form} onSubmit={handleCreate} className="space-y-6">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <TextField name="name" label="Nome" required className="sm:col-span-2" />
-                  <TextField name="email" label="E-mail" type="email" required />
-                  <TextField
-                    name="password"
-                    label="Senha"
-                    type="password"
-                    autoComplete="new-password"
-                    hint="Mínimo de 8 caracteres"
-                    required
-                  />
-                  <TextField name="phone" label="Telefone" placeholder="(41) 99999-9999" />
-                  <TextField name="document" label="CPF" placeholder="Somente números" />
-                </div>
-
-                <RolesField />
-
-                <div className="flex justify-end">
-                  <Button type="submit" loading={createUser.isPending}>
-                    <Plus className="size-4" />
-                    Adicionar usuário
-                  </Button>
-                </div>
-              </Form>
-            </Section>
-          </Can>
-        </CardContent>
-      </Card>
-
-      <ConfirmDialog
-        open={userToDelete !== null}
-        onClose={() => setUserToDelete(null)}
-        onConfirm={() => {
-          if (!userToDelete) return
-          deleteUser.mutate(userToDelete.id, { onSettled: () => setUserToDelete(null) })
-        }}
-        loading={deleteUser.isPending}
-        title="Excluir usuário do cliente"
-        description={
-          <>
-            Tem certeza que deseja excluir <strong>{userToDelete?.name}</strong>? Esta ação não pode
-            ser desfeita.
-          </>
-        }
-        confirmLabel="Excluir"
-      />
-    </>
-  )
-}
-
 export default function ClientEditPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { can } = usePermissions()
 
   const query = useClientQuery(id)
   const updateClient = useUpdateClient(id ?? '')
+  const showOrderTab = can(Permission.CLIENT_READ)
+  const showFinance = can(Permission.FINANCE_SUBSCRIPTION_READ)
+
+  const tabOptions = useMemo(
+    () => [
+      { value: 'dados' as const, label: 'Dados' },
+      { value: 'usuarios' as const, label: 'Usuários' },
+      { value: 'veiculos' as const, label: 'Veículos' },
+      ...(showOrderTab ? [{ value: 'pedido' as const, label: 'Pedido' }] : []),
+    ],
+    [showOrderTab],
+  )
+
+  const rawTab = searchParams.get('tab')
+  const tab: ClientEditTab =
+    rawTab === 'pedido' && showOrderTab
+      ? 'pedido'
+      : rawTab === 'usuarios'
+        ? 'usuarios'
+        : rawTab === 'veiculos'
+          ? 'veiculos'
+          : rawTab === 'assinatura' && showOrderTab
+            ? 'pedido'
+            : 'dados'
+
+  const setTab = (value: ClientEditTab) => {
+    setSearchParams(
+      (params) => {
+        if (value === 'dados') {
+          params.delete('tab')
+        } else {
+          params.set('tab', value)
+        }
+        return params
+      },
+      { replace: true },
+    )
+  }
 
   return (
     <Page>
@@ -256,36 +121,49 @@ export default function ClientEditPage() {
           </Card>
         )}
 
-        {query.data && (
+        {query.data && id && (
           <>
-            <ClientForm
-              mode="edit"
-              defaultValues={{
-                name: query.data.name,
-                legal_name: query.data.legal_name ?? '',
-                trade_name: query.data.trade_name ?? '',
-                document: query.data.document,
-                state_registration: query.data.state_registration ?? '',
-                email: query.data.email ?? '',
-                financial_email: query.data.financial_email ?? '',
-                phone: query.data.phone ?? '',
-                street: query.data.street ?? '',
-                number: query.data.number ?? '',
-                complement: query.data.complement ?? '',
-                neighborhood: query.data.neighborhood ?? '',
-                city: query.data.city ?? '',
-                state: query.data.state ?? '',
-                zip: query.data.zip ?? '',
-                is_active: query.data.is_active,
-              }}
-              submitting={updateClient.isPending}
-              onSubmit={async (payload) => {
-                await updateClient.mutateAsync(payload)
-                navigate('/clients')
-              }}
-            />
+            <SegmentedControl value={tab} options={tabOptions} onChange={setTab} />
 
-            {id && <ClientUsersSection clientId={id} />}
+            {tab === 'dados' && (
+              <ClientForm
+                mode="edit"
+                defaultValues={{
+                  name: query.data.name,
+                  legal_name: query.data.legal_name ?? '',
+                  trade_name: query.data.trade_name ?? '',
+                  document: query.data.document,
+                  state_registration: query.data.state_registration ?? '',
+                  email: query.data.email ?? '',
+                  financial_email: query.data.financial_email ?? '',
+                  phone: query.data.phone ?? '',
+                  street: query.data.street ?? '',
+                  number: query.data.number ?? '',
+                  complement: query.data.complement ?? '',
+                  neighborhood: query.data.neighborhood ?? '',
+                  city: query.data.city ?? '',
+                  state: query.data.state ?? '',
+                  zip: query.data.zip ?? '',
+                  is_active: query.data.is_active,
+                }}
+                submitting={updateClient.isPending}
+                onSubmit={async (payload) => {
+                  await updateClient.mutateAsync(payload)
+                  navigate('/clients')
+                }}
+              />
+            )}
+
+            {tab === 'usuarios' && <ClientUsersSection clientId={id} />}
+
+            {tab === 'veiculos' && <ClientVehiclesSection clientId={id} />}
+
+            {tab === 'pedido' && (
+              <div className="space-y-6">
+                <ClientOrderSection clientId={id} />
+                {showFinance && <ClientFinanceSection clientId={id} />}
+              </div>
+            )}
           </>
         )}
       </PageContent>

@@ -3,9 +3,9 @@
 namespace App\Modules\Finance\Models;
 
 use App\Modules\Client\Models\Concerns\BelongsToClient;
-use App\Modules\Finance\Enums\BillingPeriodicity;
-use App\Modules\Finance\Enums\SubscriptionStatus;
 use App\Modules\Shared\Models\Concerns\HasUuid;
+use App\Modules\Shared\Subscription\Enums\BillingPeriodicity;
+use App\Modules\Shared\Subscription\Enums\SubscriptionStatus;
 use App\Modules\Tenant\Models\Concerns\BelongsToTenant;
 use Database\Factories\FinanceSubscriptionFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -18,6 +18,7 @@ class FinanceSubscription extends Model
 {
     /** @use HasFactory<FinanceSubscriptionFactory> */
     use BelongsToClient;
+
     use BelongsToTenant;
     use HasFactory;
     use HasUuid;
@@ -26,35 +27,51 @@ class FinanceSubscription extends Model
     protected $table = 'finance_subscriptions';
 
     protected $fillable = [
-        'contract_id',
         'client_id',
+        'plan_id',
+        'plan_name',
+        'plan_price_cents',
+        'plan_periodicity',
         'status',
-        'periodicity',
+        'due_day',
+        'block_on_overdue',
+        'block_after_days',
+        'last_billed_at',
         'next_billing_at',
-        'last_billing_at',
-        'gateway_subscription_id',
+        'started_at',
         'cancelled_at',
+        'gateway_subscription_id',
     ];
 
     protected function casts(): array
     {
         return [
             'status' => SubscriptionStatus::class,
-            'periodicity' => BillingPeriodicity::class,
+            'plan_periodicity' => BillingPeriodicity::class,
+            'plan_price_cents' => 'integer',
+            'due_day' => 'integer',
+            'block_on_overdue' => 'boolean',
+            'block_after_days' => 'integer',
+            'last_billed_at' => 'date',
             'next_billing_at' => 'date',
-            'last_billing_at' => 'date',
+            'started_at' => 'datetime',
             'cancelled_at' => 'datetime',
         ];
     }
 
-    public function contract(): BelongsTo
+    public function plan(): BelongsTo
     {
-        return $this->belongsTo(FinanceContract::class, 'contract_id');
+        return $this->belongsTo(FinancePlan::class, 'plan_id');
     }
 
-    public function receivables(): HasMany
+    public function billings(): HasMany
     {
-        return $this->hasMany(FinanceReceivable::class, 'subscription_id');
+        return $this->hasMany(FinanceBilling::class, 'subscription_id');
+    }
+
+    public function allowsAccess(): bool
+    {
+        return $this->status?->allowsAccess() ?? false;
     }
 
     protected static function newFactory(): FinanceSubscriptionFactory

@@ -11,7 +11,7 @@ class FileUploadController extends ApiController
     public function __invoke(Request $request): JsonResponse
     {
         $request->validate([
-            'file' => ['required', 'file', 'image', 'max:10240'],
+            'file' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:10240'],
         ]);
 
         $path = $request->file('file')->store('uploads', 'public');

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { RefreshCw, Repeat, XCircle } from 'lucide-react'
 import {
   Badge,
@@ -19,7 +19,7 @@ import {
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import { useDebounce } from '@/shared/hooks/useDebounce'
-import { formatDate } from '@/shared/utils/format'
+import { formatCurrency, formatDate } from '@/shared/utils/format'
 import type { FinanceSubscription } from '@/shared/types/models'
 import {
   useCancelFinanceSubscription,
@@ -68,22 +68,33 @@ export default function FinanceSubscriptionsListPage() {
     {
       key: 'client',
       header: 'Cliente',
-      render: (item) => item.client?.name ?? '—',
-    },
-    {
-      key: 'contract',
-      header: 'Contrato',
-      render: (item) => item.contract?.code ?? '—',
+      render: (item) =>
+        item.client_id ? (
+          <Link
+            to={`/clients/${item.client_id}/edit?tab=assinatura`}
+            className="font-medium text-primary hover:underline"
+          >
+            {item.client?.name ?? '—'}
+          </Link>
+        ) : (
+          (item.client?.name ?? '—')
+        ),
     },
     {
       key: 'plan',
       header: 'Plano',
-      render: (item) => item.contract?.plan?.name ?? '—',
+      render: (item) => item.plan_name || item.plan?.name || '—',
+    },
+    {
+      key: 'price',
+      header: 'Valor',
+      render: (item) => formatCurrency(item.plan_price_cents / 100),
     },
     {
       key: 'periodicity',
       header: 'Periodicidade',
-      render: (item) => item.periodicity_label ?? periodicityLabel(item.periodicity),
+      render: (item) =>
+        item.plan_periodicity_label ?? periodicityLabel(item.plan_periodicity),
     },
     {
       key: 'next_billing_at',
@@ -117,7 +128,9 @@ export default function FinanceSubscriptionsListPage() {
             </Button>
           )}
           {can(Permission.FINANCE_SUBSCRIPTION_UPDATE) &&
-            (item.status === 'cancelled' || item.status === 'suspended') && (
+            (item.status === 'cancelled' ||
+              item.status === 'suspended' ||
+              item.status === 'past_due') && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -137,7 +150,7 @@ export default function FinanceSubscriptionsListPage() {
     <Page>
       <PageHeader
         title="Assinaturas"
-        description="Assinaturas recorrentes geradas a partir dos contratos."
+        description="Assinaturas recorrentes vinculadas aos clientes."
         breadcrumb={[
           { label: 'Dashboard', to: '/dashboard' },
           { label: 'Financeiro' },
@@ -147,7 +160,7 @@ export default function FinanceSubscriptionsListPage() {
       <PageContent>
         <FilterBar>
           <SearchInput
-            placeholder="Buscar assinaturas..."
+            placeholder="Buscar por cliente..."
             aria-label="Buscar assinaturas"
             value={search}
             onChange={(event) => {
@@ -174,7 +187,7 @@ export default function FinanceSubscriptionsListPage() {
             <EmptyState
               icon={Repeat}
               title="Nenhuma assinatura"
-              description="Assinaturas aparecem ao criar contratos ativos."
+              description="Atribua um plano a um cliente na aba Assinatura."
             />
           }
         />

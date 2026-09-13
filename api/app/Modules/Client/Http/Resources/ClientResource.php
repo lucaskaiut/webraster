@@ -34,6 +34,13 @@ class ClientResource extends JsonResource
             'state' => $this->state,
             'zip' => $this->zip,
             'is_active' => (bool) $this->is_active,
+            'plan_id' => $this->plan?->uuid,
+            'plan' => $this->whenLoaded('plan', fn () => $this->plan ? [
+                'id' => $this->plan->uuid,
+                'name' => $this->plan->name,
+                'amount_cents' => $this->plan->amount_cents,
+                'periodicity' => $this->plan->periodicity?->value,
+            ] : null),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

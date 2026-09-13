@@ -3,11 +3,12 @@
 namespace App\Modules\Finance\Services;
 
 use App\Modules\Equipment\Models\Equipment;
-use App\Modules\Finance\Enums\ReceivableStatus;
-use App\Modules\Finance\Enums\SubscriptionStatus;
-use App\Modules\Finance\Models\FinanceReceivable;
+use App\Modules\Finance\Models\FinanceBilling;
 use App\Modules\Finance\Models\FinanceSubscription;
+use App\Modules\Shared\Subscription\Enums\BillingStatus;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
@@ -20,7 +21,7 @@ class FinanceReportService
     public function report(string $type, array $filters = []): Collection|array
     {
         return match ($type) {
-            'receivables' => $this->receivables($filters),
+            'billings', 'receivables' => $this->billings($filters),
             'delinquency' => $this->delinquency($filters),
             'receipts' => $this->receipts($filters),
             'subscriptions' => $this->subscriptions($filters),
@@ -34,19 +35,19 @@ class FinanceReportService
     /**
      * @param  array<string, mixed>  $filters
      */
-    public function receivables(array $filters = []): Collection
+    public function billings(array $filters = []): Collection
     {
-        return $this->dateScoped(FinanceReceivable::query()->with(['client', 'contract']), 'due_at', $filters)
+        return $this->dateScoped(FinanceBilling::query()->with(['client', 'subscription']), 'due_at', $filters)
             ->orderBy('due_at')
             ->get()
-            ->map(fn (FinanceReceivable $r) => [
-                'id' => $r->uuid,
-                'code' => $r->code,
-                'status' => $r->status?->value,
-                'client' => $r->client?->name,
-                'amount_cents' => $r->totalCents(),
-                'due_at' => $r->due_at?->toDateString(),
-                'paid_at' => $r->paid_at?->toIso8601String(),
+            ->map(fn (FinanceBilling $b) => [
+                'id' => $b->uuid,
+                'code' => $b->code,
+                'status' => $b->status?->value,
+                'client' => $b->client?->name,
+                'amount_cents' => $b->totalCents(),
+                'due_at' => $b->due_at?->toDateString(),
+                'paid_at' => $b->paid_at?->toIso8601String(),
             ]);
     }
 
@@ -56,23 +57,23 @@ class FinanceReportService
     public function delinquency(array $filters = []): Collection
     {
         return $this->dateScoped(
-            FinanceReceivable::query()
-                ->with(['client', 'contract'])
-                ->where('status', ReceivableStatus::OVERDUE->value),
+            FinanceBilling::query()
+                ->with(['client', 'subscription'])
+                ->where('status', BillingStatus::OVERDUE->value),
             'due_at',
             $filters,
         )
             ->orderBy('due_at')
             ->get()
-            ->map(fn (FinanceReceivable $r) => [
-                'id' => $r->uuid,
-                'code' => $r->code,
-                'client' => $r->client?->name,
-                'client_id' => $r->client?->uuid,
-                'amount_cents' => $r->totalCents(),
-                'due_at' => $r->due_at?->toDateString(),
-                'days_overdue' => $r->due_at ? now()->startOfDay()->diffInDays($r->due_at) : null,
-                'block_after_days' => $r->contract?->block_after_days,
+            ->map(fn (FinanceBilling $b) => [
+                'id' => $b->uuid,
+                'code' => $b->code,
+                'client' => $b->client?->name,
+                'client_id' => $b->client?->uuid,
+                'amount_cents' => $b->totalCents(),
+                'due_at' => $b->due_at?->toDateString(),
+                'days_overdue' => $b->due_at ? now()->startOfDay()->diffInDays($b->due_at) : null,
+                'block_after_days' => $b->subscription?->block_after_days,
             ]);
     }
 
@@ -82,21 +83,21 @@ class FinanceReportService
     public function receipts(array $filters = []): Collection
     {
         return $this->dateScoped(
-            FinanceReceivable::query()
+            FinanceBilling::query()
                 ->with('client')
-                ->where('status', ReceivableStatus::RECEIVED->value),
+                ->where('status', BillingStatus::PAID->value),
             'paid_at',
             $filters,
         )
             ->orderByDesc('paid_at')
             ->get()
-            ->map(fn (FinanceReceivable $r) => [
-                'id' => $r->uuid,
-                'code' => $r->code,
-                'client' => $r->client?->name,
-                'paid_amount_cents' => $r->paid_amount_cents,
-                'payment_method' => $r->payment_method?->value,
-                'paid_at' => $r->paid_at?->toIso8601String(),
+            ->map(fn (FinanceBilling $b) => [
+                'id' => $b->uuid,
+                'code' => $b->code,
+                'client' => $b->client?->name,
+                'paid_amount_cents' => $b->paid_amount_cents,
+                'payment_method' => $b->payment_method?->value,
+                'paid_at' => $b->paid_at?->toIso8601String(),
             ]);
     }
 
@@ -105,7 +106,7 @@ class FinanceReportService
      */
     public function subscriptions(array $filters = []): Collection
     {
-        $query = FinanceSubscription::query()->with(['client', 'contract']);
+        $query = FinanceSubscription::query()->with(['client', 'plan']);
 
         if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
@@ -118,9 +119,9 @@ class FinanceReportService
                 'id' => $s->uuid,
                 'status' => $s->status?->value,
                 'client' => $s->client?->name,
-                'periodicity' => $s->periodicity?->value,
+                'plan_name' => $s->plan_name,
+                'plan_periodicity' => $s->plan_periodicity?->value,
                 'next_billing_at' => $s->next_billing_at?->toDateString(),
-                'contract_code' => $s->contract?->code,
             ]);
     }
 
@@ -153,9 +154,9 @@ class FinanceReportService
     }
 
     /**
-     * @param  \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @param  Builder<Model>  $query
      * @param  array<string, mixed>  $filters
-     * @return \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>
+     * @return Builder<Model>
      */
     private function dateScoped($query, string $column, array $filters)
     {

@@ -22,15 +22,37 @@ interface ApiErrorBody {
   errors?: Record<string, string[]>
 }
 
+function firstFieldError(errors: Record<string, string[]> | undefined): string | undefined {
+  if (!errors) return undefined
+  for (const messages of Object.values(errors)) {
+    const message = messages.find((item) => typeof item === 'string' && item.trim() !== '')
+    if (message) return message
+  }
+  return undefined
+}
+
+/** Preferência: erro de campo (ex.: Asaas) → message da API → fallback por status. */
+export function apiErrorMessage(error: ApiError): string {
+  return firstFieldError(error.fieldErrors) || error.message
+}
+
 export function parseApiError(error: unknown): ApiError {
   if (error instanceof AxiosError) {
     const status = error.response?.status ?? 0
     const body = (error.response?.data ?? {}) as ApiErrorBody
+    const fieldErrors = body.errors ?? {}
+    const fieldMessage = firstFieldError(fieldErrors)
+    const genericValidation =
+      typeof body.message === 'string' &&
+      /dados fornecidos são inválidos|given data was invalid/i.test(body.message)
 
     return {
       status,
-      message: body.message || STATUS_MESSAGES[status] || STATUS_MESSAGES[500],
-      fieldErrors: body.errors ?? {},
+      message:
+        fieldMessage && (genericValidation || !body.message)
+          ? fieldMessage
+          : body.message || fieldMessage || STATUS_MESSAGES[status] || STATUS_MESSAGES[500],
+      fieldErrors,
     }
   }
 

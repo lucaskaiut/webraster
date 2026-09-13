@@ -2,8 +2,8 @@
 
 namespace App\Modules\Finance\Services;
 
-use App\Modules\Finance\Enums\BillingPeriodicity;
 use App\Modules\Finance\Models\FinancePlan;
+use App\Modules\Shared\Subscription\Enums\BillingPeriodicity;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\ValidationException;

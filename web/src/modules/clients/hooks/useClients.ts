@@ -4,6 +4,8 @@ import type { ListParams } from '@/shared/types/api'
 import { toast } from '@/shared/stores/toast.store'
 import {
   clientsService,
+  type ClientContractPayload,
+  type ClientOrderPayload,
   type ClientPayload,
   type ClientUserPayload,
 } from '../services/clients.service'
@@ -89,6 +91,47 @@ export function useDeleteClientUser(clientId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.clients.all })
       toast.success('Usuário removido', 'O usuário do cliente foi excluído.')
+    },
+  })
+}
+
+export function useClientOrderQuery(clientId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.clients.order(clientId ?? ''),
+    queryFn: () => clientsService.getOrder(clientId!),
+    enabled: !!clientId,
+  })
+}
+
+export function useUpsertClientOrder(clientId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: ClientOrderPayload) => clientsService.upsertOrder(clientId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.clients.order(clientId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.finance.all })
+      toast.success('Pedido salvo', 'A recorrência do cliente foi atualizada.')
+    },
+  })
+}
+
+export function useClientContractQuery(clientId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.clients.contract(clientId ?? ''),
+    queryFn: () => clientsService.getContract(clientId!),
+    enabled: !!clientId,
+  })
+}
+
+export function useUpsertClientContract(clientId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: ClientContractPayload) => clientsService.upsertContract(clientId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.clients.contract(clientId) })
+      toast.success('Contrato salvo', 'O contrato do cliente foi vinculado.')
     },
   })
 }

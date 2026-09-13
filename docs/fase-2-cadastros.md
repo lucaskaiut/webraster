@@ -5,6 +5,10 @@
 - CRUD de **Clientes** (nome, CPF/CNPJ, e-mail, telefone, endereço, status)
 - **Usuários do cliente** (login + perfis) em `/clients/{id}/users`
 - CRUD de **Motoristas** (CNH, validade, observações, vínculo com cliente)
+- CRUD de **Serviços** (nome e valor) em `/services`
+- CRUD de **Contratos** (nome + texto rico com variáveis) em `/contracts`
+- **Pedido do cliente** (serviços × veículos) em `/clients/{id}/edit?tab=pedido`
+- Cadastro de cliente em **wizard**: informações básicas → endereço → usuários → veículos → serviço
 
 ## Isolamento por cliente (portal)
 
@@ -27,14 +31,21 @@ Para novos recursos (ex.: veículos): `use BelongsToClient` no model.
 | Método | Rota | Permissão |
 |--------|------|-----------|
 | GET/POST | `/api/clients` | `client.read` / `client.create` |
-| GET/PUT/DELETE | `/api/clients/{client}` | `client.read/update/delete` |
+| GET/PUT | `/api/clients/{client}/order` | `client.read` / `finance-subscription.create` |
 | GET/POST | `/api/clients/{client}/users` | `client.read` / `client.update` |
 | PUT/DELETE | `/api/clients/{client}/users/{user}` | `client.update` |
 | GET/POST | `/api/drivers` | `driver.read` / `driver.create` |
 | GET/PUT/DELETE | `/api/drivers/{driver}` | `driver.read/update/delete` |
+| GET/POST | `/api/services` | `service.read` / `service.create` |
+| GET/PUT/DELETE | `/api/services/{service}` | `service.read/update/delete` |
+| GET/POST | `/api/contracts` | `contract.read` / `contract.create` |
+| GET/PUT/DELETE | `/api/contracts/{contract}` | `contract.read/update/delete` |
 
 ## Testes
 
 - `tests/Feature/Client/ClientCrudTest.php`
 - `tests/Feature/Client/ClientScopeIsolationTest.php`
 - `tests/Feature/Driver/DriverCrudTest.php`
+- `tests/Feature/Service/ServiceCrudTest.php`
+- `tests/Feature/Contract/ContractCrudTest.php`
+- `tests/Feature/Client/ClientOrderTest.php`

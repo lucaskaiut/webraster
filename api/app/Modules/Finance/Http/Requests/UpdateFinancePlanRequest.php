@@ -2,7 +2,7 @@
 
 namespace App\Modules\Finance\Http\Requests;
 
-use App\Modules\Finance\Enums\BillingPeriodicity;
+use App\Modules\Shared\Subscription\Enums\BillingPeriodicity;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 

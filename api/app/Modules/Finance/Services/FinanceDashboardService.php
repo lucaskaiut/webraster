@@ -2,12 +2,10 @@
 
 namespace App\Modules\Finance\Services;
 
-use App\Modules\Finance\Enums\ContractStatus;
-use App\Modules\Finance\Enums\ReceivableStatus;
-use App\Modules\Finance\Enums\SubscriptionStatus;
-use App\Modules\Finance\Models\FinanceContract;
-use App\Modules\Finance\Models\FinanceReceivable;
+use App\Modules\Finance\Models\FinanceBilling;
 use App\Modules\Finance\Models\FinanceSubscription;
+use App\Modules\Shared\Subscription\Enums\BillingStatus;
+use App\Modules\Shared\Subscription\Enums\SubscriptionStatus;
 use Carbon\CarbonImmutable;
 
 class FinanceDashboardService
@@ -20,53 +18,49 @@ class FinanceDashboardService
         $monthStart = now()->startOfMonth()->toDateString();
         $monthEnd = now()->endOfMonth()->toDateString();
 
-        $activeContracts = FinanceContract::query()
-            ->where('status', ContractStatus::ACTIVE->value)
-            ->get(['id', 'client_id', 'amount_cents', 'discount_cents', 'periodicity']);
+        $activeSubscriptions = FinanceSubscription::query()
+            ->where('status', SubscriptionStatus::ACTIVE->value)
+            ->get(['id', 'client_id', 'plan_price_cents', 'plan_periodicity']);
 
         $mrrCents = 0;
-        foreach ($activeContracts as $contract) {
-            $net = $contract->netAmountCents();
-            $months = $contract->periodicity?->months() ?: 1;
+        foreach ($activeSubscriptions as $subscription) {
+            $net = (int) ($subscription->plan_price_cents ?? 0);
+            $months = $subscription->plan_periodicity?->months() ?: 1;
             $mrrCents += (int) round($net / $months);
         }
 
-        $activeClientIds = $activeContracts->pluck('client_id')->unique()->filter()->values();
+        $activeClientIds = $activeSubscriptions->pluck('client_id')->unique()->filter()->values();
 
-        $delinquentClientIds = FinanceReceivable::query()
-            ->where('status', ReceivableStatus::OVERDUE->value)
+        $delinquentClientIds = FinanceBilling::query()
+            ->where('status', BillingStatus::OVERDUE->value)
             ->distinct()
             ->pluck('client_id');
 
-        $monthRevenueReceived = (int) FinanceReceivable::query()
-            ->where('status', ReceivableStatus::RECEIVED->value)
+        $monthRevenuePaid = (int) FinanceBilling::query()
+            ->where('status', BillingStatus::PAID->value)
             ->whereBetween('paid_at', [
                 CarbonImmutable::parse($monthStart)->startOfDay(),
                 CarbonImmutable::parse($monthEnd)->endOfDay(),
             ])
             ->sum('paid_amount_cents');
 
-        $monthExpected = (int) FinanceReceivable::query()
+        $monthExpected = (int) FinanceBilling::query()
             ->whereBetween('due_at', [$monthStart, $monthEnd])
             ->whereNotIn('status', [
-                ReceivableStatus::CANCELLED->value,
-                ReceivableStatus::REFUNDED->value,
+                BillingStatus::CANCELLED->value,
+                BillingStatus::REFUNDED->value,
             ])
             ->selectRaw('COALESCE(SUM(amount_cents - discount_cents + fine_cents + interest_cents), 0) as total')
             ->value('total');
 
-        $openAmount = (int) FinanceReceivable::query()
+        $openAmount = (int) FinanceBilling::query()
             ->whereIn('status', [
-                ReceivableStatus::PENDING->value,
-                ReceivableStatus::AWAITING_PAYMENT->value,
-                ReceivableStatus::OVERDUE->value,
+                BillingStatus::PENDING->value,
+                BillingStatus::AWAITING_PAYMENT->value,
+                BillingStatus::OVERDUE->value,
             ])
             ->selectRaw('COALESCE(SUM(amount_cents - discount_cents + fine_cents + interest_cents), 0) as total')
             ->value('total');
-
-        $activeSubscriptions = FinanceSubscription::query()
-            ->where('status', SubscriptionStatus::ACTIVE->value)
-            ->count();
 
         return [
             'mrr_cents' => $mrrCents,
@@ -74,11 +68,10 @@ class FinanceDashboardService
             'arr_cents' => $mrrCents * 12,
             'arr' => $this->formatMoney($mrrCents * 12),
             'active_clients' => $activeClientIds->count(),
-            'active_contracts' => $activeContracts->count(),
-            'active_subscriptions' => $activeSubscriptions,
+            'active_subscriptions' => $activeSubscriptions->count(),
             'delinquent_clients' => $delinquentClientIds->count(),
-            'month_revenue_received_cents' => $monthRevenueReceived,
-            'month_revenue_received' => $this->formatMoney($monthRevenueReceived),
+            'month_revenue_received_cents' => $monthRevenuePaid,
+            'month_revenue_received' => $this->formatMoney($monthRevenuePaid),
             'month_expected_cents' => (int) $monthExpected,
             'month_expected' => $this->formatMoney((int) $monthExpected),
             'open_amount_cents' => (int) $openAmount,

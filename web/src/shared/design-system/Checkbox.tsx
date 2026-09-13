@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactNode } from 'react'
+import { useId, type ComponentProps, type ReactNode } from 'react'
 import { Check } from 'lucide-react'
 import { cn } from '@/shared/utils/cn'
 
@@ -8,7 +8,8 @@ export interface CheckboxProps extends Omit<ComponentProps<'input'>, 'type' | 's
 }
 
 export function Checkbox({ label, description, className, id, ...props }: CheckboxProps) {
-  const checkboxId = id ?? `checkbox-${props.name ?? ''}-${String(props.value ?? '')}`
+  const autoId = useId()
+  const checkboxId = id ?? `checkbox-${autoId}`
 
   return (
     <label

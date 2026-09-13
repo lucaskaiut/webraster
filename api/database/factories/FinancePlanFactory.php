@@ -2,7 +2,7 @@
 
 namespace Database\Factories;
 
-use App\Modules\Finance\Enums\BillingPeriodicity;
+use App\Modules\Shared\Subscription\Enums\BillingPeriodicity;
 use App\Modules\Finance\Models\FinancePlan;
 use App\Modules\Tenant\Models\Tenant;
 use Illuminate\Database\Eloquent\Factories\Factory;

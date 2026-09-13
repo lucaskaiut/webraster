@@ -31,6 +31,8 @@ class ClientController extends ApiController
     {
         $this->authorize('view', $client);
 
+        $client->loadMissing('plan');
+
         return $this->success(ClientResource::make($client));
     }
 

@@ -1,14 +1,18 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { FileText, Loader2, Trash2, Upload } from 'lucide-react'
 import {
   Controller,
   FormProvider,
   useFormContext,
+  useWatch,
   type FieldValues,
   type SubmitHandler,
   type UseFormReturn,
 } from 'react-hook-form'
+import { http } from '@/shared/api/http'
 import { cn } from '@/shared/utils/cn'
 import { Field } from './Field'
+import { Button } from './Button'
 import { DatePicker } from './DatePicker'
 import { Input, type InputProps } from './Input'
 import { Textarea, type TextareaProps } from './Textarea'
@@ -61,8 +65,13 @@ export function TextField({
   hint,
   required,
   className,
+  mask,
   ...props
-}: BaseFieldProps & Omit<InputProps, 'name'>) {
+}: BaseFieldProps &
+  Omit<InputProps, 'name'> & {
+    /** Aplica máscara no valor a cada digitação (usa Controller). */
+    mask?: (value: string) => string
+  }) {
   const { register, control } = useFormContext()
   const error = useFieldError(name)
   const { type, ...inputProps } = props
@@ -86,6 +95,24 @@ export function TextField({
               name={field.name}
               ref={field.ref}
               {...inputProps}
+            />
+          )}
+        />
+      ) : mask ? (
+        <Controller
+          control={control}
+          name={name}
+          render={({ field }) => (
+            <Input
+              id={name}
+              invalid={!!error}
+              type={type}
+              {...inputProps}
+              name={field.name}
+              ref={field.ref}
+              value={(field.value as string) ?? ''}
+              onBlur={field.onBlur}
+              onChange={(event) => field.onChange(mask(event.target.value))}
             />
           )}
         />
@@ -129,6 +156,123 @@ export function SelectField({
     <Field label={label} hint={hint} error={error} required={required} htmlFor={name} className={className}>
       <Select id={name} invalid={!!error} {...register(name)} {...props} />
     </Field>
+  )
+}
+
+export function FileField({
+  name,
+  label,
+  hint,
+  required,
+  className,
+  accept = '.pdf,image/png,image/jpeg',
+  currentUrl,
+}: BaseFieldProps & { accept?: string; currentUrl?: string | null }) {
+  const { control } = useFormContext()
+  const error = useFieldError(name)
+  const [uploading, setUploading] = useState(false)
+  const [uploaded, setUploaded] = useState<{ name: string; url: string } | null>(null)
+  const fieldValue = useWatch({ control, name })
+
+  useEffect(() => {
+    if (!fieldValue) setUploaded(null)
+  }, [fieldValue])
+
+  return (
+    <Controller
+      control={control}
+      name={name}
+      render={({ field }) => {
+        const displayUrl = uploaded?.url ?? currentUrl ?? null
+        const hasFile = Boolean(field.value) || uploaded !== null
+
+        const handleChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+          const file = event.target.files?.[0]
+          if (!file) return
+
+          setUploading(true)
+          try {
+            const formData = new FormData()
+            formData.append('file', file)
+            const response = await http.post<{ data: { url: string; path: string } }>(
+              '/uploads',
+              formData,
+            )
+            const { url, path } = response.data.data
+            setUploaded({ name: file.name, url })
+            field.onChange(path)
+          } finally {
+            setUploading(false)
+            event.target.value = ''
+          }
+        }
+
+        const remove = () => {
+          setUploaded(null)
+          field.onChange('')
+        }
+
+        return (
+          <Field
+            label={label}
+            hint={hint}
+            error={error}
+            required={required}
+            htmlFor={name}
+            className={className}
+          >
+            {hasFile ? (
+              <div className="flex items-center justify-between gap-3 rounded-xl bg-surface-2 px-4 py-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <FileText className="size-4 shrink-0 text-subtle" aria-hidden="true" />
+                  {displayUrl ? (
+                    <a
+                      href={displayUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="truncate text-sm font-medium text-primary hover:underline"
+                    >
+                      {uploaded?.name ?? 'Ver CRLV-e'}
+                    </a>
+                  ) : (
+                    <span className="truncate text-sm text-foreground">
+                      {uploaded?.name ?? 'CRLV-e enviado'}
+                    </span>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={remove}
+                  className="text-danger hover:bg-danger-soft hover:text-danger"
+                >
+                  <Trash2 className="size-3.5" />
+                  Remover
+                </Button>
+              </div>
+            ) : (
+              <label
+                className={cn(
+                  'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-surface-3 p-8 transition-colors hover:border-primary/50',
+                  uploading && 'pointer-events-none opacity-60',
+                )}
+              >
+                {uploading ? (
+                  <Loader2 className="size-7 animate-spin text-subtle" aria-hidden="true" />
+                ) : (
+                  <Upload className="size-7 text-subtle" aria-hidden="true" />
+                )}
+                <span className="text-sm text-muted">
+                  {uploading ? 'Enviando...' : 'Clique para enviar o CRLV-e (PDF ou imagem)'}
+                </span>
+                <input type="file" accept={accept} className="sr-only" onChange={handleChange} />
+              </label>
+            )}
+          </Field>
+        )
+      }}
+    />
   )
 }
 

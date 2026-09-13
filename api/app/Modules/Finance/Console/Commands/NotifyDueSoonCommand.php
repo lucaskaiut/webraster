@@ -2,9 +2,9 @@
 
 namespace App\Modules\Finance\Console\Commands;
 
-use App\Modules\Finance\Enums\ReceivableStatus;
 use App\Modules\Finance\Events\InvoiceDueSoon;
-use App\Modules\Finance\Models\FinanceReceivable;
+use App\Modules\Finance\Models\FinanceBilling;
+use App\Modules\Shared\Subscription\Enums\BillingStatus;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Tenant\Support\Facades\TenantContext;
 use Illuminate\Console\Command;
@@ -24,16 +24,16 @@ class NotifyDueSoonCommand extends Command
         Tenant::query()->orderBy('id')->each(function (Tenant $tenant) use ($target, &$count): void {
             TenantContext::set($tenant);
 
-            FinanceReceivable::query()
+            FinanceBilling::query()
                 ->whereIn('status', [
-                    ReceivableStatus::PENDING->value,
-                    ReceivableStatus::AWAITING_PAYMENT->value,
+                    BillingStatus::PENDING->value,
+                    BillingStatus::AWAITING_PAYMENT->value,
                 ])
                 ->whereDate('due_at', $target)
                 ->orderBy('id')
-                ->chunkById(100, function ($receivables) use (&$count): void {
-                    foreach ($receivables as $receivable) {
-                        event(new InvoiceDueSoon($receivable));
+                ->chunkById(100, function ($billings) use (&$count): void {
+                    foreach ($billings as $billing) {
+                        event(new InvoiceDueSoon($billing));
                         $count++;
                     }
                 });

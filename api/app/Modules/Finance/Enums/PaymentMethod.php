@@ -16,13 +16,4 @@ enum PaymentMethod: string
             self::CREDIT_CARD => 'Cartão de crédito',
         };
     }
-
-    public function asaasBillingType(): string
-    {
-        return match ($this) {
-            self::PIX => 'PIX',
-            self::BOLETO => 'BOLETO',
-            self::CREDIT_CARD => 'CREDIT_CARD',
-        };
-    }
 }

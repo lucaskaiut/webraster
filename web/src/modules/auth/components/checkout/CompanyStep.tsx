@@ -1,6 +1,7 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Button, Form, TextField } from '@/shared/design-system'
+import { maskCpfCnpj, maskPhone } from '@/shared/utils/mask'
 import { companyStepSchema, type CompanyStepValues } from '../../schemas/checkout.schema'
 import { useRegisterCheckoutStore } from '../../store/register-checkout.store'
 
@@ -31,10 +32,19 @@ export function CompanyStep() {
       <TextField
         name="document"
         label="CPF ou CNPJ"
-        placeholder="Somente números"
+        placeholder="000.000.000-00"
+        inputMode="numeric"
         required
+        mask={maskCpfCnpj}
       />
-      <TextField name="phone" label="Telefone" placeholder="(41) 99999-9999" required />
+      <TextField
+        name="phone"
+        label="Telefone"
+        placeholder="(41) 99999-9999"
+        inputMode="tel"
+        required
+        mask={maskPhone}
+      />
 
       <div className="flex justify-end pt-2">
         <Button type="submit" disabled={!form.formState.isValid}>

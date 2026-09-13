@@ -3,6 +3,7 @@ import { Button, CheckboxField, Form, SelectField, TextField } from '@/shared/de
 import { formResolver } from '@/shared/utils/forms'
 import { formatCurrency } from '@/shared/utils/format'
 import { onlyDigits } from '@/shared/utils/document'
+import { maskCep } from '@/shared/utils/mask'
 import {
   creditCardSchema,
   toCreditCardPaymentDataFromCard,
@@ -18,12 +19,6 @@ interface CreditCardPaymentFormProps {
 function formatCardNumber(value: string): string {
   const digits = onlyDigits(value).slice(0, 19)
   return digits.replace(/(\d{4})(?=\d)/g, '$1 ').trim()
-}
-
-function formatCep(value: string): string {
-  const digits = onlyDigits(value).slice(0, 8)
-  if (digits.length <= 5) return digits
-  return `${digits.slice(0, 5)}-${digits.slice(5)}`
 }
 
 function formatMonth(value: string): string {
@@ -138,11 +133,7 @@ export function CreditCardPaymentForm({
             inputMode="numeric"
             autoComplete="postal-code"
             required
-            onChange={(event) => {
-              form.setValue('postal_code', formatCep(event.target.value), {
-                shouldValidate: form.formState.isSubmitted,
-              })
-            }}
+            mask={maskCep}
           />
           <TextField
             name="address_number"

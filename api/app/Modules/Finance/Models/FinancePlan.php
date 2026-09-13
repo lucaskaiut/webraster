@@ -2,8 +2,8 @@
 
 namespace App\Modules\Finance\Models;
 
-use App\Modules\Finance\Enums\BillingPeriodicity;
 use App\Modules\Shared\Models\Concerns\HasUuid;
+use App\Modules\Shared\Subscription\Enums\BillingPeriodicity;
 use App\Modules\Tenant\Models\Concerns\BelongsToTenant;
 use Database\Factories\FinancePlanFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -15,6 +15,7 @@ class FinancePlan extends Model
 {
     /** @use HasFactory<FinancePlanFactory> */
     use BelongsToTenant;
+
     use HasFactory;
     use HasUuid;
     use SoftDeletes;
@@ -40,9 +41,9 @@ class FinancePlan extends Model
         ];
     }
 
-    public function contracts(): HasMany
+    public function subscriptions(): HasMany
     {
-        return $this->hasMany(FinanceContract::class, 'plan_id');
+        return $this->hasMany(FinanceSubscription::class, 'plan_id');
     }
 
     protected static function newFactory(): FinancePlanFactory

@@ -1,6 +1,10 @@
 import { http } from '@/shared/api/http'
 import type { ApiResponse, ListParams, PaginatedResponse } from '@/shared/types/api'
-import type { EquipmentAssignmentEvent, Vehicle } from '@/shared/types/models'
+import type {
+  EquipmentAssignmentEvent,
+  Vehicle,
+  VehicleTransmission,
+} from '@/shared/types/models'
 
 export interface VehicleListParams extends ListParams {
   client_id?: string
@@ -15,6 +19,19 @@ export interface VehiclePayload {
   model?: string | null
   color?: string | null
   year?: number | null
+  transmission?: VehicleTransmission | null
+  odometer?: number | null
+  average_consumption?: number | null
+  tank_capacity?: number | null
+  crlv_file?: string | null
+  fipe_code?: string | null
+  fipe_model_year?: string | null
+  fipe_fuel?: string | null
+  fipe_reference_month?: string | null
+  fipe_value?: string | null
+  fipe_model?: string | null
+  fipe_brand?: string | null
+  fipe_score?: number | null
   is_active?: boolean
 }
 

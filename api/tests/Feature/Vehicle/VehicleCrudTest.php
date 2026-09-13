@@ -31,11 +31,17 @@ class VehicleCrudTest extends TestCase
             'model' => 'Gol',
             'color' => 'Branco',
             'year' => 2022,
+            'transmission' => 'automatic',
+            'odometer' => 45000,
+            'average_consumption' => 12.5,
+            'tank_capacity' => 55,
         ])
             ->assertCreated()
             ->assertJsonPath('data.plate', 'ABC1D23')
             ->assertJsonPath('data.client_id', $client->uuid)
-            ->assertJsonPath('data.brand', 'Volkswagen');
+            ->assertJsonPath('data.brand', 'Volkswagen')
+            ->assertJsonPath('data.transmission', 'automatic')
+            ->assertJsonPath('data.odometer', 45000);
 
         $this->assertDatabaseHas('vehicles', [
             'tenant_id' => $tenant->getKey(),
@@ -73,14 +79,36 @@ class VehicleCrudTest extends TestCase
         $this->putJson("/api/vehicles/{$vehicle->uuid}", [
             'plate' => 'ddd4e56',
             'color' => 'Preto',
+            'transmission' => 'manual',
+            'odometer' => 120000,
         ])
             ->assertOk()
             ->assertJsonPath('data.plate', 'DDD4E56')
-            ->assertJsonPath('data.color', 'Preto');
+            ->assertJsonPath('data.color', 'Preto')
+            ->assertJsonPath('data.transmission', 'manual')
+            ->assertJsonPath('data.odometer', 120000);
 
         $this->deleteJson("/api/vehicles/{$vehicle->uuid}")->assertOk();
 
         $this->assertSoftDeleted('vehicles', ['id' => $vehicle->getKey()]);
+    }
+
+    public function test_store_allows_reusing_plate_of_soft_deleted_vehicle(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+
+        $deleted = Vehicle::factory()->forClient($client)->create(['plate' => 'ABC1234']);
+        $deleted->delete();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->postJson('/api/vehicles', [
+            'client_id' => $client->uuid,
+            'plate' => 'abc1234',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.plate', 'ABC1234');
     }
 
     public function test_install_remove_and_swap_equipment_with_history(): void

@@ -29,6 +29,10 @@ class VehicleFactory extends Factory
             'model' => fake()->randomElement(['Gol', 'Uno', 'Onix', 'Corolla', 'Ka']),
             'color' => fake()->randomElement(['Branco', 'Prata', 'Preto', 'Vermelho', 'Azul']),
             'year' => (int) fake()->numberBetween(2010, (int) date('Y')),
+            'transmission' => fake()->randomElement(['manual', 'automatic', 'automated']),
+            'odometer' => (int) fake()->numberBetween(0, 250000),
+            'average_consumption' => fake()->randomFloat(2, 8, 18),
+            'tank_capacity' => fake()->randomFloat(2, 40, 80),
             'is_active' => true,
         ];
     }

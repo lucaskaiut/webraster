@@ -4,10 +4,14 @@ namespace App\Providers;
 
 use App\Modules\ACL\Models\Role;
 use App\Modules\ACL\Policies\RolePolicy;
+use App\Modules\Alert\Models\Alert;
+use App\Modules\Alert\Models\AlertConfig;
+use App\Modules\Alert\Policies\AlertConfigPolicy;
+use App\Modules\Alert\Policies\AlertPolicy;
 use App\Modules\ApiToken\Models\ApiToken;
+use App\Modules\ApiToken\Policies\ApiTokenPolicy;
 use App\Modules\Assistant\Models\Conversation;
 use App\Modules\Assistant\Policies\ConversationPolicy;
-use App\Modules\ApiToken\Policies\ApiTokenPolicy;
 use App\Modules\Billing\Models\Invoice;
 use App\Modules\Billing\Models\Plan;
 use App\Modules\Billing\Models\Subscription;
@@ -16,34 +20,32 @@ use App\Modules\Billing\Policies\PlanPolicy;
 use App\Modules\Billing\Policies\SubscriptionPolicy;
 use App\Modules\Client\Models\Client;
 use App\Modules\Client\Policies\ClientPolicy;
+use App\Modules\Contract\Models\Contract;
+use App\Modules\Contract\Policies\ContractPolicy;
 use App\Modules\Driver\Models\Driver;
 use App\Modules\Driver\Policies\DriverPolicy;
 use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Equipment\Policies\EquipmentPolicy;
+use App\Modules\Finance\Models\FinanceBilling;
+use App\Modules\Finance\Models\FinancePlan;
+use App\Modules\Finance\Models\FinanceSubscription;
+use App\Modules\Finance\Models\TenantPaymentGatewayConfig;
+use App\Modules\Finance\Policies\FinanceBillingPolicy;
+use App\Modules\Finance\Policies\FinanceDashboardPolicy;
+use App\Modules\Finance\Policies\FinancePlanPolicy;
+use App\Modules\Finance\Policies\FinanceReportPolicy;
+use App\Modules\Finance\Policies\FinanceSubscriptionPolicy;
+use App\Modules\Finance\Policies\TenantPaymentGatewayConfigPolicy;
+use App\Modules\Finance\Support\FinanceDashboard;
+use App\Modules\Finance\Support\FinanceReport;
 use App\Modules\Geofence\Models\Geofence;
 use App\Modules\Geofence\Models\GeofenceEvent;
 use App\Modules\Geofence\Policies\GeofenceEventPolicy;
 use App\Modules\Geofence\Policies\GeofencePolicy;
-use App\Modules\Alert\Models\Alert;
-use App\Modules\Alert\Models\AlertConfig;
-use App\Modules\Alert\Policies\AlertConfigPolicy;
-use App\Modules\Alert\Policies\AlertPolicy;
 use App\Modules\Poi\Models\Poi;
 use App\Modules\Poi\Policies\PoiPolicy;
-use App\Modules\Finance\Models\FinanceContract;
-use App\Modules\Finance\Models\FinancePlan;
-use App\Modules\Finance\Models\FinanceReceivable;
-use App\Modules\Finance\Models\FinanceSubscription;
-use App\Modules\Finance\Models\TenantAsaasConfig;
-use App\Modules\Finance\Policies\FinanceContractPolicy;
-use App\Modules\Finance\Policies\FinanceDashboardPolicy;
-use App\Modules\Finance\Policies\FinancePlanPolicy;
-use App\Modules\Finance\Policies\FinanceReceivablePolicy;
-use App\Modules\Finance\Policies\FinanceReportPolicy;
-use App\Modules\Finance\Policies\FinanceSubscriptionPolicy;
-use App\Modules\Finance\Policies\TenantAsaasConfigPolicy;
-use App\Modules\Finance\Support\FinanceDashboard;
-use App\Modules\Finance\Support\FinanceReport;
+use App\Modules\Service\Models\Service;
+use App\Modules\Service\Policies\ServicePolicy;
 use App\Modules\ServiceOrder\Models\ServiceOrder;
 use App\Modules\ServiceOrder\Policies\ServiceOrderPolicy;
 use App\Modules\Tenant\Models\Tenant;
@@ -52,6 +54,8 @@ use App\Modules\User\Models\User;
 use App\Modules\User\Policies\UserPolicy;
 use App\Modules\Vehicle\Models\Vehicle;
 use App\Modules\Vehicle\Policies\VehiclePolicy;
+use App\Modules\VehicleData\Models\TenantVehicleDataConfig;
+use App\Modules\VehicleData\Policies\TenantVehicleDataConfigPolicy;
 use App\Modules\Webhook\Models\Webhook;
 use App\Modules\Webhook\Policies\WebhookPolicy;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -99,7 +103,6 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by($request->ip());
         });
 
-
     }
 
     private function configurePolicies(): void
@@ -115,7 +118,10 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Invoice::class, InvoicePolicy::class);
         Gate::policy(Client::class, ClientPolicy::class);
         Gate::policy(Driver::class, DriverPolicy::class);
+        Gate::policy(Service::class, ServicePolicy::class);
+        Gate::policy(Contract::class, ContractPolicy::class);
         Gate::policy(Vehicle::class, VehiclePolicy::class);
+        Gate::policy(TenantVehicleDataConfig::class, TenantVehicleDataConfigPolicy::class);
         Gate::policy(Equipment::class, EquipmentPolicy::class);
         Gate::policy(Geofence::class, GeofencePolicy::class);
         Gate::policy(GeofenceEvent::class, GeofenceEventPolicy::class);
@@ -124,10 +130,9 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(AlertConfig::class, AlertConfigPolicy::class);
         Gate::policy(ServiceOrder::class, ServiceOrderPolicy::class);
         Gate::policy(FinancePlan::class, FinancePlanPolicy::class);
-        Gate::policy(FinanceContract::class, FinanceContractPolicy::class);
         Gate::policy(FinanceSubscription::class, FinanceSubscriptionPolicy::class);
-        Gate::policy(FinanceReceivable::class, FinanceReceivablePolicy::class);
-        Gate::policy(TenantAsaasConfig::class, TenantAsaasConfigPolicy::class);
+        Gate::policy(FinanceBilling::class, FinanceBillingPolicy::class);
+        Gate::policy(TenantPaymentGatewayConfig::class, TenantPaymentGatewayConfigPolicy::class);
         Gate::policy(FinanceDashboard::class, FinanceDashboardPolicy::class);
         Gate::policy(FinanceReport::class, FinanceReportPolicy::class);
     }

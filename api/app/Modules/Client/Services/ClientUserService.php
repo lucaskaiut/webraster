@@ -35,6 +35,10 @@ class ClientUserService
         $roleIds = $data['role_ids'] ?? $this->defaultClientRoleIds();
         unset($data['role_ids']);
 
+        if (blank($data['password'] ?? null)) {
+            $data['password'] = $this->generateDefaultPassword($client);
+        }
+
         $user = User::query()->create([
             ...Arr::only($data, ['name', 'email', 'phone', 'document', 'password']),
             'client_id' => $client->getKey(),
@@ -80,6 +84,19 @@ class ClientUserService
         if ((int) $user->client_id !== (int) $client->getKey()) {
             abort(404);
         }
+    }
+
+    private function generateDefaultPassword(Client $client): string
+    {
+        $digits = (string) preg_replace('/\D+/', '', (string) $client->document);
+
+        if (strlen($digits) < 6) {
+            throw ValidationException::withMessages([
+                'password' => ['Não foi possível gerar a senha automática: o cliente não possui CPF/CNPJ válido.'],
+            ]);
+        }
+
+        return substr($digits, 0, 6);
     }
 
     /**

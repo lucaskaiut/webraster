@@ -5,9 +5,11 @@ import {
   ButtonLink,
   Card,
   CardContent,
+  FileField,
   Form,
   SearchSelectField,
   Section,
+  SelectField,
   SwitchField,
   TextField,
 } from '@/shared/design-system'
@@ -15,12 +17,19 @@ import { isApiError } from '@/shared/api/errors'
 import { applyApiErrorsToForm } from '@/shared/utils/forms'
 import { clientsService } from '@/modules/clients/services/clients.service'
 import type { VehiclePayload } from '../services/vehicles.service'
-import { vehicleSchema, type VehicleFormValues } from '../schemas/vehicle.schema'
+import { usePlateLookup } from '../hooks/usePlateLookup'
+import { fillVehicleFromLookup } from '../utils/plate-lookup'
+import {
+  transmissionOptions,
+  vehicleSchema,
+  type VehicleFormValues,
+} from '../schemas/vehicle.schema'
 
 interface VehicleFormProps {
   mode: 'create' | 'edit'
   defaultValues?: Partial<VehicleFormValues>
   submitting: boolean
+  crlvFileUrl?: string | null
   onSubmit: (payload: VehiclePayload) => Promise<unknown>
 }
 
@@ -43,7 +52,13 @@ async function resolveClientLabel(value: string) {
   }
 }
 
-export function VehicleForm({ mode, defaultValues, submitting, onSubmit }: VehicleFormProps) {
+export function VehicleForm({
+  mode,
+  defaultValues,
+  submitting,
+  crlvFileUrl,
+  onSubmit,
+}: VehicleFormProps) {
   const form = useForm<VehicleFormValues>({
     resolver: zodResolver(vehicleSchema),
     defaultValues: {
@@ -55,10 +70,29 @@ export function VehicleForm({ mode, defaultValues, submitting, onSubmit }: Vehic
       model: '',
       color: '',
       year: '',
+      transmission: '',
+      odometer: '',
+      average_consumption: '',
+      tank_capacity: '',
+      crlv_file: '',
+      fipe_code: '',
+      fipe_model_year: '',
+      fipe_fuel: '',
+      fipe_reference_month: '',
+      fipe_value: '',
+      fipe_model: '',
+      fipe_brand: '',
+      fipe_score: '',
       is_active: true,
       ...defaultValues,
     },
   })
+
+  const {
+    hint: plateHint,
+    loading: plateLoading,
+    lookup: lookupPlate,
+  } = usePlateLookup((data) => fillVehicleFromLookup(form, data))
 
   const handleSubmit = async (values: VehicleFormValues) => {
     const payload: VehiclePayload = {
@@ -70,6 +104,21 @@ export function VehicleForm({ mode, defaultValues, submitting, onSubmit }: Vehic
       model: values.model || null,
       color: values.color || null,
       year: values.year ? Number(values.year) : null,
+      transmission: values.transmission || null,
+      odometer: values.odometer ? Number(values.odometer) : null,
+      average_consumption: values.average_consumption
+        ? Number(values.average_consumption)
+        : null,
+      tank_capacity: values.tank_capacity ? Number(values.tank_capacity) : null,
+      crlv_file: values.crlv_file || null,
+      fipe_code: values.fipe_code || null,
+      fipe_model_year: values.fipe_model_year || null,
+      fipe_fuel: values.fipe_fuel || null,
+      fipe_reference_month: values.fipe_reference_month || null,
+      fipe_value: values.fipe_value || null,
+      fipe_model: values.fipe_model || null,
+      fipe_brand: values.fipe_brand || null,
+      fipe_score: values.fipe_score ? Number(values.fipe_score) : null,
       is_active: values.is_active,
     }
 
@@ -98,20 +147,96 @@ export function VehicleForm({ mode, defaultValues, submitting, onSubmit }: Vehic
                 loadOptions={loadClientOptions}
                 resolveLabel={resolveClientLabel}
               />
-              <TextField name="plate" label="Placa" required placeholder="ABC1D23" />
+              <TextField
+                name="plate"
+                label="Placa"
+                required
+                placeholder="ABC1D23"
+                hint={plateHint}
+                loading={plateLoading}
+                onBlur={() => lookupPlate(form.getValues('plate'))}
+              />
               <TextField name="renavam" label="RENAVAM" />
-              <TextField name="chassis" label="Chassi" className="sm:col-span-2" />
+              <TextField name="chassis" label="Chassi" className="sm:col-span-2" loading={plateLoading} />
               <SwitchField name="is_active" label="Veículo ativo" />
             </div>
           </Section>
 
           <Section title="Características">
             <div className="grid gap-4 sm:grid-cols-2">
-              <TextField name="brand" label="Marca" />
-              <TextField name="model" label="Modelo" />
-              <TextField name="color" label="Cor" />
-              <TextField name="year" label="Ano" type="number" placeholder="2024" />
+              <TextField name="brand" label="Marca" loading={plateLoading} />
+              <TextField name="model" label="Modelo" loading={plateLoading} />
+              <TextField name="color" label="Cor" loading={plateLoading} />
+              <TextField name="year" label="Ano" type="number" placeholder="2024" loading={plateLoading} />
+              <SelectField
+                name="transmission"
+                label="Transmissão"
+                placeholder="Selecione"
+                options={[...transmissionOptions]}
+                loading={plateLoading}
+              />
+              <TextField
+                name="odometer"
+                label="Odômetro (km)"
+                type="number"
+                placeholder="0"
+                min={0}
+              />
             </div>
+          </Section>
+
+          <Section title="Consumo e tanque">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TextField
+                name="average_consumption"
+                label="Consumo médio (km/L)"
+                type="number"
+                step="0.1"
+                placeholder="0.0"
+                min={0}
+              />
+              <TextField
+                name="tank_capacity"
+                label="Capacidade do tanque (L)"
+                type="number"
+                step="0.1"
+                placeholder="0.0"
+                min={0}
+              />
+            </div>
+          </Section>
+
+          <Section title="Tabela FIPE" description="Preenchida automaticamente pela consulta de placa.">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TextField name="fipe_code" label="Código FIPE" loading={plateLoading} />
+              <TextField name="fipe_value" label="Valor" loading={plateLoading} />
+              <TextField name="fipe_brand" label="Marca" loading={plateLoading} />
+              <TextField name="fipe_model" label="Modelo" loading={plateLoading} />
+              <TextField name="fipe_model_year" label="Ano modelo" loading={plateLoading} />
+              <TextField name="fipe_fuel" label="Combustível" loading={plateLoading} />
+              <TextField
+                name="fipe_reference_month"
+                label="Mês de referência"
+                loading={plateLoading}
+              />
+              <TextField
+                name="fipe_score"
+                label="Score"
+                type="number"
+                min={0}
+                loading={plateLoading}
+              />
+            </div>
+          </Section>
+
+          <Section title="Documentos">
+            <FileField
+              name="crlv_file"
+              label="CRLV-e"
+              hint="Envie o CRLV-e digitalizado (PDF ou imagem)."
+              currentUrl={crlvFileUrl}
+              className="sm:col-span-2"
+            />
           </Section>
 
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

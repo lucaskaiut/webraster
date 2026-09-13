@@ -51,10 +51,23 @@ enum Permission: string
     case DRIVER_UPDATE = 'driver.update';
     case DRIVER_DELETE = 'driver.delete';
 
+    case SERVICE_CREATE = 'service.create';
+    case SERVICE_READ = 'service.read';
+    case SERVICE_UPDATE = 'service.update';
+    case SERVICE_DELETE = 'service.delete';
+
+    case CONTRACT_CREATE = 'contract.create';
+    case CONTRACT_READ = 'contract.read';
+    case CONTRACT_UPDATE = 'contract.update';
+    case CONTRACT_DELETE = 'contract.delete';
+
     case VEHICLE_CREATE = 'vehicle.create';
     case VEHICLE_READ = 'vehicle.read';
     case VEHICLE_UPDATE = 'vehicle.update';
     case VEHICLE_DELETE = 'vehicle.delete';
+
+    case VEHICLE_DATA_CONFIG_READ = 'vehicle-data-config.read';
+    case VEHICLE_DATA_CONFIG_UPDATE = 'vehicle-data-config.update';
 
     case EQUIPMENT_CREATE = 'equipment.create';
     case EQUIPMENT_READ = 'equipment.read';
@@ -92,22 +105,17 @@ enum Permission: string
     case FINANCE_PLAN_UPDATE = 'finance-plan.update';
     case FINANCE_PLAN_DELETE = 'finance-plan.delete';
 
-    case FINANCE_CONTRACT_CREATE = 'finance-contract.create';
-    case FINANCE_CONTRACT_READ = 'finance-contract.read';
-    case FINANCE_CONTRACT_UPDATE = 'finance-contract.update';
-    case FINANCE_CONTRACT_DELETE = 'finance-contract.delete';
-
     case FINANCE_SUBSCRIPTION_CREATE = 'finance-subscription.create';
     case FINANCE_SUBSCRIPTION_READ = 'finance-subscription.read';
     case FINANCE_SUBSCRIPTION_UPDATE = 'finance-subscription.update';
 
-    case FINANCE_RECEIVABLE_CREATE = 'finance-receivable.create';
-    case FINANCE_RECEIVABLE_READ = 'finance-receivable.read';
-    case FINANCE_RECEIVABLE_UPDATE = 'finance-receivable.update';
-    case FINANCE_RECEIVABLE_CHARGE = 'finance-receivable.charge';
+    case FINANCE_BILLING_CREATE = 'finance-billing.create';
+    case FINANCE_BILLING_READ = 'finance-billing.read';
+    case FINANCE_BILLING_UPDATE = 'finance-billing.update';
+    case FINANCE_BILLING_CHARGE = 'finance-billing.charge';
 
-    case FINANCE_ASAAS_CONFIG_READ = 'finance-asaas-config.read';
-    case FINANCE_ASAAS_CONFIG_UPDATE = 'finance-asaas-config.update';
+    case FINANCE_GATEWAY_CONFIG_READ = 'finance-gateway-config.read';
+    case FINANCE_GATEWAY_CONFIG_UPDATE = 'finance-gateway-config.update';
 
     case FINANCE_DASHBOARD_READ = 'finance-dashboard.read';
     case FINANCE_REPORT_READ = 'finance-report.read';

@@ -30,7 +30,7 @@ class UpdateClientUserRequest extends FormRequest
                 'string',
                 'email',
                 'max:255',
-                Rule::unique('users', 'email')->ignore($user->getKey()),
+                Rule::unique('users', 'email')->whereNull('deleted_at')->ignore($user->getKey()),
             ],
             'phone' => ['sometimes', 'nullable', 'string', 'max:20'],
             'document' => ['sometimes', 'nullable', 'string', new Cpf],

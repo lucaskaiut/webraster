@@ -127,7 +127,7 @@ export default function FinancePlansListPage() {
     <Page>
       <PageHeader
         title="Planos financeiros"
-        description="Planos de cobrança recorrente para contratos de clientes."
+        description="Planos de cobrança recorrente para assinaturas de clientes."
         breadcrumb={[
           { label: 'Dashboard', to: '/dashboard' },
           { label: 'Financeiro' },

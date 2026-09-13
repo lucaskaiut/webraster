@@ -62,24 +62,21 @@ export default function FinancePortalSubscriptionPage() {
                 }
               />
               <Row label="Cliente" value={query.data.client?.name ?? '—'} />
-              <Row label="Contrato" value={query.data.contract?.code ?? '—'} />
-              <Row label="Plano" value={query.data.contract?.plan?.name ?? '—'} />
+              <Row label="Plano" value={query.data.plan_name || query.data.plan?.name || '—'} />
               <Row
                 label="Valor"
-                value={
-                  query.data.contract?.amount_cents != null
-                    ? formatCurrency(query.data.contract.amount_cents / 100)
-                    : '—'
-                }
+                value={formatCurrency(query.data.plan_price_cents / 100)}
               />
               <Row
                 label="Periodicidade"
                 value={
-                  query.data.periodicity_label ?? periodicityLabel(query.data.periodicity)
+                  query.data.plan_periodicity_label ??
+                  periodicityLabel(query.data.plan_periodicity)
                 }
               />
+              <Row label="Dia de vencimento" value={query.data.due_day} />
               <Row label="Próxima cobrança" value={formatDate(query.data.next_billing_at)} />
-              <Row label="Última cobrança" value={formatDate(query.data.last_billing_at)} />
+              <Row label="Última cobrança" value={formatDate(query.data.last_billed_at)} />
             </CardContent>
           </Card>
         )}

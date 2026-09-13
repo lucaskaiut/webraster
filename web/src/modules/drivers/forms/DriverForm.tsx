@@ -15,6 +15,7 @@ import {
 import { isApiError } from '@/shared/api/errors'
 import { applyApiErrorsToForm } from '@/shared/utils/forms'
 import { onlyDigits } from '@/shared/utils/document'
+import { maskCpf, maskPhone } from '@/shared/utils/mask'
 import { clientsService } from '@/modules/clients/services/clients.service'
 import type { DriverPayload } from '../services/drivers.service'
 import { driverSchema, type DriverFormValues } from '../schemas/driver.schema'
@@ -51,14 +52,14 @@ export function DriverForm({ mode, defaultValues, submitting, onSubmit }: Driver
     defaultValues: {
       client_id: '',
       name: '',
-      document: '',
-      phone: '',
       email: '',
       cnh_number: '',
       cnh_expires_at: '',
       notes: '',
       is_active: true,
       ...defaultValues,
+      document: maskCpf(defaultValues?.document ?? ''),
+      phone: maskPhone(defaultValues?.phone ?? ''),
     },
   })
 
@@ -67,7 +68,7 @@ export function DriverForm({ mode, defaultValues, submitting, onSubmit }: Driver
       client_id: values.client_id,
       name: values.name,
       document: values.document ? onlyDigits(values.document) : null,
-      phone: values.phone || null,
+      phone: values.phone ? onlyDigits(values.phone) : null,
       email: values.email || null,
       cnh_number: values.cnh_number || null,
       cnh_expires_at: values.cnh_expires_at || null,
@@ -101,8 +102,20 @@ export function DriverForm({ mode, defaultValues, submitting, onSubmit }: Driver
                 resolveLabel={resolveClientLabel}
               />
               <TextField name="name" label="Nome" required className="sm:col-span-2" />
-              <TextField name="document" label="CPF" placeholder="Somente números" />
-              <TextField name="phone" label="Telefone" placeholder="(41) 99999-9999" />
+              <TextField
+                name="document"
+                label="CPF"
+                placeholder="000.000.000-00"
+                inputMode="numeric"
+                mask={maskCpf}
+              />
+              <TextField
+                name="phone"
+                label="Telefone"
+                placeholder="(41) 99999-9999"
+                inputMode="tel"
+                mask={maskPhone}
+              />
               <TextField name="email" label="E-mail" type="email" />
               <SwitchField name="is_active" label="Motorista ativo" />
             </div>

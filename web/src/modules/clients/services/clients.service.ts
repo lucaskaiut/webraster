@@ -1,6 +1,6 @@
 import { http } from '@/shared/api/http'
 import type { ApiResponse, ListParams, PaginatedResponse } from '@/shared/types/api'
-import type { Client, User } from '@/shared/types/models'
+import type { Client, ClientContract, ClientOrder, User } from '@/shared/types/models'
 
 export interface ClientPayload {
   name: string
@@ -24,10 +24,25 @@ export interface ClientPayload {
 export interface ClientUserPayload {
   name: string
   email: string
-  phone?: string | null
-  document?: string | null
   password: string
   role_ids?: number[]
+}
+
+export interface ClientOrderItemPayload {
+  service_id: string
+  vehicle_ids: string[]
+}
+
+export interface ClientOrderPayload {
+  due_day?: number
+  periodicity?: string
+  next_billing_at?: string | null
+  items: ClientOrderItemPayload[]
+}
+
+export interface ClientContractPayload {
+  contract_id: string
+  valid_until: string
 }
 
 export const clientsService = {
@@ -75,5 +90,29 @@ export const clientsService = {
 
   async removeUser(clientId: string, userId: string): Promise<void> {
     await http.delete(`/clients/${clientId}/users/${userId}`)
+  },
+
+  async getOrder(clientId: string): Promise<ClientOrder | null> {
+    const response = await http.get<ApiResponse<ClientOrder | null>>(`/clients/${clientId}/order`)
+
+    return response.data.data
+  },
+
+  async upsertOrder(clientId: string, payload: ClientOrderPayload): Promise<ClientOrder> {
+    const response = await http.put<ApiResponse<ClientOrder>>(`/clients/${clientId}/order`, payload)
+
+    return response.data.data
+  },
+
+  async getContract(clientId: string): Promise<ClientContract | null> {
+    const response = await http.get<ApiResponse<ClientContract | null>>(`/clients/${clientId}/contract`)
+
+    return response.data.data
+  },
+
+  async upsertContract(clientId: string, payload: ClientContractPayload): Promise<ClientContract> {
+    const response = await http.put<ApiResponse<ClientContract>>(`/clients/${clientId}/contract`, payload)
+
+    return response.data.data
   },
 }

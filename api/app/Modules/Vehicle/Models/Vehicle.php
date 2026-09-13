@@ -17,6 +17,7 @@ class Vehicle extends Model
 {
     /** @use HasFactory<VehicleFactory> */
     use BelongsToClient;
+
     use BelongsToTenant;
     use HasFactory;
     use HasUuid;
@@ -31,6 +32,19 @@ class Vehicle extends Model
         'model',
         'color',
         'year',
+        'transmission',
+        'odometer',
+        'average_consumption',
+        'tank_capacity',
+        'crlv_file',
+        'fipe_code',
+        'fipe_model_year',
+        'fipe_fuel',
+        'fipe_reference_month',
+        'fipe_value',
+        'fipe_model',
+        'fipe_brand',
+        'fipe_score',
         'is_active',
     ];
 
@@ -38,6 +52,10 @@ class Vehicle extends Model
     {
         return [
             'year' => 'integer',
+            'odometer' => 'integer',
+            'average_consumption' => 'float',
+            'tank_capacity' => 'float',
+            'fipe_score' => 'integer',
             'is_active' => 'boolean',
         ];
     }

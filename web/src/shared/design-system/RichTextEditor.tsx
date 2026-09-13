@@ -6,7 +6,11 @@ import Placeholder from '@tiptap/extension-placeholder'
 import { Bold, Italic, List, ListOrdered, Quote, Undo2, Redo2, Heading2, Code2, Link2, FileCode } from 'lucide-react'
 import { cn } from '@/shared/utils/cn'
 import { Field } from './Field'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+
+export interface RichTextEditorInsertApi {
+  insertContent: (content: string) => void
+}
 
 interface RichTextEditorProps {
   value: string
@@ -16,9 +20,21 @@ interface RichTextEditorProps {
   error?: string
   placeholder?: string
   className?: string
+  /** Conteúdo extra na barra de ferramentas (ex.: seletor de variáveis). */
+  toolbarEnd?: (api: RichTextEditorInsertApi) => ReactNode
 }
 
-function ToolbarButton({ active, onClick, children, title }: { active?: boolean; onClick: () => void; children: React.ReactNode; title: string }) {
+function ToolbarButton({
+  active,
+  onClick,
+  children,
+  title,
+}: {
+  active?: boolean
+  onClick: () => void
+  children: React.ReactNode
+  title: string
+}) {
   return (
     <button
       type="button"
@@ -45,6 +61,7 @@ export function RichTextEditor({
   error,
   placeholder = 'Comece a escrever...',
   className,
+  toolbarEnd,
 }: RichTextEditorProps) {
   const [htmlMode, setHtmlMode] = useState(false)
   const [rawHtml, setRawHtml] = useState(value)
@@ -60,8 +77,8 @@ export function RichTextEditor({
       Placeholder.configure({ placeholder }),
     ],
     content: value,
-    onUpdate: ({ editor }) => {
-      onChange(editor.getHTML())
+    onUpdate: ({ editor: current }) => {
+      onChange(current.getHTML())
     },
     editorProps: {
       attributes: {
@@ -74,21 +91,21 @@ export function RichTextEditor({
     if (!editor) return
     if (htmlMode) return
     if (value === editor.getHTML()) return
-    editor.commands.setContent(value)
+    editor.commands.setContent(value, { emitUpdate: false })
   }, [value, editor, htmlMode])
 
   const toggleHtmlMode = useCallback(() => {
     if (!editor) return
 
-    setHtmlMode((prev) => {
-      if (prev) {
-        editor.commands.setContent(rawHtml)
-        return false
-      }
-      setRawHtml(editor.getHTML())
-      return true
-    })
-  }, [editor, rawHtml])
+    if (htmlMode) {
+      editor.commands.setContent(rawHtml, { emitUpdate: false })
+      setHtmlMode(false)
+      return
+    }
+
+    setRawHtml(value)
+    setHtmlMode(true)
+  }, [editor, htmlMode, rawHtml, value])
 
   useEffect(() => {
     if (htmlMode) {
@@ -118,18 +135,35 @@ export function RichTextEditor({
     onChange(html)
   }
 
+  const insertContent = useCallback(
+    (content: string) => {
+      if (!editor) return
+
+      if (htmlMode) {
+        const next = `${rawHtml}${content}`
+        setRawHtml(next)
+        onChange(next)
+        return
+      }
+
+      editor.chain().focus().insertContent(content).run()
+    },
+    [editor, htmlMode, rawHtml, onChange],
+  )
+
   if (!editor) return null
 
   return (
     <Field label={label} hint={hint} error={error} className={className}>
-      <div className={cn('overflow-hidden rounded-xl shadow-[inset_0_1px_0_var(--app-surface-2)]', error && 'outline-2 outline-danger/60')}>
+      <div
+        className={cn(
+          'overflow-hidden rounded-xl shadow-[inset_0_1px_0_var(--app-surface-2)]',
+          error && 'outline-2 outline-danger/60',
+        )}
+      >
         <div className="flex flex-wrap items-center gap-0.5 border-b border-surface-3 bg-surface-2/60 px-2 py-1.5">
           {htmlMode ? (
-            <ToolbarButton
-              active
-              title="Editor visual"
-              onClick={toggleHtmlMode}
-            >
+            <ToolbarButton active title="Editor visual" onClick={toggleHtmlMode}>
               <FileCode className="size-4" />
             </ToolbarButton>
           ) : (
@@ -194,13 +228,15 @@ export function RichTextEditor({
                 <Redo2 className="size-4" />
               </ToolbarButton>
               <span className="mx-1 h-4 w-px bg-surface-3" aria-hidden="true" />
-              <ToolbarButton
-                title="Editar HTML"
-                active={htmlMode}
-                onClick={toggleHtmlMode}
-              >
+              <ToolbarButton title="Editar HTML" active={htmlMode} onClick={toggleHtmlMode}>
                 <FileCode className="size-4" />
               </ToolbarButton>
+            </>
+          )}
+          {toolbarEnd && (
+            <>
+              <span className="mx-1 h-4 w-px bg-surface-3" aria-hidden="true" />
+              {toolbarEnd({ insertContent })}
             </>
           )}
         </div>

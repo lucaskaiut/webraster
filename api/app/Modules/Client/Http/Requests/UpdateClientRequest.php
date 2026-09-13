@@ -47,6 +47,7 @@ class UpdateClientRequest extends FormRequest
             'state' => ['sometimes', 'nullable', 'string', 'size:2'],
             'zip' => ['sometimes', 'nullable', 'string', 'max:8'],
             'is_active' => ['sometimes', 'boolean'],
+            'plan_id' => ['sometimes', 'nullable', 'integer', Rule::exists('finance_plans', 'id')->whereNull('deleted_at')],
         ];
     }
 
@@ -64,6 +65,12 @@ class UpdateClientRequest extends FormRequest
 
         if ($this->has('state')) {
             $input['state'] = strtoupper(trim((string) $this->input('state')));
+        }
+
+        if ($this->exists('plan_id') && $this->filled('plan_id') && ! is_numeric($this->input('plan_id'))) {
+            $input['plan_id'] = \App\Modules\Finance\Models\FinancePlan::query()
+                ->where('uuid', $this->input('plan_id'))
+                ->value('id');
         }
 
         if ($input !== []) {

@@ -5,15 +5,15 @@ namespace Tests\Feature\Finance;
 use App\Modules\Client\Models\Client;
 use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Finance\Contracts\DeviceSuspensionProvider;
-use App\Modules\Finance\Enums\ContractStatus;
-use App\Modules\Finance\Enums\ReceivableStatus;
-use App\Modules\Finance\Models\FinanceContract;
+use App\Modules\Finance\Models\FinanceBilling;
 use App\Modules\Finance\Models\FinancePlan;
-use App\Modules\Finance\Models\FinanceReceivable;
+use App\Modules\Finance\Models\FinanceSubscription;
 use App\Modules\Finance\Models\FinanceWebhookLog;
-use App\Modules\Finance\Models\TenantAsaasConfig;
-use App\Modules\Finance\Services\AsaasWebhookProcessor;
+use App\Modules\Finance\Models\TenantPaymentGatewayConfig;
 use App\Modules\Finance\Services\DelinquencyService;
+use App\Modules\Shared\Subscription\Enums\BillingStatus;
+use App\Modules\Shared\Subscription\Enums\SubscriptionStatus;
+use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -26,7 +26,7 @@ class FinanceModuleTest extends TestCase
     use InteractsWithTenants;
     use RefreshDatabase;
 
-    public function test_creates_plan_and_contract_with_subscription(): void
+    public function test_assigns_plan_and_creates_subscription_snapshot(): void
     {
         [, $tenant] = $this->createOperationalChild();
         $client = Client::factory()->for($tenant)->create();
@@ -42,25 +42,45 @@ class FinanceModuleTest extends TestCase
             'is_active' => true,
         ])->assertCreated()->json('data');
 
-        $this->postJson('/api/finance/contracts', [
+        $this->postJson('/api/finance/subscriptions/assign', [
             'client_id' => $client->uuid,
             'plan_id' => $plan['id'],
-            'starts_at' => now()->toDateString(),
             'due_day' => 10,
-            'amount_cents' => 4990,
-            'periodicity' => 'monthly',
-            'device_quantity' => 2,
-            'auto_renew' => true,
             'block_on_overdue' => true,
             'block_after_days' => 5,
         ])
-            ->assertCreated()
-            ->assertJsonPath('data.code', 'CTR-000001')
+            ->assertOk()
             ->assertJsonPath('data.status', 'active')
-            ->assertJsonPath('data.subscription.status', 'active');
+            ->assertJsonPath('data.plan_name', 'Básico')
+            ->assertJsonPath('data.plan_price_cents', 4990)
+            ->assertJsonPath('data.plan_periodicity', 'monthly');
+
+        $this->assertSame($plan['id'], $client->fresh()->plan?->uuid);
     }
 
-    public function test_generates_receivable_for_contract(): void
+    public function test_patch_client_plan_upserts_subscription(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $plan = FinancePlan::factory()->forTenant($tenant)->create(['name' => 'Pro']);
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->patchJson("/api/clients/{$client->uuid}/plan", [
+            'plan_id' => $plan->uuid,
+            'due_day' => 15,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.plan_name', 'Pro')
+            ->assertJsonPath('data.due_day', 15);
+
+        $this->assertDatabaseHas('finance_subscriptions', [
+            'client_id' => $client->getKey(),
+            'plan_id' => $plan->getKey(),
+            'plan_name' => 'Pro',
+        ]);
+    }
+
+    public function test_generates_billing_for_subscription(): void
     {
         [, $tenant] = $this->createOperationalChild();
         $client = Client::factory()->for($tenant)->create();
@@ -68,17 +88,16 @@ class FinanceModuleTest extends TestCase
         Sanctum::actingAs($admin);
 
         $plan = FinancePlan::factory()->forTenant($tenant)->create();
-        $contract = FinanceContract::factory()->forClient($client)->withPlan($plan)->create(['number' => 1]);
-        \App\Modules\Finance\Models\FinanceSubscription::factory()->forContract($contract)->create([
-            'status' => 'active',
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create([
+            'status' => SubscriptionStatus::ACTIVE,
             'next_billing_at' => now()->toDateString(),
         ]);
 
-        $this->postJson('/api/finance/receivables', [
-            'contract_id' => $contract->uuid,
+        $this->postJson('/api/finance/billings', [
+            'subscription_id' => $subscription->uuid,
         ])
             ->assertCreated()
-            ->assertJsonPath('data.code', 'REC-000001')
+            ->assertJsonPath('data.code', 'BILL-000001')
             ->assertJsonPath('data.status', 'pending');
     }
 
@@ -104,19 +123,20 @@ class FinanceModuleTest extends TestCase
         ])->assertForbidden();
     }
 
-    public function test_webhook_marks_receivable_received_idempotently(): void
+    public function test_webhook_marks_billing_paid_idempotently(): void
     {
         [, $tenant] = $this->createOperationalChild();
         $client = Client::factory()->for($tenant)->create();
         $plan = FinancePlan::factory()->forTenant($tenant)->create();
-        $contract = FinanceContract::factory()->forClient($client)->withPlan($plan)->create(['number' => 1]);
-        $receivable = FinanceReceivable::factory()->forContract($contract)->create([
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create();
+        $billing = FinanceBilling::factory()->forSubscription($subscription)->create([
             'number' => 1,
-            'status' => ReceivableStatus::AWAITING_PAYMENT,
+            'status' => BillingStatus::AWAITING_PAYMENT,
             'gateway_payment_id' => 'pay_123',
         ]);
 
-        $this->createAsaasConfig($tenant, 'secret-token');
+        $this->createGatewayConfig($tenant, 'secret-token');
+        $this->fakeAsaasPayment('pay_123', 'RECEIVED', $billing->uuid, 49.90);
 
         $payload = [
             'id' => 'evt_1',
@@ -128,17 +148,89 @@ class FinanceModuleTest extends TestCase
             ],
         ];
 
-        $this->postJson("/api/webhooks/asaas/{$tenant->uuid}", $payload, [
+        $this->postJson("/api/webhooks/payments/asaas/{$tenant->uuid}", $payload, [
             'asaas-access-token' => 'secret-token',
         ])->assertOk();
 
-        $this->assertSame(ReceivableStatus::RECEIVED, $receivable->fresh()->status);
+        $this->assertSame(BillingStatus::PAID, $billing->fresh()->status);
 
-        $this->postJson("/api/webhooks/asaas/{$tenant->uuid}", $payload, [
+        $this->postJson("/api/webhooks/payments/asaas/{$tenant->uuid}", $payload, [
             'asaas-access-token' => 'secret-token',
         ])->assertOk();
 
         $this->assertSame(1, FinanceWebhookLog::query()->where('event_id', 'evt_1')->count());
+    }
+
+    public function test_webhook_does_not_mark_paid_when_gateway_status_is_pending(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $plan = FinancePlan::factory()->forTenant($tenant)->create();
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create();
+        $billing = FinanceBilling::factory()->forSubscription($subscription)->create([
+            'number' => 1,
+            'status' => BillingStatus::AWAITING_PAYMENT,
+            'gateway_payment_id' => 'pay_pending',
+        ]);
+
+        $this->createGatewayConfig($tenant, 'secret-token');
+        $this->fakeAsaasPayment('pay_pending', 'PENDING', $billing->uuid, 49.90);
+
+        $this->postJson("/api/webhooks/payments/asaas/{$tenant->uuid}", [
+            'id' => 'evt_fake_paid',
+            'event' => 'PAYMENT_RECEIVED',
+            'payment' => [
+                'id' => 'pay_pending',
+                'value' => 49.90,
+                'status' => 'RECEIVED',
+            ],
+        ], [
+            'asaas-access-token' => 'secret-token',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['payment_gateway']);
+
+        $this->assertSame(BillingStatus::AWAITING_PAYMENT, $billing->fresh()->status);
+        $this->assertSame(
+            'failed',
+            FinanceWebhookLog::query()->where('event_id', 'evt_fake_paid')->value('status'),
+        );
+    }
+
+    public function test_webhook_does_not_mark_paid_when_gateway_payment_is_missing(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $plan = FinancePlan::factory()->forTenant($tenant)->create();
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create();
+        $billing = FinanceBilling::factory()->forSubscription($subscription)->create([
+            'number' => 1,
+            'status' => BillingStatus::AWAITING_PAYMENT,
+            'gateway_payment_id' => 'pay_missing',
+        ]);
+
+        $this->createGatewayConfig($tenant, 'secret-token');
+        Http::fake([
+            '*/payments/pay_missing' => Http::response([
+                'errors' => [['code' => 'invalid_id', 'description' => 'Payment not found.']],
+            ], 404),
+        ]);
+
+        $this->postJson("/api/webhooks/payments/asaas/{$tenant->uuid}", [
+            'id' => 'evt_missing',
+            'event' => 'PAYMENT_RECEIVED',
+            'payment' => [
+                'id' => 'pay_missing',
+                'value' => 49.90,
+                'status' => 'RECEIVED',
+            ],
+        ], [
+            'asaas-access-token' => 'secret-token',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['payment_gateway']);
+
+        $this->assertSame(BillingStatus::AWAITING_PAYMENT, $billing->fresh()->status);
     }
 
     public function test_delinquency_suspends_and_payment_unsuspends(): void
@@ -152,16 +244,15 @@ class FinanceModuleTest extends TestCase
         ]);
 
         $plan = FinancePlan::factory()->forTenant($tenant)->create();
-        $contract = FinanceContract::factory()->forClient($client)->withPlan($plan)->create([
-            'number' => 1,
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create([
             'block_on_overdue' => true,
             'block_after_days' => 5,
-            'status' => ContractStatus::ACTIVE,
+            'status' => SubscriptionStatus::ACTIVE,
         ]);
 
-        $receivable = FinanceReceivable::factory()->forContract($contract)->create([
+        $billing = FinanceBilling::factory()->forSubscription($subscription)->create([
             'number' => 1,
-            'status' => ReceivableStatus::OVERDUE,
+            'status' => BillingStatus::OVERDUE,
             'due_at' => now()->subDays(6)->toDateString(),
         ]);
 
@@ -171,13 +262,13 @@ class FinanceModuleTest extends TestCase
 
             public array $unsuspended = [];
 
-            public function suspend(\App\Modules\Equipment\Models\Equipment $equipment): void
+            public function suspend(Equipment $equipment): void
             {
                 $equipment->forceFill(['billing_suspended_at' => now()])->save();
                 $this->suspended[] = $equipment->getKey();
             }
 
-            public function unsuspend(\App\Modules\Equipment\Models\Equipment $equipment): void
+            public function unsuspend(Equipment $equipment): void
             {
                 $equipment->forceFill(['billing_suspended_at' => null])->save();
                 $this->unsuspended[] = $equipment->getKey();
@@ -191,29 +282,29 @@ class FinanceModuleTest extends TestCase
         $this->assertNotNull($equipment->fresh()->billing_suspended_at);
 
         Sanctum::actingAs($this->createAdmin($tenant));
-        $this->postJson("/api/finance/receivables/{$receivable->uuid}/mark-received")
+        $this->postJson("/api/finance/billings/{$billing->uuid}/mark-paid")
             ->assertOk()
-            ->assertJsonPath('data.status', 'received');
+            ->assertJsonPath('data.status', 'paid');
 
         $this->assertNull($equipment->fresh()->billing_suspended_at);
     }
 
-    public function test_portal_lists_only_own_receivables(): void
+    public function test_portal_lists_only_own_billings(): void
     {
         [, $tenant] = $this->createOperationalChild();
         $clientA = Client::factory()->for($tenant)->create();
         $clientB = Client::factory()->for($tenant)->create();
         $plan = FinancePlan::factory()->forTenant($tenant)->create();
-        $contractA = FinanceContract::factory()->forClient($clientA)->withPlan($plan)->create(['number' => 1]);
-        $contractB = FinanceContract::factory()->forClient($clientB)->withPlan($plan)->create(['number' => 2]);
-        FinanceReceivable::factory()->forContract($contractA)->create(['number' => 1]);
-        FinanceReceivable::factory()->forContract($contractB)->create(['number' => 2]);
+        $subA = FinanceSubscription::factory()->forClient($clientA, $plan)->create();
+        $subB = FinanceSubscription::factory()->forClient($clientB, $plan)->create();
+        FinanceBilling::factory()->forSubscription($subA)->create(['number' => 1]);
+        FinanceBilling::factory()->forSubscription($subB)->create(['number' => 2]);
 
         $user = $this->createClient($tenant);
         $user->forceFill(['client_id' => $clientA->getKey()])->save();
         Sanctum::actingAs($user);
 
-        $this->getJson('/api/finance/portal/receivables')
+        $this->getJson('/api/finance/portal/billings')
             ->assertOk()
             ->assertJsonCount(1, 'data');
     }
@@ -238,7 +329,30 @@ class FinanceModuleTest extends TestCase
             ]);
     }
 
-    public function test_charge_creates_asaas_payment(): void
+    public function test_charge_requires_gateway_config(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create([
+            'document' => '39053344705',
+            'email' => 'cliente@example.com',
+        ]);
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $plan = FinancePlan::factory()->forTenant($tenant)->create();
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create();
+        $billing = FinanceBilling::factory()->forSubscription($subscription)->create([
+            'number' => 1,
+            'status' => BillingStatus::PENDING,
+        ]);
+
+        $this->postJson("/api/finance/billings/{$billing->uuid}/charge", [
+            'payment_method' => 'pix',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['payment_gateway']);
+    }
+
+    public function test_charge_creates_gateway_payment(): void
     {
         [, $tenant] = $this->createOperationalChild();
         $client = Client::factory()->for($tenant)->create([
@@ -248,13 +362,13 @@ class FinanceModuleTest extends TestCase
         $admin = $this->createAdmin($tenant);
         Sanctum::actingAs($admin);
 
-        $this->createAsaasConfig($tenant, 'wh_token', 'asaas_key');
+        $this->createGatewayConfig($tenant, 'wh_token', 'asaas_key');
 
         $plan = FinancePlan::factory()->forTenant($tenant)->create();
-        $contract = FinanceContract::factory()->forClient($client)->withPlan($plan)->create(['number' => 1]);
-        $receivable = FinanceReceivable::factory()->forContract($contract)->create([
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create();
+        $billing = FinanceBilling::factory()->forSubscription($subscription)->create([
             'number' => 1,
-            'status' => ReceivableStatus::PENDING,
+            'status' => BillingStatus::PENDING,
         ]);
 
         Http::fake([
@@ -267,26 +381,74 @@ class FinanceModuleTest extends TestCase
             ], 200),
         ]);
 
-        $this->postJson("/api/finance/receivables/{$receivable->uuid}/charge", [
+        $this->postJson("/api/finance/billings/{$billing->uuid}/charge", [
             'payment_method' => 'boleto',
         ])
             ->assertOk()
             ->assertJsonPath('data.status', 'awaiting_payment')
-            ->assertJsonPath('data.gateway_payment_id', 'pay_abc');
+            ->assertJsonPath('data.gateway_payment_id', 'pay_abc')
+            ->assertJsonPath('data.payment_gateway', 'asaas');
     }
 
-    private function createAsaasConfig(
-        \App\Modules\Tenant\Models\Tenant $tenant,
+    public function test_reactivate_unsuspends_devices_even_when_overdue(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create();
+        $equipment = Equipment::factory()->forTenant($tenant)->create([
+            'vehicle_id' => $vehicle->getKey(),
+            'billing_suspended_at' => now(),
+        ]);
+        $plan = FinancePlan::factory()->forTenant($tenant)->create();
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create([
+            'status' => SubscriptionStatus::SUSPENDED,
+        ]);
+        FinanceBilling::factory()->forSubscription($subscription)->create([
+            'number' => 1,
+            'status' => BillingStatus::OVERDUE,
+            'due_at' => now()->subDays(10)->toDateString(),
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->postJson("/api/finance/subscriptions/{$subscription->uuid}/reactivate")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'active');
+
+        $this->assertNull($equipment->fresh()->billing_suspended_at);
+    }
+
+    private function fakeAsaasPayment(
+        string $paymentId,
+        string $status,
+        string $externalReference,
+        float $value,
+    ): void {
+        Http::fake([
+            '*/payments/'.$paymentId => Http::response([
+                'id' => $paymentId,
+                'status' => $status,
+                'value' => $value,
+                'externalReference' => $externalReference,
+            ], 200),
+        ]);
+    }
+
+    private function createGatewayConfig(
+        Tenant $tenant,
         string $webhookToken = 'secret-token',
         string $apiKey = 'test_key',
-    ): TenantAsaasConfig {
-        $config = new TenantAsaasConfig;
+    ): TenantPaymentGatewayConfig {
+        $config = new TenantPaymentGatewayConfig;
         $config->forceFill([
             'tenant_id' => $tenant->getKey(),
-            'environment' => 'sandbox',
-            'api_key' => $apiKey,
-            'webhook_token' => $webhookToken,
+            'gateway' => 'asaas',
             'is_active' => true,
+            'credentials' => [
+                'environment' => 'sandbox',
+                'api_key' => $apiKey,
+                'webhook_token' => $webhookToken,
+            ],
         ]);
         $config->save();
 

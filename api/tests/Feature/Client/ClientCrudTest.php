@@ -117,6 +117,111 @@ class ClientCrudTest extends TestCase
         $this->assertSoftDeleted('users', ['email' => 'portal@cliente.com']);
     }
 
+    public function test_store_client_user_without_password_generates_from_client_document(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create(['document' => '12345678901']);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->postJson("/api/clients/{$client->uuid}/users", [
+            'name' => 'Portal Cliente',
+            'email' => 'portal@cliente.com',
+            'document' => '52998224725',
+        ])->assertCreated();
+
+        $user = \App\Modules\User\Models\User::query()
+            ->where('client_id', $client->getKey())
+            ->where('email', 'portal@cliente.com')
+            ->firstOrFail();
+
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('123456', $user->password));
+    }
+
+    public function test_store_rejects_duplicate_document_of_active_client(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $document = Document::fakeCnpj();
+
+        Client::factory()->for($tenant)->create(['document' => $document]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->postJson('/api/clients', [
+            'name' => 'Duplicado',
+            'document' => $document,
+        ])->assertUnprocessable()->assertJsonValidationErrors('document');
+    }
+
+    public function test_store_allows_reusing_document_of_soft_deleted_client(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $document = Document::fakeCnpj();
+
+        $deleted = Client::factory()->for($tenant)->create(['document' => $document]);
+        $deleted->delete();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->postJson('/api/clients', [
+            'name' => 'Cliente Reativado',
+            'document' => $document,
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('clients', [
+            'tenant_id' => $tenant->getKey(),
+            'document' => $document,
+            'name' => 'Cliente Reativado',
+        ]);
+    }
+
+    public function test_deleting_client_cascades_to_linked_users(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $roleId = $this->roleFor($tenant, DefaultRole::CLIENT)->getKey();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->postJson("/api/clients/{$client->uuid}/users", [
+            'name' => 'Portal Cliente',
+            'email' => 'portal@cliente.com',
+            'password' => '12345678',
+            'role_ids' => [$roleId],
+        ])->assertCreated();
+
+        $this->deleteJson("/api/clients/{$client->uuid}")->assertOk();
+
+        $this->assertSoftDeleted('clients', ['id' => $client->getKey()]);
+        $this->assertSoftDeleted('users', ['email' => 'portal@cliente.com']);
+    }
+
+    public function test_store_allows_reusing_email_of_soft_deleted_user(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $roleId = $this->roleFor($tenant, DefaultRole::CLIENT)->getKey();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $first = Client::factory()->for($tenant)->create();
+        $this->postJson("/api/clients/{$first->uuid}/users", [
+            'name' => 'Portal Cliente',
+            'email' => 'portal@cliente.com',
+            'password' => '12345678',
+            'role_ids' => [$roleId],
+        ])->assertCreated();
+
+        $this->deleteJson("/api/clients/{$first->uuid}")->assertOk();
+
+        $second = Client::factory()->for($tenant)->create();
+        $this->postJson("/api/clients/{$second->uuid}/users", [
+            'name' => 'Portal Cliente Novo',
+            'email' => 'portal@cliente.com',
+            'password' => '12345678',
+            'role_ids' => [$roleId],
+        ])->assertCreated();
+    }
+
     public function test_cannot_access_client_of_other_tenant(): void
     {
         [$umbrella, $tenantA] = $this->createOperationalChild();

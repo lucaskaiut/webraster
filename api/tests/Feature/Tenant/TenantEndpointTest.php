@@ -83,13 +83,13 @@ class TenantEndpointTest extends TestCase
             ->assertJsonValidationErrors(['document']);
     }
 
-    public function test_member_without_permission_cannot_read_or_update_tenant(): void
+    public function test_member_can_read_but_not_update_tenant(): void
     {
         $tenant = $this->createTenantWithRoles();
 
         Sanctum::actingAs($this->createMember($tenant));
 
-        $this->getJson('/api/tenant')->assertForbidden()->assertJsonPath('success', false);
+        $this->getJson('/api/tenant')->assertOk();
         $this->putJson('/api/tenant', ['name' => 'X'])->assertForbidden();
     }
 }

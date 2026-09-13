@@ -57,6 +57,22 @@ class EquipmentCrudTest extends TestCase
         $this->assertFalse($imeis->contains('100000000000002'));
     }
 
+    public function test_store_allows_reusing_imei_of_soft_deleted_equipment(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+
+        $deleted = Equipment::factory()->forTenant($tenant)->create(['imei' => '359633100000001']);
+        $deleted->delete();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->postJson('/api/equipments', [
+            'imei' => '359633100000001',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.imei', '359633100000001');
+    }
+
     public function test_cannot_delete_assigned_equipment(): void
     {
         [, $tenant] = $this->createOperationalChild();

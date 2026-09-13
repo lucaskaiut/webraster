@@ -142,8 +142,24 @@ export default function VehicleEditPage() {
                 model: vehicle.model ?? '',
                 color: vehicle.color ?? '',
                 year: vehicle.year ? String(vehicle.year) : '',
+                transmission: vehicle.transmission ?? '',
+                odometer: vehicle.odometer ? String(vehicle.odometer) : '',
+                average_consumption: vehicle.average_consumption
+                  ? String(vehicle.average_consumption)
+                  : '',
+                tank_capacity: vehicle.tank_capacity ? String(vehicle.tank_capacity) : '',
+                crlv_file: vehicle.crlv_file ?? '',
+                fipe_code: vehicle.fipe_code ?? '',
+                fipe_model_year: vehicle.fipe_model_year ?? '',
+                fipe_fuel: vehicle.fipe_fuel ?? '',
+                fipe_reference_month: vehicle.fipe_reference_month ?? '',
+                fipe_value: vehicle.fipe_value ?? '',
+                fipe_model: vehicle.fipe_model ?? '',
+                fipe_brand: vehicle.fipe_brand ?? '',
+                fipe_score: vehicle.fipe_score ? String(vehicle.fipe_score) : '',
                 is_active: vehicle.is_active,
               }}
+              crlvFileUrl={vehicle.crlv_file_url}
               submitting={updateVehicle.isPending}
               onSubmit={async (payload) => {
                 await updateVehicle.mutateAsync(payload)

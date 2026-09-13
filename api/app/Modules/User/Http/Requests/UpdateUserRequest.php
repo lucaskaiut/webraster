@@ -26,7 +26,7 @@ class UpdateUserRequest extends FormRequest
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'email' => [
                 'sometimes', 'required', 'string', 'email', 'max:255',
-                Rule::unique('users', 'email')->ignore($user instanceof User ? $user->getKey() : null),
+                Rule::unique('users', 'email')->whereNull('deleted_at')->ignore($user instanceof User ? $user->getKey() : null),
             ],
             'phone' => ['sometimes', 'nullable', 'string', 'max:20'],
             'document' => ['sometimes', 'nullable', 'string', new Cpf],

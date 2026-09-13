@@ -46,10 +46,23 @@ export const Permission = {
   DRIVER_UPDATE: 'driver.update',
   DRIVER_DELETE: 'driver.delete',
 
+  SERVICE_CREATE: 'service.create',
+  SERVICE_READ: 'service.read',
+  SERVICE_UPDATE: 'service.update',
+  SERVICE_DELETE: 'service.delete',
+
+  CONTRACT_CREATE: 'contract.create',
+  CONTRACT_READ: 'contract.read',
+  CONTRACT_UPDATE: 'contract.update',
+  CONTRACT_DELETE: 'contract.delete',
+
   VEHICLE_CREATE: 'vehicle.create',
   VEHICLE_READ: 'vehicle.read',
   VEHICLE_UPDATE: 'vehicle.update',
   VEHICLE_DELETE: 'vehicle.delete',
+
+  VEHICLE_DATA_CONFIG_READ: 'vehicle-data-config.read',
+  VEHICLE_DATA_CONFIG_UPDATE: 'vehicle-data-config.update',
 
   EQUIPMENT_CREATE: 'equipment.create',
   EQUIPMENT_READ: 'equipment.read',
@@ -87,22 +100,17 @@ export const Permission = {
   FINANCE_PLAN_UPDATE: 'finance-plan.update',
   FINANCE_PLAN_DELETE: 'finance-plan.delete',
 
-  FINANCE_CONTRACT_CREATE: 'finance-contract.create',
-  FINANCE_CONTRACT_READ: 'finance-contract.read',
-  FINANCE_CONTRACT_UPDATE: 'finance-contract.update',
-  FINANCE_CONTRACT_DELETE: 'finance-contract.delete',
-
   FINANCE_SUBSCRIPTION_CREATE: 'finance-subscription.create',
   FINANCE_SUBSCRIPTION_READ: 'finance-subscription.read',
   FINANCE_SUBSCRIPTION_UPDATE: 'finance-subscription.update',
 
-  FINANCE_RECEIVABLE_CREATE: 'finance-receivable.create',
-  FINANCE_RECEIVABLE_READ: 'finance-receivable.read',
-  FINANCE_RECEIVABLE_UPDATE: 'finance-receivable.update',
-  FINANCE_RECEIVABLE_CHARGE: 'finance-receivable.charge',
+  FINANCE_BILLING_CREATE: 'finance-billing.create',
+  FINANCE_BILLING_READ: 'finance-billing.read',
+  FINANCE_BILLING_UPDATE: 'finance-billing.update',
+  FINANCE_BILLING_CHARGE: 'finance-billing.charge',
 
-  FINANCE_ASAAS_CONFIG_READ: 'finance-asaas-config.read',
-  FINANCE_ASAAS_CONFIG_UPDATE: 'finance-asaas-config.update',
+  FINANCE_GATEWAY_CONFIG_READ: 'finance-gateway-config.read',
+  FINANCE_GATEWAY_CONFIG_UPDATE: 'finance-gateway-config.update',
 
   FINANCE_DASHBOARD_READ: 'finance-dashboard.read',
   FINANCE_REPORT_READ: 'finance-report.read',
@@ -202,12 +210,38 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     ],
   },
   {
+    label: 'Serviços',
+    permissions: [
+      { value: Permission.SERVICE_READ, label: 'Visualizar serviços' },
+      { value: Permission.SERVICE_CREATE, label: 'Criar serviços' },
+      { value: Permission.SERVICE_UPDATE, label: 'Editar serviços' },
+      { value: Permission.SERVICE_DELETE, label: 'Remover serviços' },
+    ],
+  },
+  {
+    label: 'Contratos',
+    permissions: [
+      { value: Permission.CONTRACT_READ, label: 'Visualizar contratos' },
+      { value: Permission.CONTRACT_CREATE, label: 'Criar contratos' },
+      { value: Permission.CONTRACT_UPDATE, label: 'Editar contratos' },
+      { value: Permission.CONTRACT_DELETE, label: 'Remover contratos' },
+    ],
+  },
+  {
     label: 'Veículos',
     permissions: [
       { value: Permission.VEHICLE_READ, label: 'Visualizar veículos' },
       { value: Permission.VEHICLE_CREATE, label: 'Criar veículos' },
       { value: Permission.VEHICLE_UPDATE, label: 'Editar veículos' },
       { value: Permission.VEHICLE_DELETE, label: 'Remover veículos' },
+      {
+        value: Permission.VEHICLE_DATA_CONFIG_READ,
+        label: 'Visualizar configuração da consulta de placa',
+      },
+      {
+        value: Permission.VEHICLE_DATA_CONFIG_UPDATE,
+        label: 'Editar configuração da consulta de placa',
+      },
     ],
   },
   {
@@ -271,19 +305,15 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { value: Permission.FINANCE_PLAN_CREATE, label: 'Criar planos financeiros' },
       { value: Permission.FINANCE_PLAN_UPDATE, label: 'Editar planos financeiros' },
       { value: Permission.FINANCE_PLAN_DELETE, label: 'Remover planos financeiros' },
-      { value: Permission.FINANCE_CONTRACT_READ, label: 'Visualizar contratos' },
-      { value: Permission.FINANCE_CONTRACT_CREATE, label: 'Criar contratos' },
-      { value: Permission.FINANCE_CONTRACT_UPDATE, label: 'Editar contratos' },
-      { value: Permission.FINANCE_CONTRACT_DELETE, label: 'Remover contratos' },
       { value: Permission.FINANCE_SUBSCRIPTION_READ, label: 'Visualizar assinaturas financeiras' },
       { value: Permission.FINANCE_SUBSCRIPTION_CREATE, label: 'Criar assinaturas financeiras' },
       { value: Permission.FINANCE_SUBSCRIPTION_UPDATE, label: 'Gerenciar assinaturas financeiras' },
-      { value: Permission.FINANCE_RECEIVABLE_READ, label: 'Visualizar cobranças' },
-      { value: Permission.FINANCE_RECEIVABLE_CREATE, label: 'Gerar cobranças' },
-      { value: Permission.FINANCE_RECEIVABLE_UPDATE, label: 'Atualizar cobranças' },
-      { value: Permission.FINANCE_RECEIVABLE_CHARGE, label: 'Cobrar via gateway' },
-      { value: Permission.FINANCE_ASAAS_CONFIG_READ, label: 'Visualizar configuração Asaas' },
-      { value: Permission.FINANCE_ASAAS_CONFIG_UPDATE, label: 'Editar configuração Asaas' },
+      { value: Permission.FINANCE_BILLING_READ, label: 'Visualizar cobranças' },
+      { value: Permission.FINANCE_BILLING_CREATE, label: 'Gerar cobranças' },
+      { value: Permission.FINANCE_BILLING_UPDATE, label: 'Atualizar cobranças' },
+      { value: Permission.FINANCE_BILLING_CHARGE, label: 'Cobrar via gateway' },
+      { value: Permission.FINANCE_GATEWAY_CONFIG_READ, label: 'Visualizar configuração do gateway' },
+      { value: Permission.FINANCE_GATEWAY_CONFIG_UPDATE, label: 'Editar configuração do gateway' },
       { value: Permission.FINANCE_DASHBOARD_READ, label: 'Visualizar dashboard financeiro' },
       { value: Permission.FINANCE_REPORT_READ, label: 'Visualizar relatórios financeiros' },
       { value: Permission.FINANCE_PORTAL_VIEW, label: 'Acessar portal financeiro do cliente' },

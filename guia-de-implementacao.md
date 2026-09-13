@@ -414,16 +414,15 @@ Status:
 
 # MÓDULO FINANCEIRO (tenant → cliente)
 
-Sistema de gestão financeira do SaaS de rastreamento. O Asaas é apenas o gateway.
+Sistema de gestão financeira do SaaS de rastreamento. Pagamentos usam um contrato de gateway (`PaymentGatewayInterface`); o Asaas é uma implementação.
 
 ## Escopo entregue
 
 * Planos comerciais
-* Contratos (cliente, periodicidade, multa, juros, bloqueio)
-* Assinaturas recorrentes
-* Contas a receber (geração automática)
+* Assinaturas (cliente + plano, vencimento, bloqueio por inadimplência)
+* Cobranças / billings (geração automática e manual)
 * Cobranças PIX / Boleto / Cartão
-* Integração Asaas multi-tenant (customers, payments, webhooks)
+* Gateways de pagamento plugáveis (customers, payments, webhooks)
 * Portal financeiro do cliente
 * Notificações (e-mail + arquitetura multi-canal)
 * Inadimplência e suspensão/reativação de dispositivos
@@ -444,7 +443,7 @@ Fluxo financeiro completo (receita do cliente operacional).
 
 ## Nota
 
-A Fase 10 já entrega bloqueio/liberação automática, tolerância por contrato e notificações básicas.
+A Fase 10 já entrega bloqueio/liberação automática, tolerância por assinatura e notificações básicas.
 
 Esta fase pode refinar:
 

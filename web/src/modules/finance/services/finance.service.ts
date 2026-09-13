@@ -1,18 +1,16 @@
 import { http } from '@/shared/api/http'
 import type { ApiResponse, ListParams, PaginatedResponse } from '@/shared/types/api'
 import type {
-  AsaasEnvironment,
   BillingPeriodicity,
-  FinanceContract,
-  FinanceContractStatus,
+  FinanceBilling,
+  FinanceClientOverview,
   FinanceDashboardMetrics,
   FinancePaymentMethod,
   FinancePlan,
-  FinanceReceivable,
   FinanceReportResult,
   FinanceReportType,
   FinanceSubscription,
-  TenantAsaasConfig,
+  PaymentGatewayConfig,
 } from '@/shared/types/models'
 
 export interface FinancePlanListParams extends ListParams {
@@ -28,50 +26,41 @@ export interface FinancePlanPayload {
   is_active?: boolean
 }
 
-export interface FinanceContractListParams extends ListParams {
-  status?: string
-  client_id?: string
-  plan_id?: string
-}
-
-export interface FinanceContractPayload {
-  client_id: string
-  plan_id?: string | null
-  status?: FinanceContractStatus | string
-  starts_at: string
-  ends_at?: string | null
-  periodicity?: BillingPeriodicity | string
-  due_day?: number
-  amount_cents?: number
-  discount_cents?: number
-  fine_percent?: number
-  interest_percent?: number
-  device_quantity?: number
-  auto_renew?: boolean
-  block_on_overdue?: boolean
-  block_after_days?: number
-  notes?: string | null
-}
-
 export interface FinanceSubscriptionListParams extends ListParams {
   status?: string
   client_id?: string
 }
 
-export interface FinanceReceivableListParams extends ListParams {
+export interface AssignFinanceSubscriptionPayload {
+  client_id: string
+  plan_id: string
+  due_day?: number
+  block_on_overdue?: boolean
+  block_after_days?: number
+  next_billing_at?: string | null
+}
+
+export interface UpdateFinanceSubscriptionPayload {
+  next_billing_at?: string | null
+  due_day?: number
+  block_on_overdue?: boolean
+  block_after_days?: number
+}
+
+export interface FinanceBillingListParams extends ListParams {
   status?: string
   client_id?: string
-  contract_id?: string
+  subscription_id?: string
   due_from?: string
   due_to?: string
 }
 
-export interface GenerateReceivablePayload {
-  contract_id: string
+export interface GenerateBillingPayload {
+  subscription_id: string
   due_at?: string | null
 }
 
-export interface ChargeReceivablePayload {
+export interface ChargeBillingPayload {
   payment_method: FinancePaymentMethod | string
   credit_card?: {
     holderName: string
@@ -83,11 +72,10 @@ export interface ChargeReceivablePayload {
   creditCardHolderInfo?: Record<string, unknown>
 }
 
-export interface AsaasConfigPayload {
-  environment?: AsaasEnvironment | string
-  api_key?: string | null
-  webhook_token?: string | null
+export interface PaymentGatewayConfigPayload {
+  gateway: string
   is_active?: boolean
+  credentials: Record<string, string>
 }
 
 export interface FinanceReportParams {
@@ -122,49 +110,6 @@ export const financeService = {
     await http.delete(`/finance/plans/${id}`)
   },
 
-  async listContracts(params: FinanceContractListParams): Promise<PaginatedResponse<FinanceContract>> {
-    const response = await http.get<PaginatedResponse<FinanceContract>>('/finance/contracts', {
-      params,
-    })
-    return response.data
-  },
-
-  async getContract(id: string): Promise<FinanceContract> {
-    const response = await http.get<ApiResponse<FinanceContract>>(`/finance/contracts/${id}`)
-    return response.data.data
-  },
-
-  async createContract(payload: FinanceContractPayload): Promise<FinanceContract> {
-    const response = await http.post<ApiResponse<FinanceContract>>('/finance/contracts', payload)
-    return response.data.data
-  },
-
-  async updateContract(
-    id: string,
-    payload: Partial<FinanceContractPayload>,
-  ): Promise<FinanceContract> {
-    const response = await http.put<ApiResponse<FinanceContract>>(
-      `/finance/contracts/${id}`,
-      payload,
-    )
-    return response.data.data
-  },
-
-  async deleteContract(id: string): Promise<void> {
-    await http.delete(`/finance/contracts/${id}`)
-  },
-
-  async changeContractStatus(
-    id: string,
-    status: FinanceContractStatus | string,
-  ): Promise<FinanceContract> {
-    const response = await http.patch<ApiResponse<FinanceContract>>(
-      `/finance/contracts/${id}/status`,
-      { status },
-    )
-    return response.data.data
-  },
-
   async listSubscriptions(
     params: FinanceSubscriptionListParams,
   ): Promise<PaginatedResponse<FinanceSubscription>> {
@@ -178,6 +123,27 @@ export const financeService = {
   async getSubscription(id: string): Promise<FinanceSubscription> {
     const response = await http.get<ApiResponse<FinanceSubscription>>(
       `/finance/subscriptions/${id}`,
+    )
+    return response.data.data
+  },
+
+  async assignSubscription(
+    payload: AssignFinanceSubscriptionPayload,
+  ): Promise<FinanceSubscription> {
+    const response = await http.post<ApiResponse<FinanceSubscription>>(
+      '/finance/subscriptions/assign',
+      payload,
+    )
+    return response.data.data
+  },
+
+  async updateSubscription(
+    id: string,
+    payload: UpdateFinanceSubscriptionPayload,
+  ): Promise<FinanceSubscription> {
+    const response = await http.patch<ApiResponse<FinanceSubscription>>(
+      `/finance/subscriptions/${id}`,
+      payload,
     )
     return response.data.data
   },
@@ -196,62 +162,71 @@ export const financeService = {
     return response.data.data
   },
 
-  async listReceivables(
-    params: FinanceReceivableListParams,
-  ): Promise<PaginatedResponse<FinanceReceivable>> {
-    const response = await http.get<PaginatedResponse<FinanceReceivable>>('/finance/receivables', {
+  async clientOverview(clientId: string): Promise<FinanceClientOverview> {
+    const response = await http.get<ApiResponse<FinanceClientOverview>>(
+      `/finance/clients/${clientId}/overview`,
+    )
+    return response.data.data
+  },
+
+  async listBillings(
+    params: FinanceBillingListParams,
+  ): Promise<PaginatedResponse<FinanceBilling>> {
+    const response = await http.get<PaginatedResponse<FinanceBilling>>('/finance/billings', {
       params,
     })
     return response.data
   },
 
-  async getReceivable(id: string): Promise<FinanceReceivable> {
-    const response = await http.get<ApiResponse<FinanceReceivable>>(`/finance/receivables/${id}`)
+  async getBilling(id: string): Promise<FinanceBilling> {
+    const response = await http.get<ApiResponse<FinanceBilling>>(`/finance/billings/${id}`)
     return response.data.data
   },
 
-  async generateReceivable(payload: GenerateReceivablePayload): Promise<FinanceReceivable> {
-    const response = await http.post<ApiResponse<FinanceReceivable>>('/finance/receivables', payload)
+  async generateBilling(payload: GenerateBillingPayload): Promise<FinanceBilling> {
+    const response = await http.post<ApiResponse<FinanceBilling>>('/finance/billings', payload)
     return response.data.data
   },
 
-  async chargeReceivable(
-    id: string,
-    payload: ChargeReceivablePayload,
-  ): Promise<FinanceReceivable> {
-    const response = await http.post<ApiResponse<FinanceReceivable>>(
-      `/finance/receivables/${id}/charge`,
+  async chargeBilling(id: string, payload: ChargeBillingPayload): Promise<FinanceBilling> {
+    const response = await http.post<ApiResponse<FinanceBilling>>(
+      `/finance/billings/${id}/charge`,
       payload,
     )
     return response.data.data
   },
 
-  async cancelReceivable(id: string): Promise<FinanceReceivable> {
-    const response = await http.post<ApiResponse<FinanceReceivable>>(
-      `/finance/receivables/${id}/cancel`,
+  async cancelBilling(id: string): Promise<FinanceBilling> {
+    const response = await http.post<ApiResponse<FinanceBilling>>(
+      `/finance/billings/${id}/cancel`,
     )
     return response.data.data
   },
 
-  async markReceivableReceived(
+  async markBillingPaid(
     id: string,
     paid_amount_cents?: number | null,
-  ): Promise<FinanceReceivable> {
-    const response = await http.post<ApiResponse<FinanceReceivable>>(
-      `/finance/receivables/${id}/mark-received`,
+  ): Promise<FinanceBilling> {
+    const response = await http.post<ApiResponse<FinanceBilling>>(
+      `/finance/billings/${id}/mark-paid`,
       paid_amount_cents != null ? { paid_amount_cents } : {},
     )
     return response.data.data
   },
 
-  async getAsaasConfig(): Promise<TenantAsaasConfig | null> {
-    const response = await http.get<ApiResponse<TenantAsaasConfig | null>>('/finance/asaas-config')
+  async getPaymentGatewayConfig(gateway?: string): Promise<PaymentGatewayConfig> {
+    const response = await http.get<ApiResponse<PaymentGatewayConfig>>(
+      '/finance/payment-gateway-config',
+      { params: gateway ? { gateway } : undefined },
+    )
     return response.data.data
   },
 
-  async updateAsaasConfig(payload: AsaasConfigPayload): Promise<TenantAsaasConfig> {
-    const response = await http.put<ApiResponse<TenantAsaasConfig>>(
-      '/finance/asaas-config',
+  async updatePaymentGatewayConfig(
+    payload: PaymentGatewayConfigPayload,
+  ): Promise<PaymentGatewayConfig> {
+    const response = await http.put<ApiResponse<PaymentGatewayConfig>>(
+      '/finance/payment-gateway-config',
       payload,
     )
     return response.data.data
@@ -276,26 +251,26 @@ export const financeService = {
     return response.data.data
   },
 
-  async portalReceivables(
-    params: FinanceReceivableListParams,
-  ): Promise<PaginatedResponse<FinanceReceivable>> {
-    const response = await http.get<PaginatedResponse<FinanceReceivable>>(
-      '/finance/portal/receivables',
+  async portalBillings(
+    params: FinanceBillingListParams,
+  ): Promise<PaginatedResponse<FinanceBilling>> {
+    const response = await http.get<PaginatedResponse<FinanceBilling>>(
+      '/finance/portal/billings',
       { params },
     )
     return response.data
   },
 
-  async portalReceivable(id: string): Promise<FinanceReceivable> {
-    const response = await http.get<ApiResponse<FinanceReceivable>>(
-      `/finance/portal/receivables/${id}`,
+  async portalBilling(id: string): Promise<FinanceBilling> {
+    const response = await http.get<ApiResponse<FinanceBilling>>(
+      `/finance/portal/billings/${id}`,
     )
     return response.data.data
   },
 
-  async portalPay(id: string, payload: ChargeReceivablePayload): Promise<FinanceReceivable> {
-    const response = await http.post<ApiResponse<FinanceReceivable>>(
-      `/finance/portal/receivables/${id}/pay`,
+  async portalPay(id: string, payload: ChargeBillingPayload): Promise<FinanceBilling> {
+    const response = await http.post<ApiResponse<FinanceBilling>>(
+      `/finance/portal/billings/${id}/pay`,
       payload,
     )
     return response.data.data

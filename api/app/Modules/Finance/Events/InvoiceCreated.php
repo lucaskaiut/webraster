@@ -2,7 +2,7 @@
 
 namespace App\Modules\Finance\Events;
 
-use App\Modules\Finance\Models\FinanceReceivable;
+use App\Modules\Finance\Models\FinanceBilling;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
@@ -11,5 +11,5 @@ class InvoiceCreated
     use Dispatchable;
     use SerializesModels;
 
-    public function __construct(public readonly FinanceReceivable $receivable) {}
+    public function __construct(public readonly FinanceBilling $billing) {}
 }

@@ -15,9 +15,9 @@ import { formatCurrency, formatDate, formatDateTime } from '@/shared/utils/forma
 import { useFinanceReportsQuery } from '../hooks/useFinance'
 import {
   REPORT_TYPE_OPTIONS,
+  billingStatusLabel,
   paymentMethodLabel,
   periodicityLabel,
-  receivableStatusLabel,
   subscriptionStatusLabel,
 } from '../lib/labels'
 import type { FinanceReportType } from '@/shared/types/models'
@@ -32,8 +32,8 @@ function cellValue(row: Record<string, unknown>, key: string): string {
     return key === 'due_at' || key === 'next_billing_at' ? formatDate(value) : formatDateTime(value)
   }
   if (key === 'status' && typeof value === 'string') {
-    return receivableStatusLabel(value) !== value
-      ? receivableStatusLabel(value)
+    return billingStatusLabel(value) !== value
+      ? billingStatusLabel(value)
       : subscriptionStatusLabel(value)
   }
   if (key === 'payment_method' && typeof value === 'string') {
@@ -46,7 +46,7 @@ function cellValue(row: Record<string, unknown>, key: string): string {
 }
 
 const COLUMNS_BY_TYPE: Record<FinanceReportType, Array<{ key: string; header: string }>> = {
-  receivables: [
+  billings: [
     { key: 'code', header: 'Código' },
     { key: 'client', header: 'Cliente' },
     { key: 'status', header: 'Status' },
@@ -70,7 +70,7 @@ const COLUMNS_BY_TYPE: Record<FinanceReportType, Array<{ key: string; header: st
   ],
   subscriptions: [
     { key: 'client', header: 'Cliente' },
-    { key: 'contract_code', header: 'Contrato' },
+    { key: 'plan_name', header: 'Plano' },
     { key: 'status', header: 'Status' },
     { key: 'periodicity', header: 'Periodicidade' },
     { key: 'next_billing_at', header: 'Próxima cobrança' },
@@ -84,7 +84,7 @@ const COLUMNS_BY_TYPE: Record<FinanceReportType, Array<{ key: string; header: st
 
 export default function FinanceReportsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const type = (searchParams.get('type') ?? 'receivables') as FinanceReportType
+  const type = (searchParams.get('type') ?? 'billings') as FinanceReportType
   const [from, setFrom] = useState(searchParams.get('from') ?? '')
   const [to, setTo] = useState(searchParams.get('to') ?? '')
 
@@ -94,7 +94,7 @@ export default function FinanceReportsPage() {
     to: to || undefined,
   })
 
-  const columnDefs = COLUMNS_BY_TYPE[type] ?? COLUMNS_BY_TYPE.receivables
+  const columnDefs = COLUMNS_BY_TYPE[type] ?? COLUMNS_BY_TYPE.billings
 
   const columns: Array<Column<Record<string, unknown>>> = useMemo(
     () =>

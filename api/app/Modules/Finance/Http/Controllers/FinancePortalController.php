@@ -3,13 +3,13 @@
 namespace App\Modules\Finance\Http\Controllers;
 
 use App\Modules\Finance\Enums\PaymentMethod;
-use App\Modules\Finance\Http\Requests\ChargeFinanceReceivableRequest;
-use App\Modules\Finance\Http\Resources\FinanceReceivableResource;
+use App\Modules\Finance\Http\Requests\ChargeFinanceBillingRequest;
+use App\Modules\Finance\Http\Resources\FinanceBillingResource;
 use App\Modules\Finance\Http\Resources\FinanceSubscriptionResource;
-use App\Modules\Finance\Models\FinanceReceivable;
+use App\Modules\Finance\Models\FinanceBilling;
 use App\Modules\Finance\Models\FinanceSubscription;
-use App\Modules\Finance\Services\FinanceReceivableService;
-use App\Modules\Finance\Services\ReceivableChargeService;
+use App\Modules\Finance\Services\BillingChargeService;
+use App\Modules\Finance\Services\FinanceBillingService;
 use App\Modules\Shared\Http\Controllers\ApiController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,8 +17,8 @@ use Illuminate\Http\Request;
 class FinancePortalController extends ApiController
 {
     public function __construct(
-        private readonly FinanceReceivableService $receivables,
-        private readonly ReceivableChargeService $chargeService,
+        private readonly FinanceBillingService $billings,
+        private readonly BillingChargeService $chargeService,
     ) {}
 
     public function subscription(Request $request): JsonResponse
@@ -26,7 +26,7 @@ class FinancePortalController extends ApiController
         $this->authorize('viewAny', FinanceSubscription::class);
 
         $subscription = FinanceSubscription::query()
-            ->with(['client', 'contract.plan'])
+            ->with(['client', 'plan'])
             ->orderByDesc('created_at')
             ->first();
 
@@ -39,11 +39,11 @@ class FinancePortalController extends ApiController
         return $this->success(FinanceSubscriptionResource::make($subscription));
     }
 
-    public function receivables(Request $request): JsonResponse
+    public function billings(Request $request): JsonResponse
     {
-        $this->authorize('viewAny', FinanceReceivable::class);
+        $this->authorize('viewAny', FinanceBilling::class);
 
-        $items = $this->receivables->paginate(
+        $items = $this->billings->paginate(
             (int) $request->integer('per_page', 15),
             [
                 'status' => $request->string('status')->toString() ?: null,
@@ -52,37 +52,29 @@ class FinancePortalController extends ApiController
             ],
         );
 
-        return $this->paginated(FinanceReceivableResource::collection($items));
+        return $this->paginated(FinanceBillingResource::collection($items));
     }
 
-    public function showReceivable(FinanceReceivable $financeReceivable): JsonResponse
+    public function showBilling(FinanceBilling $financeBilling): JsonResponse
     {
-        $this->authorize('view', $financeReceivable);
+        $this->authorize('view', $financeBilling);
 
-        $financeReceivable->load(['client', 'contract.plan', 'subscription']);
+        $financeBilling->load(['client', 'subscription.plan']);
 
-        return $this->success(FinanceReceivableResource::make($financeReceivable));
+        return $this->success(FinanceBillingResource::make($financeBilling));
     }
 
-    public function pay(ChargeFinanceReceivableRequest $request, FinanceReceivable $financeReceivable): JsonResponse
+    public function pay(ChargeFinanceBillingRequest $request, FinanceBilling $financeBilling): JsonResponse
     {
-        $this->authorize('pay', $financeReceivable);
+        $this->authorize('pay', $financeBilling);
 
         $data = $request->validated();
-        $creditCard = [];
-        if (! empty($data['credit_card'])) {
-            $creditCard['creditCard'] = $data['credit_card'];
-        }
-        if (! empty($data['creditCardHolderInfo'])) {
-            $creditCard['creditCardHolderInfo'] = $data['creditCardHolderInfo'];
-        }
-
-        $receivable = $this->chargeService->charge(
-            $financeReceivable,
+        $billing = $this->chargeService->charge(
+            $financeBilling,
             PaymentMethod::from((string) $data['payment_method']),
-            $creditCard,
+            $data,
         );
 
-        return $this->success(FinanceReceivableResource::make($receivable), 'Pagamento iniciado.');
+        return $this->success(FinanceBillingResource::make($billing), 'Pagamento iniciado.');
     }
 }

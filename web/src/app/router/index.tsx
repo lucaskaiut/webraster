@@ -43,9 +43,16 @@ const ClientEditPage = lazy(() => import('@/modules/clients/pages/ClientEditPage
 const DriversListPage = lazy(() => import('@/modules/drivers/pages/DriversListPage'))
 const DriverCreatePage = lazy(() => import('@/modules/drivers/pages/DriverCreatePage'))
 const DriverEditPage = lazy(() => import('@/modules/drivers/pages/DriverEditPage'))
+const ServicesListPage = lazy(() => import('@/modules/services/pages/ServicesListPage'))
+const ServiceCreatePage = lazy(() => import('@/modules/services/pages/ServiceCreatePage'))
+const ServiceEditPage = lazy(() => import('@/modules/services/pages/ServiceEditPage'))
+const ContractsListPage = lazy(() => import('@/modules/contracts/pages/ContractsListPage'))
+const ContractCreatePage = lazy(() => import('@/modules/contracts/pages/ContractCreatePage'))
+const ContractEditPage = lazy(() => import('@/modules/contracts/pages/ContractEditPage'))
 const VehiclesListPage = lazy(() => import('@/modules/vehicles/pages/VehiclesListPage'))
 const VehicleCreatePage = lazy(() => import('@/modules/vehicles/pages/VehicleCreatePage'))
 const VehicleEditPage = lazy(() => import('@/modules/vehicles/pages/VehicleEditPage'))
+const VehicleDataConfigPage = lazy(() => import('@/modules/vehicles/pages/VehicleDataConfigPage'))
 const EquipmentsListPage = lazy(() => import('@/modules/equipments/pages/EquipmentsListPage'))
 const EquipmentCreatePage = lazy(() => import('@/modules/equipments/pages/EquipmentCreatePage'))
 const EquipmentEditPage = lazy(() => import('@/modules/equipments/pages/EquipmentEditPage'))
@@ -70,17 +77,14 @@ const FinanceDashboardPage = lazy(() => import('@/modules/finance/pages/FinanceD
 const FinancePlansListPage = lazy(() => import('@/modules/finance/pages/FinancePlansListPage'))
 const FinancePlanCreatePage = lazy(() => import('@/modules/finance/pages/FinancePlanCreatePage'))
 const FinancePlanEditPage = lazy(() => import('@/modules/finance/pages/FinancePlanEditPage'))
-const FinanceContractsListPage = lazy(() => import('@/modules/finance/pages/FinanceContractsListPage'))
-const FinanceContractCreatePage = lazy(() => import('@/modules/finance/pages/FinanceContractCreatePage'))
-const FinanceContractDetailPage = lazy(() => import('@/modules/finance/pages/FinanceContractDetailPage'))
 const FinanceSubscriptionsListPage = lazy(() => import('@/modules/finance/pages/FinanceSubscriptionsListPage'))
-const FinanceReceivablesListPage = lazy(() => import('@/modules/finance/pages/FinanceReceivablesListPage'))
-const FinanceReceivableDetailPage = lazy(() => import('@/modules/finance/pages/FinanceReceivableDetailPage'))
+const FinanceBillingsListPage = lazy(() => import('@/modules/finance/pages/FinanceBillingsListPage'))
+const FinanceBillingDetailPage = lazy(() => import('@/modules/finance/pages/FinanceBillingDetailPage'))
 const FinanceReportsPage = lazy(() => import('@/modules/finance/pages/FinanceReportsPage'))
-const FinanceAsaasConfigPage = lazy(() => import('@/modules/finance/pages/FinanceAsaasConfigPage'))
-const FinancePortalReceivablesPage = lazy(() => import('@/modules/finance/pages/FinancePortalReceivablesPage'))
-const FinancePortalReceivableDetailPage = lazy(
-  () => import('@/modules/finance/pages/FinancePortalReceivableDetailPage'),
+const FinanceGatewayConfigPage = lazy(() => import('@/modules/finance/pages/FinanceGatewayConfigPage'))
+const FinancePortalBillingsPage = lazy(() => import('@/modules/finance/pages/FinancePortalBillingsPage'))
+const FinancePortalBillingDetailPage = lazy(
+  () => import('@/modules/finance/pages/FinancePortalBillingDetailPage'),
 )
 const FinancePortalSubscriptionPage = lazy(
   () => import('@/modules/finance/pages/FinancePortalSubscriptionPage'),
@@ -333,6 +337,54 @@ export const router = createBrowserRouter([
             ),
           },
           {
+            path: '/services',
+            element: (
+              <PermissionGuard permission={Permission.SERVICE_READ} requiresChildTenant>
+                <ServicesListPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/services/create',
+            element: (
+              <PermissionGuard permission={Permission.SERVICE_CREATE} requiresChildTenant>
+                <ServiceCreatePage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/services/:id/edit',
+            element: (
+              <PermissionGuard permission={Permission.SERVICE_UPDATE} requiresChildTenant>
+                <ServiceEditPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/contracts',
+            element: (
+              <PermissionGuard permission={Permission.CONTRACT_READ} requiresChildTenant>
+                <ContractsListPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/contracts/create',
+            element: (
+              <PermissionGuard permission={Permission.CONTRACT_CREATE} requiresChildTenant>
+                <ContractCreatePage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/contracts/:id/edit',
+            element: (
+              <PermissionGuard permission={Permission.CONTRACT_UPDATE} requiresChildTenant>
+                <ContractEditPage />
+              </PermissionGuard>
+            ),
+          },
+          {
             path: '/vehicles',
             element: (
               <PermissionGuard permission={Permission.VEHICLE_READ} requiresChildTenant>
@@ -353,6 +405,17 @@ export const router = createBrowserRouter([
             element: (
               <PermissionGuard permission={Permission.VEHICLE_UPDATE} requiresChildTenant>
                 <VehicleEditPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/vehicle-data/config',
+            element: (
+              <PermissionGuard
+                permission={Permission.VEHICLE_DATA_CONFIG_READ}
+                requiresChildTenant
+              >
+                <VehicleDataConfigPage />
               </PermissionGuard>
             ),
           },
@@ -533,30 +596,6 @@ export const router = createBrowserRouter([
             ),
           },
           {
-            path: '/finance/contracts',
-            element: (
-              <PermissionGuard permission={Permission.FINANCE_CONTRACT_READ} requiresChildTenant>
-                <FinanceContractsListPage />
-              </PermissionGuard>
-            ),
-          },
-          {
-            path: '/finance/contracts/create',
-            element: (
-              <PermissionGuard permission={Permission.FINANCE_CONTRACT_CREATE} requiresChildTenant>
-                <FinanceContractCreatePage />
-              </PermissionGuard>
-            ),
-          },
-          {
-            path: '/finance/contracts/:id',
-            element: (
-              <PermissionGuard permission={Permission.FINANCE_CONTRACT_READ} requiresChildTenant>
-                <FinanceContractDetailPage />
-              </PermissionGuard>
-            ),
-          },
-          {
             path: '/finance/subscriptions',
             element: (
               <PermissionGuard permission={Permission.FINANCE_SUBSCRIPTION_READ} requiresChildTenant>
@@ -565,18 +604,18 @@ export const router = createBrowserRouter([
             ),
           },
           {
-            path: '/finance/receivables',
+            path: '/finance/billings',
             element: (
-              <PermissionGuard permission={Permission.FINANCE_RECEIVABLE_READ} requiresChildTenant>
-                <FinanceReceivablesListPage />
+              <PermissionGuard permission={Permission.FINANCE_BILLING_READ} requiresChildTenant>
+                <FinanceBillingsListPage />
               </PermissionGuard>
             ),
           },
           {
-            path: '/finance/receivables/:id',
+            path: '/finance/billings/:id',
             element: (
-              <PermissionGuard permission={Permission.FINANCE_RECEIVABLE_READ} requiresChildTenant>
-                <FinanceReceivableDetailPage />
+              <PermissionGuard permission={Permission.FINANCE_BILLING_READ} requiresChildTenant>
+                <FinanceBillingDetailPage />
               </PermissionGuard>
             ),
           },
@@ -589,26 +628,26 @@ export const router = createBrowserRouter([
             ),
           },
           {
-            path: '/finance/asaas-config',
+            path: '/finance/gateway-config',
             element: (
-              <PermissionGuard permission={Permission.FINANCE_ASAAS_CONFIG_READ} requiresChildTenant>
-                <FinanceAsaasConfigPage />
+              <PermissionGuard permission={Permission.FINANCE_GATEWAY_CONFIG_READ} requiresChildTenant>
+                <FinanceGatewayConfigPage />
               </PermissionGuard>
             ),
           },
           {
-            path: '/finance/portal/receivables',
+            path: '/finance/portal/billings',
             element: (
               <PermissionGuard permission={Permission.FINANCE_PORTAL_VIEW} requiresChildTenant>
-                <FinancePortalReceivablesPage />
+                <FinancePortalBillingsPage />
               </PermissionGuard>
             ),
           },
           {
-            path: '/finance/portal/receivables/:id',
+            path: '/finance/portal/billings/:id',
             element: (
               <PermissionGuard permission={Permission.FINANCE_PORTAL_VIEW} requiresChildTenant>
-                <FinancePortalReceivableDetailPage />
+                <FinancePortalBillingDetailPage />
               </PermissionGuard>
             ),
           },

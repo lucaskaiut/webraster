@@ -203,7 +203,42 @@ export interface Client {
   city: string | null
   state: string | null
   zip: string | null
+  plan_id: string | null
+  plan?: Pick<FinancePlan, 'id' | 'name' | 'amount_cents' | 'periodicity'> | null
   is_active: boolean
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface ClientOrderVehicle {
+  id: string
+  plate: string
+  brand: string | null
+  model: string | null
+}
+
+export interface ClientOrderItem {
+  id: number
+  service_id: string
+  service_name: string
+  unit_amount_cents: number
+  unit_amount: string
+  quantity: number
+  line_total_cents: number
+  line_total: string
+  vehicles: ClientOrderVehicle[]
+}
+
+export interface ClientOrder {
+  id: string
+  client_id: string
+  due_day: number
+  periodicity: BillingPeriodicity
+  periodicity_label?: string
+  total_cents: number
+  total: string
+  subscription_id: string | null
+  items: ClientOrderItem[]
   created_at: string | null
   updated_at: string | null
 }
@@ -220,6 +255,33 @@ export interface Driver {
   cnh_expires_at: string | null
   notes: string | null
   is_active: boolean
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface CatalogService {
+  id: string
+  name: string
+  amount_cents: number
+  amount: string
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface Contract {
+  id: string
+  name: string
+  body: string
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface ClientContract {
+  id: string
+  contract_id: string | null
+  contract_name: string | null
+  valid_until: string | null
+  body: string
   created_at: string | null
   updated_at: string | null
 }
@@ -250,10 +312,26 @@ export interface Vehicle {
   model: string | null
   color: string | null
   year: number | null
+  transmission: VehicleTransmission | null
+  odometer: number | null
+  average_consumption: number | null
+  tank_capacity: number | null
+  crlv_file: string | null
+  crlv_file_url: string | null
+  fipe_code: string | null
+  fipe_model_year: string | null
+  fipe_fuel: string | null
+  fipe_reference_month: string | null
+  fipe_value: string | null
+  fipe_model: string | null
+  fipe_brand: string | null
+  fipe_score: number | null
   is_active: boolean
   created_at: string | null
   updated_at: string | null
 }
+
+export type VehicleTransmission = 'manual' | 'automatic' | 'automated'
 
 export interface EquipmentAssignmentEvent {
   id: string
@@ -513,17 +591,94 @@ export interface ServiceOrder {
 export type ServiceOrderKanban = Record<ServiceOrderStatus, ServiceOrder[]>
 
 export type BillingPeriodicity = 'monthly' | 'bimonthly' | 'quarterly' | 'semiannual' | 'annual'
-export type FinanceContractStatus = 'active' | 'suspended' | 'cancelled'
-export type FinanceSubscriptionStatus = 'active' | 'suspended' | 'cancelled'
-export type FinanceReceivableStatus =
+export type FinanceSubscriptionStatus = 'active' | 'past_due' | 'suspended' | 'cancelled'
+export type FinanceBillingStatus =
   | 'pending'
   | 'awaiting_payment'
-  | 'received'
+  | 'paid'
   | 'overdue'
   | 'cancelled'
   | 'refunded'
 export type FinancePaymentMethod = 'pix' | 'boleto' | 'credit_card'
-export type AsaasEnvironment = 'sandbox' | 'production'
+
+export interface GatewayCredentialOption {
+  value: string
+  label: string
+}
+
+export interface GatewayCredentialField {
+  name: string
+  label: string
+  type: string
+  required?: boolean
+  secret?: boolean
+  hint?: string
+  options?: GatewayCredentialOption[]
+}
+
+export interface PaymentGatewayCatalogItem {
+  key: string
+  label: string
+  ready: boolean
+}
+
+export interface PaymentGatewayConfig {
+  gateway: string
+  label: string
+  is_active: boolean
+  is_ready: boolean
+  webhook_url: string
+  tenant_uuid: string | null
+  credential_schema: GatewayCredentialField[]
+  credentials: Record<string, unknown>
+  gateways: PaymentGatewayCatalogItem[]
+}
+
+export interface VehicleDataProviderCatalogItem {
+  key: string
+  label: string
+}
+
+export interface VehicleDataConfig {
+  provider: string
+  label: string
+  is_active: boolean
+  is_ready: boolean
+  credential_schema: GatewayCredentialField[]
+  credentials: Record<string, unknown>
+  providers: VehicleDataProviderCatalogItem[]
+}
+
+export interface VehicleData {
+  plate: string
+  brand: string | null
+  model: string | null
+  submodel: string | null
+  version: string | null
+  year: number | null
+  model_year: number | null
+  color: string | null
+  chassis: string | null
+  fuel: string | null
+  transmission: string | null
+  segment: string | null
+  municipality: string | null
+  uf: string | null
+  situation: string | null
+  fipe: VehicleFipe | null
+  extra: Record<string, unknown> | null
+}
+
+export interface VehicleFipe {
+  code: string | null
+  model_year: string | null
+  fuel: string | null
+  reference_month: string | null
+  value: string | null
+  model: string | null
+  brand: string | null
+  score: number | null
+}
 
 export interface FinancePlan {
   id: string
@@ -539,74 +694,40 @@ export interface FinancePlan {
   updated_at: string | null
 }
 
-export interface FinanceContract {
-  id: string
-  number: number
-  code: string
-  status: FinanceContractStatus
-  status_label?: string
-  client_id: string | null
-  client?: Pick<Client, 'id' | 'name'> | null
-  plan_id: string | null
-  plan?: Pick<FinancePlan, 'id' | 'name' | 'amount_cents'> | null
-  subscription?: FinanceSubscription | null
-  starts_at: string
-  ends_at: string | null
-  periodicity: BillingPeriodicity
-  periodicity_label?: string
-  due_day: number
-  amount_cents: number
-  amount: string
-  discount_cents: number
-  net_amount_cents: number
-  fine_percent: number
-  interest_percent: number
-  device_quantity: number
-  auto_renew: boolean
-  block_on_overdue: boolean
-  block_after_days: number
-  notes: string | null
-  created_by?: Pick<User, 'id' | 'name'> | null
-  created_at: string | null
-  updated_at: string | null
-}
-
 export interface FinanceSubscription {
   id: string
   status: FinanceSubscriptionStatus
   status_label?: string
   client_id: string | null
   client?: Pick<Client, 'id' | 'name'> | null
-  contract_id: string | null
-  contract?: {
-    id: string
-    code: string
-    status?: FinanceContractStatus
-    amount_cents?: number
-    plan?: Pick<FinancePlan, 'id' | 'name'> | null
-  } | null
-  periodicity: BillingPeriodicity
-  periodicity_label?: string
+  plan_id: string | null
+  plan?: Pick<FinancePlan, 'id' | 'name' | 'amount_cents' | 'periodicity'> | null
+  plan_name: string
+  plan_price_cents: number
+  plan_periodicity: BillingPeriodicity
+  plan_periodicity_label?: string
+  due_day: number
+  block_on_overdue: boolean
+  block_after_days: number
   next_billing_at: string | null
-  last_billing_at: string | null
+  last_billed_at: string | null
+  started_at: string | null
   gateway_subscription_id: string | null
   cancelled_at: string | null
   created_at: string | null
   updated_at: string | null
 }
 
-export interface FinanceReceivable {
+export interface FinanceBilling {
   id: string
   number: number
   code: string
-  status: FinanceReceivableStatus
+  status: FinanceBillingStatus
   status_label?: string
   payment_method: FinancePaymentMethod | null
   payment_method_label?: string | null
   client_id: string | null
   client?: Pick<Client, 'id' | 'name'> | null
-  contract_id: string | null
-  contract?: { id: string; code: string } | null
   subscription_id: string | null
   amount_cents: number
   amount: string
@@ -624,21 +745,17 @@ export interface FinanceReceivable {
   pix_qr_code: string | null
   pix_copy_paste: string | null
   description: string | null
+  payment_gateway: string | null
   gateway_payment_id: string | null
   created_at: string | null
   updated_at: string | null
 }
 
-export interface TenantAsaasConfig {
-  id: string
-  environment: AsaasEnvironment
-  environment_label?: string
-  api_key_masked: string | null
-  has_api_key: boolean
-  has_webhook_token: boolean
-  is_active: boolean
-  created_at: string | null
-  updated_at: string | null
+export interface FinanceClientOverview {
+  plan: FinancePlan | null
+  subscription: FinanceSubscription | null
+  open_billing: FinanceBilling | null
+  billings: FinanceBilling[]
 }
 
 export interface FinanceDashboardMetrics {
@@ -647,7 +764,6 @@ export interface FinanceDashboardMetrics {
   arr_cents: number
   arr: string
   active_clients: number
-  active_contracts: number
   active_subscriptions: number
   delinquent_clients: number
   month_revenue_received_cents: number
@@ -659,7 +775,7 @@ export interface FinanceDashboardMetrics {
 }
 
 export type FinanceReportType =
-  | 'receivables'
+  | 'billings'
   | 'delinquency'
   | 'receipts'
   | 'subscriptions'

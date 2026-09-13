@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { Outlet, useLocation } from 'react-router'
-import { Building2, BellRing, Car, ClipboardList, Contact, Cpu, CreditCard, FileBarChart, FileText, Hexagon, History, IdCard, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, Package, Receipt, Repeat, ScrollText, Settings2, ShieldCheck, Users, Wallet } from 'lucide-react'
+import { Building2, BellRing, Car, ClipboardList, Contact, Cpu, CreditCard, FileBarChart, FileText, Hexagon, History, IdCard, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, Package, Receipt, Repeat, ScrollText, Search, Settings2, ShieldCheck, Users, Wallet, Wrench } from 'lucide-react'
 import { AppLogo } from '@/shared/brand/AppLogo'
 import { TenantSelector } from '@/modules/auth/components/TenantSelector'
 import { NotificationBell } from '@/modules/notifications/components/NotificationBell'
@@ -61,7 +61,10 @@ function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
 
   const showClients = isOperatingTenant && can(Permission.CLIENT_READ)
   const showDrivers = isOperatingTenant && can(Permission.DRIVER_READ)
+  const showServices = isOperatingTenant && can(Permission.SERVICE_READ)
+  const showContracts = isOperatingTenant && can(Permission.CONTRACT_READ)
   const showVehicles = isOperatingTenant && can(Permission.VEHICLE_READ)
+  const showVehicleDataConfig = isOperatingTenant && can(Permission.VEHICLE_DATA_CONFIG_READ)
   const showEquipments = isOperatingTenant && can(Permission.EQUIPMENT_READ)
   const showTracking = isOperatingTenant && can(Permission.TRACKING_READ)
   const showGeofences = isOperatingTenant && can(Permission.GEOFENCE_READ)
@@ -69,26 +72,25 @@ function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
   const showAlerts = isOperatingTenant && can(Permission.ALERT_READ)
   const showAlertConfig = isOperatingTenant && can(Permission.ALERT_CONFIG_READ)
   const showServiceOrders = isOperatingTenant && can(Permission.SERVICE_ORDER_READ)
-  const showCadastrosGroup = showClients || showDrivers || showVehicles || showEquipments
+  const showCadastrosGroup =
+    showClients || showDrivers || showServices || showContracts || showVehicles || showEquipments
   const showGeoGroup = showGeofences || showPois
   const showAlertsGroup = showAlerts || showAlertConfig
   const showOpsGroup = showServiceOrders
 
   const showFinanceDashboard = isOperatingTenant && can(Permission.FINANCE_DASHBOARD_READ)
   const showFinancePlans = isOperatingTenant && can(Permission.FINANCE_PLAN_READ)
-  const showFinanceContracts = isOperatingTenant && can(Permission.FINANCE_CONTRACT_READ)
-  const showFinanceReceivables = isOperatingTenant && can(Permission.FINANCE_RECEIVABLE_READ)
+  const showFinanceBillings = isOperatingTenant && can(Permission.FINANCE_BILLING_READ)
   const showFinanceSubscriptions = isOperatingTenant && can(Permission.FINANCE_SUBSCRIPTION_READ)
   const showFinanceReports = isOperatingTenant && can(Permission.FINANCE_REPORT_READ)
-  const showFinanceAsaas = isOperatingTenant && can(Permission.FINANCE_ASAAS_CONFIG_READ)
+  const showFinanceGateway = isOperatingTenant && can(Permission.FINANCE_GATEWAY_CONFIG_READ)
   const showFinanceOperatorGroup =
     showFinanceDashboard ||
     showFinancePlans ||
-    showFinanceContracts ||
-    showFinanceReceivables ||
+    showFinanceBillings ||
     showFinanceSubscriptions ||
     showFinanceReports ||
-    showFinanceAsaas
+    showFinanceGateway
   const showFinancePortal = isOperatingTenant && can(Permission.FINANCE_PORTAL_VIEW) && !showFinanceOperatorGroup
 
   return (
@@ -156,27 +158,19 @@ function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
           {showFinancePlans && (
             <SidebarItem to="/finance/plans" icon={Package} label="Planos" onNavigate={onNavigate} />
           )}
-          {showFinanceContracts && (
-            <SidebarItem
-              to="/finance/contracts"
-              icon={FileText}
-              label="Contratos"
-              onNavigate={onNavigate}
-            />
-          )}
-          {showFinanceReceivables && (
-            <SidebarItem
-              to="/finance/receivables"
-              icon={Receipt}
-              label="Cobranças"
-              onNavigate={onNavigate}
-            />
-          )}
           {showFinanceSubscriptions && (
             <SidebarItem
               to="/finance/subscriptions"
               icon={Repeat}
               label="Assinaturas"
+              onNavigate={onNavigate}
+            />
+          )}
+          {showFinanceBillings && (
+            <SidebarItem
+              to="/finance/billings"
+              icon={Receipt}
+              label="Cobranças"
               onNavigate={onNavigate}
             />
           )}
@@ -188,11 +182,11 @@ function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
               onNavigate={onNavigate}
             />
           )}
-          {showFinanceAsaas && (
+          {showFinanceGateway && (
             <SidebarItem
-              to="/finance/asaas-config"
+              to="/finance/gateway-config"
               icon={CreditCard}
-              label="Config. Asaas"
+              label="Gateway"
               onNavigate={onNavigate}
             />
           )}
@@ -202,7 +196,7 @@ function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
       {showFinancePortal && (
         <SidebarGroup label="Financeiro">
           <SidebarItem
-            to="/finance/portal/receivables"
+            to="/finance/portal/billings"
             icon={Receipt}
             label="Minhas faturas"
             onNavigate={onNavigate}
@@ -230,8 +224,22 @@ function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
           {showDrivers && (
             <SidebarItem to="/drivers" icon={IdCard} label="Motoristas" onNavigate={onNavigate} />
           )}
+          {showServices && (
+            <SidebarItem to="/services" icon={Wrench} label="Serviços" onNavigate={onNavigate} />
+          )}
+          {showContracts && (
+            <SidebarItem to="/contracts" icon={FileText} label="Contratos" onNavigate={onNavigate} />
+          )}
           {showVehicles && (
             <SidebarItem to="/vehicles" icon={Car} label="Veículos" onNavigate={onNavigate} />
+          )}
+          {showVehicleDataConfig && (
+            <SidebarItem
+              to="/vehicle-data/config"
+              icon={Search}
+              label="Consulta de placa"
+              onNavigate={onNavigate}
+            />
           )}
           {showEquipments && (
             <SidebarItem to="/equipments" icon={Cpu} label="Equipamentos" onNavigate={onNavigate} />

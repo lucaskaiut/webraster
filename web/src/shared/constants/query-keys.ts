@@ -82,6 +82,8 @@ export const queryKeys = {
     detail: (id: string) => ['clients', 'detail', id] as const,
     users: (clientId: string, params: ListParams) =>
       ['clients', clientId, 'users', params] as const,
+    order: (clientId: string) => ['clients', clientId, 'order'] as const,
+    contract: (clientId: string) => ['clients', clientId, 'contract'] as const,
   },
 
   drivers: {
@@ -90,11 +92,28 @@ export const queryKeys = {
     detail: (id: string) => ['drivers', 'detail', id] as const,
   },
 
+  services: {
+    all: ['services'] as const,
+    list: (params: ListParams) => ['services', 'list', params] as const,
+    detail: (id: string) => ['services', 'detail', id] as const,
+  },
+
+  contracts: {
+    all: ['contracts'] as const,
+    list: (params: ListParams) => ['contracts', 'list', params] as const,
+    detail: (id: string) => ['contracts', 'detail', id] as const,
+  },
+
   vehicles: {
     all: ['vehicles'] as const,
     list: (params: ListParams & { client_id?: string }) => ['vehicles', 'list', params] as const,
     detail: (id: string) => ['vehicles', 'detail', id] as const,
     history: (id: string) => ['vehicles', 'history', id] as const,
+  },
+
+  vehicleData: {
+    all: ['vehicle-data'] as const,
+    config: () => ['vehicle-data', 'config'] as const,
   },
 
   equipments: {
@@ -186,42 +205,36 @@ export const queryKeys = {
         ['finance', 'plans', 'list', params] as const,
       detail: (id: string) => ['finance', 'plans', 'detail', id] as const,
     },
-    contracts: {
-      all: ['finance', 'contracts'] as const,
-      list: (
-        params: ListParams & { status?: string; client_id?: string; plan_id?: string },
-      ) => ['finance', 'contracts', 'list', params] as const,
-      detail: (id: string) => ['finance', 'contracts', 'detail', id] as const,
-    },
     subscriptions: {
       all: ['finance', 'subscriptions'] as const,
       list: (params: ListParams & { status?: string; client_id?: string }) =>
         ['finance', 'subscriptions', 'list', params] as const,
       detail: (id: string) => ['finance', 'subscriptions', 'detail', id] as const,
     },
-    receivables: {
-      all: ['finance', 'receivables'] as const,
+    billings: {
+      all: ['finance', 'billings'] as const,
       list: (
         params: ListParams & {
           status?: string
           client_id?: string
-          contract_id?: string
+          subscription_id?: string
           due_from?: string
           due_to?: string
         },
-      ) => ['finance', 'receivables', 'list', params] as const,
-      detail: (id: string) => ['finance', 'receivables', 'detail', id] as const,
+      ) => ['finance', 'billings', 'list', params] as const,
+      detail: (id: string) => ['finance', 'billings', 'detail', id] as const,
     },
-    asaasConfig: () => ['finance', 'asaas-config'] as const,
+    gatewayConfig: () => ['finance', 'gateway-config'] as const,
     dashboard: () => ['finance', 'dashboard'] as const,
     reports: (params: { type: string; from?: string; to?: string; status?: string }) =>
       ['finance', 'reports', params] as const,
+    clientOverview: (clientId: string) => ['finance', 'client-overview', clientId] as const,
     portal: {
       subscription: () => ['finance', 'portal', 'subscription'] as const,
-      receivables: (
+      billings: (
         params: ListParams & { status?: string; due_from?: string; due_to?: string },
-      ) => ['finance', 'portal', 'receivables', params] as const,
-      receivable: (id: string) => ['finance', 'portal', 'receivable', id] as const,
+      ) => ['finance', 'portal', 'billings', params] as const,
+      billing: (id: string) => ['finance', 'portal', 'billing', id] as const,
     },
   },
 } as const

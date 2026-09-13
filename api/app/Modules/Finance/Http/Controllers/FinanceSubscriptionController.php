@@ -3,12 +3,17 @@
 namespace App\Modules\Finance\Http\Controllers;
 
 use App\Modules\Client\Models\Client;
+use App\Modules\Finance\Http\Requests\AssignFinanceSubscriptionRequest;
+use App\Modules\Finance\Http\Requests\UpdateClientPlanRequest;
+use App\Modules\Finance\Http\Requests\UpdateFinanceSubscriptionRequest;
 use App\Modules\Finance\Http\Resources\FinanceSubscriptionResource;
+use App\Modules\Finance\Models\FinancePlan;
 use App\Modules\Finance\Models\FinanceSubscription;
 use App\Modules\Finance\Services\FinanceSubscriptionService;
 use App\Modules\Shared\Http\Controllers\ApiController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class FinanceSubscriptionController extends ApiController
 {
@@ -39,9 +44,53 @@ class FinanceSubscriptionController extends ApiController
     {
         $this->authorize('view', $financeSubscription);
 
-        $financeSubscription->load(['client', 'contract.plan']);
+        $financeSubscription->load(['client', 'plan']);
 
         return $this->success(FinanceSubscriptionResource::make($financeSubscription));
+    }
+
+    public function update(
+        UpdateFinanceSubscriptionRequest $request,
+        FinanceSubscription $financeSubscription,
+    ): JsonResponse {
+        $this->authorize('update', $financeSubscription);
+
+        $subscription = $this->service->update($financeSubscription, $request->validated());
+
+        return $this->success(FinanceSubscriptionResource::make($subscription), 'Assinatura atualizada.');
+    }
+
+    public function assign(AssignFinanceSubscriptionRequest $request): JsonResponse
+    {
+        $this->authorize('create', FinanceSubscription::class);
+
+        $data = $request->validated();
+        $client = Client::query()->findOrFail($data['client_id']);
+        $plan = FinancePlan::query()->findOrFail($data['plan_id']);
+
+        $subscription = $this->service->assignPlan($client, $plan, $data);
+
+        return $this->success(FinanceSubscriptionResource::make($subscription), 'Plano atribuído à assinatura.');
+    }
+
+    public function updateClientPlan(UpdateClientPlanRequest $request, Client $client): JsonResponse
+    {
+        $this->authorize('create', FinanceSubscription::class);
+        $this->authorize('update', $client);
+
+        $data = $request->validated();
+        $planId = $data['plan_id'] ?? null;
+
+        if ($planId === null) {
+            throw ValidationException::withMessages([
+                'plan_id' => ['O plano é obrigatório para atribuir assinatura.'],
+            ]);
+        }
+
+        $plan = FinancePlan::query()->findOrFail($planId);
+        $subscription = $this->service->assignPlan($client, $plan, $data);
+
+        return $this->success(FinanceSubscriptionResource::make($subscription), 'Plano do cliente atualizado.');
     }
 
     public function cancel(FinanceSubscription $financeSubscription): JsonResponse
@@ -59,6 +108,9 @@ class FinanceSubscriptionController extends ApiController
 
         $subscription = $this->service->reactivate($financeSubscription);
 
-        return $this->success(FinanceSubscriptionResource::make($subscription), 'Assinatura reativada.');
+        return $this->success(
+            FinanceSubscriptionResource::make($subscription),
+            'Assinatura reativada. Dispositivos liberados mesmo com inadimplência em aberto.',
+        );
     }
 }

@@ -137,13 +137,13 @@ class ApiTokenTest extends TestCase
         $this->assertDatabaseHas('api_tokens', ['id' => $foreign->getKey()]);
     }
 
-    public function test_member_without_permission_cannot_manage_tokens(): void
+    public function test_member_can_read_but_not_manage_tokens(): void
     {
         $tenant = $this->createTenantWithRoles();
 
         Sanctum::actingAs($this->createMember($tenant));
 
-        $this->getJson('/api/api-tokens')->assertForbidden();
+        $this->getJson('/api/api-tokens')->assertOk();
         $this->postJson('/api/api-tokens', ['name' => 'X'])->assertForbidden();
     }
 

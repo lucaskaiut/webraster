@@ -4,6 +4,7 @@ import { Button, ButtonLink, Card, CardContent, Form, Section, TextField } from 
 import { isApiError } from '@/shared/api/errors'
 import { applyApiErrorsToForm } from '@/shared/utils/forms'
 import { onlyDigits } from '@/shared/utils/document'
+import { maskCpf, maskPhone } from '@/shared/utils/mask'
 import { RolesField } from '../components/RolesField'
 import type { UserPayload } from '../services/users.service'
 import { createUserSchema, updateUserSchema, type UserFormValues } from '../schemas/user.schema'
@@ -21,12 +22,12 @@ export function UserForm({ mode, defaultValues, submitting, onSubmit }: UserForm
     defaultValues: {
       name: '',
       email: '',
-      phone: '',
-      document: '',
       password: '',
       password_confirmation: '',
       role_ids: [],
       ...defaultValues,
+      document: maskCpf(defaultValues?.document ?? ''),
+      phone: maskPhone(defaultValues?.phone ?? ''),
     },
   })
 
@@ -34,7 +35,7 @@ export function UserForm({ mode, defaultValues, submitting, onSubmit }: UserForm
     const payload: UserPayload = {
       name: values.name,
       email: values.email,
-      phone: values.phone || null,
+      phone: values.phone ? onlyDigits(values.phone) : null,
       document: values.document ? onlyDigits(values.document) : null,
       role_ids: values.role_ids,
     }
@@ -60,8 +61,20 @@ export function UserForm({ mode, defaultValues, submitting, onSubmit }: UserForm
             <div className="grid gap-4 sm:grid-cols-2">
               <TextField name="name" label="Nome completo" required className="sm:col-span-2" />
               <TextField name="email" label="E-mail" type="email" required />
-              <TextField name="phone" label="Telefone" placeholder="(41) 99999-9999" />
-              <TextField name="document" label="CPF" placeholder="Somente números" />
+              <TextField
+                name="phone"
+                label="Telefone"
+                placeholder="(41) 99999-9999"
+                inputMode="tel"
+                mask={maskPhone}
+              />
+              <TextField
+                name="document"
+                label="CPF"
+                placeholder="000.000.000-00"
+                inputMode="numeric"
+                mask={maskCpf}
+              />
             </div>
           </Section>
 

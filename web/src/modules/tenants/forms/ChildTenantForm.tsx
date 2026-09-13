@@ -12,6 +12,7 @@ import {
 import { isApiError } from '@/shared/api/errors'
 import { applyApiErrorsToForm } from '@/shared/utils/forms'
 import { onlyDigits } from '@/shared/utils/document'
+import { maskCpfCnpj, maskPhone } from '@/shared/utils/mask'
 import type {
   CreateChildTenantPayload,
   UpdateChildTenantPayload,
@@ -85,7 +86,7 @@ function CreateForm({
         name: values.tenant.name,
         document: onlyDigits(values.tenant.document),
         email: values.tenant.email,
-        phone: values.tenant.phone,
+        phone: onlyDigits(values.tenant.phone),
         domain: values.tenant.domain,
       },
       user: {
@@ -129,8 +130,13 @@ function EditForm({
   const form = useForm<UpdateChildTenantFormValues>({
     resolver: zodResolver(updateChildTenantSchema),
     defaultValues: {
-      tenant: { name: '', document: '', email: '', phone: '', domain: '' },
-      ...defaultValues,
+      tenant: {
+        name: defaultValues?.tenant?.name ?? '',
+        email: defaultValues?.tenant?.email ?? '',
+        domain: defaultValues?.tenant?.domain ?? '',
+        document: maskCpfCnpj(defaultValues?.tenant?.document ?? ''),
+        phone: maskPhone(defaultValues?.tenant?.phone ?? ''),
+      },
     },
   })
 
@@ -140,7 +146,7 @@ function EditForm({
         name: values.tenant.name,
         document: onlyDigits(values.tenant.document),
         email: values.tenant.email,
-        phone: values.tenant.phone,
+        phone: onlyDigits(values.tenant.phone),
         domain: values.tenant.domain,
       },
     }
@@ -171,9 +177,23 @@ function TenantFields() {
     <Section title="Dados da empresa">
       <div className="grid gap-4 sm:grid-cols-2">
         <TextField name="tenant.name" label="Nome" required className="sm:col-span-2" />
-        <TextField name="tenant.document" label="CPF / CNPJ" required placeholder="Somente números" />
+        <TextField
+          name="tenant.document"
+          label="CPF / CNPJ"
+          required
+          placeholder="000.000.000-00"
+          inputMode="numeric"
+          mask={maskCpfCnpj}
+        />
         <TextField name="tenant.email" label="E-mail" type="email" required />
-        <TextField name="tenant.phone" label="Telefone" required placeholder="(41) 99999-9999" />
+        <TextField
+          name="tenant.phone"
+          label="Telefone"
+          required
+          placeholder="(41) 99999-9999"
+          inputMode="tel"
+          mask={maskPhone}
+        />
         <TextField name="tenant.domain" label="Domínio" required placeholder="empresa.com.br" />
       </div>
     </Section>

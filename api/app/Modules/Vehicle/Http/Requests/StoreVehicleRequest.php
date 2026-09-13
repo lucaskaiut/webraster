@@ -4,6 +4,7 @@ namespace App\Modules\Vehicle\Http\Requests;
 
 use App\Modules\Client\Models\Client;
 use App\Modules\Tenant\Support\Facades\TenantContext;
+use App\Modules\Vehicle\Enums\VehicleTransmission;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -35,6 +36,19 @@ class StoreVehicleRequest extends FormRequest
             'model' => ['nullable', 'string', 'max:100'],
             'color' => ['nullable', 'string', 'max:50'],
             'year' => ['nullable', 'integer', 'min:1900', 'max:'.((int) date('Y') + 1)],
+            'transmission' => ['nullable', Rule::enum(VehicleTransmission::class)],
+            'odometer' => ['nullable', 'integer', 'min:0'],
+            'average_consumption' => ['nullable', 'numeric', 'min:0'],
+            'tank_capacity' => ['nullable', 'numeric', 'min:0'],
+            'crlv_file' => ['nullable', 'string', 'max:255'],
+            'fipe_code' => ['nullable', 'string', 'max:20'],
+            'fipe_model_year' => ['nullable', 'string', 'max:10'],
+            'fipe_fuel' => ['nullable', 'string', 'max:50'],
+            'fipe_reference_month' => ['nullable', 'string', 'max:50'],
+            'fipe_value' => ['nullable', 'string', 'max:50'],
+            'fipe_model' => ['nullable', 'string', 'max:255'],
+            'fipe_brand' => ['nullable', 'string', 'max:100'],
+            'fipe_score' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }

@@ -10,7 +10,7 @@ return new class extends Migration
     public function up(): void
     {
         $operatorPermissions = [
-            Permission::FINANCE_ASAAS_CONFIG_UPDATE,
+            Permission::FINANCE_GATEWAY_CONFIG_UPDATE,
         ];
 
         Role::query()
