@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { CreditCard, RefreshCw } from 'lucide-react'
 import {
   Alert,
@@ -24,6 +23,7 @@ import {
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import { formatCurrency, formatDate } from '@/shared/utils/format'
+import { formResolver } from '@/shared/utils/forms'
 import type { FinanceBilling } from '@/shared/types/models'
 import {
   useFinanceClientOverviewQuery,
@@ -75,7 +75,7 @@ export function ClientFinanceSection({ clientId }: { clientId: string }) {
   const billings = overview.data?.billings ?? []
 
   const dueForm = useForm<DueSettingsValues>({
-    resolver: zodResolver(dueSettingsSchema),
+    resolver: formResolver<DueSettingsValues>(dueSettingsSchema),
     defaultValues: {
       due_day: 10,
       next_billing_at: '',

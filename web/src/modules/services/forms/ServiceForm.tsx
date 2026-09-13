@@ -10,7 +10,7 @@ import {
 } from '@/shared/design-system'
 import { isApiError } from '@/shared/api/errors'
 import { applyApiErrorsToForm, formResolver } from '@/shared/utils/forms'
-import { centsToReais, reaisToCents } from '@/modules/finance/lib/labels'
+import { reaisToCents } from '@/modules/finance/lib/labels'
 import type { ServicePayload } from '../services/services.service'
 import { serviceSchema, type ServiceFormValues } from '../schemas/service.schema'
 
