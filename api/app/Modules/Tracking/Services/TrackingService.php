@@ -2,9 +2,9 @@
 
 namespace App\Modules\Tracking\Services;
 
+use App\Modules\Alert\Services\AlertEngine;
 use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Geofence\Services\GeofenceDetectionService;
-use App\Modules\Alert\Services\AlertEngine;
 use App\Modules\Tracking\Contracts\TraccarGateway;
 use App\Modules\Tracking\DTOs\TraccarPosition;
 use App\Modules\Tracking\Models\GpsPosition;
@@ -50,7 +50,8 @@ class TrackingService
     }
 
     /**
-     * Posições ao vivo: consulta Traccar e persiste/atualiza última posição local.
+     * Posições ao vivo: lê a última posição persistida (alimentada pelo webhook
+     * do Traccar) em vez de consultar o Traccar diretamente a cada polling.
      *
      * @return Collection<int, array{vehicle: Vehicle, position: ?GpsPosition, online: bool}>
      */
@@ -62,38 +63,25 @@ class TrackingService
             return collect();
         }
 
-        $deviceMap = $this->resolveTraccarDevices($vehicles);
-        $deviceIds = array_values(array_filter($deviceMap));
+        // Vincula equipamentos sem traccar_device_id (necessário para o webhook
+        // conseguir associar as posições que chegam do Traccar).
+        foreach ($vehicles as $vehicle) {
+            $equipment = $vehicle->equipment;
 
-        $positionsByDevice = collect();
-
-        if ($deviceIds !== [] && $this->traccar->isConfigured()) {
-            try {
-                $positionsByDevice = $this->traccar->latestPositions($deviceIds)
-                    ->keyBy(fn (TraccarPosition $position) => $position->deviceId);
-            } catch (\Throwable $exception) {
-                Log::warning('tracking.live_failed', ['message' => $exception->getMessage()]);
+            if ($equipment !== null && blank($equipment->traccar_device_id)) {
+                $this->resolveDeviceId($equipment);
             }
         }
 
-        return $vehicles->map(function (Vehicle $vehicle) use ($deviceMap, $positionsByDevice) {
-            $equipment = $vehicle->equipment;
-            $deviceId = $equipment ? ($deviceMap[$equipment->getKey()] ?? null) : null;
-            $traccarPosition = $deviceId !== null ? $positionsByDevice->get($deviceId) : null;
+        $positions = $this->latestPositionsFor($vehicles->pluck('id')->all());
+        $now = CarbonImmutable::now();
 
-            $position = null;
+        return $vehicles->map(function (Vehicle $vehicle) use ($positions, $now) {
+            $position = $positions->get($vehicle->getKey());
 
-            if ($traccarPosition instanceof TraccarPosition && $equipment !== null) {
-                $position = $this->persistPosition($vehicle, $equipment, $traccarPosition);
-            } else {
-                $position = GpsPosition::query()
-                    ->where('vehicle_id', $vehicle->getKey())
-                    ->orderByDesc('recorded_at')
-                    ->first();
-            }
-
-            $online = $traccarPosition !== null
-                && $traccarPosition->recordedAt->greaterThan(CarbonImmutable::now()->subMinutes(15));
+            $online = $position !== null
+                && $position->recorded_at !== null
+                && $position->recorded_at->greaterThan($now->subMinutes(15));
 
             return [
                 'vehicle' => $vehicle,
@@ -162,24 +150,26 @@ class TrackingService
     }
 
     /**
-     * @param  Collection<int, Vehicle>  $vehicles
-     * @return array<int, int|null> equipmentId => traccarDeviceId
+     * Última posição persistida de cada veículo (alimentada pelo webhook).
+     *
+     * @param  list<int>  $vehicleIds
+     * @return Collection<int, GpsPosition>
      */
-    private function resolveTraccarDevices(Collection $vehicles): array
+    private function latestPositionsFor(array $vehicleIds): Collection
     {
-        $map = [];
-
-        foreach ($vehicles as $vehicle) {
-            $equipment = $vehicle->equipment;
-
-            if ($equipment === null) {
-                continue;
-            }
-
-            $map[$equipment->getKey()] = $this->resolveDeviceId($equipment);
+        if ($vehicleIds === []) {
+            return collect();
         }
 
-        return $map;
+        $latestIds = GpsPosition::query()
+            ->selectRaw('MAX(id) as id')
+            ->whereIn('vehicle_id', $vehicleIds)
+            ->groupBy('vehicle_id');
+
+        return GpsPosition::query()
+            ->whereIn('id', $latestIds)
+            ->get()
+            ->keyBy('vehicle_id');
     }
 
     private function resolveDeviceId(Equipment $equipment): ?int
@@ -212,7 +202,7 @@ class TrackingService
         return $device->id;
     }
 
-    private function persistPosition(Vehicle $vehicle, Equipment $equipment, TraccarPosition $position): GpsPosition
+    public function persistPosition(Vehicle $vehicle, Equipment $equipment, TraccarPosition $position): GpsPosition
     {
         $gpsPosition = GpsPosition::query()->updateOrCreate(
             [
@@ -226,11 +216,14 @@ class TrackingService
                 'latitude' => $position->latitude,
                 'longitude' => $position->longitude,
                 'recorded_at' => $position->recordedAt,
+                'server_time' => $position->serverTime,
                 'speed' => $position->speed,
                 'ignition' => $position->ignition,
                 'battery' => $position->battery,
                 'heading' => $position->heading,
                 'altitude' => $position->altitude,
+                'address' => $position->address,
+                'valid' => $position->valid,
                 'attributes' => $position->attributes,
             ],
         );

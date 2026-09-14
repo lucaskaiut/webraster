@@ -2,6 +2,7 @@
 
 namespace App\Modules\Tracking\Http\Controllers;
 
+use App\Modules\ACL\Enums\Permission;
 use App\Modules\Client\Support\ClientAuthorization;
 use App\Modules\Shared\Http\Controllers\ApiController;
 use App\Modules\Tenant\Support\TenantAuthorization;
@@ -61,7 +62,7 @@ class TrackingController extends ApiController
     private function authorizeTracking(): void
     {
         abort_unless(
-            request()->user()?->hasPermission(\App\Modules\ACL\Enums\Permission::TRACKING_READ) ?? false,
+            request()->user()?->hasPermission(Permission::TRACKING_READ) ?? false,
             403,
         );
     }

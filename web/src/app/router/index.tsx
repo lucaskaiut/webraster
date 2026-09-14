@@ -72,6 +72,7 @@ const ServiceOrderEditPage = lazy(() => import('@/modules/service-orders/pages/S
 const ServiceOrderDetailPage = lazy(() => import('@/modules/service-orders/pages/ServiceOrderDetailPage'))
 const ServiceOrdersKanbanPage = lazy(() => import('@/modules/service-orders/pages/ServiceOrdersKanbanPage'))
 const ServiceOrdersCalendarPage = lazy(() => import('@/modules/service-orders/pages/ServiceOrdersCalendarPage'))
+const ReportsPage = lazy(() => import('@/modules/reports/pages/ReportsPage'))
 
 const FinanceDashboardPage = lazy(() => import('@/modules/finance/pages/FinanceDashboardPage'))
 const FinancePlansListPage = lazy(() => import('@/modules/finance/pages/FinancePlansListPage'))
@@ -560,6 +561,14 @@ export const router = createBrowserRouter([
             element: (
               <PermissionGuard permission={Permission.SERVICE_ORDER_UPDATE} requiresChildTenant>
                 <ServiceOrderEditPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/reports',
+            element: (
+              <PermissionGuard permission={Permission.REPORT_VIEW} requiresChildTenant>
+                <ReportsPage />
               </PermissionGuard>
             ),
           },

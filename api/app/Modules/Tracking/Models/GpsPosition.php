@@ -7,13 +7,18 @@ use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Shared\Models\Concerns\HasUuid;
 use App\Modules\Tenant\Models\Concerns\BelongsToTenant;
 use App\Modules\Vehicle\Models\Vehicle;
+use Database\Factories\GpsPositionFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class GpsPosition extends Model
 {
+    /** @use HasFactory<GpsPositionFactory> */
     use BelongsToClient;
+
     use BelongsToTenant;
+    use HasFactory;
     use HasUuid;
 
     protected $fillable = [
@@ -23,11 +28,14 @@ class GpsPosition extends Model
         'latitude',
         'longitude',
         'recorded_at',
+        'server_time',
         'speed',
         'ignition',
         'battery',
         'heading',
         'altitude',
+        'address',
+        'valid',
         'traccar_position_id',
         'attributes',
     ];
@@ -38,11 +46,13 @@ class GpsPosition extends Model
             'latitude' => 'float',
             'longitude' => 'float',
             'recorded_at' => 'datetime',
+            'server_time' => 'datetime',
             'speed' => 'float',
             'ignition' => 'boolean',
             'battery' => 'float',
             'heading' => 'float',
             'altitude' => 'float',
+            'valid' => 'boolean',
             'attributes' => 'array',
         ];
     }
@@ -55,5 +65,10 @@ class GpsPosition extends Model
     public function equipment(): BelongsTo
     {
         return $this->belongsTo(Equipment::class);
+    }
+
+    protected static function newFactory(): GpsPositionFactory
+    {
+        return GpsPositionFactory::new();
     }
 }

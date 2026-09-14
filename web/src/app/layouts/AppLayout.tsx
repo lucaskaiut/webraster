@@ -67,6 +67,7 @@ function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
   const showVehicleDataConfig = isOperatingTenant && can(Permission.VEHICLE_DATA_CONFIG_READ)
   const showEquipments = isOperatingTenant && can(Permission.EQUIPMENT_READ)
   const showTracking = isOperatingTenant && can(Permission.TRACKING_READ)
+  const showReports = isOperatingTenant && can(Permission.REPORT_VIEW)
   const showGeofences = isOperatingTenant && can(Permission.GEOFENCE_READ)
   const showPois = isOperatingTenant && can(Permission.POI_READ)
   const showAlerts = isOperatingTenant && can(Permission.ALERT_READ)
@@ -99,6 +100,9 @@ function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
         <SidebarItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" onNavigate={onNavigate} />
         {showTracking && (
           <SidebarItem to="/monitoring" icon={MapPinned} label="Monitoramento" onNavigate={onNavigate} />
+        )}
+        {showReports && (
+          <SidebarItem to="/reports" icon={FileBarChart} label="Relatórios" onNavigate={onNavigate} />
         )}
         {/* Assistente de IA oculto no frontend
         {can(Permission.ASSISTANT_VIEW) && (

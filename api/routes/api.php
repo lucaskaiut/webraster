@@ -33,10 +33,12 @@ use App\Modules\Finance\Http\Controllers\PaymentWebhookController;
 use App\Modules\Geofence\Http\Controllers\GeofenceController;
 use App\Modules\Geofence\Http\Controllers\GeofenceEventController;
 use App\Modules\Poi\Http\Controllers\PoiController;
+use App\Modules\Report\Http\Controllers\ReportController;
 use App\Modules\Service\Http\Controllers\ServiceController;
 use App\Modules\ServiceOrder\Http\Controllers\ServiceOrderController;
 use App\Modules\Shared\Http\Controllers\FileUploadController;
 use App\Modules\Tenant\Http\Controllers\TenantController;
+use App\Modules\Tracking\Http\Controllers\TraccarWebhookController;
 use App\Modules\Tracking\Http\Controllers\TrackingController;
 use App\Modules\User\Http\Controllers\UserController;
 use App\Modules\Vehicle\Http\Controllers\VehicleController;
@@ -64,6 +66,8 @@ Route::get('billing/gateways', [SubscriptionController::class, 'gateways']);
 Route::get('payment-methods', [PaymentMethodController::class, 'index']);
 
 Route::post('webhooks/payments/{gateway}/{tenantUuid}', PaymentWebhookController::class)->middleware('throttle:api');
+
+Route::post('webhooks/traccar', TraccarWebhookController::class);
 
 /*
  * Pagamento e regularização ficam acessíveis mesmo com assinatura PAST_DUE/SUSPENDED.
@@ -164,6 +168,11 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
 
     Route::get('devices/{device}/commands', [DeviceCommandController::class, 'index'])->middleware('permission:device.commands.send');
     Route::post('devices/{device}/commands', [DeviceCommandController::class, 'store'])->middleware('permission:device.commands.send');
+
+    Route::get('reports/commands', [ReportController::class, 'commands'])->middleware('permission:report.view');
+    Route::get('reports/commands/export', [ReportController::class, 'commandsExport'])->middleware('permission:report.export');
+    Route::get('reports/positions', [ReportController::class, 'positions'])->middleware('permission:report.view');
+    Route::get('reports/positions/export', [ReportController::class, 'positionsExport'])->middleware('permission:report.export');
 
     Route::get('service-orders', [ServiceOrderController::class, 'index'])->middleware('permission:service-order.read');
     Route::get('service-orders/kanban', [ServiceOrderController::class, 'kanban'])->middleware('permission:service-order.read');

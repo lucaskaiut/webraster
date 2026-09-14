@@ -76,6 +76,9 @@ enum Permission: string
 
     case TRACKING_READ = 'tracking.read';
 
+    case REPORT_VIEW = 'report.view';
+    case REPORT_EXPORT = 'report.export';
+
     case GEOFENCE_CREATE = 'geofence.create';
     case GEOFENCE_READ = 'geofence.read';
     case GEOFENCE_UPDATE = 'geofence.update';

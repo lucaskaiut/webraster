@@ -44,6 +44,8 @@ use App\Modules\Geofence\Policies\GeofenceEventPolicy;
 use App\Modules\Geofence\Policies\GeofencePolicy;
 use App\Modules\Poi\Models\Poi;
 use App\Modules\Poi\Policies\PoiPolicy;
+use App\Modules\Report\Policies\ReportPolicy;
+use App\Modules\Report\Support\Report;
 use App\Modules\Service\Models\Service;
 use App\Modules\Service\Policies\ServicePolicy;
 use App\Modules\ServiceOrder\Models\ServiceOrder;
@@ -122,6 +124,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Contract::class, ContractPolicy::class);
         Gate::policy(Vehicle::class, VehiclePolicy::class);
         Gate::policy(TenantVehicleDataConfig::class, TenantVehicleDataConfigPolicy::class);
+        Gate::policy(Report::class, ReportPolicy::class);
         Gate::policy(Equipment::class, EquipmentPolicy::class);
         Gate::policy(Geofence::class, GeofencePolicy::class);
         Gate::policy(GeofenceEvent::class, GeofenceEventPolicy::class);

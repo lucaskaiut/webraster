@@ -15,6 +15,9 @@ readonly class TraccarPosition
         public float $latitude,
         public float $longitude,
         public CarbonImmutable $recordedAt,
+        public ?CarbonImmutable $serverTime,
+        public ?bool $valid,
+        public ?string $address,
         public ?float $speed,
         public ?bool $ignition,
         public ?float $battery,
@@ -43,12 +46,22 @@ readonly class TraccarPosition
             $battery = (float) $attributes['batteryLevel'];
         }
 
+        $serverTime = null;
+        if (filled($payload['serverTime'] ?? null)) {
+            $serverTime = CarbonImmutable::parse((string) $payload['serverTime']);
+        } elseif (filled($payload['fixTime'] ?? null)) {
+            $serverTime = CarbonImmutable::parse((string) $payload['fixTime']);
+        }
+
         return new self(
             id: (int) $payload['id'],
             deviceId: (int) $payload['deviceId'],
             latitude: (float) $payload['latitude'],
             longitude: (float) $payload['longitude'],
             recordedAt: CarbonImmutable::parse((string) $payload['deviceTime']),
+            serverTime: $serverTime,
+            valid: array_key_exists('valid', $payload) ? (bool) $payload['valid'] : null,
+            address: isset($payload['address']) ? (string) $payload['address'] : null,
             speed: isset($payload['speed']) ? (float) $payload['speed'] : null,
             ignition: $ignition,
             battery: $battery,

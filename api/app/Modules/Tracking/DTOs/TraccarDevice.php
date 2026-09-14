@@ -2,8 +2,6 @@
 
 namespace App\Modules\Tracking\DTOs;
 
-use Carbon\CarbonImmutable;
-
 readonly class TraccarDevice
 {
     public function __construct(

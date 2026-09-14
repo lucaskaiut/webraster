@@ -2,10 +2,13 @@
 
 namespace Tests\Feature\Tracking;
 
+use App\Modules\ACL\Enums\DefaultRole;
+use App\Modules\ACL\Enums\Permission;
 use App\Modules\Client\Models\Client;
 use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Tracking\Contracts\TraccarGateway;
 use App\Modules\Tracking\Gateways\HttpTraccarGateway;
+use App\Modules\Tracking\Gateways\NullTraccarGateway;
 use App\Modules\Tracking\Models\GpsPosition;
 use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Models\Vehicle;
@@ -20,7 +23,57 @@ class TrackingLiveTest extends TestCase
     use InteractsWithTenants;
     use RefreshDatabase;
 
-    public function test_live_fetches_positions_from_traccar_gateway(): void
+    public function test_live_reads_latest_position_from_database(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create(['plate' => 'ABC1D23']);
+        Equipment::factory()->assignedTo($vehicle)->create(['traccar_device_id' => 42]);
+
+        GpsPosition::factory()->forVehicle($vehicle)->create([
+            'latitude' => -25.4284,
+            'longitude' => -49.2733,
+            'ignition' => true,
+            'recorded_at' => now()->subMinute(),
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->getJson('/api/tracking/live')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $vehicle->uuid)
+            ->assertJsonPath('data.0.plate', 'ABC1D23')
+            ->assertJsonPath('data.0.online', true)
+            ->assertJsonPath('data.0.position.latitude', -25.4284)
+            ->assertJsonPath('data.0.position.longitude', -49.2733)
+            ->assertJsonPath('data.0.position.ignition', true);
+    }
+
+    public function test_live_exposes_device_alarms_from_persisted_attributes(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create(['plate' => 'PWR1234']);
+        Equipment::factory()->assignedTo($vehicle)->create(['traccar_device_id' => 77]);
+
+        GpsPosition::factory()->forVehicle($vehicle)->create([
+            'recorded_at' => now()->subMinute(),
+            'attributes' => [
+                'alarm' => 'powerCut',
+                'charge' => false,
+            ],
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->getJson('/api/tracking/live')
+            ->assertOk()
+            ->assertJsonPath('data.0.position.alarms.0.code', 'powercut')
+            ->assertJsonPath('data.0.position.alarms.0.label', 'Alimentação cortada')
+            ->assertJsonPath('data.0.position.alarms.0.severity', 'critical');
+    }
+
+    public function test_live_resolves_missing_traccar_device_id(): void
     {
         [, $tenant] = $this->createOperationalChild();
         $client = Client::factory()->for($tenant)->create();
@@ -47,90 +100,16 @@ class TrackingLiveTest extends TestCase
                     'status' => 'online',
                 ],
             ]),
-            'traccar.test/api/positions*' => Http::response([
-                [
-                    'id' => 1001,
-                    'deviceId' => 42,
-                    'latitude' => -25.4284,
-                    'longitude' => -49.2733,
-                    'deviceTime' => now()->toIso8601String(),
-                    'speed' => 12.5,
-                    'course' => 90,
-                    'altitude' => 900,
-                    'attributes' => [
-                        'ignition' => true,
-                        'batteryLevel' => 85.5,
-                    ],
-                ],
-            ]),
         ]);
 
         Sanctum::actingAs($this->createAdmin($tenant));
 
-        $this->getJson('/api/tracking/live')
-            ->assertOk()
-            ->assertJsonPath('data.0.id', $vehicle->uuid)
-            ->assertJsonPath('data.0.plate', 'ABC1D23')
-            ->assertJsonPath('data.0.online', true)
-            ->assertJsonPath('data.0.position.latitude', -25.4284)
-            ->assertJsonPath('data.0.position.longitude', -49.2733)
-            ->assertJsonPath('data.0.position.ignition', true);
+        $this->getJson('/api/tracking/live')->assertOk();
 
         $this->assertDatabaseHas('equipments', [
             'id' => $equipment->getKey(),
             'traccar_device_id' => 42,
         ]);
-
-        $this->assertDatabaseHas('gps_positions', [
-            'vehicle_id' => $vehicle->getKey(),
-            'client_id' => $client->getKey(),
-            'traccar_position_id' => 1001,
-        ]);
-    }
-
-    public function test_live_exposes_device_alarms_from_traccar_attributes(): void
-    {
-        [, $tenant] = $this->createOperationalChild();
-        $client = Client::factory()->for($tenant)->create();
-        $vehicle = Vehicle::factory()->forClient($client)->create(['plate' => 'PWR1234']);
-        Equipment::factory()->assignedTo($vehicle)->create([
-            'imei' => '359633100000077',
-            'traccar_device_id' => 77,
-        ]);
-
-        config([
-            'traccar.enabled' => true,
-            'traccar.base_url' => 'http://traccar.test',
-            'traccar.token' => 'test-token',
-            'traccar.timeout' => 5,
-        ]);
-
-        $this->app->instance(TraccarGateway::class, $this->app->make(HttpTraccarGateway::class));
-
-        Http::fake([
-            'traccar.test/api/positions*' => Http::response([
-                [
-                    'id' => 2001,
-                    'deviceId' => 77,
-                    'latitude' => -25.4284,
-                    'longitude' => -49.2733,
-                    'deviceTime' => now()->toIso8601String(),
-                    'speed' => 0,
-                    'attributes' => [
-                        'alarm' => 'powerCut',
-                        'charge' => false,
-                    ],
-                ],
-            ]),
-        ]);
-
-        Sanctum::actingAs($this->createAdmin($tenant));
-
-        $this->getJson('/api/tracking/live')
-            ->assertOk()
-            ->assertJsonPath('data.0.position.alarms.0.code', 'powercut')
-            ->assertJsonPath('data.0.position.alarms.0.label', 'Alimentação cortada')
-            ->assertJsonPath('data.0.position.alarms.0.severity', 'critical');
     }
 
     public function test_history_returns_route_points(): void
@@ -200,8 +179,8 @@ class TrackingLiveTest extends TestCase
             'email' => 'portal-tracking@cliente.test',
         ]);
 
-        $role = $this->roleFor($tenant, \App\Modules\ACL\Enums\DefaultRole::CLIENT);
-        $role->grantPermissions(\App\Modules\ACL\Enums\Permission::TRACKING_READ);
+        $role = $this->roleFor($tenant, DefaultRole::CLIENT);
+        $role->grantPermissions(Permission::TRACKING_READ);
         $portalUser->assignRole($role);
 
         Sanctum::actingAs($portalUser);
@@ -224,7 +203,7 @@ class TrackingLiveTest extends TestCase
 
         $this->app->instance(
             TraccarGateway::class,
-            $this->app->make(\App\Modules\Tracking\Gateways\NullTraccarGateway::class),
+            $this->app->make(NullTraccarGateway::class),
         );
 
         [, $tenant] = $this->createOperationalChild();

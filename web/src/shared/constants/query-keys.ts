@@ -133,6 +133,13 @@ export const queryKeys = {
     commands: (deviceId: string) => ['tracking', 'commands', deviceId] as const,
   },
 
+  reports: {
+    commands: (params: { from?: string; to?: string; client_id?: string; vehicle_id?: string }) =>
+      ['reports', 'commands', params] as const,
+    positions: (params: { from?: string; to?: string; client_id?: string; vehicle_id: string }) =>
+      ['reports', 'positions', params] as const,
+  },
+
   geofences: {
     all: ['geofences'] as const,
     list: (params: ListParams & { client_id?: string; type?: string; is_active?: boolean }) =>

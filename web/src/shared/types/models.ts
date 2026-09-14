@@ -14,6 +14,7 @@ export interface User {
   phone: string | null
   document: string | null
   is_master: boolean
+  client_id?: string | null
   roles?: Role[]
   created_at: string | null
   updated_at: string | null
@@ -351,6 +352,54 @@ export interface DeviceAlarm {
   code: string
   label: string
   severity: AlertSeverity
+}
+
+export interface CommandReportRow {
+  id: string
+  equipment_imei: string | null
+  vehicle: string | null
+  command_type: string
+  command_label: string
+  requested_at: string | null
+  user: string | null
+  status: string | null
+  status_label: string
+}
+
+export interface CommandReport {
+  rows: CommandReportRow[]
+  count: number
+}
+
+export interface PositionReportRow {
+  id: string
+  gps_date: string | null
+  gprs_date: string | null
+  speed: number | null
+  ignition: boolean | null
+  driver: string | null
+  gps_status: boolean | null
+  gprs_status: string | null
+  location: string | null
+  address: string | null
+  event_type: string | null
+  output: string | null
+  input: string | null
+  package: string | null
+  period_odometer: number | null
+  period_horimeter: number | null
+  onboard_horimeter: number | null
+  onboard_odometer: number | null
+  battery: number | null
+  image: string | null
+  voltage: number | null
+  blocked: boolean | null
+}
+
+export interface PositionReport {
+  vehicle: string
+  rows: PositionReportRow[]
+  count: number
 }
 
 export interface GpsPosition {

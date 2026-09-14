@@ -71,6 +71,9 @@ export const Permission = {
 
   TRACKING_READ: 'tracking.read',
 
+  REPORT_VIEW: 'report.view',
+  REPORT_EXPORT: 'report.export',
+
   DEVICE_COMMANDS_SEND: 'device.commands.send',
 
   SERVICE_ORDER_CREATE: 'service-order.create',
@@ -258,6 +261,13 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     permissions: [
       { value: Permission.TRACKING_READ, label: 'Visualizar mapa e histórico' },
       { value: Permission.DEVICE_COMMANDS_SEND, label: 'Enviar comandos ao dispositivo' },
+    ],
+  },
+  {
+    label: 'Relatórios',
+    permissions: [
+      { value: Permission.REPORT_VIEW, label: 'Visualizar relatórios' },
+      { value: Permission.REPORT_EXPORT, label: 'Exportar relatórios' },
     ],
   },
   {

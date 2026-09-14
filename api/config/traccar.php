@@ -25,4 +25,11 @@ return [
     'token' => env('TRACCAR_TOKEN'),
 
     'timeout' => (int) env('TRACCAR_TIMEOUT', 15),
+
+    /*
+    | Token compartilhado para autenticar o webhook de posições do Traccar.
+    | O Traccar envia no header X-Traccar-Webhook-Token (via forward.header).
+    | Em branco (ex.: desenvolvimento local), a verificação é ignorada.
+    */
+    'webhook_secret' => env('TRACCAR_WEBHOOK_SECRET'),
 ];

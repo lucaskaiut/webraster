@@ -8,12 +8,17 @@ use App\Modules\Shared\Models\Concerns\HasUuid;
 use App\Modules\Tenant\Models\Concerns\BelongsToTenant;
 use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Models\Vehicle;
+use Database\Factories\DeviceCommandLogFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DeviceCommandLog extends Model
 {
+    /** @use HasFactory<DeviceCommandLogFactory> */
     use BelongsToTenant;
+
+    use HasFactory;
     use HasUuid;
 
     protected $fillable = [
@@ -54,5 +59,10 @@ class DeviceCommandLog extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    protected static function newFactory(): DeviceCommandLogFactory
+    {
+        return DeviceCommandLogFactory::new();
     }
 }

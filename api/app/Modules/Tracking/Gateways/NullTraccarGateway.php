@@ -4,7 +4,6 @@ namespace App\Modules\Tracking\Gateways;
 
 use App\Modules\Tracking\Contracts\TraccarGateway;
 use App\Modules\Tracking\DTOs\TraccarDevice;
-use App\Modules\Tracking\DTOs\TraccarPosition;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
