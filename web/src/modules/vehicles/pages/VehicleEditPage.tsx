@@ -144,6 +144,13 @@ export default function VehicleEditPage() {
                 year: vehicle.year ? String(vehicle.year) : '',
                 transmission: vehicle.transmission ?? '',
                 odometer: vehicle.odometer ? String(vehicle.odometer) : '',
+                max_speed_kmh: vehicle.max_speed_kmh ? String(vehicle.max_speed_kmh) : '',
+                speed_hysteresis_percent: vehicle.speed_hysteresis_percent
+                  ? String(vehicle.speed_hysteresis_percent)
+                  : '3',
+                speed_min_duration_seconds: vehicle.speed_min_duration_seconds
+                  ? String(vehicle.speed_min_duration_seconds)
+                  : '30',
                 average_consumption: vehicle.average_consumption
                   ? String(vehicle.average_consumption)
                   : '',

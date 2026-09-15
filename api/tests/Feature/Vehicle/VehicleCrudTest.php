@@ -33,6 +33,7 @@ class VehicleCrudTest extends TestCase
             'year' => 2022,
             'transmission' => 'automatic',
             'odometer' => 45000,
+            'max_speed_kmh' => 80,
             'average_consumption' => 12.5,
             'tank_capacity' => 55,
         ])
@@ -41,7 +42,8 @@ class VehicleCrudTest extends TestCase
             ->assertJsonPath('data.client_id', $client->uuid)
             ->assertJsonPath('data.brand', 'Volkswagen')
             ->assertJsonPath('data.transmission', 'automatic')
-            ->assertJsonPath('data.odometer', 45000);
+            ->assertJsonPath('data.odometer', 45000)
+            ->assertJsonPath('data.max_speed_kmh', 80);
 
         $this->assertDatabaseHas('vehicles', [
             'tenant_id' => $tenant->getKey(),

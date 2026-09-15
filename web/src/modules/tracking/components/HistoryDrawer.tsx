@@ -1,7 +1,9 @@
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { Button, DateRangeFilter, Modal } from '@/shared/design-system'
 import { parseApiError } from '@/shared/api/errors'
+import { speedAlertsToTimelineEvents } from '@/modules/alerts/lib/speed-events'
+import { alertsService } from '@/modules/alerts/services/alerts.service'
 import { queryKeys } from '@/shared/constants/query-keys'
 import { toast } from '@/shared/stores/toast.store'
 import type { GpsPosition, TrackingLiveVehicle } from '@/shared/types/models'
@@ -9,24 +11,10 @@ import { formatDateTime } from '@/shared/utils/format'
 import { parseIsoDate, type DateRange } from '@/shared/utils/date'
 import { resolvePresetRange } from '@/shared/utils/date-range'
 import { trackingService } from '../services/tracking.service'
-import { deriveRouteEvents, formatDuration, formatMeters, formatSpeed, summarizeRoute, vehicleLabel } from '../lib/tracking'
+import { deriveRouteEvents, formatDuration, formatMeters, formatSpeed, rangeToApiBounds, summarizeRoute, vehicleLabel } from '../lib/tracking'
 
 const PLAYBACK_SPEEDS = [0.5, 1, 2, 4, 8] as const
 const MAX_RANGE_MS = 31 * 24 * 60 * 60 * 1000
-
-function rangeToApiBounds(range: DateRange): { from: string; to: string } | null {
-  const start = parseIsoDate(range.from)
-  const end = parseIsoDate(range.to)
-
-  if (!start || !end || start > end) {
-    return null
-  }
-
-  start.setHours(0, 0, 0, 0)
-  end.setHours(23, 59, 59, 999)
-
-  return { from: start.toISOString(), to: end.toISOString() }
-}
 
 export function HistoryDrawer({
   open,
@@ -60,7 +48,34 @@ export function HistoryDrawer({
   const [range, setRange] = useState<DateRange>(defaults)
   const [loading, setLoading] = useState(false)
   const stats = useMemo(() => summarizeRoute(route), [route])
-  const events = useMemo(() => deriveRouteEvents(route), [route])
+  const bounds = useMemo(() => rangeToApiBounds(range), [range.from, range.to])
+  const speedAlertsQuery = useQuery({
+    queryKey: queryKeys.alerts.list({
+      vehicle_id: vehicle?.id ?? '',
+      type: 'speed',
+      from: bounds?.from,
+      to: bounds?.to,
+      per_page: 100,
+    }),
+    queryFn: () =>
+      alertsService.list({
+        vehicle_id: vehicle!.id,
+        type: 'speed',
+        from: bounds?.from,
+        to: bounds?.to,
+        per_page: 100,
+        sort: 'asc',
+      }),
+    enabled: showEvents && Boolean(vehicle?.id) && Boolean(bounds),
+  })
+  const events = useMemo(() => {
+    const routeEvents = deriveRouteEvents(route)
+    const speedEvents = speedAlertsToTimelineEvents(speedAlertsQuery.data?.data ?? [])
+
+    return [...routeEvents, ...speedEvents].sort(
+      (a, b) => new Date(a.at).getTime() - new Date(b.at).getTime(),
+    )
+  }, [route, speedAlertsQuery.data?.data])
   const current = route[playbackIndex] ?? null
 
   useEffect(() => {

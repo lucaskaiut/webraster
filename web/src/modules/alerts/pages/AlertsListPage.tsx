@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { BellRing } from 'lucide-react'
 import {
@@ -16,6 +17,7 @@ import {
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import type { Alert } from '@/shared/types/models'
+import { SpeedAlertDetailModal } from '../components/SpeedAlertDetailModal'
 import { useAcknowledgeAlert, useAlertsQuery, useResolveAlert } from '../hooks/useAlerts'
 
 const PER_PAGE = 15
@@ -34,6 +36,7 @@ const TYPE_OPTIONS = [
 ]
 
 export default function AlertsListPage() {
+  const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const page = Number(searchParams.get('page') ?? 1)
   const type = searchParams.get('type') ?? ''
@@ -107,11 +110,26 @@ export default function AlertsListPage() {
       ),
     },
     {
-      key: 'when',
-      header: 'Data/hora',
+      key: 'duration',
+      header: 'Duração',
       render: (item) => (
         <span className="text-muted">
-          {item.occurred_at ? new Date(item.occurred_at).toLocaleString('pt-BR') : '—'}
+          {item.type === 'speed' && item.speed_excess?.duration_seconds != null
+            ? `${item.speed_excess.duration_seconds}s`
+            : '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'when',
+      header: 'Início',
+      render: (item) => (
+        <span className="text-muted">
+          {item.speed_excess?.started_at
+            ? new Date(item.speed_excess.started_at).toLocaleString('pt-BR')
+            : item.occurred_at
+              ? new Date(item.occurred_at).toLocaleString('pt-BR')
+              : '—'}
         </span>
       ),
     },
@@ -124,12 +142,26 @@ export default function AlertsListPage() {
             render: (item: Alert) => (
               <div className="flex justify-end gap-1">
                 {item.status === 'open' && (
-                  <Button size="sm" variant="secondary" onClick={() => acknowledge.mutate(item.id)}>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      acknowledge.mutate(item.id)
+                    }}
+                  >
                     Reconhecer
                   </Button>
                 )}
                 {item.status !== 'resolved' && (
-                  <Button size="sm" variant="ghost" onClick={() => resolve.mutate(item.id)}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      resolve.mutate(item.id)
+                    }}
+                  >
                     Resolver
                   </Button>
                 )}
@@ -188,6 +220,11 @@ export default function AlertsListPage() {
           columns={columns}
           rows={query.data?.data ?? []}
           rowKey={(item) => item.id}
+          onRowClick={(item) => {
+            if (item.type === 'speed') {
+              setSelectedAlert(item)
+            }
+          }}
           loading={query.isPending}
           emptyState={
             <EmptyState
@@ -196,6 +233,12 @@ export default function AlertsListPage() {
               description="Alertas aparecerão conforme as regras configuradas."
             />
           }
+        />
+
+        <SpeedAlertDetailModal
+          alert={selectedAlert}
+          open={selectedAlert !== null}
+          onClose={() => setSelectedAlert(null)}
         />
 
         {query.data && (

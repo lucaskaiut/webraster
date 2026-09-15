@@ -173,6 +173,10 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::get('reports/commands/export', [ReportController::class, 'commandsExport'])->middleware('permission:report.export');
     Route::get('reports/positions', [ReportController::class, 'positions'])->middleware('permission:report.view');
     Route::get('reports/positions/export', [ReportController::class, 'positionsExport'])->middleware('permission:report.export');
+    Route::get('reports/stops', [ReportController::class, 'stops'])->middleware('permission:report.view');
+    Route::get('reports/stops/export', [ReportController::class, 'stopsExport'])->middleware('permission:report.export');
+    Route::get('reports/trips', [ReportController::class, 'trips'])->middleware('permission:report.view');
+    Route::get('reports/events', [ReportController::class, 'events'])->middleware('permission:report.view');
 
     Route::get('service-orders', [ServiceOrderController::class, 'index'])->middleware('permission:service-order.read');
     Route::get('service-orders/kanban', [ServiceOrderController::class, 'kanban'])->middleware('permission:service-order.read');

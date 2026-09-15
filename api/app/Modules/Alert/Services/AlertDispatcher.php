@@ -25,8 +25,9 @@ class AlertDispatcher
         Vehicle $vehicle,
         array $payload,
         ?AlertSeverity $severity = null,
+        bool $createWhenDisabled = false,
     ): ?Alert {
-        if (! $config->is_enabled) {
+        if (! $config->is_enabled && ! $createWhenDisabled) {
             return null;
         }
 
@@ -49,11 +50,11 @@ class AlertDispatcher
             'occurred_at' => $payload['occurred_at'] ?? now(),
         ])->save();
 
-        if ($config->notify_in_app) {
+        if ($config->is_enabled && $config->notify_in_app) {
             $this->notifyInApp($alert, $vehicle);
         }
 
-        if ($config->notify_email) {
+        if ($config->is_enabled && $config->notify_email) {
             $this->notifyEmail($alert, $vehicle);
         }
 

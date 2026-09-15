@@ -1,4 +1,5 @@
 import type { DeviceAlarm, GpsPosition, TrackingLiveVehicle } from '@/shared/types/models'
+import { parseIsoDate, type DateRange } from '@/shared/utils/date'
 
 export type FleetFilter =
   | 'all'
@@ -296,4 +297,22 @@ export function deriveRouteEvents(route: GpsPosition[]): DerivedEvent[] {
 
 export function vehicleLabel(vehicle: TrackingLiveVehicle): string {
   return [vehicle.brand, vehicle.model].filter(Boolean).join(' ') || 'Veículo'
+}
+
+/**
+ * Converte um DateRange (datas em YYYY-MM-DD) para o intervalo completo
+ * do dia em ISO, no formato esperado pela API de histórico.
+ */
+export function rangeToApiBounds(range: DateRange): { from: string; to: string } | null {
+  const start = parseIsoDate(range.from)
+  const end = parseIsoDate(range.to)
+
+  if (!start || !end || start > end) {
+    return null
+  }
+
+  start.setHours(0, 0, 0, 0)
+  end.setHours(23, 59, 59, 999)
+
+  return { from: start.toISOString(), to: end.toISOString() }
 }

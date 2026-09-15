@@ -315,6 +315,9 @@ export interface Vehicle {
   year: number | null
   transmission: VehicleTransmission | null
   odometer: number | null
+  max_speed_kmh: number | null
+  speed_hysteresis_percent: number | null
+  speed_min_duration_seconds: number | null
   average_consumption: number | null
   tank_capacity: number | null
   crlv_file: string | null
@@ -399,6 +402,72 @@ export interface PositionReportRow {
 export interface PositionReport {
   vehicle: string
   rows: PositionReportRow[]
+  count: number
+}
+
+export interface StopReportRow {
+  vehicle_id: string
+  vehicle: string
+  total_stops: number
+  total_stop_seconds: number
+}
+
+export interface StopReport {
+  rows: StopReportRow[]
+  count: number
+}
+
+export interface TripPoint {
+  latitude: number
+  longitude: number
+  recorded_at: string | null
+}
+
+export interface TripLocation {
+  latitude: number
+  longitude: number
+  address: string | null
+}
+
+export interface TripItem {
+  id: string
+  start_at: string | null
+  end_at: string | null
+  moving_seconds: number
+  following_stop_seconds: number | null
+  distance_meters: number
+  origin: TripLocation | null
+  destination: TripLocation | null
+  driver: string | null
+  points: TripPoint[]
+}
+
+export interface TripReportSummary {
+  total_moving_seconds: number
+  total_stopped_seconds: number
+  total_ignition_on_seconds: number
+  total_ignition_off_seconds: number
+  total_distance_meters: number
+  trips: number
+}
+
+export interface TripReport {
+  vehicle: string
+  summary: TripReportSummary
+  trips: TripItem[]
+}
+
+export interface EventReportRow {
+  id: string
+  date: string
+  plate: string | null
+  vehicle: string
+  max_speed_kmh: number | null
+  excess_count: number
+}
+
+export interface EventReport {
+  rows: EventReportRow[]
   count: number
 }
 
@@ -525,6 +594,21 @@ export type AlertType =
 export type AlertSeverity = 'low' | 'medium' | 'high' | 'critical'
 export type AlertStatus = 'open' | 'acknowledged' | 'resolved'
 
+export interface SpeedExcessEvent {
+  started_at: string
+  ended_at: string
+  duration_seconds: number | null
+  limit_kmh: number | null
+  max_speed_kmh: number | null
+  avg_speed_kmh: number | null
+  distance_meters: number | null
+  position_count: number | null
+  start_latitude: number | null
+  start_longitude: number | null
+  end_latitude: number | null
+  end_longitude: number | null
+}
+
 export interface Alert {
   id: string
   type: AlertType
@@ -538,6 +622,7 @@ export interface Alert {
   speed: number | null
   speed_kmh: number | null
   meta?: Record<string, unknown> | null
+  speed_excess?: SpeedExcessEvent | null
   occurred_at: string | null
   acknowledged_at: string | null
   resolved_at: string | null

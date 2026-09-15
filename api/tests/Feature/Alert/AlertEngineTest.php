@@ -22,41 +22,51 @@ class AlertEngineTest extends TestCase
     use InteractsWithTenants;
     use RefreshDatabase;
 
-    public function test_speed_alert_requires_duration_and_avoids_duplicates(): void
+    public function test_speed_alert_consolidates_episode_and_dispatches_on_close(): void
     {
         [, $tenant] = $this->createOperationalChild();
         $client = Client::factory()->for($tenant)->create();
-        $vehicle = Vehicle::factory()->forClient($client)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create([
+            'max_speed_kmh' => 80,
+            'speed_hysteresis_percent' => 3,
+            'speed_min_duration_seconds' => 30,
+        ]);
         Equipment::factory()->assignedTo($vehicle)->create();
         app(AlertConfigService::class)->ensureDefaults($tenant);
 
         $config = app(AlertConfigService::class)->findForTenant($tenant->getKey(), AlertType::SPEED);
-        $config->forceFill([
-            'settings' => ['speed_limit_kmh' => 80, 'min_duration_seconds' => 60],
-            'notify_email' => false,
-        ])->save();
+        $config->forceFill(['notify_email' => false])->save();
 
         $engine = app(AlertEngine::class);
         $base = CarbonImmutable::parse('2026-09-05 10:00:00');
 
-        // 79 km/h ≈ 42.66 knots — below limit
+        // 79 km/h — abaixo do limite de abertura (82,4)
         $engine->process($this->pos($tenant, $client, $vehicle, 42.6, $base, 1));
         $this->assertSame(0, Alert::query()->withoutGlobalScopes()->count());
 
-        // 100 km/h ≈ 54 knots — start exceeding
+        // 100 km/h — abre episódio
         $engine->process($this->pos($tenant, $client, $vehicle, 54, $base->addSeconds(10), 2));
         $this->assertSame(0, Alert::query()->withoutGlobalScopes()->count());
 
-        // still exceeding but < 60s
-        $engine->process($this->pos($tenant, $client, $vehicle, 55, $base->addSeconds(50), 3));
-        $this->assertSame(0, Alert::query()->withoutGlobalScopes()->count());
+        // continua acima — sem alerta enquanto aberto
+        $engine->process($this->pos($tenant, $client, $vehicle, 55, $base->addSeconds(20), 3));
+        $engine->process($this->pos($tenant, $client, $vehicle, 56, $base->addSeconds(30), 4));
+        $engine->process($this->pos($tenant, $client, $vehicle, 57, $base->addSeconds(40), 5));
+        $this->assertSame(0, Alert::query()->withoutGlobalScopes()->where('type', 'speed')->count());
 
-        // exceeding for >= 60s
-        $engine->process($this->pos($tenant, $client, $vehicle, 56, $base->addSeconds(80), 4));
+        // 74 km/h — abaixo do limite de encerramento (77,6), finaliza episódio
+        $engine->process($this->pos($tenant, $client, $vehicle, 40, $base->addSeconds(50), 6));
         $this->assertSame(1, Alert::query()->withoutGlobalScopes()->where('type', 'speed')->count());
 
-        // continue exceeding — no duplicate
-        $engine->process($this->pos($tenant, $client, $vehicle, 57, $base->addSeconds(100), 5));
+        $alert = Alert::query()->withoutGlobalScopes()->where('type', 'speed')->first();
+        $this->assertSame('Excesso de Velocidade', $alert->title);
+        $this->assertSame(40, $alert->meta['duration_seconds'] ?? null);
+        $this->assertSame(105.6, $alert->meta['max_speed_kmh'] ?? null);
+        $this->assertSame(80.0, $alert->meta['limit_kmh'] ?? null);
+
+        // novo episódio curto — descartado
+        $engine->process($this->pos($tenant, $client, $vehicle, 54, $base->addSeconds(60), 7));
+        $engine->process($this->pos($tenant, $client, $vehicle, 40, $base->addSeconds(65), 8));
         $this->assertSame(1, Alert::query()->withoutGlobalScopes()->where('type', 'speed')->count());
     }
 

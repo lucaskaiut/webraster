@@ -2,6 +2,8 @@
 
 namespace App\Modules\Report\Services;
 
+use App\Modules\Alert\Enums\AlertType;
+use App\Modules\Alert\Models\Alert;
 use App\Modules\Client\Models\Client;
 use App\Modules\Client\Support\ClientAuthorization;
 use App\Modules\Client\Support\Facades\ClientContext;
@@ -10,7 +12,9 @@ use App\Modules\DeviceCommand\Models\DeviceCommandLog;
 use App\Modules\Tracking\Models\GpsPosition;
 use App\Modules\Vehicle\Models\Vehicle;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -18,6 +22,14 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportService
 {
+    private const KNOTS_TO_KMH = 1.852;
+
+    private const STOP_SPEED_THRESHOLD_KMH = 3.0;
+
+    private const STOP_MIN_DURATION_MINUTES = 2;
+
+    private const STOP_MAX_GAP_MINUTES = 10;
+
     private const COMMAND_LABELS = [
         'engineStop' => 'Bloquear Motor',
         'engineResume' => 'Desbloquear Motor',
@@ -195,6 +207,409 @@ class ReportService
     }
 
     /**
+     * Relatório "Paradas": por veículo, tempo total e quantidade de paradas.
+     *
+     * @param  array<string, mixed>  $filters
+     * @return array<string, mixed>
+     */
+    public function stops(array $filters = []): array
+    {
+        $clientId = $this->resolveClientId($filters);
+        $rows = [];
+
+        foreach ($this->vehiclesForReport($clientId) as $vehicle) {
+            $summary = $this->summarizeStops(
+                $this->positionsInPeriod($vehicle->getKey(), $filters),
+            );
+
+            $rows[] = [
+                'vehicle_id' => $vehicle->uuid,
+                'vehicle' => trim("{$vehicle->plate} - {$vehicle->model}", ' -'),
+                'total_stops' => $summary['count'],
+                'total_stop_seconds' => $summary['seconds'],
+            ];
+        }
+
+        return [
+            'rows' => $rows,
+            'count' => count($rows),
+        ];
+    }
+
+    /**
+     * Exportação XLSX do relatório "Paradas".
+     *
+     * @param  array<string, mixed>  $filters
+     */
+    public function stopsExport(array $filters = []): StreamedResponse
+    {
+        $data = $this->stops($filters);
+
+        return response()->streamDownload(function () use ($data): void {
+            $spreadsheet = new Spreadsheet;
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Paradas');
+
+            $sheet->fromArray([
+                'Veículo (Placa - Modelo)',
+                'Tempo total de paradas',
+                'Número total de paradas',
+            ], null, 'A1');
+
+            $row = 2;
+
+            foreach ($data['rows'] as $item) {
+                $sheet->fromArray([
+                    $item['vehicle'],
+                    $this->formatDuration((int) $item['total_stop_seconds']),
+                    (int) $item['total_stops'],
+                ], null, "A{$row}");
+                $row++;
+            }
+
+            $sheet->getStyle('A1:C1')->getFont()->setBold(true);
+
+            foreach (range('A', 'C') as $column) {
+                $sheet->getColumnDimension($column)->setAutoSize(true);
+            }
+
+            $writer = new Xlsx($spreadsheet);
+            $writer->save('php://output');
+        }, 'relatorio-paradas.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    /**
+     * Relatório "Percursos": identifica os deslocamentos (trechos entre paradas)
+     * de um veículo no período, com resumo e trajeto por percurso.
+     *
+     * @param  array<string, mixed>  $filters
+     * @return array<string, mixed>
+     */
+    public function trips(array $filters = []): array
+    {
+        $vehicle = $this->resolveVehicle($filters);
+        $positions = $this->positionsForTrip($vehicle->getKey(), $filters);
+        $analysis = $this->analyzeTrips($positions);
+
+        return [
+            'vehicle' => trim("{$vehicle->plate} - {$vehicle->model}", ' -'),
+            'summary' => $analysis['summary'],
+            'trips' => $analysis['trips'],
+        ];
+    }
+
+    /**
+     * Relatório de eventos de excesso de velocidade consolidados.
+     *
+     * @param  array<string, mixed>  $filters
+     * @return array<string, mixed>
+     */
+    public function events(array $filters = []): array
+    {
+        $clientId = $this->resolveClientId($filters);
+        $vehicleId = $this->resolveVehicleId($filters, $clientId);
+
+        $query = Alert::query()
+            ->with(['vehicle', 'client'])
+            ->where('type', AlertType::SPEED->value)
+            ->orderByDesc('occurred_at');
+
+        if ($clientId !== null) {
+            $query->where('client_id', $clientId);
+        }
+
+        if ($vehicleId !== null) {
+            $query->where('vehicle_id', $vehicleId);
+        }
+
+        if (filled($filters['from'] ?? null)) {
+            $query->whereDate('occurred_at', '>=', CarbonImmutable::parse((string) $filters['from'])->toDateString());
+        }
+
+        if (filled($filters['to'] ?? null)) {
+            $query->whereDate('occurred_at', '<=', CarbonImmutable::parse((string) $filters['to'])->toDateString());
+        }
+
+        $rows = $query->get()
+            ->groupBy(function (Alert $alert): string {
+                $meta = is_array($alert->meta) ? $alert->meta : [];
+                $reference = filled($meta['started_at'] ?? null)
+                    ? CarbonImmutable::parse((string) $meta['started_at'])
+                    : ($alert->occurred_at !== null
+                        ? CarbonImmutable::parse($alert->occurred_at)
+                        : CarbonImmutable::now());
+
+                return "{$alert->vehicle_id}|{$reference->toDateString()}";
+            })
+            ->map(function (Collection $alerts, string $key): array {
+                /** @var Alert $first */
+                $first = $alerts->first();
+                $vehicle = $first->vehicle;
+                [, $date] = explode('|', $key);
+
+                $maxSpeedKmh = $alerts->reduce(function (float $max, Alert $alert): float {
+                    $meta = is_array($alert->meta) ? $alert->meta : [];
+                    $speed = (float) ($meta['max_speed_kmh'] ?? 0);
+
+                    return max($max, $speed);
+                }, 0.0);
+
+                return [
+                    'id' => ($vehicle?->uuid ?? 'unknown')."|{$date}",
+                    'date' => $date,
+                    'plate' => $vehicle?->plate,
+                    'vehicle' => trim("{$vehicle?->brand} {$vehicle?->model}"),
+                    'max_speed_kmh' => $maxSpeedKmh > 0 ? round($maxSpeedKmh, 1) : null,
+                    'excess_count' => $alerts->count(),
+                ];
+            })
+            ->sortBy([
+                fn (array $row) => $row['date'],
+                fn (array $row) => $row['plate'] ?? '',
+            ], descending: [true, false])
+            ->values();
+
+        return [
+            'rows' => $rows,
+            'count' => $rows->count(),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return Collection<int, GpsPosition>
+     */
+    private function positionsForTrip(int $vehicleId, array $filters): Collection
+    {
+        $query = GpsPosition::query()
+            ->where('vehicle_id', $vehicleId)
+            ->orderBy('recorded_at');
+
+        if (filled($filters['from'] ?? null)) {
+            $query->whereDate('recorded_at', '>=', CarbonImmutable::parse((string) $filters['from'])->toDateString());
+        }
+
+        if (filled($filters['to'] ?? null)) {
+            $query->whereDate('recorded_at', '<=', CarbonImmutable::parse((string) $filters['to'])->toDateString());
+        }
+
+        return $query->get([
+            'id',
+            'vehicle_id',
+            'latitude',
+            'longitude',
+            'recorded_at',
+            'speed',
+            'ignition',
+            'address',
+            'attributes',
+        ]);
+    }
+
+    /**
+     * @param  Collection<int, GpsPosition>  $positions
+     * @return array{summary: array<string, mixed>, trips: list<array<string, mixed>>}
+     */
+    private function analyzeTrips(Collection $positions): array
+    {
+        $stops = $this->detectStops($positions);
+        $trips = [];
+        $cursor = null;
+
+        foreach ($stops as $stop) {
+            $segment = $positions
+                ->filter(fn (GpsPosition $position) => $position->recorded_at !== null
+                    && ($cursor === null || $position->recorded_at->greaterThan($cursor))
+                    && $position->recorded_at->lessThan($stop['start']))
+                ->values();
+
+            if ($segment->isNotEmpty()) {
+                $trips[] = $this->buildTrip($segment, $stop['seconds']);
+            }
+
+            $cursor = $stop['end'];
+        }
+
+        $segment = $positions
+            ->filter(fn (GpsPosition $position) => $position->recorded_at !== null
+                && ($cursor === null || $position->recorded_at->greaterThan($cursor)))
+            ->values();
+
+        if ($segment->isNotEmpty()) {
+            $trips[] = $this->buildTrip($segment, null);
+        }
+
+        return [
+            'summary' => $this->buildTripsSummary($trips, $stops, $positions),
+            'trips' => $trips,
+        ];
+    }
+
+    /**
+     * @param  Collection<int, GpsPosition>  $segment
+     * @return array<string, mixed>
+     */
+    private function buildTrip(Collection $segment, ?int $followingStopSeconds): array
+    {
+        $first = $segment->first();
+        $last = $segment->last();
+
+        $startAt = $first?->recorded_at;
+        $endAt = $last?->recorded_at;
+
+        $movingSeconds = $startAt !== null && $endAt !== null
+            ? abs($endAt->diffInSeconds($startAt))
+            : 0;
+
+        return [
+            'id' => (string) ($first?->id ?? $startAt?->timestamp),
+            'start_at' => $startAt?->toIso8601String(),
+            'end_at' => $endAt?->toIso8601String(),
+            'moving_seconds' => $movingSeconds,
+            'following_stop_seconds' => $followingStopSeconds,
+            'distance_meters' => $this->haversineTotal($segment),
+            'origin' => $this->positionPoint($first),
+            'destination' => $this->positionPoint($last),
+            'driver' => $this->tripDriver($segment),
+            'points' => $segment->map(fn (GpsPosition $position) => [
+                'latitude' => $position->latitude,
+                'longitude' => $position->longitude,
+                'recorded_at' => $position->recorded_at?->toIso8601String(),
+            ])->all(),
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $trips
+     * @param  list<array{seconds: int}>  $stops
+     * @param  Collection<int, GpsPosition>  $positions
+     * @return array<string, mixed>
+     */
+    private function buildTripsSummary(array $trips, array $stops, Collection $positions): array
+    {
+        [$ignitionOn, $ignitionOff] = $this->ignitionTime($positions);
+
+        return [
+            'total_moving_seconds' => (int) array_sum(array_column($trips, 'moving_seconds')),
+            'total_stopped_seconds' => (int) array_sum(array_column($stops, 'seconds')),
+            'total_ignition_on_seconds' => $ignitionOn,
+            'total_ignition_off_seconds' => $ignitionOff,
+            'total_distance_meters' => round(array_sum(array_column($trips, 'distance_meters')), 1),
+            'trips' => count($trips),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function positionPoint(?GpsPosition $position): ?array
+    {
+        if ($position === null) {
+            return null;
+        }
+
+        $attributes = is_array($position->attributes) ? $position->attributes : [];
+
+        return [
+            'latitude' => $position->latitude,
+            'longitude' => $position->longitude,
+            'address' => $position->address ?: $this->attributeString($attributes, ['address']),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, GpsPosition>  $segment
+     */
+    private function tripDriver(Collection $segment): ?string
+    {
+        foreach ($segment as $position) {
+            $attributes = is_array($position->attributes) ? $position->attributes : [];
+            $driver = $this->attributeString($attributes, ['driverName', 'driver', 'driverUniqueId']);
+
+            if ($driver !== null) {
+                return $driver;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  Collection<int, GpsPosition>  $segment
+     */
+    private function haversineTotal(Collection $segment): float
+    {
+        $distance = 0.0;
+        $previous = null;
+
+        foreach ($segment as $position) {
+            if ($position->latitude === null || $position->longitude === null) {
+                continue;
+            }
+
+            if ($previous !== null) {
+                $distance += $this->haversineMeters(
+                    $previous->latitude,
+                    $previous->longitude,
+                    $position->latitude,
+                    $position->longitude,
+                );
+            }
+
+            $previous = $position;
+        }
+
+        return round($distance, 1);
+    }
+
+    private function haversineMeters(float $lat1, float $lon1, float $lat2, float $lon2): float
+    {
+        $earthRadius = 6371000;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLon = deg2rad($lon2 - $lon1);
+
+        $a = sin($dLat / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon / 2) ** 2;
+
+        return 2 * $earthRadius * asin(sqrt($a));
+    }
+
+    /**
+     * Tempo de ignição ligada/desligada (aproximado pela interpolação entre posições).
+     *
+     * @param  Collection<int, GpsPosition>  $positions
+     * @return array{0: int, 1: int}
+     */
+    private function ignitionTime(Collection $positions): array
+    {
+        $on = 0;
+        $off = 0;
+        $previous = null;
+
+        foreach ($positions as $position) {
+            if ($position->recorded_at === null) {
+                continue;
+            }
+
+            if ($previous !== null && $previous->recorded_at !== null) {
+                $interval = abs($position->recorded_at->diffInSeconds($previous->recorded_at));
+
+                if ($previous->ignition === true) {
+                    $on += $interval;
+                } elseif ($previous->ignition === false) {
+                    $off += $interval;
+                }
+            }
+
+            $previous = $position;
+        }
+
+        return [$on, $off];
+    }
+
+    /**
      * @param  array<string, mixed>  $filters
      * @return Builder<GpsPosition>
      */
@@ -350,6 +765,159 @@ class ReportService
         }
 
         return $letters;
+    }
+
+    /**
+     * Veículos monitorados (ativos e com equipamento) no escopo do cliente.
+     *
+     * @return Collection<int, Vehicle>
+     */
+    private function vehiclesForReport(?int $clientId): Collection
+    {
+        return Vehicle::query()
+            ->where('is_active', true)
+            ->whereHas('equipment', fn ($query) => $query->where('is_active', true))
+            ->when($clientId !== null, fn ($query) => $query->where('client_id', $clientId))
+            ->orderBy('plate')
+            ->get();
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return Collection<int, GpsPosition>
+     */
+    private function positionsInPeriod(int $vehicleId, array $filters): Collection
+    {
+        $query = GpsPosition::query()
+            ->where('vehicle_id', $vehicleId)
+            ->orderBy('recorded_at');
+
+        if (filled($filters['from'] ?? null)) {
+            $query->whereDate('recorded_at', '>=', CarbonImmutable::parse((string) $filters['from'])->toDateString());
+        }
+
+        if (filled($filters['to'] ?? null)) {
+            $query->whereDate('recorded_at', '<=', CarbonImmutable::parse((string) $filters['to'])->toDateString());
+        }
+
+        return $query->get(['id', 'vehicle_id', 'recorded_at', 'speed', 'ignition']);
+    }
+
+    /**
+     * @param  Collection<int, GpsPosition>  $positions
+     * @return array{count: int, seconds: int}
+     */
+    private function summarizeStops(Collection $positions): array
+    {
+        $stops = $this->detectStops($positions);
+
+        return [
+            'count' => count($stops),
+            'seconds' => array_sum(array_column($stops, 'seconds')),
+        ];
+    }
+
+    /**
+     * Detecção de paradas por máquina de estados sobre a sequência de posições.
+     *
+     * @param  Collection<int, GpsPosition>  $positions
+     * @return list<array{start: CarbonInterface, end: CarbonInterface, seconds: int}>
+     */
+    private function detectStops(Collection $positions): array
+    {
+        $thresholdKmh = self::STOP_SPEED_THRESHOLD_KMH;
+        $minSeconds = self::STOP_MIN_DURATION_MINUTES * 60;
+        $maxGapSeconds = self::STOP_MAX_GAP_MINUTES * 60;
+
+        $stops = [];
+        $start = null;
+        $end = null;
+        $previousAt = null;
+
+        foreach ($positions as $position) {
+            $recordedAt = $position->recorded_at;
+
+            if ($recordedAt === null) {
+                continue;
+            }
+
+            if ($previousAt !== null && abs($recordedAt->diffInSeconds($previousAt)) > $maxGapSeconds) {
+                if ($start !== null && $end !== null) {
+                    $this->pushStop($stops, $start, $end, $minSeconds);
+                }
+
+                $start = null;
+                $end = null;
+            }
+
+            if ($this->isStopped($position, $thresholdKmh)) {
+                if ($start === null) {
+                    $start = $recordedAt;
+                }
+
+                $end = $recordedAt;
+            } else {
+                if ($start !== null && $end !== null) {
+                    $this->pushStop($stops, $start, $end, $minSeconds);
+                }
+
+                $start = null;
+                $end = null;
+            }
+
+            $previousAt = $recordedAt;
+        }
+
+        if ($start !== null && $end !== null) {
+            $this->pushStop($stops, $start, $end, $minSeconds);
+        }
+
+        return $stops;
+    }
+
+    private function isStopped(GpsPosition $position, float $thresholdKmh): bool
+    {
+        if ($position->ignition === false) {
+            return true;
+        }
+
+        if ($position->speed !== null) {
+            return $position->speed * self::KNOTS_TO_KMH <= $thresholdKmh;
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  list<array{start: CarbonInterface, end: CarbonInterface, seconds: int}>  $stops
+     */
+    private function pushStop(array &$stops, CarbonInterface $start, CarbonInterface $end, int $minSeconds): void
+    {
+        $seconds = abs($end->diffInSeconds($start));
+
+        if ($seconds >= $minSeconds) {
+            $stops[] = [
+                'start' => $start,
+                'end' => $end,
+                'seconds' => $seconds,
+            ];
+        }
+    }
+
+    private function formatDuration(int $seconds): string
+    {
+        if ($seconds < 60) {
+            return "{$seconds}s";
+        }
+
+        $hours = intdiv($seconds, 3600);
+        $minutes = intdiv($seconds % 3600, 60);
+
+        if ($hours === 0) {
+            return "{$minutes}min";
+        }
+
+        return "{$hours}h {$minutes}min";
     }
 
     /**

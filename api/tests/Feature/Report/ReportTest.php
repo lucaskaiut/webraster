@@ -180,4 +180,101 @@ class ReportTest extends TestCase
             (string) $response->headers->get('Content-Type'),
         );
     }
+
+    public function test_stops_report_aggregates_stops_per_vehicle(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create(['plate' => 'ABC1D23', 'model' => 'Gol']);
+        Equipment::factory()->assignedTo($vehicle)->create(['traccar_device_id' => 42]);
+
+        $base = now()->startOfDay()->addHours(8);
+
+        // Parada de 2 minutos (contada).
+        GpsPosition::factory()->forVehicle($vehicle)->create(['recorded_at' => $base, 'speed' => 50, 'ignition' => true]);
+        GpsPosition::factory()->forVehicle($vehicle)->create(['recorded_at' => $base->copy()->addMinutes(1), 'speed' => 0, 'ignition' => false]);
+        GpsPosition::factory()->forVehicle($vehicle)->create(['recorded_at' => $base->copy()->addMinutes(2), 'speed' => 0, 'ignition' => false]);
+        GpsPosition::factory()->forVehicle($vehicle)->create(['recorded_at' => $base->copy()->addMinutes(3), 'speed' => 0, 'ignition' => false]);
+        GpsPosition::factory()->forVehicle($vehicle)->create(['recorded_at' => $base->copy()->addMinutes(4), 'speed' => 60, 'ignition' => true]);
+
+        // Parada de 1 minuto (abaixo da duração mínima, descartada).
+        GpsPosition::factory()->forVehicle($vehicle)->create(['recorded_at' => $base->copy()->addMinutes(5), 'speed' => 0, 'ignition' => false]);
+        GpsPosition::factory()->forVehicle($vehicle)->create(['recorded_at' => $base->copy()->addMinutes(6), 'speed' => 0, 'ignition' => false]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->getJson('/api/reports/stops')
+            ->assertOk()
+            ->assertJsonPath('data.count', 1)
+            ->assertJsonPath('data.rows.0.vehicle', 'ABC1D23 - Gol')
+            ->assertJsonPath('data.rows.0.total_stops', 1)
+            ->assertJsonPath('data.rows.0.total_stop_seconds', 120);
+    }
+
+    public function test_stops_report_exports_xlsx(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create();
+        Equipment::factory()->assignedTo($vehicle)->create(['traccar_device_id' => 42]);
+
+        GpsPosition::factory()->forVehicle($vehicle)->create(['speed' => 0, 'ignition' => false]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $response = $this->get('/api/reports/stops/export');
+
+        $response->assertOk();
+        $this->assertStringContainsString(
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            (string) $response->headers->get('Content-Type'),
+        );
+    }
+
+    public function test_trips_report_requires_vehicle(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->getJson('/api/reports/trips')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('vehicle_id');
+    }
+
+    public function test_trips_report_lists_trips_between_stops(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create(['plate' => 'ABC1D23', 'model' => 'Gol']);
+        Equipment::factory()->assignedTo($vehicle)->create(['traccar_device_id' => 42]);
+
+        $base = now()->startOfDay()->addHours(8);
+
+        // Percurso 1 (5 min em movimento).
+        GpsPosition::factory()->forVehicle($vehicle)->create(['recorded_at' => $base->copy()->subMinutes(30), 'speed' => 30, 'ignition' => true, 'latitude' => -25.5254, 'longitude' => -49.0946]);
+        GpsPosition::factory()->forVehicle($vehicle)->create(['recorded_at' => $base->copy()->subMinutes(25), 'speed' => 30, 'ignition' => true, 'latitude' => -25.5244, 'longitude' => -49.0936]);
+
+        // Parada de 10 min.
+        GpsPosition::factory()->forVehicle($vehicle)->create(['recorded_at' => $base->copy()->subMinutes(20), 'speed' => 0, 'ignition' => false, 'latitude' => -25.5242, 'longitude' => -49.0934]);
+        GpsPosition::factory()->forVehicle($vehicle)->create(['recorded_at' => $base->copy()->subMinutes(15), 'speed' => 0, 'ignition' => false, 'latitude' => -25.5242, 'longitude' => -49.0934]);
+        GpsPosition::factory()->forVehicle($vehicle)->create(['recorded_at' => $base->copy()->subMinutes(10), 'speed' => 0, 'ignition' => false, 'latitude' => -25.5242, 'longitude' => -49.0934]);
+
+        // Percurso 2 (3 min em movimento).
+        GpsPosition::factory()->forVehicle($vehicle)->create(['recorded_at' => $base->copy()->subMinutes(5), 'speed' => 30, 'ignition' => true, 'latitude' => -25.5234, 'longitude' => -49.0926]);
+        GpsPosition::factory()->forVehicle($vehicle)->create(['recorded_at' => $base->copy()->subMinutes(2), 'speed' => 30, 'ignition' => true, 'latitude' => -25.5224, 'longitude' => -49.0916]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->getJson('/api/reports/trips?vehicle_id='.$vehicle->uuid)
+            ->assertOk()
+            ->assertJsonPath('data.vehicle', 'ABC1D23 - Gol')
+            ->assertJsonPath('data.summary.trips', 2)
+            ->assertJsonPath('data.summary.total_moving_seconds', 480)
+            ->assertJsonPath('data.summary.total_stopped_seconds', 600)
+            ->assertJsonPath('data.trips.0.moving_seconds', 300)
+            ->assertJsonPath('data.trips.0.following_stop_seconds', 600)
+            ->assertJsonPath('data.trips.1.moving_seconds', 180)
+            ->assertJsonPath('data.trips.1.following_stop_seconds', null);
+    }
 }

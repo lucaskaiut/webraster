@@ -18,3 +18,17 @@ export function useTrackingLiveQuery() {
     placeholderData: keepPreviousData,
   })
 }
+
+export function useTrackingHistoryQuery(
+  vehicleId: string | undefined,
+  from: string,
+  to: string,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: queryKeys.tracking.history(vehicleId ?? '', from, to),
+    queryFn: () => trackingService.history(vehicleId!, from, to),
+    enabled: enabled && Boolean(vehicleId) && Boolean(from) && Boolean(to),
+    placeholderData: keepPreviousData,
+  })
+}

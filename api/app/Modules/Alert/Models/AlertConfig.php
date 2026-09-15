@@ -55,7 +55,7 @@ class AlertConfig extends Model
         $defaults = match ($this->type) {
             AlertType::SPEED => [
                 'speed_limit_kmh' => 80,
-                'min_duration_seconds' => 60,
+                'min_duration_seconds' => 30,
             ],
             AlertType::OFFLINE => [
                 'offline_minutes' => 15,

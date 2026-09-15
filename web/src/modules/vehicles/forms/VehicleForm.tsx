@@ -72,6 +72,9 @@ export function VehicleForm({
       year: '',
       transmission: '',
       odometer: '',
+      max_speed_kmh: '',
+      speed_hysteresis_percent: '3',
+      speed_min_duration_seconds: '30',
       average_consumption: '',
       tank_capacity: '',
       crlv_file: '',
@@ -106,6 +109,13 @@ export function VehicleForm({
       year: values.year ? Number(values.year) : null,
       transmission: values.transmission || null,
       odometer: values.odometer ? Number(values.odometer) : null,
+      max_speed_kmh: values.max_speed_kmh ? Number(values.max_speed_kmh) : null,
+      speed_hysteresis_percent: values.speed_hysteresis_percent
+        ? Number(values.speed_hysteresis_percent)
+        : null,
+      speed_min_duration_seconds: values.speed_min_duration_seconds
+        ? Number(values.speed_min_duration_seconds)
+        : null,
       average_consumption: values.average_consumption
         ? Number(values.average_consumption)
         : null,
@@ -181,6 +191,33 @@ export function VehicleForm({
                 type="number"
                 placeholder="0"
                 min={0}
+              />
+              <TextField
+                name="max_speed_kmh"
+                label="Velocidade máxima permitida (km/h)"
+                type="number"
+                placeholder="80"
+                min={1}
+                max={300}
+                hint="Limite usado para detectar excessos de velocidade."
+              />
+              <TextField
+                name="speed_hysteresis_percent"
+                label="Margem de histerese (%)"
+                type="number"
+                placeholder="3"
+                min={1}
+                max={20}
+                hint="Evita abrir/fechar o evento por oscilações do GPS."
+              />
+              <TextField
+                name="speed_min_duration_seconds"
+                label="Duração mínima (segundos)"
+                type="number"
+                placeholder="30"
+                min={1}
+                max={3600}
+                hint="Excessos mais curtos são descartados."
               />
             </div>
           </Section>

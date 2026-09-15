@@ -21,6 +21,9 @@ export interface VehiclePayload {
   year?: number | null
   transmission?: VehicleTransmission | null
   odometer?: number | null
+  max_speed_kmh?: number | null
+  speed_hysteresis_percent?: number | null
+  speed_min_duration_seconds?: number | null
   average_consumption?: number | null
   tank_capacity?: number | null
   crlv_file?: string | null

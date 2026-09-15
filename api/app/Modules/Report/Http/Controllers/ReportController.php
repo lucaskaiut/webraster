@@ -41,6 +41,34 @@ class ReportController extends ApiController
         return $this->service->positionsExport($this->filters($request));
     }
 
+    public function stops(Request $request): JsonResponse
+    {
+        $this->authorize('viewAny', Report::class);
+
+        return $this->success($this->service->stops($this->filters($request)));
+    }
+
+    public function stopsExport(Request $request): StreamedResponse
+    {
+        $this->authorize('export', Report::class);
+
+        return $this->service->stopsExport($this->filters($request));
+    }
+
+    public function trips(Request $request): JsonResponse
+    {
+        $this->authorize('viewAny', Report::class);
+
+        return $this->success($this->service->trips($this->filters($request)));
+    }
+
+    public function events(Request $request): JsonResponse
+    {
+        $this->authorize('viewAny', Report::class);
+
+        return $this->success($this->service->events($this->filters($request)));
+    }
+
     /**
      * @return array<string, mixed>
      */

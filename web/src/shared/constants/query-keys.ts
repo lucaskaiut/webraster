@@ -138,6 +138,12 @@ export const queryKeys = {
       ['reports', 'commands', params] as const,
     positions: (params: { from?: string; to?: string; client_id?: string; vehicle_id: string }) =>
       ['reports', 'positions', params] as const,
+    stops: (params: { from?: string; to?: string; client_id?: string }) =>
+      ['reports', 'stops', params] as const,
+    trips: (params: { from?: string; to?: string; client_id?: string; vehicle_id: string }) =>
+      ['reports', 'trips', params] as const,
+    events: (params: { from?: string; to?: string; client_id?: string; vehicle_id?: string }) =>
+      ['reports', 'events', params] as const,
   },
 
   geofences: {
