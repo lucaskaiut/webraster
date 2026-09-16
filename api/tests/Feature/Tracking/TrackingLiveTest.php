@@ -49,6 +49,32 @@ class TrackingLiveTest extends TestCase
             ->assertJsonPath('data.0.position.ignition', true);
     }
 
+    public function test_live_uses_most_recent_recorded_at_not_highest_id(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create(['plate' => 'ABC1D23']);
+        Equipment::factory()->assignedTo($vehicle)->create(['traccar_device_id' => 42]);
+
+        // Linha mais nova (recorded_at) gravada antes; o backfill insere depois
+        // uma linha mais antiga com ID maior — o painel deve usar a mais recente.
+        GpsPosition::factory()->forVehicle($vehicle)->create([
+            'latitude' => -25.1,
+            'recorded_at' => now()->subMinutes(2),
+        ]);
+
+        GpsPosition::factory()->forVehicle($vehicle)->create([
+            'latitude' => -25.9,
+            'recorded_at' => now()->subMinutes(10),
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->getJson('/api/tracking/live')
+            ->assertOk()
+            ->assertJsonPath('data.0.position.latitude', -25.1);
+    }
+
     public function test_live_exposes_device_alarms_from_persisted_attributes(): void
     {
         [, $tenant] = $this->createOperationalChild();

@@ -32,4 +32,10 @@ return [
     | Em branco (ex.: desenvolvimento local), a verificação é ignorada.
     */
     'webhook_secret' => env('TRACCAR_WEBHOOK_SECRET'),
+
+    /*
+    | Reconciliação periódica: job a cada 5 minutos puxa do Traccar as posições
+    | que o webhook não entregou. Desligue para não gerar tráfego extra.
+    */
+    'sync_enabled' => (bool) env('TRACCAR_SYNC_ENABLED', true),
 ];

@@ -15,7 +15,7 @@ class TraccarWebhookController extends ApiController
     {
         $this->assertAuthorized($request);
 
-        $this->service->handle($request->all());
+        $this->service->ingest($request->all());
 
         return $this->success(['ok' => true]);
     }

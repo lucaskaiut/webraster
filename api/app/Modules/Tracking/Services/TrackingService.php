@@ -151,6 +151,8 @@ class TrackingService
 
     /**
      * Última posição persistida de cada veículo (alimentada pelo webhook).
+     * Usa recorded_at, não o maior ID: o backfill pode inserir linhas antigas
+     * com IDs maiores que a linha alimentada em tempo real.
      *
      * @param  list<int>  $vehicleIds
      * @return Collection<int, GpsPosition>
@@ -161,14 +163,14 @@ class TrackingService
             return collect();
         }
 
-        $latestIds = GpsPosition::query()
-            ->selectRaw('MAX(id) as id')
-            ->whereIn('vehicle_id', $vehicleIds)
-            ->groupBy('vehicle_id');
-
         return GpsPosition::query()
-            ->whereIn('id', $latestIds)
+            ->whereIn('vehicle_id', $vehicleIds)
+            ->whereRaw(
+                'recorded_at = (select max(inner_position.recorded_at) from gps_positions as inner_position where inner_position.vehicle_id = gps_positions.vehicle_id)'
+            )
+            ->orderByDesc('id')
             ->get()
+            ->unique('vehicle_id')
             ->keyBy('vehicle_id');
     }
 
@@ -204,15 +206,18 @@ class TrackingService
 
     public function persistPosition(Vehicle $vehicle, Equipment $equipment, TraccarPosition $position): GpsPosition
     {
+        // O forward do Traccar chega antes do ID do banco ser atribuído (id=0),
+        // então a idempotência usa a chave natural equipamento + horário.
         $gpsPosition = GpsPosition::query()->updateOrCreate(
             [
-                'tenant_id' => $vehicle->tenant_id,
-                'traccar_position_id' => $position->id,
+                'equipment_id' => $equipment->getKey(),
+                'recorded_at' => $position->recordedAt,
             ],
             [
+                'tenant_id' => $vehicle->tenant_id,
                 'vehicle_id' => $vehicle->getKey(),
                 'client_id' => $vehicle->client_id,
-                'equipment_id' => $equipment->getKey(),
+                'traccar_position_id' => $position->id > 0 ? $position->id : null,
                 'latitude' => $position->latitude,
                 'longitude' => $position->longitude,
                 'recorded_at' => $position->recordedAt,

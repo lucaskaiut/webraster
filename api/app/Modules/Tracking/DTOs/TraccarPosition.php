@@ -54,7 +54,7 @@ readonly class TraccarPosition
         }
 
         return new self(
-            id: (int) $payload['id'],
+            id: (int) ($payload['id'] ?? 0),
             deviceId: (int) $payload['deviceId'],
             latitude: (float) $payload['latitude'],
             longitude: (float) $payload['longitude'],
