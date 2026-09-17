@@ -388,6 +388,46 @@ class FinanceModuleTest extends TestCase
             ->assertJsonPath('data.status', 'awaiting_payment')
             ->assertJsonPath('data.gateway_payment_id', 'pay_abc')
             ->assertJsonPath('data.payment_gateway', 'asaas');
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/payments')
+            && $request['dueDate'] === $billing->due_at->toDateString());
+    }
+
+    public function test_charge_uses_today_as_due_date_when_billing_is_overdue(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create([
+            'document' => '39053344705',
+            'email' => 'cliente@example.com',
+        ]);
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->createGatewayConfig($tenant, 'wh_token', 'asaas_key');
+
+        $plan = FinancePlan::factory()->forTenant($tenant)->create();
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create();
+        $billing = FinanceBilling::factory()->forSubscription($subscription)->create([
+            'number' => 1,
+            'status' => BillingStatus::PENDING,
+            'due_at' => now()->subDays(10)->toDateString(),
+        ]);
+
+        Http::fake([
+            '*/customers*' => Http::response(['id' => 'cus_1', 'name' => 'Cliente'], 200),
+            '*/payments' => Http::response([
+                'id' => 'pay_overdue',
+                'status' => 'PENDING',
+            ], 200),
+        ]);
+
+        $this->postJson("/api/finance/billings/{$billing->uuid}/charge", [
+            'payment_method' => 'boleto',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.gateway_payment_id', 'pay_overdue');
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/payments')
+            && $request['dueDate'] === now()->toDateString());
     }
 
     public function test_reactivate_unsuspends_devices_even_when_overdue(): void

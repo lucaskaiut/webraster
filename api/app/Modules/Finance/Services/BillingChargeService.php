@@ -46,13 +46,16 @@ class BillingChargeService
 
         $gateway = $this->gateways->resolveReadyFor($method);
 
+        $dueDate = CarbonImmutable::parse($billing->due_at)->startOfDay();
+        $today = CarbonImmutable::today();
+
         try {
             $customer = $gateway->ensureCustomer($client);
             $payment = $gateway->createPayment(new CreateGatewayPaymentDTO(
                 customerExternalId: $customer->externalId,
                 amount: number_format($billing->totalCents() / 100, 2, '.', ''),
                 paymentMethod: $method,
-                dueDate: CarbonImmutable::parse($billing->due_at),
+                dueDate: $dueDate->lessThan($today) ? $today : $dueDate,
                 externalReference: (string) $billing->uuid,
                 description: $billing->description ?: $billing->code,
                 creditCard: CreditCardDTO::tryFromArray($paymentData),
