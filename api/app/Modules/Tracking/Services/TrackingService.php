@@ -154,6 +154,10 @@ class TrackingService
      * Usa recorded_at, não o maior ID: o backfill pode inserir linhas antigas
      * com IDs maiores que a linha alimentada em tempo real.
      *
+     * O máximo por veículo é resolvido em uma consulta agregada (índice
+     * vehicle_id + recorded_at) e a carga final usa igualdade por veículo,
+     * evitando a subquery correlacionada executada linha a linha.
+     *
      * @param  list<int>  $vehicleIds
      * @return Collection<int, GpsPosition>
      */
@@ -163,11 +167,27 @@ class TrackingService
             return collect();
         }
 
+        $latestRecordedAt = GpsPosition::query()
+            ->select('vehicle_id')
+            ->selectRaw('MAX(recorded_at) AS max_recorded_at')
+            ->whereIn('vehicle_id', $vehicleIds)
+            ->groupBy('vehicle_id')
+            ->get();
+
+        if ($latestRecordedAt->isEmpty()) {
+            return collect();
+        }
+
         return GpsPosition::query()
             ->whereIn('vehicle_id', $vehicleIds)
-            ->whereRaw(
-                'recorded_at = (select max(inner_position.recorded_at) from gps_positions as inner_position where inner_position.vehicle_id = gps_positions.vehicle_id)'
-            )
+            ->where(function ($query) use ($latestRecordedAt): void {
+                foreach ($latestRecordedAt as $latest) {
+                    $query->orWhere(function ($query) use ($latest): void {
+                        $query->where('vehicle_id', $latest->vehicle_id)
+                            ->where('recorded_at', $latest->max_recorded_at);
+                    });
+                }
+            })
             ->orderByDesc('id')
             ->get()
             ->unique('vehicle_id')
