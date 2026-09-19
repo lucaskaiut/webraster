@@ -1,6 +1,6 @@
 import { http } from '@/shared/api/http'
 import type { ApiResponse, ListParams, PaginatedResponse } from '@/shared/types/api'
-import type { Client, ClientContract, ClientOrder, User } from '@/shared/types/models'
+import type { Client, ClientContract, ClientOrder, ContractSignatureStatus, User } from '@/shared/types/models'
 
 export interface ClientPayload {
   name: string
@@ -43,6 +43,10 @@ export interface ClientOrderPayload {
 export interface ClientContractPayload {
   contract_id: string
   valid_until: string
+}
+
+export interface ClientContractSignaturePayload {
+  signature_status: ContractSignatureStatus
 }
 
 export const clientsService = {
@@ -112,6 +116,18 @@ export const clientsService = {
 
   async upsertContract(clientId: string, payload: ClientContractPayload): Promise<ClientContract> {
     const response = await http.put<ApiResponse<ClientContract>>(`/clients/${clientId}/contract`, payload)
+
+    return response.data.data
+  },
+
+  async updateContractSignature(
+    clientId: string,
+    payload: ClientContractSignaturePayload,
+  ): Promise<ClientContract> {
+    const response = await http.patch<ApiResponse<ClientContract>>(
+      `/clients/${clientId}/contract/signature`,
+      payload,
+    )
 
     return response.data.data
   },

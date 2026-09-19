@@ -2,6 +2,7 @@
 
 namespace App\Modules\Client\Models;
 
+use App\Modules\Client\Enums\ContractSignatureStatus;
 use App\Modules\Contract\Models\Contract;
 use App\Modules\Shared\Models\Concerns\HasUuid;
 use App\Modules\Tenant\Models\Concerns\BelongsToTenant;
@@ -19,6 +20,9 @@ class ClientContract extends Model
         'client_id',
         'contract_id',
         'valid_until',
+        'signature_status',
+        'signed_at',
+        'signature_path',
         'body',
     ];
 
@@ -26,6 +30,8 @@ class ClientContract extends Model
     {
         return [
             'valid_until' => 'date',
+            'signature_status' => ContractSignatureStatus::class,
+            'signed_at' => 'datetime',
         ];
     }
 

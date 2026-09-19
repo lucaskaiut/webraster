@@ -125,6 +125,9 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
 
     Route::get('clients/{client}/contract', [ClientContractController::class, 'show'])->middleware('permission:client.read');
     Route::match(['put', 'patch'], 'clients/{client}/contract', [ClientContractController::class, 'upsert'])->middleware('permission:client.update');
+    Route::match(['put', 'patch'], 'clients/{client}/contract/signature', [ClientContractController::class, 'updateSignature'])->middleware('permission:client.update');
+    Route::post('clients/{client}/contract/signature', [ClientContractController::class, 'sign'])->middleware('permission:contract.sign');
+    Route::get('contract/portal', [ClientContractController::class, 'portal'])->middleware('permission:contract.sign');
 
     Route::get('drivers', [DriverController::class, 'index'])->middleware('permission:driver.read');
     Route::post('drivers', [DriverController::class, 'store'])->middleware('permission:driver.create');

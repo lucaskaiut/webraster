@@ -98,6 +98,7 @@ enum DefaultRole: string
                 Permission::SUBSCRIPTION_READ,
                 Permission::INVOICE_READ,
                 Permission::ASSISTANT_VIEW,
+                Permission::CONTRACT_SIGN,
                 Permission::VEHICLE_READ,
                 Permission::TRACKING_READ,
                 Permission::GEOFENCE_READ,

@@ -55,6 +55,7 @@ export const Permission = {
   CONTRACT_READ: 'contract.read',
   CONTRACT_UPDATE: 'contract.update',
   CONTRACT_DELETE: 'contract.delete',
+  CONTRACT_SIGN: 'contract.sign',
 
   VEHICLE_CREATE: 'vehicle.create',
   VEHICLE_READ: 'vehicle.read',
@@ -228,6 +229,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { value: Permission.CONTRACT_CREATE, label: 'Criar contratos' },
       { value: Permission.CONTRACT_UPDATE, label: 'Editar contratos' },
       { value: Permission.CONTRACT_DELETE, label: 'Remover contratos' },
+      { value: Permission.CONTRACT_SIGN, label: 'Assinar contratos' },
     ],
   },
   {

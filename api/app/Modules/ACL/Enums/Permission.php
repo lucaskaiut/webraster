@@ -60,6 +60,7 @@ enum Permission: string
     case CONTRACT_READ = 'contract.read';
     case CONTRACT_UPDATE = 'contract.update';
     case CONTRACT_DELETE = 'contract.delete';
+    case CONTRACT_SIGN = 'contract.sign';
 
     case VEHICLE_CREATE = 'vehicle.create';
     case VEHICLE_READ = 'vehicle.read';

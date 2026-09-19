@@ -8,6 +8,8 @@ use App\Modules\Service\Models\Service;
 use App\Modules\Shared\Support\Document;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -62,13 +64,88 @@ class ClientContractTest extends TestCase
         ])
             ->assertOk()
             ->assertJsonPath('data.contract_id', $contract->uuid)
-            ->assertJsonPath('data.valid_until', '2027-01-01');
+            ->assertJsonPath('data.valid_until', '2027-01-01')
+            ->assertJsonPath('data.signature_status', 'pending')
+            ->assertJsonPath('data.signature_status_label', 'Pendente')
+            ->assertJsonPath('data.signed_at', null);
 
         $response = $this->getJson("/api/clients/{$client->uuid}/contract")->assertOk();
 
         $this->assertStringContainsString('Transportadora Silva', $response->json('data.body'));
         $this->assertStringContainsString('Rastreamento', $response->json('data.body'));
         $this->assertStringContainsString('ABC1D23', $response->json('data.body'));
+    }
+
+    public function test_update_signature_status(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $contract = Contract::factory()->forTenant($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}/contract/signature", [
+            'signature_status' => 'signed',
+        ])->assertNotFound();
+
+        $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $contract->uuid,
+            'valid_until' => '2027-01-01',
+        ])->assertOk();
+
+        $this->putJson("/api/clients/{$client->uuid}/contract/signature", [
+            'signature_status' => 'signed',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.signature_status', 'signed')
+            ->assertJsonPath('data.signature_status_label', 'Assinado');
+
+        $this->assertNotNull(
+            $this->getJson("/api/clients/{$client->uuid}/contract")->json('data.signed_at'),
+        );
+
+        $this->putJson("/api/clients/{$client->uuid}/contract/signature", [
+            'signature_status' => 'pending',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.signature_status', 'pending')
+            ->assertJsonPath('data.signed_at', null);
+
+        $this->putJson("/api/clients/{$client->uuid}/contract/signature", [
+            'signature_status' => 'invalid',
+        ])->assertUnprocessable()->assertJsonValidationErrors(['signature_status']);
+    }
+
+    public function test_reassigning_same_contract_keeps_signature_but_new_contract_resets_it(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $contract = Contract::factory()->forTenant($tenant)->create();
+        $another = Contract::factory()->forTenant($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $contract->uuid,
+            'valid_until' => '2027-01-01',
+        ])->assertOk();
+
+        $this->putJson("/api/clients/{$client->uuid}/contract/signature", [
+            'signature_status' => 'signed',
+        ])->assertOk();
+
+        $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $contract->uuid,
+            'valid_until' => '2027-06-01',
+        ])->assertOk()->assertJsonPath('data.signature_status', 'signed');
+
+        $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $another->uuid,
+            'valid_until' => '2027-06-01',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.signature_status', 'pending')
+            ->assertJsonPath('data.signed_at', null);
     }
 
     public function test_assign_validates_contract_and_future_validity(): void
@@ -102,5 +179,235 @@ class ClientContractTest extends TestCase
             'contract_id' => 'x',
             'valid_until' => '2027-01-01',
         ])->assertForbidden();
+
+        $this->putJson("/api/clients/{$client->uuid}/contract/signature", [
+            'signature_status' => 'signed',
+        ])->assertForbidden();
+    }
+
+    public function test_client_user_signs_own_contract_with_image(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $contract = Contract::factory()->forTenant($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $contract->uuid,
+            'valid_until' => '2027-01-01',
+        ])->assertOk();
+
+        Storage::fake('public');
+
+        Sanctum::actingAs($this->createClient($tenant, ['client_id' => $client->getKey()]));
+
+        $response = $this->post(
+            "/api/clients/{$client->uuid}/contract/signature",
+            [
+                'image' => UploadedFile::fake()->image('assinatura.png'),
+                'contract_id' => $contract->uuid,
+            ],
+            ['Accept' => 'application/json'],
+        );
+
+        $response->assertOk()
+            ->assertJsonPath('data.signature_status', 'signed')
+            ->assertJsonPath('data.signature_status_label', 'Assinado');
+
+        $this->assertNotNull($response->json('data.signed_at'));
+        $this->assertNotNull($response->json('data.signature_url'));
+
+        Storage::disk('public')->assertExists($response->json('data.signature_path'));
+    }
+
+    public function test_sign_requires_contract_assigned_to_client(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $contract = Contract::factory()->forTenant($tenant)->create();
+
+        Sanctum::actingAs($this->createClient($tenant, ['client_id' => $client->getKey()]));
+
+        $this->post(
+            "/api/clients/{$client->uuid}/contract/signature",
+            [
+                'image' => UploadedFile::fake()->image('assinatura.png'),
+                'contract_id' => $contract->uuid,
+            ],
+            ['Accept' => 'application/json'],
+        )->assertUnprocessable()->assertJsonValidationErrors(['contract_id']);
+    }
+
+    public function test_sign_rejects_contract_that_is_not_the_current_one(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $contract = Contract::factory()->forTenant($tenant)->create();
+        $another = Contract::factory()->forTenant($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $contract->uuid,
+            'valid_until' => '2027-01-01',
+        ])->assertOk();
+
+        Sanctum::actingAs($this->createClient($tenant, ['client_id' => $client->getKey()]));
+
+        $this->post(
+            "/api/clients/{$client->uuid}/contract/signature",
+            [
+                'image' => UploadedFile::fake()->image('assinatura.png'),
+                'contract_id' => $another->uuid,
+            ],
+            ['Accept' => 'application/json'],
+        )->assertUnprocessable()->assertJsonValidationErrors(['contract_id']);
+    }
+
+    public function test_client_user_cannot_sign_another_clients_contract(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $otherClient = Client::factory()->for($tenant)->create();
+        $contract = Contract::factory()->forTenant($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$otherClient->uuid}/contract", [
+            'contract_id' => $contract->uuid,
+            'valid_until' => '2027-01-01',
+        ])->assertOk();
+
+        Sanctum::actingAs($this->createClient($tenant, ['client_id' => $client->getKey()]));
+
+        $this->post(
+            "/api/clients/{$otherClient->uuid}/contract/signature",
+            [
+                'image' => UploadedFile::fake()->image('assinatura.png'),
+                'contract_id' => $contract->uuid,
+            ],
+            ['Accept' => 'application/json'],
+        )->assertNotFound();
+    }
+
+    public function test_sign_validates_image(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $contract = Contract::factory()->forTenant($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $contract->uuid,
+            'valid_until' => '2027-01-01',
+        ])->assertOk();
+
+        Sanctum::actingAs($this->createClient($tenant, ['client_id' => $client->getKey()]));
+
+        $this->post(
+            "/api/clients/{$client->uuid}/contract/signature",
+            [
+                'image' => UploadedFile::fake()->create('documento.pdf', 100, 'application/pdf'),
+                'contract_id' => $contract->uuid,
+            ],
+            ['Accept' => 'application/json'],
+        )->assertUnprocessable()->assertJsonValidationErrors(['image']);
+    }
+
+    public function test_member_without_sign_permission_cannot_sign(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $contract = Contract::factory()->forTenant($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $contract->uuid,
+            'valid_until' => '2027-01-01',
+        ])->assertOk();
+
+        Sanctum::actingAs($this->createMember($tenant));
+
+        $this->post(
+            "/api/clients/{$client->uuid}/contract/signature",
+            [
+                'image' => UploadedFile::fake()->image('assinatura.png'),
+                'contract_id' => $contract->uuid,
+            ],
+            ['Accept' => 'application/json'],
+        )->assertForbidden();
+    }
+
+    public function test_reassigning_another_contract_clears_uploaded_signature(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $contract = Contract::factory()->forTenant($tenant)->create();
+        $another = Contract::factory()->forTenant($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $contract->uuid,
+            'valid_until' => '2027-01-01',
+        ])->assertOk();
+
+        Storage::fake('public');
+
+        Sanctum::actingAs($this->createClient($tenant, ['client_id' => $client->getKey()]));
+
+        $this->post(
+            "/api/clients/{$client->uuid}/contract/signature",
+            [
+                'image' => UploadedFile::fake()->image('assinatura.png'),
+                'contract_id' => $contract->uuid,
+            ],
+            ['Accept' => 'application/json'],
+        )->assertOk()->assertJsonPath('data.signature_status', 'signed');
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $another->uuid,
+            'valid_until' => '2027-06-01',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.signature_status', 'pending')
+            ->assertJsonPath('data.signed_at', null)
+            ->assertJsonPath('data.signature_path', null)
+            ->assertJsonPath('data.signature_url', null);
+    }
+
+    public function test_client_user_reads_own_contract_through_portal(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $contract = Contract::factory()->forTenant($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $contract->uuid,
+            'valid_until' => '2027-01-01',
+        ])->assertOk();
+
+        Sanctum::actingAs($this->createClient($tenant, ['client_id' => $client->getKey()]));
+
+        $this->getJson('/api/contract/portal')
+            ->assertOk()
+            ->assertJsonPath('data.contract_id', $contract->uuid)
+            ->assertJsonPath('data.signature_status', 'pending');
+    }
+
+    public function test_portal_contract_endpoint_rejects_staff_user(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->getJson('/api/contract/portal')->assertForbidden();
     }
 }

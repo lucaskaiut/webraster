@@ -38,6 +38,13 @@ class ClientPolicy
             && $user->hasPermission(Permission::CLIENT_UPDATE);
     }
 
+    public function signContract(User $user, Client $client): bool
+    {
+        return $this->sameTenant($client)
+            && ClientAuthorization::allowsClient((int) $client->getKey())
+            && $user->hasPermission(Permission::CONTRACT_SIGN);
+    }
+
     public function delete(User $user, Client $client): bool
     {
         if (ClientAuthorization::isRestricted()) {

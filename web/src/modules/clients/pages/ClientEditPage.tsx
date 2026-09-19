@@ -15,13 +15,14 @@ import {
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import { ClientForm } from '../forms/ClientForm'
+import { ClientContractSection } from '../components/ClientContractSection'
 import { ClientFinanceSection } from '../components/ClientFinanceSection'
 import { ClientOrderSection } from '../components/ClientOrderSection'
 import { ClientUsersSection } from '../components/ClientUsersSection'
 import { ClientVehiclesSection } from '../components/ClientVehiclesSection'
 import { useClientQuery, useUpdateClient } from '../hooks/useClients'
 
-type ClientEditTab = 'dados' | 'usuarios' | 'veiculos' | 'pedido'
+type ClientEditTab = 'dados' | 'usuarios' | 'veiculos' | 'pedido' | 'contrato'
 
 function FormSkeleton() {
   return (
@@ -61,6 +62,7 @@ export default function ClientEditPage() {
       { value: 'usuarios' as const, label: 'Usuários' },
       { value: 'veiculos' as const, label: 'Veículos' },
       ...(showOrderTab ? [{ value: 'pedido' as const, label: 'Pedido' }] : []),
+      ...(showOrderTab ? [{ value: 'contrato' as const, label: 'Contrato' }] : []),
     ],
     [showOrderTab],
   )
@@ -69,13 +71,15 @@ export default function ClientEditPage() {
   const tab: ClientEditTab =
     rawTab === 'pedido' && showOrderTab
       ? 'pedido'
-      : rawTab === 'usuarios'
-        ? 'usuarios'
-        : rawTab === 'veiculos'
-          ? 'veiculos'
-          : rawTab === 'assinatura' && showOrderTab
-            ? 'pedido'
-            : 'dados'
+      : rawTab === 'contrato' && showOrderTab
+        ? 'contrato'
+        : rawTab === 'usuarios'
+          ? 'usuarios'
+          : rawTab === 'veiculos'
+            ? 'veiculos'
+            : rawTab === 'assinatura' && showOrderTab
+              ? 'pedido'
+              : 'dados'
 
   const setTab = (value: ClientEditTab) => {
     setSearchParams(
@@ -157,6 +161,8 @@ export default function ClientEditPage() {
             {tab === 'usuarios' && <ClientUsersSection clientId={id} />}
 
             {tab === 'veiculos' && <ClientVehiclesSection clientId={id} />}
+
+            {tab === 'contrato' && <ClientContractSection clientId={id} />}
 
             {tab === 'pedido' && (
               <div className="space-y-6">

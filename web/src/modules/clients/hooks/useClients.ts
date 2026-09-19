@@ -5,6 +5,7 @@ import { toast } from '@/shared/stores/toast.store'
 import {
   clientsService,
   type ClientContractPayload,
+  type ClientContractSignaturePayload,
   type ClientOrderPayload,
   type ClientPayload,
   type ClientUserPayload,
@@ -132,6 +133,24 @@ export function useUpsertClientContract(clientId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.clients.contract(clientId) })
       toast.success('Contrato salvo', 'O contrato do cliente foi vinculado.')
+    },
+  })
+}
+
+export function useUpdateClientContractSignature(clientId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: ClientContractSignaturePayload) =>
+      clientsService.updateContractSignature(clientId, payload),
+    onSuccess: (contract) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.clients.contract(clientId) })
+      toast.success(
+        contract.signature_status === 'signed' ? 'Contrato assinado' : 'Assinatura pendente',
+        contract.signature_status === 'signed'
+          ? 'O contrato foi marcado como assinado.'
+          : 'O contrato foi marcado como pendente de assinatura.',
+      )
     },
   })
 }
