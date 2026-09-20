@@ -188,6 +188,101 @@ class TrackingLiveTest extends TestCase
             ->assertJsonPath('data.1.latitude', -25.431);
     }
 
+    public function test_history_backfills_remote_positions_in_bulk_and_only_once(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create();
+        $equipment = Equipment::factory()->assignedTo($vehicle)->create([
+            'imei' => '359633100000055',
+            'traccar_device_id' => 55,
+        ]);
+
+        config([
+            'traccar.enabled' => true,
+            'traccar.base_url' => 'http://traccar.test',
+            'traccar.token' => 'test-token',
+        ]);
+
+        $this->app->instance(TraccarGateway::class, $this->app->make(HttpTraccarGateway::class));
+
+        Http::fake([
+            'traccar.test/api/positions*' => Http::response([
+                [
+                    'id' => 2001,
+                    'deviceId' => 55,
+                    'latitude' => -25.43,
+                    'longitude' => -49.27,
+                    'deviceTime' => '2026-09-04T10:00:00Z',
+                    'speed' => 10,
+                    'attributes' => ['ignition' => true],
+                ],
+                [
+                    'id' => 2002,
+                    'deviceId' => 55,
+                    'latitude' => -25.431,
+                    'longitude' => -49.271,
+                    'deviceTime' => '2026-09-04T10:05:00Z',
+                    'speed' => 20,
+                    'attributes' => ['ignition' => true],
+                ],
+            ]),
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $url = "/api/tracking/vehicles/{$vehicle->uuid}/history?from=2026-09-04T00:00:00Z&to=2026-09-04T23:59:59Z";
+
+        $this->getJson($url)->assertOk()->assertJsonCount(2, 'data');
+        $this->getJson($url)->assertOk()->assertJsonCount(2, 'data');
+
+        Http::assertSentCount(1);
+
+        $this->assertDatabaseCount('gps_positions', 2);
+
+        $this->assertDatabaseHas('gps_positions', [
+            'equipment_id' => $equipment->getKey(),
+            'traccar_position_id' => 2001,
+            'latitude' => -25.43,
+        ]);
+    }
+
+    public function test_history_reads_persisted_positions_without_consulting_traccar(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create();
+        Equipment::factory()->assignedTo($vehicle)->create([
+            'imei' => '359633100000099',
+            'traccar_device_id' => 99,
+        ]);
+
+        GpsPosition::factory()->forVehicle($vehicle)->create([
+            'latitude' => -25.5,
+            'longitude' => -49.3,
+            'recorded_at' => '2026-09-04T10:00:00Z',
+        ]);
+
+        config([
+            'traccar.enabled' => true,
+            'traccar.base_url' => 'http://traccar.test',
+            'traccar.token' => 'test-token',
+        ]);
+
+        $this->app->instance(TraccarGateway::class, $this->app->make(HttpTraccarGateway::class));
+
+        Http::fake();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->getJson("/api/tracking/vehicles/{$vehicle->uuid}/history?from=2026-09-04T00:00:00Z&to=2026-09-04T23:59:59Z")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.latitude', -25.5);
+
+        Http::assertNothingSent();
+    }
+
     public function test_portal_client_only_sees_own_vehicles(): void
     {
         [, $tenant] = $this->createOperationalChild();

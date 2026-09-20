@@ -12,6 +12,7 @@ use App\Modules\Vehicle\Models\Vehicle;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class TrackingService
@@ -92,6 +93,11 @@ class TrackingService
     }
 
     /**
+     * O webhook e o SyncTraccarPositionsJob já persistem as posições em tempo
+     * real, então o banco é a fonte primária do histórico. O Traccar só é
+     * consultado quando o período não possui nenhuma posição local — evitando
+     * baixar e reprocessar milhares de posições a cada consulta.
+     *
      * @return Collection<int, GpsPosition>
      */
     public function history(Vehicle $vehicle, CarbonImmutable $from, CarbonImmutable $to): Collection
@@ -116,28 +122,112 @@ class TrackingService
             ]);
         }
 
-        $deviceId = $this->resolveDeviceId($equipment);
+        $positions = $this->persistedHistory($vehicle, $from, $to);
 
-        if ($deviceId !== null && $this->traccar->isConfigured()) {
-            try {
-                $remote = $this->traccar->positionHistory($deviceId, $from, $to)
-                    ->sortBy(fn (TraccarPosition $position) => $position->recordedAt->timestamp)
-                    ->values();
-
-                foreach ($remote as $traccarPosition) {
-                    $this->persistPosition($vehicle, $equipment, $traccarPosition);
-                }
-            } catch (\Throwable $exception) {
-                Log::warning('tracking.history_failed', ['message' => $exception->getMessage()]);
-            }
+        if ($positions->isNotEmpty()) {
+            return $positions;
         }
 
+        $deviceId = $this->resolveDeviceId($equipment);
+
+        if ($deviceId === null || ! $this->traccar->isConfigured()) {
+            return $positions;
+        }
+
+        try {
+            $this->backfillHistory($vehicle, $equipment, $deviceId, $from, $to);
+        } catch (\Throwable $exception) {
+            Log::warning('tracking.history_failed', ['message' => $exception->getMessage()]);
+        }
+
+        return $this->persistedHistory($vehicle, $from, $to);
+    }
+
+    /**
+     * @return Collection<int, GpsPosition>
+     */
+    private function persistedHistory(Vehicle $vehicle, CarbonImmutable $from, CarbonImmutable $to): Collection
+    {
         return GpsPosition::query()
             ->where('vehicle_id', $vehicle->getKey())
             ->whereBetween('recorded_at', [$from, $to])
             ->orderBy('recorded_at')
             ->limit(5000)
             ->get();
+    }
+
+    /**
+     * Importa o histórico remoto em lote (uma query por chunk de 500 posições).
+     *
+     * Geocercas e alertas não são reprocessados: o pipeline em tempo real
+     * (webhook + sync) é quem gera esses eventos; o replay de um período
+     * inteiro criaria alertas retroativos e uma transação por posição.
+     */
+    private function backfillHistory(
+        Vehicle $vehicle,
+        Equipment $equipment,
+        int $deviceId,
+        CarbonImmutable $from,
+        CarbonImmutable $to,
+    ): void {
+        $rows = $this->traccar->positionHistory($deviceId, $from, $to)
+            ->sortBy(fn (TraccarPosition $position) => $position->recordedAt->timestamp)
+            ->map(fn (TraccarPosition $position) => $this->positionRow($vehicle, $equipment, $position))
+            ->keyBy('recorded_at')
+            ->values();
+
+        $updateColumns = [
+            'tenant_id',
+            'vehicle_id',
+            'client_id',
+            'traccar_position_id',
+            'latitude',
+            'longitude',
+            'server_time',
+            'speed',
+            'ignition',
+            'battery',
+            'heading',
+            'altitude',
+            'address',
+            'valid',
+            'attributes',
+        ];
+
+        foreach ($rows->chunk(500) as $chunk) {
+            GpsPosition::query()->upsert(
+                $chunk->values()->all(),
+                ['equipment_id', 'recorded_at'],
+                $updateColumns,
+            );
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function positionRow(Vehicle $vehicle, Equipment $equipment, TraccarPosition $position): array
+    {
+        return [
+            'uuid' => (string) Str::uuid(),
+            'tenant_id' => $vehicle->tenant_id,
+            'vehicle_id' => $vehicle->getKey(),
+            'client_id' => $vehicle->client_id,
+            'equipment_id' => $equipment->getKey(),
+            'traccar_position_id' => $position->id > 0 ? $position->id : null,
+            'latitude' => $position->latitude,
+            'longitude' => $position->longitude,
+            'recorded_at' => $position->recordedAt->utc()->toDateTimeString(),
+            'server_time' => $position->serverTime?->utc()->toDateTimeString(),
+            'speed' => $position->speed,
+            'ignition' => $position->ignition,
+            'battery' => $position->battery,
+            'heading' => $position->heading,
+            'altitude' => $position->altitude,
+            'address' => $position->address,
+            'valid' => $position->valid,
+            'attributes' => json_encode($position->attributes),
+        ];
     }
 
     public function gatewayStatus(): array
