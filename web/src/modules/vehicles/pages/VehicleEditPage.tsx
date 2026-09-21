@@ -22,7 +22,8 @@ import { formatDateTime } from '@/shared/utils/format'
 import { equipmentsService } from '@/modules/equipments/services/equipments.service'
 import { VehicleCommandsPanel } from '@/modules/tracking/components/VehicleCommandsPanel'
 import { VehicleForm } from '../forms/VehicleForm'
-import { DEFAULT_VEHICLE_TYPE } from '../lib/vehicle-types'
+import { VehicleImagesCard } from '../components/VehicleImagesCard'
+import { DEFAULT_VEHICLE_TYPE, vehicleTypeIcon, vehicleTypeLabel } from '../lib/vehicle-types'
 import {
   useInstallEquipment,
   useRemoveEquipment,
@@ -83,6 +84,8 @@ export default function VehicleEditPage() {
 
   const vehicle = query.data
   const hasEquipment = Boolean(vehicle?.equipment)
+  const TypeIcon = vehicleTypeIcon(vehicle?.vehicle_type)
+  const typeLabel = vehicleTypeLabel(vehicle?.vehicle_type)
 
   const submitAssignment = assignmentForm.handleSubmit(async (values) => {
     if (!values.equipment_id) return
@@ -133,6 +136,34 @@ export default function VehicleEditPage() {
 
         {vehicle && (
           <div className="space-y-6">
+            <Card>
+              <CardContent className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-muted">
+                    <TypeIcon className="size-5" aria-hidden="true" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                        {vehicle.plate}
+                      </h2>
+                      <Badge variant={vehicle.is_active ? 'success' : 'neutral'}>
+                        {vehicle.is_active ? 'Ativo' : 'Inativo'}
+                      </Badge>
+                    </div>
+                    <p className="truncate text-sm text-muted">
+                      {[vehicle.brand, vehicle.model, vehicle.year].filter(Boolean).join(' · ') ||
+                        'Dados do veículo não informados'}
+                      {typeLabel ? ` · ${typeLabel}` : ''}
+                    </p>
+                    <p className="truncate text-[13px] text-muted">
+                      Cliente: {vehicle.client?.name ?? 'Não informado'}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             <VehicleForm
               mode="edit"
               defaultValues={{
@@ -178,6 +209,8 @@ export default function VehicleEditPage() {
                 navigate('/vehicles')
               }}
             />
+
+            <VehicleImagesCard vehicle={vehicle} />
 
             <Card>
               <CardHeader

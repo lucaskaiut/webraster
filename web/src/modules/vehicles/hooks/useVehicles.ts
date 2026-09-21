@@ -111,3 +111,27 @@ export function useSwapEquipment(vehicleId: string) {
     },
   })
 }
+
+export function useAddVehicleImage(vehicleId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (path: string) => vehiclesService.addImage(vehicleId, path),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.detail(vehicleId) })
+      toast.success('Foto adicionada', 'A imagem foi vinculada ao veículo.')
+    },
+  })
+}
+
+export function useRemoveVehicleImage(vehicleId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (imageId: string) => vehiclesService.removeImage(vehicleId, imageId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.detail(vehicleId) })
+      toast.success('Foto removida', 'A imagem foi removida do veículo.')
+    },
+  })
+}

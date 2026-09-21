@@ -22,6 +22,7 @@ export default function MonitoringPage() {
   const [playing, setPlaying] = useState(false)
   const [playbackSpeed, setPlaybackSpeed] = useState<0.5 | 1 | 2 | 4 | 8>(1)
   const [follow, setFollow] = useState(false)
+  const [onlySelected, setOnlySelected] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [showEvents, setShowEvents] = useState(false)
   const [now, setNow] = useState(() => Date.now())
@@ -98,6 +99,7 @@ export default function MonitoringPage() {
     setPlaybackIndex(0)
     setPlaying(false)
     setFollow(false)
+    setOnlySelected(false)
     setHistoryOpen(false)
     setShowEvents(false)
   }, [])
@@ -112,6 +114,18 @@ export default function MonitoringPage() {
     [requestFit],
   )
 
+  useEffect(() => {
+    if (!selected) return
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') handleClose()
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [selected, handleClose])
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <MonitoringHeader
@@ -124,7 +138,7 @@ export default function MonitoringPage() {
 
       <div className="relative min-h-0 flex-1">
         <TrackingMap
-          vehicles={vehicles}
+          vehicles={onlySelected && selected ? [selected] : vehicles}
           selectedId={selectedId}
           onSelect={handleSelect}
           route={route}
@@ -184,8 +198,13 @@ export default function MonitoringPage() {
         />
 
         {selected && (
-          <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 lg:right-16">
-            <div className="pointer-events-auto">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div
+              className="animate-fade-in absolute inset-0 bg-overlay"
+              onClick={handleClose}
+              aria-hidden="true"
+            />
+            <div className="relative z-10 w-full max-w-md">
               <VehicleInfoPanel
                 vehicle={selected}
                 now={now}
@@ -201,6 +220,8 @@ export default function MonitoringPage() {
                   setHistoryOpen(true)
                 }}
                 onClose={handleClose}
+                onlySelected={onlySelected}
+                onOnlySelectedChange={setOnlySelected}
               />
             </div>
           </div>

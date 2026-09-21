@@ -156,6 +156,8 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::post('vehicles/{vehicle}/equipment/install', [VehicleController::class, 'installEquipment'])->middleware('permission:vehicle.update');
     Route::post('vehicles/{vehicle}/equipment/remove', [VehicleController::class, 'removeEquipment'])->middleware('permission:vehicle.update');
     Route::post('vehicles/{vehicle}/equipment/swap', [VehicleController::class, 'swapEquipment'])->middleware('permission:vehicle.update');
+    Route::post('vehicles/{vehicle}/images', [VehicleController::class, 'storeImage'])->middleware('permission:vehicle.update');
+    Route::delete('vehicles/{vehicle}/images/{image}', [VehicleController::class, 'destroyImage'])->middleware('permission:vehicle.update');
 
     Route::get('vehicle-data/lookup', [VehicleDataController::class, 'lookup'])->middleware('permission:vehicle.read');
 

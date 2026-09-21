@@ -5,6 +5,7 @@ namespace App\Modules\Tracking\Http\Resources;
 use App\Modules\Client\Http\Resources\ClientResource;
 use App\Modules\Equipment\Http\Resources\EquipmentResource;
 use App\Modules\Tracking\Models\GpsPosition;
+use App\Modules\Vehicle\Http\Resources\VehicleImageResource;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -42,6 +43,9 @@ class LiveTrackingItemResource extends JsonResource
             'equipment' => $vehicle->relationLoaded('equipment')
                 ? EquipmentResource::make($vehicle->equipment)
                 : null,
+            'images' => $vehicle->relationLoaded('images')
+                ? VehicleImageResource::collection($vehicle->images)
+                : [],
             'online' => $this->online,
             'position' => $this->position !== null
                 ? GpsPositionResource::make($this->position)

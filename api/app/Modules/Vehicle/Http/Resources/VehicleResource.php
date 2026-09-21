@@ -23,6 +23,7 @@ class VehicleResource extends JsonResource
             'client_id' => $this->client?->uuid,
             'client' => ClientResource::make($this->whenLoaded('client')),
             'equipment' => EquipmentResource::make($this->whenLoaded('equipment')),
+            'images' => VehicleImageResource::collection($this->whenLoaded('images')),
             'plate' => $this->plate,
             'chassis' => $this->chassis,
             'renavam' => $this->renavam,

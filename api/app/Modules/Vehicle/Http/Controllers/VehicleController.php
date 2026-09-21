@@ -10,12 +10,15 @@ use App\Modules\Vehicle\Http\Requests\StoreVehicleRequest;
 use App\Modules\Vehicle\Http\Requests\UnassignEquipmentRequest;
 use App\Modules\Vehicle\Http\Requests\UpdateVehicleRequest;
 use App\Modules\Vehicle\Http\Resources\EquipmentAssignmentEventResource;
+use App\Modules\Vehicle\Http\Resources\VehicleImageResource;
 use App\Modules\Vehicle\Http\Resources\VehicleResource;
 use App\Modules\Vehicle\Models\Vehicle;
+use App\Modules\Vehicle\Models\VehicleImage;
 use App\Modules\Vehicle\Services\EquipmentAssignmentService;
 use App\Modules\Vehicle\Services\VehicleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class VehicleController extends ApiController
 {
@@ -48,7 +51,7 @@ class VehicleController extends ApiController
     {
         $this->authorize('view', $vehicle);
 
-        return $this->success(VehicleResource::make($vehicle->load(['client', 'equipment'])));
+        return $this->success(VehicleResource::make($vehicle->load(['client', 'equipment', 'images'])));
     }
 
     public function store(StoreVehicleRequest $request): JsonResponse
@@ -76,6 +79,34 @@ class VehicleController extends ApiController
         $this->service->delete($vehicle);
 
         return $this->success(null, 'Veículo removido com sucesso.');
+    }
+
+    public function storeImage(Request $request, Vehicle $vehicle): JsonResponse
+    {
+        $this->authorize('update', $vehicle);
+
+        $data = $request->validate([
+            'path' => ['required', 'string', 'max:255'],
+        ]);
+
+        $image = $vehicle->images()->create([
+            'path' => $data['path'],
+            'sort_order' => ((int) $vehicle->images()->max('sort_order')) + 1,
+        ]);
+
+        return $this->created(VehicleImageResource::make($image), 'Imagem adicionada com sucesso.');
+    }
+
+    public function destroyImage(Vehicle $vehicle, VehicleImage $image): JsonResponse
+    {
+        $this->authorize('update', $vehicle);
+
+        abort_unless((int) $image->vehicle_id === (int) $vehicle->getKey(), 404);
+
+        Storage::disk('public')->delete($image->path);
+        $image->delete();
+
+        return $this->success(null, 'Imagem removida com sucesso.');
     }
 
     public function installEquipment(AssignEquipmentRequest $request, Vehicle $vehicle): JsonResponse

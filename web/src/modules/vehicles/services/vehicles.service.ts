@@ -3,6 +3,7 @@ import type { ApiResponse, ListParams, PaginatedResponse } from '@/shared/types/
 import type {
   EquipmentAssignmentEvent,
   Vehicle,
+  VehicleImage,
   VehicleTransmission,
 } from '@/shared/types/models'
 
@@ -112,5 +113,15 @@ export const vehiclesService = {
     )
 
     return response.data.data
+  },
+
+  async addImage(id: string, path: string): Promise<VehicleImage> {
+    const response = await http.post<ApiResponse<VehicleImage>>(`/vehicles/${id}/images`, { path })
+
+    return response.data.data
+  },
+
+  async removeImage(id: string, imageId: string): Promise<void> {
+    await http.delete(`/vehicles/${id}/images/${imageId}`)
   },
 }

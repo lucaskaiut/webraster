@@ -73,6 +73,11 @@ class Vehicle extends Model
         return $this->hasOne(Equipment::class);
     }
 
+    public function images(): HasMany
+    {
+        return $this->hasMany(VehicleImage::class)->orderBy('sort_order')->orderBy('id');
+    }
+
     public function assignmentEvents(): HasMany
     {
         return $this->hasMany(EquipmentAssignmentEvent::class)->orderByDesc('occurred_at');

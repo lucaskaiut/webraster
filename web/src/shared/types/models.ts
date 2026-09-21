@@ -310,11 +310,19 @@ export interface Equipment {
   updated_at: string | null
 }
 
+export interface VehicleImage {
+  id: string
+  url: string
+  path: string
+  sort_order: number
+}
+
 export interface Vehicle {
   id: string
   client_id: string
   client?: Client
   equipment?: Equipment | null
+  images?: VehicleImage[]
   plate: string
   chassis: string | null
   renavam: string | null
@@ -346,7 +354,6 @@ export interface Vehicle {
 }
 
 export type VehicleTransmission = 'manual' | 'automatic' | 'automated'
-
 export interface EquipmentAssignmentEvent {
   id: string
   vehicle_id: string
@@ -487,6 +494,7 @@ export interface GpsPosition {
   latitude: number
   longitude: number
   recorded_at: string
+  address?: string | null
   speed: number | null
   ignition: boolean | null
   battery: number | null
@@ -515,6 +523,7 @@ export interface TrackingLiveVehicle {
   client_id: string | null
   client?: Client | null
   equipment?: Equipment | null
+  images?: VehicleImage[]
   online: boolean
   position: GpsPosition | null
 }

@@ -12,6 +12,7 @@ use App\Modules\Tracking\Gateways\NullTraccarGateway;
 use App\Modules\Tracking\Models\GpsPosition;
 use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Models\Vehicle;
+use App\Modules\Vehicle\Models\VehicleImage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
@@ -80,6 +81,8 @@ class TrackingLiveTest extends TestCase
             'recorded_at' => now()->subMinute(),
         ]);
 
+        VehicleImage::factory()->forVehicle($vehicle)->create(['path' => 'uploads/frota.jpg']);
+
         Sanctum::actingAs($this->createAdmin($tenant));
 
         $this->getJson('/api/tracking/live')
@@ -87,6 +90,7 @@ class TrackingLiveTest extends TestCase
             ->assertJsonPath('data.0.id', $vehicle->uuid)
             ->assertJsonPath('data.0.plate', 'ABC1D23')
             ->assertJsonPath('data.0.vehicle_type', 1)
+            ->assertJsonPath('data.0.images.0.path', 'uploads/frota.jpg')
             ->assertJsonPath('data.0.online', true)
             ->assertJsonPath('data.0.position.latitude', -25.4284)
             ->assertJsonPath('data.0.position.longitude', -49.2733)

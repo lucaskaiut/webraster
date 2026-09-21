@@ -37,7 +37,7 @@ class TrackingService
     public function listMonitoredVehicles(?string $search = null): Collection
     {
         return Vehicle::query()
-            ->with(['client', 'equipment'])
+            ->with(['client', 'equipment', 'images'])
             ->where('is_active', true)
             ->whereHas('equipment', fn ($query) => $query->where('is_active', true))
             ->when(filled($search), function ($query) use ($search): void {
