@@ -57,6 +57,24 @@ class EquipmentCrudTest extends TestCase
         $this->assertFalse($imeis->contains('100000000000002'));
     }
 
+    public function test_index_exposes_traccar_connection_fields(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+
+        Equipment::factory()->forTenant($tenant)->create([
+            'imei' => '359633100000042',
+            'traccar_status' => 'online',
+            'traccar_last_update' => '2026-09-21 16:10:15',
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->getJson('/api/equipments')
+            ->assertOk()
+            ->assertJsonPath('data.0.traccar_status', 'online')
+            ->assertJsonPath('data.0.traccar_last_update', '2026-09-21T16:10:15+00:00');
+    }
+
     public function test_store_allows_reusing_imei_of_soft_deleted_equipment(): void
     {
         [, $tenant] = $this->createOperationalChild();

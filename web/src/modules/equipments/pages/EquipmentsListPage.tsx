@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { Cpu, Pencil, Plus, Trash2 } from 'lucide-react'
 import {
@@ -20,7 +20,10 @@ import { Can } from '@/app/guards/PermissionGuard'
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import { useDebounce } from '@/shared/hooks/useDebounce'
-import type { Equipment } from '@/shared/types/models'
+import type { Equipment, TrackingLiveVehicle } from '@/shared/types/models'
+import { formatDateTimeWithSeconds } from '@/shared/utils/format'
+import { useTrackingLiveQuery } from '@/modules/tracking/hooks/useTracking'
+import { VehicleStatusIndicators } from '@/modules/tracking/components/VehicleStatusIndicators'
 import { useDeleteEquipment, useEquipmentsQuery } from '../hooks/useEquipments'
 
 const PER_PAGE = 10
@@ -44,6 +47,30 @@ export default function EquipmentsListPage() {
     search: debouncedSearch || undefined,
     available: availableOnly || undefined,
   })
+
+  const canTrack = can(Permission.TRACKING_READ)
+  const liveQuery = useTrackingLiveQuery(canTrack)
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    if (!canTrack) return
+
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000)
+
+    return () => window.clearInterval(timer)
+  }, [canTrack])
+
+  const liveByEquipment = useMemo(() => {
+    const map = new Map<string, TrackingLiveVehicle>()
+
+    for (const item of liveQuery.data ?? []) {
+      if (item.equipment) {
+        map.set(item.equipment.id, item)
+      }
+    }
+
+    return map
+  }, [liveQuery.data])
 
   const updateParams = (next: { page?: number; search?: string; available?: boolean }) => {
     setSearchParams(
@@ -101,6 +128,28 @@ export default function EquipmentsListPage() {
       ),
     },
     {
+      key: 'last_connection',
+      header: 'Última conexão',
+      render: (equipment) => (
+        <span className="whitespace-nowrap text-muted">
+          {formatDateTimeWithSeconds(equipment.traccar_last_update)}
+        </span>
+      ),
+    },
+    ...(canTrack
+      ? [
+          {
+            key: 'last_position',
+            header: 'Última posição',
+            render: (equipment: Equipment) => (
+              <span className="whitespace-nowrap text-muted">
+                {formatDateTimeWithSeconds(liveByEquipment.get(equipment.id)?.position?.recorded_at)}
+              </span>
+            ),
+          } satisfies Column<Equipment>,
+        ]
+      : []),
+    {
       key: 'is_active',
       header: 'Status',
       render: (equipment) => (
@@ -109,6 +158,24 @@ export default function EquipmentsListPage() {
         </Badge>
       ),
     },
+    ...(canTrack
+      ? [
+          {
+            key: 'indicators',
+            header: 'Indicadores',
+            className: 'w-[120px]',
+            render: (equipment: Equipment) => {
+              const live = liveByEquipment.get(equipment.id)
+
+              if (!live) {
+                return <span className="text-muted">—</span>
+              }
+
+              return <VehicleStatusIndicators vehicle={live} now={now} perRow={6} />
+            },
+          } satisfies Column<Equipment>,
+        ]
+      : []),
     ...(canMutate
       ? [
           {

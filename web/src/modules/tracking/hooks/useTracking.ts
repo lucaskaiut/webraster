@@ -10,12 +10,13 @@ export function useTrackingStatusQuery() {
   })
 }
 
-export function useTrackingLiveQuery() {
+export function useTrackingLiveQuery(enabled = true) {
   return useQuery({
     queryKey: queryKeys.tracking.live(),
     queryFn: () => trackingService.live(),
     refetchInterval: 15_000,
     placeholderData: keepPreviousData,
+    enabled,
   })
 }
 

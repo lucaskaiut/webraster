@@ -3,6 +3,10 @@ const dateTimeFormatter = new Intl.DateTimeFormat('pt-BR', {
   dateStyle: 'short',
   timeStyle: 'short',
 })
+const dateTimeSecondsFormatter = new Intl.DateTimeFormat('pt-BR', {
+  dateStyle: 'short',
+  timeStyle: 'medium',
+})
 const relativeFormatter = new Intl.RelativeTimeFormat('pt-BR', { numeric: 'auto' })
 
 /**
@@ -43,6 +47,12 @@ export function formatDateTime(value: string | null | undefined): string {
   if (!value) return '—'
 
   return dateTimeFormatter.format(new Date(value))
+}
+
+export function formatDateTimeWithSeconds(value: string | null | undefined): string {
+  if (!value) return '—'
+
+  return dateTimeSecondsFormatter.format(new Date(value))
 }
 
 const RELATIVE_STEPS: Array<[Intl.RelativeTimeFormatUnit, number]> = [

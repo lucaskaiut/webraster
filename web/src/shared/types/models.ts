@@ -304,6 +304,8 @@ export interface Equipment {
   carrier: string | null
   is_active: boolean
   is_assigned: boolean
+  traccar_status: string | null
+  traccar_last_update: string | null
   created_at: string | null
   updated_at: string | null
 }

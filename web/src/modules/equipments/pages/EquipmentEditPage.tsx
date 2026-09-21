@@ -4,12 +4,16 @@ import {
   ButtonLink,
   Card,
   CardContent,
+  CardHeader,
   EmptyState,
   Page,
   PageContent,
   PageHeader,
   Skeleton,
 } from '@/shared/design-system'
+import { Permission } from '@/shared/constants/permissions'
+import { usePermissions } from '@/shared/hooks/usePermissions'
+import { VehicleCommandsPanel } from '@/modules/tracking/components/VehicleCommandsPanel'
 import { EquipmentForm } from '../forms/EquipmentForm'
 import { useEquipmentQuery, useUpdateEquipment } from '../hooks/useEquipments'
 
@@ -31,6 +35,7 @@ function FormSkeleton() {
 export default function EquipmentEditPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { can } = usePermissions()
 
   const query = useEquipmentQuery(id)
   const updateEquipment = useUpdateEquipment(id ?? '')
@@ -66,21 +71,35 @@ export default function EquipmentEditPage() {
         )}
 
         {query.data && (
-          <EquipmentForm
-            mode="edit"
-            defaultValues={{
-              imei: query.data.imei,
-              model: query.data.model ?? '',
-              iccid: query.data.iccid ?? '',
-              carrier: query.data.carrier ?? '',
-              is_active: query.data.is_active,
-            }}
-            submitting={updateEquipment.isPending}
-            onSubmit={async (payload) => {
-              await updateEquipment.mutateAsync(payload)
-              navigate('/equipments')
-            }}
-          />
+          <>
+            <EquipmentForm
+              mode="edit"
+              defaultValues={{
+                imei: query.data.imei,
+                model: query.data.model ?? '',
+                iccid: query.data.iccid ?? '',
+                carrier: query.data.carrier ?? '',
+                is_active: query.data.is_active,
+              }}
+              submitting={updateEquipment.isPending}
+              onSubmit={async (payload) => {
+                await updateEquipment.mutateAsync(payload)
+                navigate('/equipments')
+              }}
+            />
+
+            {can(Permission.DEVICE_COMMANDS_SEND) && (
+              <Card>
+                <CardHeader
+                  title="Comandos"
+                  description="Envie comandos para este rastreador via Traccar."
+                />
+                <CardContent>
+                  <VehicleCommandsPanel deviceId={query.data.id} />
+                </CardContent>
+              </Card>
+            )}
+          </>
         )}
       </PageContent>
     </Page>

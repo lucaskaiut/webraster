@@ -50,6 +50,15 @@ type IndicatorConfig = {
   details?: string[]
 }
 
+const PER_ROW_CLASS: Record<number, string> = {
+  1: 'grid-cols-1',
+  2: 'grid-cols-2',
+  3: 'grid-cols-3',
+  4: 'grid-cols-4',
+  5: 'grid-cols-5',
+  6: 'grid-cols-6',
+}
+
 function TooltipContent({ title, details }: { title: string; details?: string[] }) {
   return (
     <div className="space-y-0.5 text-xs leading-snug">
@@ -315,25 +324,40 @@ function AlertsIndicator({ vehicle }: { vehicle: TrackingLiveVehicle }) {
 export function VehicleStatusIndicators({
   vehicle,
   now,
+  perRow,
   className,
 }: {
   vehicle: TrackingLiveVehicle
   now: number
+  perRow?: number
   className?: string
 }) {
+  const indicators = [
+    <ConnectionIndicator key="connection" vehicle={vehicle} now={now} />,
+    <IgnitionIndicator key="ignition" vehicle={vehicle} />,
+    <MovementIndicator key="movement" vehicle={vehicle} />,
+    <SpeedIndicator key="speed" vehicle={vehicle} />,
+    <ExternalPowerIndicator key="power" vehicle={vehicle} />,
+    <VoltageIndicator key="voltage" vehicle={vehicle} />,
+    <BatteryIndicator key="battery" vehicle={vehicle} />,
+    <SignalIndicator key="signal" vehicle={vehicle} />,
+    <GpsIndicator key="gps" vehicle={vehicle} />,
+    <BlockIndicator key="block" vehicle={vehicle} />,
+    <AlertsIndicator key="alerts" vehicle={vehicle} />,
+  ]
+
+  const gridClass = perRow ? PER_ROW_CLASS[perRow] : undefined
+
   return (
-    <div className={cn('flex flex-wrap items-center gap-1.5', className)}>
-      <ConnectionIndicator vehicle={vehicle} now={now} />
-      <IgnitionIndicator vehicle={vehicle} />
-      <MovementIndicator vehicle={vehicle} />
-      <SpeedIndicator vehicle={vehicle} />
-      <ExternalPowerIndicator vehicle={vehicle} />
-      <VoltageIndicator vehicle={vehicle} />
-      <BatteryIndicator vehicle={vehicle} />
-      <SignalIndicator vehicle={vehicle} />
-      <GpsIndicator vehicle={vehicle} />
-      <BlockIndicator vehicle={vehicle} />
-      <AlertsIndicator vehicle={vehicle} />
+    <div
+      className={cn(
+        gridClass
+          ? cn('grid justify-items-start gap-1.5', gridClass)
+          : 'flex flex-wrap items-center gap-1.5',
+        className,
+      )}
+    >
+      {indicators}
     </div>
   )
 }

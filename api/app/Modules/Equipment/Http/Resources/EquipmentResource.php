@@ -27,6 +27,8 @@ class EquipmentResource extends JsonResource
             'carrier' => $this->carrier,
             'is_active' => (bool) $this->is_active,
             'is_assigned' => $this->vehicle_id !== null,
+            'traccar_status' => $this->traccar_status,
+            'traccar_last_update' => $this->traccar_last_update?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
