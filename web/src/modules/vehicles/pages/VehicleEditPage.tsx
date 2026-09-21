@@ -20,6 +20,7 @@ import { Can } from '@/app/guards/PermissionGuard'
 import { Permission } from '@/shared/constants/permissions'
 import { formatDateTime } from '@/shared/utils/format'
 import { equipmentsService } from '@/modules/equipments/services/equipments.service'
+import { VehicleCommandsPanel } from '@/modules/tracking/components/VehicleCommandsPanel'
 import { VehicleForm } from '../forms/VehicleForm'
 import { DEFAULT_VEHICLE_TYPE } from '../lib/vehicle-types'
 import {
@@ -228,6 +229,20 @@ export default function VehicleEditPage() {
                     </form>
                   </FormProvider>
                 </Can>
+
+                {vehicle.equipment && (
+                  <Can permission={Permission.DEVICE_COMMANDS_SEND}>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Comandos</p>
+                        <p className="text-[13px] text-muted">
+                          Envie comandos para o rastreador instalado via Traccar.
+                        </p>
+                      </div>
+                      <VehicleCommandsPanel deviceId={vehicle.equipment.id} />
+                    </div>
+                  </Can>
+                )}
               </CardContent>
             </Card>
 
