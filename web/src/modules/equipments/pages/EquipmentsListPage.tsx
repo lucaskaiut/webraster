@@ -14,6 +14,7 @@ import {
   PageHeader,
   Pagination,
   SearchInput,
+  Select,
   type Column,
 } from '@/shared/design-system'
 import { Can } from '@/app/guards/PermissionGuard'
@@ -33,7 +34,12 @@ export default function EquipmentsListPage() {
   const [search, setSearch] = useState(searchParams.get('search') ?? '')
   const debouncedSearch = useDebounce(search)
   const page = Number(searchParams.get('page') ?? 1)
-  const availableOnly = searchParams.get('available') === '1'
+  const availableParam = searchParams.get('available')
+  const statusParam = searchParams.get('is_active')
+
+  const vehicleFilter =
+    availableParam === '1' ? 'available' : availableParam === '0' ? 'assigned' : ''
+  const statusFilter = statusParam === '1' ? 'active' : statusParam === '0' ? 'inactive' : ''
 
   const navigate = useNavigate()
   const { can } = usePermissions()
@@ -45,7 +51,8 @@ export default function EquipmentsListPage() {
     page,
     per_page: PER_PAGE,
     search: debouncedSearch || undefined,
-    available: availableOnly || undefined,
+    available: availableParam === null ? undefined : availableParam === '1',
+    is_active: statusParam === null ? undefined : statusParam === '1',
   })
 
   const canTrack = can(Permission.TRACKING_READ)
@@ -72,19 +79,44 @@ export default function EquipmentsListPage() {
     return map
   }, [liveQuery.data])
 
-  const updateParams = (next: { page?: number; search?: string; available?: boolean }) => {
+  const updateParams = (next: {
+    page?: number
+    search?: string
+    available?: string
+    status?: string
+  }) => {
     setSearchParams(
       (params) => {
         if (next.search !== undefined) {
-          next.search ? params.set('search', next.search) : params.delete('search')
+          if (next.search) {
+            params.set('search', next.search)
+          } else {
+            params.delete('search')
+          }
           params.delete('page')
         }
         if (next.available !== undefined) {
-          next.available ? params.set('available', '1') : params.delete('available')
+          if (next.available) {
+            params.set('available', next.available)
+          } else {
+            params.delete('available')
+          }
+          params.delete('page')
+        }
+        if (next.status !== undefined) {
+          if (next.status) {
+            params.set('is_active', next.status)
+          } else {
+            params.delete('is_active')
+          }
           params.delete('page')
         }
         if (next.page !== undefined) {
-          next.page > 1 ? params.set('page', String(next.page)) : params.delete('page')
+          if (next.page > 1) {
+            params.set('page', String(next.page))
+          } else {
+            params.delete('page')
+          }
         }
         return params
       },
@@ -239,13 +271,46 @@ export default function EquipmentsListPage() {
               updateParams({ search: event.target.value })
             }}
           />
-          <Button
-            variant={availableOnly ? 'primary' : 'secondary'}
-            size="sm"
-            onClick={() => updateParams({ available: !availableOnly })}
-          >
-            {availableOnly ? 'Somente disponíveis' : 'Todos'}
-          </Button>
+          <Select
+            aria-label="Filtrar por veículo"
+            className="w-44"
+            value={vehicleFilter}
+            onChange={(event) =>
+              updateParams({
+                available:
+                  event.target.value === 'available'
+                    ? '1'
+                    : event.target.value === 'assigned'
+                      ? '0'
+                      : '',
+              })
+            }
+            options={[
+              { value: '', label: 'Todos os veículos' },
+              { value: 'assigned', label: 'Com veículo' },
+              { value: 'available', label: 'Sem veículo' },
+            ]}
+          />
+          <Select
+            aria-label="Filtrar por status"
+            className="w-40"
+            value={statusFilter}
+            onChange={(event) =>
+              updateParams({
+                status:
+                  event.target.value === 'active'
+                    ? '1'
+                    : event.target.value === 'inactive'
+                      ? '0'
+                      : '',
+              })
+            }
+            options={[
+              { value: '', label: 'Todos os status' },
+              { value: 'active', label: 'Ativos' },
+              { value: 'inactive', label: 'Inativos' },
+            ]}
+          />
         </FilterBar>
 
         <DataTable

@@ -18,11 +18,14 @@ class EquipmentService
         ?string $search = null,
         ?bool $availableOnly = null,
         ?int $vehicleId = null,
+        ?bool $isActive = null,
     ): LengthAwarePaginator {
         return Equipment::query()
             ->with('vehicle.client')
             ->when($availableOnly === true, fn ($query) => $query->whereNull('vehicle_id'))
+            ->when($availableOnly === false, fn ($query) => $query->whereNotNull('vehicle_id'))
             ->when($vehicleId !== null, fn ($query) => $query->where('vehicle_id', $vehicleId))
+            ->when($isActive !== null, fn ($query) => $query->where('is_active', $isActive))
             ->when(filled($search), function ($query) use ($search): void {
                 $query->where(function ($query) use ($search): void {
                     $query->where('imei', 'like', "%{$search}%")

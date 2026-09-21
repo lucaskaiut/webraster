@@ -4,6 +4,7 @@ import type { Equipment, EquipmentAssignmentEvent } from '@/shared/types/models'
 
 export interface EquipmentListParams extends ListParams {
   available?: boolean
+  is_active?: boolean
   vehicle_id?: string
 }
 

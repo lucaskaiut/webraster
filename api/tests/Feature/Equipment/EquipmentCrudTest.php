@@ -57,6 +57,49 @@ class EquipmentCrudTest extends TestCase
         $this->assertFalse($imeis->contains('100000000000002'));
     }
 
+    public function test_index_can_filter_by_vehicle_and_status(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create();
+
+        Equipment::factory()->forTenant($tenant)->create([
+            'imei' => '100000000000011',
+            'is_active' => true,
+        ]);
+        Equipment::factory()->forTenant($tenant)->create([
+            'imei' => '100000000000012',
+            'is_active' => false,
+        ]);
+        Equipment::factory()->assignedTo($vehicle)->create([
+            'imei' => '100000000000013',
+            'is_active' => true,
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $available = collect($this->getJson('/api/equipments?available=1')->assertOk()->json('data'))
+            ->pluck('imei');
+        $this->assertTrue($available->contains('100000000000011'));
+        $this->assertFalse($available->contains('100000000000013'));
+
+        $assigned = collect($this->getJson('/api/equipments?available=0')->assertOk()->json('data'))
+            ->pluck('imei');
+        $this->assertTrue($assigned->contains('100000000000013'));
+        $this->assertFalse($assigned->contains('100000000000011'));
+        $this->assertFalse($assigned->contains('100000000000012'));
+
+        $active = collect($this->getJson('/api/equipments?is_active=1')->assertOk()->json('data'))
+            ->pluck('imei');
+        $this->assertTrue($active->contains('100000000000011'));
+        $this->assertFalse($active->contains('100000000000012'));
+
+        $inactive = collect($this->getJson('/api/equipments?is_active=0')->assertOk()->json('data'))
+            ->pluck('imei');
+        $this->assertTrue($inactive->contains('100000000000012'));
+        $this->assertFalse($inactive->contains('100000000000011'));
+    }
+
     public function test_index_exposes_traccar_connection_fields(): void
     {
         [, $tenant] = $this->createOperationalChild();
