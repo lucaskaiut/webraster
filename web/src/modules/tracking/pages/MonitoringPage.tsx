@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTrackingLiveQuery, useTrackingStatusQuery } from '../hooks/useTracking'
 import type { GpsPosition } from '@/shared/types/models'
 import type { FleetFilter } from '../lib/tracking'
-import { FleetSidebar } from '../components/FleetSidebar'
+import { FleetPanel } from '../components/FleetPanel'
 import { HistoryDrawer } from '../components/HistoryDrawer'
 import { MonitoringHeader } from '../components/MonitoringHeader'
 import { TrackingMap } from '../components/TrackingMap'
@@ -108,9 +108,49 @@ export default function MonitoringPage() {
         error={liveQuery.isError ? 'tracking' : null}
       />
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[300px_minmax(0,1fr)]">
-        <FleetSidebar
-          className="order-2 max-h-56 lg:order-1 lg:max-h-none"
+      <div className="relative min-h-0 flex-1">
+        <TrackingMap
+          vehicles={vehicles}
+          selectedId={selectedId}
+          onSelect={handleSelect}
+          route={route}
+          playbackPosition={playing || playbackIndex > 0 ? playbackPosition : null}
+          follow={follow}
+          fitRequest={fitRequest}
+          onFitFleet={() => requestFit('fleet')}
+          onFitSelected={() => selected && requestFit('vehicle')}
+          showVehicles={showVehicles}
+          showGeofences={showGeofences && can(Permission.GEOFENCE_READ)}
+          showPois={showPois && can(Permission.POI_READ)}
+          showAlerts={showAlerts && can(Permission.ALERT_READ)}
+          onToggleVehicles={setShowVehicles}
+          onToggleGeofences={setShowGeofences}
+          onTogglePois={setShowPois}
+          onToggleAlerts={setShowAlerts}
+          geofences={geofencesQuery.data ?? []}
+          pois={poisQuery.data ?? []}
+          alerts={alertsQuery.data ?? []}
+          selectedGeofenceId={selectedGeofenceId}
+          selectedPoiId={selectedPoiId}
+          selectedAlertId={selectedAlertId}
+          onSelectGeofence={(id) => {
+            setSelectedGeofenceId(id)
+            setSelectedPoiId(null)
+            setSelectedAlertId(null)
+          }}
+          onSelectPoi={(id) => {
+            setSelectedPoiId(id)
+            setSelectedGeofenceId(null)
+            setSelectedAlertId(null)
+          }}
+          onSelectAlert={(id) => {
+            setSelectedAlertId(id)
+            setSelectedGeofenceId(null)
+            setSelectedPoiId(null)
+          }}
+        />
+
+        <FleetPanel
           vehicles={vehicles}
           search={search}
           onSearch={setSearch}
@@ -122,70 +162,27 @@ export default function MonitoringPage() {
           now={now}
         />
 
-        <div className="relative order-1 min-h-[50vh] flex-1 lg:order-2 lg:min-h-0">
-          <TrackingMap
-            vehicles={vehicles}
-            selectedId={selectedId}
-            onSelect={handleSelect}
-            route={route}
-            playbackPosition={playing || playbackIndex > 0 ? playbackPosition : null}
-            follow={follow}
-            fitRequest={fitRequest}
-            onFitFleet={() => requestFit('fleet')}
-            onFitSelected={() => selected && requestFit('vehicle')}
-            showVehicles={showVehicles}
-            showGeofences={showGeofences && can(Permission.GEOFENCE_READ)}
-            showPois={showPois && can(Permission.POI_READ)}
-            showAlerts={showAlerts && can(Permission.ALERT_READ)}
-            onToggleVehicles={setShowVehicles}
-            onToggleGeofences={setShowGeofences}
-            onTogglePois={setShowPois}
-            onToggleAlerts={setShowAlerts}
-            geofences={geofencesQuery.data ?? []}
-            pois={poisQuery.data ?? []}
-            alerts={alertsQuery.data ?? []}
-            selectedGeofenceId={selectedGeofenceId}
-            selectedPoiId={selectedPoiId}
-            selectedAlertId={selectedAlertId}
-            onSelectGeofence={(id) => {
-              setSelectedGeofenceId(id)
-              setSelectedPoiId(null)
-              setSelectedAlertId(null)
-            }}
-            onSelectPoi={(id) => {
-              setSelectedPoiId(id)
-              setSelectedGeofenceId(null)
-              setSelectedAlertId(null)
-            }}
-            onSelectAlert={(id) => {
-              setSelectedAlertId(id)
-              setSelectedGeofenceId(null)
-              setSelectedPoiId(null)
-            }}
-          />
-
-          {selected && (
-            <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 lg:right-16">
-              <div className="pointer-events-auto">
-                <VehicleInfoPanel
-                  vehicle={selected}
-                  now={now}
-                  follow={follow}
-                  onFollowChange={setFollow}
-                  onCenter={() => requestFit('vehicle')}
-                  onHistory={() => {
-                    setShowEvents(false)
-                    setHistoryOpen(true)
-                  }}
-                  onEvents={() => {
-                    setShowEvents(true)
-                    setHistoryOpen(true)
-                  }}
-                />
-              </div>
+        {selected && (
+          <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 lg:right-16">
+            <div className="pointer-events-auto">
+              <VehicleInfoPanel
+                vehicle={selected}
+                now={now}
+                follow={follow}
+                onFollowChange={setFollow}
+                onCenter={() => requestFit('vehicle')}
+                onHistory={() => {
+                  setShowEvents(false)
+                  setHistoryOpen(true)
+                }}
+                onEvents={() => {
+                  setShowEvents(true)
+                  setHistoryOpen(true)
+                }}
+              />
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       <HistoryDrawer

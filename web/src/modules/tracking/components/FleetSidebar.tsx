@@ -27,6 +27,19 @@ const FILTERS: Array<{ value: FleetFilter; label: string }> = [
   { value: 'no_signal', label: 'Sem sinal' },
 ]
 
+export type FleetSidebarProps = {
+  vehicles: TrackingLiveVehicle[]
+  search: string
+  onSearch: (value: string) => void
+  filter: FleetFilter
+  onFilter: (value: FleetFilter) => void
+  selectedId: string | null
+  onSelect: (id: string) => void
+  loading: boolean
+  now: number
+  className?: string
+}
+
 export function FleetSidebar({
   vehicles,
   search,
@@ -38,18 +51,7 @@ export function FleetSidebar({
   loading,
   now,
   className,
-}: {
-  vehicles: TrackingLiveVehicle[]
-  search: string
-  onSearch: (value: string) => void
-  filter: FleetFilter
-  onFilter: (value: FleetFilter) => void
-  selectedId: string | null
-  onSelect: (id: string) => void
-  loading: boolean
-  now: number
-  className?: string
-}) {
+}: FleetSidebarProps) {
   const stats = fleetStats(vehicles)
   const visible = vehicles.filter(
     (vehicle) => matchesSearch(vehicle, search) && matchesFleetFilter(vehicle, filter),
