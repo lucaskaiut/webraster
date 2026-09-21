@@ -493,6 +493,11 @@ export interface GpsPosition {
   odometer?: number | null
   charging?: boolean | null
   protocol?: string | null
+  valid?: boolean | null
+  signal?: number | null
+  satellites?: number | null
+  voltage?: number | null
+  blocked?: boolean | null
   alarms?: DeviceAlarm[]
 }
 

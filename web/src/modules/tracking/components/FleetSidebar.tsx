@@ -4,6 +4,7 @@ import { cn } from '@/shared/utils/cn'
 import type { TrackingLiveVehicle } from '@/shared/types/models'
 import { AlertTriangle } from 'lucide-react'
 import { VehicleAlarmTooltip } from './VehicleAlarmTooltip'
+import { VehicleStatusIndicators } from './VehicleStatusIndicators'
 import {
   connectionStatus,
   fleetStats,
@@ -191,6 +192,7 @@ const VehicleListItem = memo(function VehicleListItem({
           </span>
           <span>{formatUpdatedAt(vehicle.position?.recorded_at, now)}</span>
         </div>
+        <VehicleStatusIndicators vehicle={vehicle} now={now} className="mt-0.5" />
       </button>
     </li>
   )

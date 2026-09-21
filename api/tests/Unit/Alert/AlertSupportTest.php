@@ -78,4 +78,30 @@ class AlertSupportTest extends TestCase
             TraccarAttributeReader::extractDeviceAlarms(['alarm' => 'powerCut, lowBattery']),
         );
     }
+
+    #[Test]
+    public function reads_telemetry_attributes(): void
+    {
+        $attributes = [
+            'rssi' => 23,
+            'sat' => 19,
+            'adc1' => 14.01,
+            'blocked' => false,
+            'power' => 98,
+        ];
+
+        $this->assertSame(23.0, TraccarAttributeReader::signal($attributes));
+        $this->assertSame(19, TraccarAttributeReader::satellites($attributes));
+        $this->assertSame(14.01, TraccarAttributeReader::voltage($attributes));
+        $this->assertFalse(TraccarAttributeReader::isBlocked($attributes));
+    }
+
+    #[Test]
+    public function ignores_telemetry_values_that_are_not_applicable(): void
+    {
+        $this->assertNull(TraccarAttributeReader::signal([]));
+        $this->assertNull(TraccarAttributeReader::satellites(null));
+        $this->assertNull(TraccarAttributeReader::voltage(['power' => 98]));
+        $this->assertNull(TraccarAttributeReader::isBlocked([]));
+    }
 }

@@ -307,6 +307,89 @@ final class TraccarAttributeReader
     }
 
     /**
+     * Intensidade de sinal GSM bruta reportada pelo protocolo (escala varia:
+     * dBm negativo, 0-5 barras, 0-31 CSQ ou percentual).
+     *
+     * @param  array<string, mixed>|null  $attributes
+     */
+    public static function signal(?array $attributes): ?float
+    {
+        if ($attributes === null) {
+            return null;
+        }
+
+        foreach (['rssi', 'signal', 'gsmSignal', 'signalStrength'] as $key) {
+            if (isset($attributes[$key]) && is_numeric($attributes[$key])) {
+                return (float) $attributes[$key];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Quantidade de satélites fixados pelo GPS, quando o protocolo informa.
+     *
+     * @param  array<string, mixed>|null  $attributes
+     */
+    public static function satellites(?array $attributes): ?int
+    {
+        if ($attributes === null) {
+            return null;
+        }
+
+        foreach (['sat', 'satellites'] as $key) {
+            if (isset($attributes[$key]) && is_numeric($attributes[$key])) {
+                return (int) $attributes[$key];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Tensão da alimentação externa, quando o protocolo informa um valor
+     * compatível com volts (6V a 30V). Evita confundir percentual com tensão.
+     *
+     * @param  array<string, mixed>|null  $attributes
+     */
+    public static function voltage(?array $attributes): ?float
+    {
+        if ($attributes === null) {
+            return null;
+        }
+
+        foreach (['adc1', 'externalPower', 'power'] as $key) {
+            if (! isset($attributes[$key]) || ! is_numeric($attributes[$key])) {
+                continue;
+            }
+
+            $value = (float) $attributes[$key];
+
+            if ($value >= 6.0 && $value <= 30.0) {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Bloqueio veicular reportado pelo dispositivo. Null quando o protocolo
+     * não informa o atributo.
+     *
+     * @param  array<string, mixed>|null  $attributes
+     */
+    public static function isBlocked(?array $attributes): ?bool
+    {
+        if ($attributes === null || ! array_key_exists('blocked', $attributes)) {
+            return null;
+        }
+
+        return filter_var($attributes['blocked'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+    }
+
+    /**
      * Traccar pode enviar vários alarmes no mesmo atributo, separados por vírgula.
      *
      * @return list<string>

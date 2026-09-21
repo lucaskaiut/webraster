@@ -142,6 +142,35 @@ class TrackingLiveTest extends TestCase
             ->assertJsonPath('data.0.position.alarms.0.severity', 'critical');
     }
 
+    public function test_live_exposes_device_telemetry_attributes(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create(['plate' => 'TEL1234']);
+        Equipment::factory()->assignedTo($vehicle)->create(['traccar_device_id' => 78]);
+
+        GpsPosition::factory()->forVehicle($vehicle)->create([
+            'recorded_at' => now()->subMinute(),
+            'valid' => true,
+            'attributes' => [
+                'rssi' => 23,
+                'sat' => 19,
+                'adc1' => 14.01,
+                'blocked' => false,
+            ],
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->getJson('/api/tracking/live')
+            ->assertOk()
+            ->assertJsonPath('data.0.position.valid', true)
+            ->assertJsonPath('data.0.position.signal', 23)
+            ->assertJsonPath('data.0.position.satellites', 19)
+            ->assertJsonPath('data.0.position.voltage', 14.01)
+            ->assertJsonPath('data.0.position.blocked', false);
+    }
+
     public function test_live_resolves_missing_traccar_device_id(): void
     {
         [, $tenant] = $this->createOperationalChild();

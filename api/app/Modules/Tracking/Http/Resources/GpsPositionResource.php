@@ -35,6 +35,11 @@ class GpsPositionResource extends JsonResource
             'odometer' => isset($attributes['totalDistance']) ? (float) $attributes['totalDistance'] : null,
             'charging' => array_key_exists('charge', $attributes) ? (bool) $attributes['charge'] : null,
             'protocol' => isset($attributes['protocol']) ? (string) $attributes['protocol'] : null,
+            'valid' => $this->valid,
+            'signal' => TraccarAttributeReader::signal($attributes),
+            'satellites' => TraccarAttributeReader::satellites($attributes),
+            'voltage' => TraccarAttributeReader::voltage($attributes),
+            'blocked' => TraccarAttributeReader::isBlocked($attributes),
             'alarms' => TraccarAttributeReader::formatAlarmsForApi($attributes),
         ];
     }
