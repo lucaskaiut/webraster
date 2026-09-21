@@ -38,4 +38,10 @@ return [
     | que o webhook não entregou. Desligue para não gerar tráfego extra.
     */
     'sync_enabled' => (bool) env('TRACCAR_SYNC_ENABLED', true),
+
+    /*
+    | Janela de tolerância para considerar o dispositivo online no painel quando
+    | o Traccar reporta comunicação recente (lastUpdate) mesmo sem posição nova.
+    */
+    'online_signal_minutes' => (int) env('TRACCAR_ONLINE_SIGNAL_MINUTES', 10),
 ];

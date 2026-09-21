@@ -23,6 +23,49 @@ class TrackingLiveTest extends TestCase
     use InteractsWithTenants;
     use RefreshDatabase;
 
+    public function test_live_uses_recent_traccar_signal_when_position_is_stale(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create(['plate' => 'ABC1D23']);
+        Equipment::factory()->assignedTo($vehicle)->create([
+            'traccar_device_id' => 42,
+            'traccar_status' => 'offline',
+            'traccar_last_update' => now()->subMinutes(2),
+        ]);
+
+        GpsPosition::factory()->forVehicle($vehicle)->create([
+            'recorded_at' => now()->subHour(),
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->getJson('/api/tracking/live')
+            ->assertOk()
+            ->assertJsonPath('data.0.online', true);
+    }
+
+    public function test_live_is_offline_when_position_and_traccar_signal_are_stale(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create(['plate' => 'ABC1D23']);
+        Equipment::factory()->assignedTo($vehicle)->create([
+            'traccar_device_id' => 42,
+            'traccar_last_update' => now()->subMinutes(30),
+        ]);
+
+        GpsPosition::factory()->forVehicle($vehicle)->create([
+            'recorded_at' => now()->subHour(),
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->getJson('/api/tracking/live')
+            ->assertOk()
+            ->assertJsonPath('data.0.online', false);
+    }
+
     public function test_live_reads_latest_position_from_database(): void
     {
         [, $tenant] = $this->createOperationalChild();

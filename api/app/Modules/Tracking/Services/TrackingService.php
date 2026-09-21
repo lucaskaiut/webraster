@@ -17,6 +17,12 @@ use Illuminate\Validation\ValidationException;
 
 class TrackingService
 {
+    /**
+     * Janela em minutos para considerar a última posição persistida como sinal
+     * de que o veículo está online.
+     */
+    private const POSITION_ONLINE_MINUTES = 15;
+
     public function __construct(
         private readonly TraccarGateway $traccar,
         private readonly GeofenceDetectionService $geofenceDetection,
@@ -80,16 +86,35 @@ class TrackingService
         return $vehicles->map(function (Vehicle $vehicle) use ($positions, $now) {
             $position = $positions->get($vehicle->getKey());
 
-            $online = $position !== null
-                && $position->recorded_at !== null
-                && $position->recorded_at->greaterThan($now->subMinutes(15));
-
             return [
                 'vehicle' => $vehicle,
                 'position' => $position,
-                'online' => $online,
+                'online' => $this->isOnline($vehicle, $position, $now),
             ];
         })->values();
+    }
+
+    /**
+     * Online quando a última posição é recente ou quando o Traccar reporta
+     * comunicação recente do dispositivo (lastUpdate), mesmo sem posição nova.
+     */
+    private function isOnline(Vehicle $vehicle, ?GpsPosition $position, CarbonImmutable $now): bool
+    {
+        if ($position !== null
+            && $position->recorded_at !== null
+            && $position->recorded_at->greaterThan($now->subMinutes(self::POSITION_ONLINE_MINUTES))) {
+            return true;
+        }
+
+        $lastUpdate = $vehicle->equipment?->traccar_last_update;
+
+        if ($lastUpdate === null) {
+            return false;
+        }
+
+        return $lastUpdate->greaterThan(
+            $now->subMinutes((int) config('traccar.online_signal_minutes', 10)),
+        );
     }
 
     /**

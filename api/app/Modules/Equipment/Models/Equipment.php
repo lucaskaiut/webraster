@@ -27,6 +27,8 @@ class Equipment extends Model
         'vehicle_id',
         'imei',
         'traccar_device_id',
+        'traccar_status',
+        'traccar_last_update',
         'model',
         'iccid',
         'carrier',
@@ -39,6 +41,7 @@ class Equipment extends Model
         return [
             'is_active' => 'boolean',
             'billing_suspended_at' => 'datetime',
+            'traccar_last_update' => 'datetime',
         ];
     }
 

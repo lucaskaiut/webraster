@@ -2,6 +2,8 @@
 
 namespace App\Modules\Tracking\DTOs;
 
+use Carbon\CarbonImmutable;
+
 readonly class TraccarDevice
 {
     public function __construct(
@@ -10,6 +12,7 @@ readonly class TraccarDevice
         public string $name,
         public ?string $status = null,
         public ?int $positionId = null,
+        public ?CarbonImmutable $lastUpdate = null,
     ) {}
 
     /**
@@ -23,6 +26,9 @@ readonly class TraccarDevice
             name: (string) ($payload['name'] ?? $payload['uniqueId']),
             status: isset($payload['status']) ? (string) $payload['status'] : null,
             positionId: isset($payload['positionId']) ? (int) $payload['positionId'] : null,
+            lastUpdate: filled($payload['lastUpdate'] ?? null)
+                ? CarbonImmutable::parse((string) $payload['lastUpdate'])
+                : null,
         );
     }
 }
