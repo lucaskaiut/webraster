@@ -13,12 +13,29 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
 }
 
-function isDesktop(): boolean {
-  return typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches
+export type FleetPanelProps = FleetSidebarProps & {
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }
 
-export function FleetPanel(props: FleetSidebarProps) {
-  const [open, setOpen] = useState(isDesktop)
+export function FleetPanelToggle({ count, onClick }: { count: number; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Mostrar lista de veículos"
+      className="-mx-1 flex cursor-pointer items-center gap-3 rounded-lg px-1 py-1 text-left text-sm text-foreground transition-colors hover:bg-surface-2"
+    >
+      <span className="flex size-4.5 items-center justify-center text-muted">
+        <List className="size-4" aria-hidden="true" />
+      </span>
+      <span className="flex-1">Lista de veículos</span>
+      <span className="rounded-full bg-surface-2 px-1.5 text-xs text-muted">{count}</span>
+    </button>
+  )
+}
+
+export function FleetPanel({ open, onOpenChange, ...props }: FleetPanelProps) {
   const [position, setPosition] = useState(INITIAL_POSITION)
   const panelRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ pointerId: number; offsetX: number; offsetY: number } | null>(null)
@@ -90,24 +107,8 @@ export function FleetPanel(props: FleetSidebarProps) {
     dragRef.current = null
   }
 
-  const handleSelect = (id: string) => {
-    props.onSelect(id)
-    if (!isDesktop()) setOpen(false)
-  }
-
   if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label="Mostrar lista de veículos"
-        className="animate-fade-in absolute top-1/2 left-3 z-20 flex -translate-y-1/2 items-center gap-2 rounded-lg bg-surface px-2.5 py-2 text-sm font-medium text-foreground shadow-pop transition-colors hover:bg-surface-2"
-      >
-        <List className="size-4" aria-hidden="true" />
-        <span className="hidden sm:inline">Veículos</span>
-        <span className="rounded-full bg-surface-2 px-1.5 text-xs text-muted">{stats.total}</span>
-      </button>
-    )
+    return null
   }
 
   return (
@@ -139,7 +140,7 @@ export function FleetPanel(props: FleetSidebarProps) {
         <span className="text-xs text-muted">{stats.total}</span>
         <button
           type="button"
-          onClick={() => setOpen(false)}
+          onClick={() => onOpenChange(false)}
           aria-label="Esconder lista de veículos"
           className="ml-auto flex size-7 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
         >
@@ -149,7 +150,6 @@ export function FleetPanel(props: FleetSidebarProps) {
 
       <FleetSidebar
         {...props}
-        onSelect={handleSelect}
         className="min-h-0 flex-1 rounded-none bg-transparent shadow-none"
       />
     </div>

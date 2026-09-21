@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTrackingLiveQuery, useTrackingStatusQuery } from '../hooks/useTracking'
 import type { GpsPosition } from '@/shared/types/models'
 import type { FleetFilter } from '../lib/tracking'
-import { FleetPanel } from '../components/FleetPanel'
+import { FleetPanel, FleetPanelToggle } from '../components/FleetPanel'
 import { HistoryDrawer } from '../components/HistoryDrawer'
 import { MonitoringHeader } from '../components/MonitoringHeader'
 import { TrackingMap } from '../components/TrackingMap'
@@ -30,6 +30,9 @@ export default function MonitoringPage() {
     target: 'fleet' | 'vehicle' | 'route'
   } | null>(null)
   const [showVehicles, setShowVehicles] = useState(true)
+  const [fleetOpen, setFleetOpen] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches,
+  )
   const [showGeofences, setShowGeofences] = useState(true)
   const [showPois, setShowPois] = useState(true)
   const [showAlerts, setShowAlerts] = useState(true)
@@ -85,7 +88,18 @@ export default function MonitoringPage() {
     setPlaybackIndex(0)
     setPlaying(false)
     setFollow(false)
+    setFleetOpen(false)
     setFitRequest((current) => ({ id: (current?.id ?? 0) + 1, target: 'vehicle' }))
+  }, [])
+
+  const handleClose = useCallback(() => {
+    setSelectedId(null)
+    setRoute([])
+    setPlaybackIndex(0)
+    setPlaying(false)
+    setFollow(false)
+    setHistoryOpen(false)
+    setShowEvents(false)
   }, [])
 
   const handleRouteChange = useCallback(
@@ -148,9 +162,16 @@ export default function MonitoringPage() {
             setSelectedGeofenceId(null)
             setSelectedPoiId(null)
           }}
+          layersAction={
+            fleetOpen ? null : (
+              <FleetPanelToggle count={vehicles.length} onClick={() => setFleetOpen(true)} />
+            )
+          }
         />
 
         <FleetPanel
+          open={fleetOpen}
+          onOpenChange={setFleetOpen}
           vehicles={vehicles}
           search={search}
           onSearch={setSearch}
@@ -179,6 +200,7 @@ export default function MonitoringPage() {
                   setShowEvents(true)
                   setHistoryOpen(true)
                 }}
+                onClose={handleClose}
               />
             </div>
           </div>

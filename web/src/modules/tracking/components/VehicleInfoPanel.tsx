@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { X } from 'lucide-react'
 import { Button, SegmentedControl, Switch } from '@/shared/design-system'
 import { VehicleAlarmTooltip } from './VehicleAlarmTooltip'
 import type { TrackingLiveVehicle } from '@/shared/types/models'
@@ -28,6 +29,7 @@ export function VehicleInfoPanel({
   onCenter,
   onHistory,
   onEvents,
+  onClose,
 }: {
   vehicle: TrackingLiveVehicle
   now: number
@@ -36,6 +38,7 @@ export function VehicleInfoPanel({
   onCenter: () => void
   onHistory: () => void
   onEvents: () => void
+  onClose: () => void
 }) {
   const { can } = usePermissions()
   const [tab, setTab] = useState<PanelTab>('info')
@@ -65,10 +68,21 @@ export function VehicleInfoPanel({
             {vehicle.client?.name ? ` · ${vehicle.client.name}` : ''}
           </p>
         </div>
-        <p className="text-xs text-muted">
-          {connection === 'online' ? 'Online' : connection === 'offline' ? 'Offline' : 'Sem posição'}
-          {motion === 'moving' ? ' · Em movimento' : motion === 'stopped' ? ' · Parado' : ''}
-        </p>
+        <div className="flex shrink-0 items-center gap-2">
+          <p className="text-xs text-muted">
+            {connection === 'online' ? 'Online' : connection === 'offline' ? 'Offline' : 'Sem posição'}
+            {motion === 'moving' ? ' · Em movimento' : motion === 'stopped' ? ' · Parado' : ''}
+          </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            aria-label="Fechar painel do veículo"
+            className="size-8 px-0"
+          >
+            <X className="size-4" aria-hidden="true" />
+          </Button>
+        </div>
       </div>
 
       <dl className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">

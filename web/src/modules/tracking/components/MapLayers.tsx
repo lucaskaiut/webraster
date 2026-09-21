@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, type ReactNode } from 'react'
 import { useMap, AdvancedMarker } from '@vis.gl/react-google-maps'
 import { Checkbox } from '@/shared/design-system'
 import type { Geofence, Poi } from '@/shared/types/models'
@@ -165,6 +165,7 @@ export function MapLayerToggles({
   onToggleGeofences,
   onTogglePois,
   onToggleAlerts,
+  action,
 }: {
   showVehicles: boolean
   showGeofences: boolean
@@ -174,6 +175,7 @@ export function MapLayerToggles({
   onToggleGeofences: (value: boolean) => void
   onTogglePois: (value: boolean) => void
   onToggleAlerts?: (value: boolean) => void
+  action?: ReactNode
 }) {
   return (
     <div className="absolute top-3 left-3 flex flex-col gap-2 rounded-xl bg-surface/95 p-3 shadow-card">
@@ -199,6 +201,7 @@ export function MapLayerToggles({
           onChange={(event) => onToggleAlerts(event.target.checked)}
         />
       )}
+      {action}
     </div>
   )
 }

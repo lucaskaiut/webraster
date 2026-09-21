@@ -1,5 +1,5 @@
 import { APIProvider, Map, AdvancedMarker, useMap } from '@vis.gl/react-google-maps'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { Crosshair, Locate } from 'lucide-react'
 import type { Alert, Geofence, GpsPosition, Poi, TrackingLiveVehicle } from '@/shared/types/models'
 import { cn } from '@/shared/utils/cn'
@@ -212,6 +212,7 @@ export function TrackingMap({
   onSelectGeofence,
   onSelectPoi,
   onSelectAlert,
+  layersAction,
 }: {
   vehicles: TrackingLiveVehicle[]
   selectedId: string | null
@@ -239,6 +240,7 @@ export function TrackingMap({
   onSelectGeofence?: (id: string) => void
   onSelectPoi?: (id: string) => void
   onSelectAlert?: (id: string) => void
+  layersAction?: ReactNode
 }) {
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined
 
@@ -339,6 +341,7 @@ export function TrackingMap({
           onToggleGeofences={onToggleGeofences}
           onTogglePois={onTogglePois}
           onToggleAlerts={onToggleAlerts}
+          action={layersAction}
         />
       )}
 
