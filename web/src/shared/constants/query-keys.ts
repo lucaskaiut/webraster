@@ -131,6 +131,7 @@ export const queryKeys = {
       ['tracking', 'history', vehicleId, from, to] as const,
     status: () => ['tracking', 'status'] as const,
     commands: (deviceId: string) => ['tracking', 'commands', deviceId] as const,
+    commandsHistory: (deviceId: string) => ['tracking', 'commands-history', deviceId] as const,
   },
 
   reports: {

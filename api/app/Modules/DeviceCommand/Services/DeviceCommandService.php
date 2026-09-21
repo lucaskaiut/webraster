@@ -32,6 +32,20 @@ class DeviceCommandService
     }
 
     /**
+     * @return Collection<int, DeviceCommandLog>
+     */
+    public function history(Equipment $equipment, int $limit = 50): Collection
+    {
+        return DeviceCommandLog::query()
+            ->with(['vehicle', 'equipment'])
+            ->where('equipment_id', $equipment->getKey())
+            ->orderByDesc('requested_at')
+            ->orderByDesc('id')
+            ->limit(min(max($limit, 1), 100))
+            ->get();
+    }
+
+    /**
      * @param  array<string, mixed>  $attributes
      */
     public function send(Equipment $equipment, string $type, array $attributes, User $user): DeviceCommandLog

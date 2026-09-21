@@ -177,6 +177,30 @@ class DeviceCommandTest extends TestCase
         });
     }
 
+    public function test_lists_command_history_only_for_the_equipment(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $equipment = $this->makeLinkedEquipment($tenant, traccarId: 42);
+        $other = $this->makeLinkedEquipment($tenant, traccarId: 43);
+
+        DeviceCommandLog::factory()->forEquipment($equipment)->create([
+            'command_type' => 'engineStop',
+            'requested_at' => now()->subMinute(),
+        ]);
+
+        DeviceCommandLog::factory()->forEquipment($other)->create([
+            'command_type' => 'engineResume',
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->getJson("/api/devices/{$equipment->uuid}/commands/history")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.command_type', 'engineStop')
+            ->assertJsonPath('data.0.status', 'success');
+    }
+
     public function test_forbids_send_without_permission(): void
     {
         [, $tenant] = $this->createOperationalChild();

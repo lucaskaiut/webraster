@@ -34,4 +34,11 @@ export const deviceCommandsService = {
     )
     return response.data.data
   },
+
+  async history(deviceId: string): Promise<DeviceCommandLog[]> {
+    const response = await http.get<ApiResponse<DeviceCommandLog[]>>(
+      `/devices/${deviceId}/commands/history`,
+    )
+    return response.data.data
+  },
 }

@@ -23,6 +23,15 @@ class DeviceCommandController extends ApiController
         return $this->success($commands->all());
     }
 
+    public function history(Equipment $device): JsonResponse
+    {
+        $this->ensureCan('viewCommands', $device);
+
+        return $this->success(
+            DeviceCommandLogResource::collection($this->service->history($device)),
+        );
+    }
+
     public function store(SendDeviceCommandRequest $request, Equipment $device): JsonResponse
     {
         $this->ensureCan('send', $device);

@@ -16,6 +16,14 @@ export function useDeviceCommandsQuery(deviceId: string | null | undefined, enab
   })
 }
 
+export function useDeviceCommandsHistoryQuery(deviceId: string | null | undefined, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.tracking.commandsHistory(deviceId ?? ''),
+    queryFn: () => deviceCommandsService.history(deviceId!),
+    enabled: !!deviceId && enabled,
+  })
+}
+
 export function useSendDeviceCommand(deviceId: string) {
   const queryClient = useQueryClient()
 
@@ -23,6 +31,7 @@ export function useSendDeviceCommand(deviceId: string) {
     mutationFn: (payload: SendDeviceCommandPayload) => deviceCommandsService.send(deviceId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.tracking.commands(deviceId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.tracking.commandsHistory(deviceId) })
       toast.success('Comando enviado')
     },
     onError: (error) => {

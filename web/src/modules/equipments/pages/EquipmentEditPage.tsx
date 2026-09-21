@@ -14,6 +14,7 @@ import {
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import { VehicleCommandsPanel } from '@/modules/tracking/components/VehicleCommandsPanel'
+import { DeviceCommandHistory } from '@/modules/tracking/components/DeviceCommandHistory'
 import { EquipmentForm } from '../forms/EquipmentForm'
 import { useEquipmentQuery, useUpdateEquipment } from '../hooks/useEquipments'
 
@@ -96,6 +97,18 @@ export default function EquipmentEditPage() {
                 />
                 <CardContent>
                   <VehicleCommandsPanel deviceId={query.data.id} />
+                </CardContent>
+              </Card>
+            )}
+
+            {can(Permission.DEVICE_COMMANDS_SEND) && (
+              <Card>
+                <CardHeader
+                  title="Histórico de comandos"
+                  description="Últimos comandos enviados a este rastreador."
+                />
+                <CardContent>
+                  <DeviceCommandHistory deviceId={query.data.id} />
                 </CardContent>
               </Card>
             )}

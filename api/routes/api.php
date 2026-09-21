@@ -172,6 +172,7 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::get('equipments/{equipment}/assignment-history', [EquipmentController::class, 'assignmentHistory'])->middleware('permission:equipment.read');
 
     Route::get('devices/{device}/commands', [DeviceCommandController::class, 'index'])->middleware('permission:device.commands.send');
+    Route::get('devices/{device}/commands/history', [DeviceCommandController::class, 'history'])->middleware('permission:device.commands.send');
     Route::post('devices/{device}/commands', [DeviceCommandController::class, 'store'])->middleware('permission:device.commands.send');
 
     Route::get('reports/commands', [ReportController::class, 'commands'])->middleware('permission:report.view');
