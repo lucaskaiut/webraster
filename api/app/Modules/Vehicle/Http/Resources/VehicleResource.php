@@ -30,6 +30,7 @@ class VehicleResource extends JsonResource
             'model' => $this->model,
             'color' => $this->color,
             'year' => $this->year,
+            'vehicle_type' => $this->vehicle_type ? (int) $this->vehicle_type : null,
             'transmission' => $this->transmission,
             'odometer' => $this->odometer,
             'max_speed_kmh' => $this->max_speed_kmh,

@@ -4,6 +4,7 @@ import { Crosshair, Locate } from 'lucide-react'
 import type { Alert, Geofence, GpsPosition, Poi, TrackingLiveVehicle } from '@/shared/types/models'
 import { cn } from '@/shared/utils/cn'
 import { connectionStatus, hasActiveAlarm } from '../lib/tracking'
+import { vehicleTypeIcon } from '@/modules/vehicles/lib/vehicle-types'
 import { MapLayerToggles, MapLayersOverlay } from './MapLayers'
 
 const DEFAULT_CENTER = { lat: -15.78, lng: -47.93 }
@@ -148,7 +149,7 @@ function VehicleMarker({
 
   const status = connectionStatus(vehicle)
   const alarm = hasActiveAlarm(vehicle)
-  const heading = vehicle.position.heading ?? 0
+  const TypeIcon = vehicleTypeIcon(vehicle.vehicle_type)
 
   return (
     <AdvancedMarker
@@ -168,9 +169,8 @@ function VehicleMarker({
             selected && 'ring-2 ring-primary ring-offset-1 ring-offset-white',
             alarm && !selected && 'ring-2 ring-danger/40 ring-offset-1 ring-offset-white',
           )}
-          style={{ transform: `rotate(${heading}deg)` }}
         >
-          <span className="block h-2.5 w-1.5 rounded-sm bg-white" />
+          <TypeIcon className="size-4 text-white" aria-hidden="true" />
         </div>
         <span
           className={cn(

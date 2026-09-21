@@ -24,6 +24,7 @@ import {
   vehicleSchema,
   type VehicleFormValues,
 } from '../schemas/vehicle.schema'
+import { DEFAULT_VEHICLE_TYPE, vehicleTypeOptions } from '../lib/vehicle-types'
 
 interface VehicleFormProps {
   mode: 'create' | 'edit'
@@ -70,6 +71,7 @@ export function VehicleForm({
       model: '',
       color: '',
       year: '',
+      vehicle_type: String(DEFAULT_VEHICLE_TYPE),
       transmission: '',
       odometer: '',
       max_speed_kmh: '',
@@ -107,6 +109,7 @@ export function VehicleForm({
       model: values.model || null,
       color: values.color || null,
       year: values.year ? Number(values.year) : null,
+      vehicle_type: values.vehicle_type ? Number(values.vehicle_type) : null,
       transmission: values.transmission || null,
       odometer: values.odometer ? Number(values.odometer) : null,
       max_speed_kmh: values.max_speed_kmh ? Number(values.max_speed_kmh) : null,
@@ -178,6 +181,14 @@ export function VehicleForm({
               <TextField name="model" label="Modelo" loading={plateLoading} />
               <TextField name="color" label="Cor" loading={plateLoading} />
               <TextField name="year" label="Ano" type="number" placeholder="2024" loading={plateLoading} />
+              <SelectField
+                name="vehicle_type"
+                label="Tipo de veículo"
+                required
+                placeholder="Selecione"
+                options={vehicleTypeOptions}
+                loading={plateLoading}
+              />
               <SelectField
                 name="transmission"
                 label="Transmissão"

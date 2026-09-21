@@ -34,6 +34,7 @@ class LiveTrackingItemResource extends JsonResource
             'model' => $vehicle->model,
             'color' => $vehicle->color,
             'year' => $vehicle->year,
+            'vehicle_type' => $vehicle->vehicle_type ? (int) $vehicle->vehicle_type : null,
             'client_id' => $vehicle->client?->uuid,
             'client' => $vehicle->relationLoaded('client')
                 ? ClientResource::make($vehicle->client)

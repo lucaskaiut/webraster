@@ -79,6 +79,7 @@ class VehicleService
             'model',
             'color',
             'year',
+            'vehicle_type',
             'transmission',
             'odometer',
             'max_speed_kmh',

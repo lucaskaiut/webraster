@@ -32,6 +32,7 @@ class Vehicle extends Model
         'model',
         'color',
         'year',
+        'vehicle_type',
         'transmission',
         'odometer',
         'max_speed_kmh',
@@ -55,6 +56,7 @@ class Vehicle extends Model
     {
         return [
             'year' => 'integer',
+            'vehicle_type' => 'integer',
             'odometer' => 'integer',
             'max_speed_kmh' => 'integer',
             'speed_hysteresis_percent' => 'integer',

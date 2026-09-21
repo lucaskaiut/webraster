@@ -322,6 +322,7 @@ export interface Vehicle {
   model: string | null
   color: string | null
   year: number | null
+  vehicle_type: number | null
   transmission: VehicleTransmission | null
   odometer: number | null
   max_speed_kmh: number | null
@@ -510,6 +511,7 @@ export interface TrackingLiveVehicle {
   model: string | null
   color: string | null
   year: number | null
+  vehicle_type: number | null
   client_id: string | null
   client?: Client | null
   equipment?: Equipment | null

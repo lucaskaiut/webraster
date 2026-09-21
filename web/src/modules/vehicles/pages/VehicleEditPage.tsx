@@ -21,6 +21,7 @@ import { Permission } from '@/shared/constants/permissions'
 import { formatDateTime } from '@/shared/utils/format'
 import { equipmentsService } from '@/modules/equipments/services/equipments.service'
 import { VehicleForm } from '../forms/VehicleForm'
+import { DEFAULT_VEHICLE_TYPE } from '../lib/vehicle-types'
 import {
   useInstallEquipment,
   useRemoveEquipment,
@@ -142,6 +143,9 @@ export default function VehicleEditPage() {
                 model: vehicle.model ?? '',
                 color: vehicle.color ?? '',
                 year: vehicle.year ? String(vehicle.year) : '',
+                vehicle_type: vehicle.vehicle_type
+                  ? String(vehicle.vehicle_type)
+                  : String(DEFAULT_VEHICLE_TYPE),
                 transmission: vehicle.transmission ?? '',
                 odometer: vehicle.odometer ? String(vehicle.odometer) : '',
                 max_speed_kmh: vehicle.max_speed_kmh ? String(vehicle.max_speed_kmh) : '',

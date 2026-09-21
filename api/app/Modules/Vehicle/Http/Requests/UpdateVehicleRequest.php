@@ -5,6 +5,7 @@ namespace App\Modules\Vehicle\Http\Requests;
 use App\Modules\Client\Models\Client;
 use App\Modules\Tenant\Support\Facades\TenantContext;
 use App\Modules\Vehicle\Enums\VehicleTransmission;
+use App\Modules\Vehicle\Enums\VehicleType;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -41,6 +42,7 @@ class UpdateVehicleRequest extends FormRequest
             'model' => ['sometimes', 'nullable', 'string', 'max:100'],
             'color' => ['sometimes', 'nullable', 'string', 'max:50'],
             'year' => ['sometimes', 'nullable', 'integer', 'min:1900', 'max:'.((int) date('Y') + 1)],
+            'vehicle_type' => ['sometimes', 'nullable', Rule::enum(VehicleType::class)],
             'transmission' => ['sometimes', 'nullable', Rule::enum(VehicleTransmission::class)],
             'odometer' => ['sometimes', 'nullable', 'integer', 'min:0'],
             'max_speed_kmh' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:300'],

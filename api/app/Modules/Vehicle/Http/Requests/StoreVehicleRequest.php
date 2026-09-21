@@ -5,6 +5,7 @@ namespace App\Modules\Vehicle\Http\Requests;
 use App\Modules\Client\Models\Client;
 use App\Modules\Tenant\Support\Facades\TenantContext;
 use App\Modules\Vehicle\Enums\VehicleTransmission;
+use App\Modules\Vehicle\Enums\VehicleType;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -36,6 +37,7 @@ class StoreVehicleRequest extends FormRequest
             'model' => ['nullable', 'string', 'max:100'],
             'color' => ['nullable', 'string', 'max:50'],
             'year' => ['nullable', 'integer', 'min:1900', 'max:'.((int) date('Y') + 1)],
+            'vehicle_type' => ['nullable', Rule::enum(VehicleType::class)],
             'transmission' => ['nullable', Rule::enum(VehicleTransmission::class)],
             'odometer' => ['nullable', 'integer', 'min:0'],
             'max_speed_kmh' => ['nullable', 'integer', 'min:1', 'max:300'],

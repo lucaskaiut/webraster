@@ -70,7 +70,7 @@ class TrackingLiveTest extends TestCase
     {
         [, $tenant] = $this->createOperationalChild();
         $client = Client::factory()->for($tenant)->create();
-        $vehicle = Vehicle::factory()->forClient($client)->create(['plate' => 'ABC1D23']);
+        $vehicle = Vehicle::factory()->forClient($client)->create(['plate' => 'ABC1D23', 'vehicle_type' => 1]);
         Equipment::factory()->assignedTo($vehicle)->create(['traccar_device_id' => 42]);
 
         GpsPosition::factory()->forVehicle($vehicle)->create([
@@ -86,6 +86,7 @@ class TrackingLiveTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.id', $vehicle->uuid)
             ->assertJsonPath('data.0.plate', 'ABC1D23')
+            ->assertJsonPath('data.0.vehicle_type', 1)
             ->assertJsonPath('data.0.online', true)
             ->assertJsonPath('data.0.position.latitude', -25.4284)
             ->assertJsonPath('data.0.position.longitude', -49.2733)

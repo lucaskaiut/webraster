@@ -19,6 +19,7 @@ export interface VehiclePayload {
   model?: string | null
   color?: string | null
   year?: number | null
+  vehicle_type?: number | null
   transmission?: VehicleTransmission | null
   odometer?: number | null
   max_speed_kmh?: number | null

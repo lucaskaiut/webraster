@@ -31,6 +31,7 @@ class VehicleCrudTest extends TestCase
             'model' => 'Gol',
             'color' => 'Branco',
             'year' => 2022,
+            'vehicle_type' => 2,
             'transmission' => 'automatic',
             'odometer' => 45000,
             'max_speed_kmh' => 80,
@@ -41,6 +42,7 @@ class VehicleCrudTest extends TestCase
             ->assertJsonPath('data.plate', 'ABC1D23')
             ->assertJsonPath('data.client_id', $client->uuid)
             ->assertJsonPath('data.brand', 'Volkswagen')
+            ->assertJsonPath('data.vehicle_type', 2)
             ->assertJsonPath('data.transmission', 'automatic')
             ->assertJsonPath('data.odometer', 45000)
             ->assertJsonPath('data.max_speed_kmh', 80);
@@ -49,7 +51,24 @@ class VehicleCrudTest extends TestCase
             'tenant_id' => $tenant->getKey(),
             'client_id' => $client->getKey(),
             'plate' => 'ABC1D23',
+            'vehicle_type' => 2,
         ]);
+    }
+
+    public function test_store_rejects_unknown_vehicle_type(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->postJson('/api/vehicles', [
+            'client_id' => $client->uuid,
+            'plate' => 'abc1d23',
+            'vehicle_type' => 123456,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('vehicle_type');
     }
 
     public function test_index_can_filter_by_client(): void
@@ -81,12 +100,14 @@ class VehicleCrudTest extends TestCase
         $this->putJson("/api/vehicles/{$vehicle->uuid}", [
             'plate' => 'ddd4e56',
             'color' => 'Preto',
+            'vehicle_type' => 16,
             'transmission' => 'manual',
             'odometer' => 120000,
         ])
             ->assertOk()
             ->assertJsonPath('data.plate', 'DDD4E56')
             ->assertJsonPath('data.color', 'Preto')
+            ->assertJsonPath('data.vehicle_type', 16)
             ->assertJsonPath('data.transmission', 'manual')
             ->assertJsonPath('data.odometer', 120000);
 

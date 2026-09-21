@@ -15,6 +15,7 @@ export const vehicleSchema = z.object({
   model: z.string(),
   color: z.string(),
   year: z.string(),
+  vehicle_type: z.string().min(1, 'Selecione o tipo de veículo'),
   transmission: z.enum(['manual', 'automatic', 'automated', '']),
   odometer: z.string(),
   max_speed_kmh: z.string(),
