@@ -339,13 +339,22 @@ function UserMenu() {
 export function AppLayout() {
   const location = useLocation()
   const sidebarOpen = useUiStore((state) => state.sidebarOpen)
+  const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed)
   const closeSidebar = useUiStore((state) => state.closeSidebar)
   const openSidebar = useUiStore((state) => state.openSidebar)
+  const toggleSidebarCollapsed = useUiStore((state) => state.toggleSidebarCollapsed)
   const isMonitoring = location.pathname === '/monitoring'
 
   return (
     <div className="flex h-dvh overflow-hidden">
-      <div className="z-20 hidden shrink-0 shadow-card lg:block">
+      <div
+        className={cn(
+          'z-20 hidden shrink-0 shadow-card transition-[margin] duration-200 ease-in-out motion-reduce:transition-none lg:block',
+          sidebarCollapsed && '-ml-64',
+        )}
+        inert={sidebarCollapsed}
+        aria-hidden={sidebarCollapsed}
+      >
         <SidebarNavigation />
       </div>
 
@@ -372,6 +381,14 @@ export function AppLayout() {
             onClick={openSidebar}
             aria-label="Abrir menu"
             className="flex size-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground lg:hidden"
+          >
+            <Menu className="size-5" />
+          </button>
+          <button
+            type="button"
+            onClick={toggleSidebarCollapsed}
+            aria-label={sidebarCollapsed ? 'Mostrar menu' : 'Esconder menu'}
+            className="hidden size-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground lg:flex"
           >
             <Menu className="size-5" />
           </button>
