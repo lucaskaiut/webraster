@@ -40,6 +40,8 @@ class AlertSupportTest extends TestCase
         $this->assertSame(15.0, TraccarAttributeReader::batteryPercent(15));
         $this->assertNull(TraccarAttributeReader::batteryPercent(12.6));
         $this->assertSame(10.0, TraccarAttributeReader::batteryPercent(null, ['batteryLevel' => 10]));
+        $this->assertSame(94.0, TraccarAttributeReader::batteryPercent(null, ['power' => 94]));
+        $this->assertNull(TraccarAttributeReader::batteryPercent(null, ['power' => 12.6]));
     }
 
     #[Test]

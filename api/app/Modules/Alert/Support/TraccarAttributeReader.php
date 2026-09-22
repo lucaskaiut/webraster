@@ -283,10 +283,12 @@ final class TraccarAttributeReader
         $value = $battery;
 
         if ($value === null && is_array($attributes)) {
-            if (isset($attributes['batteryLevel'])) {
-                $value = (float) $attributes['batteryLevel'];
-            } elseif (isset($attributes['battery'])) {
-                $value = (float) $attributes['battery'];
+            foreach (['batteryLevel', 'battery', 'power'] as $key) {
+                if (isset($attributes[$key]) && is_numeric($attributes[$key])) {
+                    $value = (float) $attributes[$key];
+
+                    break;
+                }
             }
         }
 
@@ -359,7 +361,7 @@ final class TraccarAttributeReader
             return null;
         }
 
-        foreach (['adc1', 'externalPower', 'power'] as $key) {
+        foreach (['adc1', 'externalPower', 'power', 'voltage', 'batteryVoltage'] as $key) {
             if (! isset($attributes[$key]) || ! is_numeric($attributes[$key])) {
                 continue;
             }

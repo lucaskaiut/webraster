@@ -4,6 +4,7 @@ namespace App\Modules\Report\Services;
 
 use App\Modules\Alert\Enums\AlertType;
 use App\Modules\Alert\Models\Alert;
+use App\Modules\Alert\Support\TraccarAttributeReader;
 use App\Modules\Client\Models\Client;
 use App\Modules\Client\Support\ClientAuthorization;
 use App\Modules\Client\Support\Facades\ClientContext;
@@ -692,7 +693,7 @@ class ReportService
             'onboard_odometer' => $this->attributeFloat($attributes, ['odometer']),
             'battery' => $position->battery,
             'image' => $this->attributeString($attributes, ['image', 'imageUrl', 'photo']),
-            'voltage' => $this->attributeFloat($attributes, ['power', 'voltage', 'batteryVoltage']),
+            'voltage' => TraccarAttributeReader::voltage($attributes),
             'blocked' => $this->attributeBool($attributes, ['blocked', 'lock', 'relay', 'engineBlocked']),
         ];
     }
