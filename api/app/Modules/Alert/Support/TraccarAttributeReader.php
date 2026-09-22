@@ -3,6 +3,7 @@
 namespace App\Modules\Alert\Support;
 
 use App\Modules\Alert\Enums\AlertSeverity;
+use App\Modules\Tracking\Support\TraccarBatteryLevel;
 
 /**
  * Extrai indicadores de alarmes Traccar dos attributes quando presentes.
@@ -283,13 +284,21 @@ final class TraccarAttributeReader
         $value = $battery;
 
         if ($value === null && is_array($attributes)) {
-            foreach (['batteryLevel', 'battery', 'power'] as $key) {
+            foreach (['batteryLevel', 'battery'] as $key) {
                 if (isset($attributes[$key]) && is_numeric($attributes[$key])) {
                     $value = (float) $attributes[$key];
 
                     break;
                 }
             }
+        }
+
+        if ($value === null && is_array($attributes)
+            && isset($attributes['power']) && is_numeric($attributes['power'])) {
+            $protocol = isset($attributes['protocol']) && is_string($attributes['protocol'])
+                ? $attributes['protocol']
+                : null;
+            $value = TraccarBatteryLevel::fromPower($protocol, (float) $attributes['power']);
         }
 
         if ($value === null) {

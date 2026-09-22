@@ -2,6 +2,7 @@
 
 namespace App\Modules\Tracking\DTOs;
 
+use App\Modules\Tracking\Support\TraccarBatteryLevel;
 use Carbon\CarbonImmutable;
 
 readonly class TraccarPosition
@@ -45,7 +46,10 @@ readonly class TraccarPosition
         } elseif (isset($attributes['batteryLevel'])) {
             $battery = (float) $attributes['batteryLevel'];
         } elseif (isset($attributes['power']) && is_numeric($attributes['power'])) {
-            $battery = self::batteryFromPower((float) $attributes['power']);
+            $protocol = isset($payload['protocol']) && $payload['protocol'] !== ''
+                ? (string) $payload['protocol']
+                : null;
+            $battery = TraccarBatteryLevel::fromPower($protocol, (float) $attributes['power']);
         }
 
         $serverTime = null;
@@ -71,19 +75,6 @@ readonly class TraccarPosition
             altitude: isset($payload['altitude']) ? (float) $payload['altitude'] : null,
             attributes: self::normalizeAttributes($attributes, $payload),
         );
-    }
-
-    private static function batteryFromPower(float $power): ?float
-    {
-        if ($power < 0 || $power > 100) {
-            return null;
-        }
-
-        if ($power < 30 && fmod($power, 1.0) !== 0.0) {
-            return null;
-        }
-
-        return $power;
     }
 
     /**

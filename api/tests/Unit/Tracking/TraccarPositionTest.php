@@ -9,7 +9,7 @@ use Tests\TestCase;
 class TraccarPositionTest extends TestCase
 {
     #[Test]
-    public function maps_power_as_battery_when_it_is_a_percentage(): void
+    public function maps_power_as_battery_for_known_protocols(): void
     {
         $position = TraccarPosition::fromArray($this->payload(['power' => 94]));
 
@@ -32,14 +32,23 @@ class TraccarPositionTest extends TestCase
         $this->assertNull($position->battery);
     }
 
+    #[Test]
+    public function ignores_power_for_protocols_that_report_voltage(): void
+    {
+        $position = TraccarPosition::fromArray($this->payload(['power' => 94], protocol: 'teltonika'));
+
+        $this->assertNull($position->battery);
+    }
+
     /**
      * @param  array<string, mixed>  $attributes
      * @return array<string, mixed>
      */
-    private function payload(array $attributes): array
+    private function payload(array $attributes, string $protocol = 'easytrack'): array
     {
         return [
             'deviceId' => 183,
+            'protocol' => $protocol,
             'latitude' => -25.54609,
             'longitude' => -49.17535,
             'deviceTime' => '2026-09-22 17:37:17',
