@@ -27,6 +27,8 @@ export interface Tenant {
   email: string
   phone: string | null
   domain: string
+  traccar_server_ip: string | null
+  traccar_server_dns: string | null
   is_umbrella?: boolean
   users_count?: number
   subscription?: Subscription | null

@@ -14,6 +14,13 @@ return [
 
     'base_url' => rtrim((string) env('TRACCAR_BASE_URL', 'http://localhost:8082'), '/'),
 
+    'server_ip' => env('TRACCAR_SERVER_IP'),
+
+    'server_dns' => env(
+        'TRACCAR_SERVER_DNS',
+        parse_url((string) env('TRACCAR_BASE_URL', ''), PHP_URL_HOST) ?: null,
+    ),
+
     'email' => env('TRACCAR_EMAIL'),
 
     'password' => env('TRACCAR_PASSWORD'),

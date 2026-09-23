@@ -1,6 +1,7 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
+  Alert,
   Button,
   ButtonLink,
   Card,
@@ -11,6 +12,7 @@ import {
   TextField,
 } from '@/shared/design-system'
 import { isApiError } from '@/shared/api/errors'
+import { useSessionStore } from '@/shared/stores/session.store'
 import { applyApiErrorsToForm } from '@/shared/utils/forms'
 import type { EquipmentPayload } from '../services/equipments.service'
 import { equipmentSchema, type EquipmentFormValues } from '../schemas/equipment.schema'
@@ -35,6 +37,10 @@ export function EquipmentForm({ mode, defaultValues, submitting, onSubmit }: Equ
     },
   })
 
+  const serverIp = useSessionStore((state) => state.tenant?.traccar_server_ip)
+  const serverDns = useSessionStore((state) => state.tenant?.traccar_server_dns)
+  const hasServerInfo = Boolean(serverIp || serverDns)
+
   const handleSubmit = async (values: EquipmentFormValues) => {
     const payload: EquipmentPayload = {
       imei: values.imei,
@@ -55,7 +61,26 @@ export function EquipmentForm({ mode, defaultValues, submitting, onSubmit }: Equ
 
   return (
     <Card>
-      <CardContent>
+      <CardContent className="space-y-5">
+        {hasServerInfo && (
+          <Alert variant="info" title="Servidor de rastreamento">
+            <dl className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
+              {serverIp && (
+                <div className="flex gap-1.5">
+                  <dt className="font-medium">IP</dt>
+                  <dd>{serverIp}</dd>
+                </div>
+              )}
+              {serverDns && (
+                <div className="flex gap-1.5">
+                  <dt className="font-medium">DNS</dt>
+                  <dd className="break-all">{serverDns}</dd>
+                </div>
+              )}
+            </dl>
+          </Alert>
+        )}
+
         <Form form={form} onSubmit={handleSubmit} className="space-y-8">
           <Section title="Identificação do rastreador">
             <div className="grid gap-4 sm:grid-cols-2">

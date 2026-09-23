@@ -24,6 +24,8 @@ class TenantResource extends JsonResource
             'email' => $this->email,
             'phone' => $this->phone,
             'domain' => $this->domain,
+            'traccar_server_ip' => config('traccar.server_ip'),
+            'traccar_server_dns' => config('traccar.server_dns'),
             'is_umbrella' => $this->isUmbrella(),
             'users_count' => $this->whenCounted('users'),
             'subscription' => SubscriptionResource::make($this->whenLoaded('subscription')),
