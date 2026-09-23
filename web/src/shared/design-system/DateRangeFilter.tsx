@@ -8,7 +8,7 @@ import {
 import { createPortal } from 'react-dom'
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/shared/utils/cn'
-import type { DateRange } from '@/shared/utils/date'
+import { toIsoDate, type DateRange } from '@/shared/utils/date'
 import {
   formatMonthYearLabel,
   formatRangeLabel,
@@ -33,6 +33,7 @@ export interface DateRangeFilterProps {
   className?: string
   min?: string
   max?: string
+  disableFuture?: boolean
 }
 
 export function DateRangeFilter({
@@ -45,6 +46,7 @@ export function DateRangeFilter({
   className,
   min,
   max,
+  disableFuture = false,
 }: DateRangeFilterProps) {
   const triggerId = useId()
   const popoverId = useId()
@@ -59,7 +61,11 @@ export function DateRangeFilter({
   const activePreset = hasValue ? matchPreset(from, to) : showClear ? 'all_time' : 'custom'
   const displayLabel = formatMonthYearLabel(from, to) ?? formatRangeLabel(from, to)
   const canNavigate = hasValue
-  const presets = getVisiblePresets({ variant, allowAllTime: showClear })
+  const todayIso = toIsoDate(new Date())
+  const effectiveMax = disableFuture ? (max && max < todayIso ? max : todayIso) : max
+  const canNavigateForward =
+    canNavigate && !(disableFuture && navigateRange(from, to, 1).from > todayIso)
+  const presets = getVisiblePresets({ variant, allowAllTime: showClear, disableFuture })
 
   const applyRange = (range: DateRange) => {
     onChange(range)
@@ -81,7 +87,7 @@ export function DateRangeFilter({
   }
 
   const handleNavigate = (direction: -1 | 1) => {
-    if (!canNavigate) {
+    if (!canNavigate || (direction === 1 && !canNavigateForward)) {
       return
     }
 
@@ -212,7 +218,7 @@ export function DateRangeFilter({
         <button
           type="button"
           aria-label="Próximo período"
-          disabled={!canNavigate}
+          disabled={!canNavigateForward}
           onClick={() => handleNavigate(1)}
           className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-surface-2 text-muted transition-colors hover:bg-surface-3 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
         >
@@ -292,7 +298,7 @@ export function DateRangeFilter({
                   startDate={customStart ?? undefined}
                   endDate={customEnd ?? undefined}
                   min={min}
-                  max={max}
+                  max={effectiveMax}
                   singleSelect={variant === 'single'}
                   onChange={({ startDate, endDate }) => {
                     setCustomStart(startDate)

@@ -449,16 +449,35 @@ export function formatMonthYearLabel(from: string, to: string): string | null {
   return label.charAt(0).toUpperCase() + label.slice(1)
 }
 
-export function getVisiblePresets(options: { variant?: 'range' | 'single'; allowAllTime?: boolean }): DateRangePresetDefinition[] {
-  const { variant = 'range', allowAllTime = false } = options
+export function getVisiblePresets(options: {
+  variant?: 'range' | 'single'
+  allowAllTime?: boolean
+  disableFuture?: boolean
+  reference?: Date
+}): DateRangePresetDefinition[] {
+  const {
+    variant = 'range',
+    allowAllTime = false,
+    disableFuture = false,
+    reference = new Date(),
+  } = options
+  const todayIso = toIsoDate(reference)
 
   return DATE_RANGE_PRESETS.filter((preset) => {
     if (preset.id === 'all_time') {
       return allowAllTime
     }
 
-    if (variant === 'single') {
-      return preset.singleDay === true
+    if (variant === 'single' && preset.singleDay !== true) {
+      return false
+    }
+
+    if (disableFuture) {
+      const range = preset.resolve(reference)
+
+      if (range.from && range.from > todayIso) {
+        return false
+      }
     }
 
     return true

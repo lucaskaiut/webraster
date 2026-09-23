@@ -316,7 +316,15 @@ export default function ReportsPage() {
 
             <Section title="Filtros">
               <div className="grid gap-4 sm:grid-cols-3">
-                <DateRangeFilter from={from} to={to} onChange={({ from, to }) => { setFrom(from); setTo(to) }} />
+                <DateRangeFilter
+                  from={from}
+                  to={to}
+                  disableFuture
+                  onChange={({ from, to }) => {
+                    setFrom(from)
+                    setTo(to)
+                  }}
+                />
                 {!isClientUser && (
                   <SearchSelect
                     label="Cliente"
