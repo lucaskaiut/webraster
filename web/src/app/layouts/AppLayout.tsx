@@ -27,7 +27,7 @@ import {
 } from '@/shared/design-system'
 import { cn } from '@/shared/utils/cn'
 
-function Brand() {
+function Brand({ collapsed = false }: { collapsed?: boolean }) {
   const tenant = useSessionStore((state) => state.tenant)
   const isMaster = useSessionStore((state) => state.isMaster)
   const availableTenants = useSessionStore((state) => state.availableTenants)
@@ -36,6 +36,14 @@ function Brand() {
   const activeName = isMaster
     ? (availableTenants.find((item) => item.id === selectedTenantId)?.name ?? tenant?.name)
     : tenant?.name
+
+  if (collapsed) {
+    return (
+      <div className="flex justify-center">
+        <AppLogo size="sm" className="h-5" />
+      </div>
+    )
+  }
 
   return (
     <div className="px-1">
@@ -47,7 +55,13 @@ function Brand() {
   )
 }
 
-function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarNavigation({
+  onNavigate,
+  collapsed = false,
+}: {
+  onNavigate?: () => void
+  collapsed?: boolean
+}) {
   const { can } = usePermissions()
   const isUmbrella = useIsUmbrellaTenant()
   /** Funcionalidades de uso final só no tenant filho (empresa operacional). */
@@ -95,7 +109,7 @@ function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
   const showFinancePortal = isOperatingTenant && can(Permission.FINANCE_PORTAL_VIEW) && !showFinanceOperatorGroup
 
   return (
-    <Sidebar header={<Brand />}>
+    <Sidebar header={<Brand collapsed={collapsed} />} collapsed={collapsed}>
       <SidebarGroup label="Geral">
         <SidebarItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" onNavigate={onNavigate} />
         {showTracking && (
@@ -347,15 +361,8 @@ export function AppLayout() {
 
   return (
     <div className="flex h-dvh overflow-hidden">
-      <div
-        className={cn(
-          'z-20 hidden shrink-0 shadow-card transition-[margin] duration-200 ease-in-out motion-reduce:transition-none lg:block',
-          sidebarCollapsed && '-ml-64',
-        )}
-        inert={sidebarCollapsed}
-        aria-hidden={sidebarCollapsed}
-      >
-        <SidebarNavigation />
+      <div className="z-20 hidden shrink-0 shadow-card lg:block">
+        <SidebarNavigation collapsed={sidebarCollapsed} />
       </div>
 
       {sidebarOpen && (

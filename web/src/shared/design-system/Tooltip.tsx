@@ -10,11 +10,13 @@ export function Tooltip({
   children,
   maxWidth = DEFAULT_MAX_WIDTH,
   className,
+  side = 'auto',
 }: {
   content: ReactNode
   children: ReactNode
   maxWidth?: number
   className?: string
+  side?: 'auto' | 'top' | 'bottom' | 'right'
 }) {
   const anchorRef = useRef<HTMLSpanElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
@@ -35,7 +37,27 @@ export function Tooltip({
     const rect = anchor.getBoundingClientRect()
     const width = Math.min(maxWidth, window.innerWidth - GAP * 2)
     const height = tooltipRef.current?.offsetHeight ?? 48
-    const openUp = rect.top >= height + GAP || rect.top >= window.innerHeight - rect.bottom
+
+    if (side === 'right') {
+      const top = Math.max(
+        GAP,
+        Math.min(rect.top + rect.height / 2 - height / 2, window.innerHeight - height - GAP),
+      )
+
+      setStyle({
+        position: 'fixed',
+        left: rect.right + GAP,
+        top,
+        width: 'max-content',
+        maxWidth,
+        zIndex: 60,
+      })
+      return
+    }
+
+    const openUp =
+      side === 'top' ||
+      (side === 'auto' && (rect.top >= height + GAP || rect.top >= window.innerHeight - rect.bottom))
 
     let left = rect.left + rect.width / 2 - width / 2
     left = Math.max(GAP, Math.min(left, window.innerWidth - width - GAP))
@@ -44,7 +66,7 @@ export function Tooltip({
     top = Math.max(GAP, Math.min(top, window.innerHeight - height - GAP))
 
     setStyle({ position: 'fixed', left, top, width, zIndex: 60 })
-  }, [maxWidth])
+  }, [maxWidth, side])
 
   useEffect(() => {
     if (!open) {
