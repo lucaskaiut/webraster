@@ -7,15 +7,31 @@ import {
   Card,
   CardContent,
   Form,
+  SearchSelectField,
   Section,
   SwitchField,
   TextField,
+  type SearchSelectOption,
 } from '@/shared/design-system'
 import { isApiError } from '@/shared/api/errors'
 import { useSessionStore } from '@/shared/stores/session.store'
 import { applyApiErrorsToForm } from '@/shared/utils/forms'
 import type { EquipmentPayload } from '../services/equipments.service'
 import { equipmentSchema, type EquipmentFormValues } from '../schemas/equipment.schema'
+
+const EQUIPMENT_MODELS: SearchSelectOption[] = [{ value: 'E3+4G', label: 'E3+4G' }]
+
+function loadModelOptions(search: string): Promise<SearchSelectOption[]> {
+  const term = search.trim().toLowerCase()
+
+  return Promise.resolve(
+    EQUIPMENT_MODELS.filter((option) => option.label.toLowerCase().includes(term)),
+  )
+}
+
+function resolveModelOption(value: string): Promise<SearchSelectOption | null> {
+  return Promise.resolve(EQUIPMENT_MODELS.find((option) => option.value === value) ?? null)
+}
 
 interface EquipmentFormProps {
   mode: 'create' | 'edit'
@@ -85,7 +101,14 @@ export function EquipmentForm({ mode, defaultValues, submitting, onSubmit }: Equ
           <Section title="Identificação do rastreador">
             <div className="grid gap-4 sm:grid-cols-2">
               <TextField name="imei" label="IMEI" required className="sm:col-span-2" />
-              <TextField name="model" label="Modelo" />
+              <SearchSelectField
+                name="model"
+                label="Modelo"
+                placeholder="Buscar modelo..."
+                emptyMessage="Nenhum modelo encontrado"
+                loadOptions={loadModelOptions}
+                resolveLabel={resolveModelOption}
+              />
               <TextField name="carrier" label="Operadora" />
               <TextField name="iccid" label="ICCID" className="sm:col-span-2" />
               <SwitchField name="is_active" label="Equipamento ativo" />
