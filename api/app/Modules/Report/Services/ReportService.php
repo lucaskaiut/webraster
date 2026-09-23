@@ -2,6 +2,7 @@
 
 namespace App\Modules\Report\Services;
 
+use App\Modules\ACL\Enums\Permission;
 use App\Modules\Alert\Enums\AlertType;
 use App\Modules\Alert\Models\Alert;
 use App\Modules\Alert\Support\TraccarAttributeReader;
@@ -997,7 +998,7 @@ class ReportService
     {
         return [
             'id' => $log->uuid,
-            'equipment_imei' => $log->equipment?->imei,
+            'equipment_imei' => $this->canViewEquipmentDetails() ? $log->equipment?->imei : null,
             'vehicle' => $log->vehicle
                 ? trim("{$log->vehicle->plate} - {$log->vehicle->model}", ' -')
                 : null,
@@ -1016,7 +1017,7 @@ class ReportService
     private function toExportRow(DeviceCommandLog $log): array
     {
         return [
-            $log->equipment?->imei ?? '—',
+            $this->canViewEquipmentDetails() ? ($log->equipment?->imei ?? '—') : '—',
             $log->vehicle ? trim("{$log->vehicle->plate} - {$log->vehicle->model}", ' -') : '—',
             $this->commandLabel($log->command_type),
             $log->requested_at?->format('d/m/Y H:i:s') ?? '—',
@@ -1028,6 +1029,11 @@ class ReportService
     private function commandLabel(string $type): string
     {
         return self::COMMAND_LABELS[$type] ?? $type;
+    }
+
+    private function canViewEquipmentDetails(): bool
+    {
+        return (bool) request()->user()?->hasPermission(Permission::EQUIPMENT_DETAILS_READ);
     }
 
     private function statusLabel(?DeviceCommandStatus $status): string

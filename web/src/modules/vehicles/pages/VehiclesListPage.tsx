@@ -94,6 +94,7 @@ export default function VehiclesListPage() {
   }
 
   const canMutate = can(Permission.VEHICLE_UPDATE) || can(Permission.VEHICLE_DELETE)
+  const canViewEquipmentDetails = can(Permission.EQUIPMENT_DETAILS_READ)
 
   const columns: Array<Column<Vehicle>> = [
     {
@@ -122,7 +123,13 @@ export default function VehiclesListPage() {
       key: 'equipment',
       header: 'Equipamento',
       render: (vehicle) => (
-        <span className="text-muted">{vehicle.equipment?.imei ?? 'Sem equipamento'}</span>
+        <span className="text-muted">
+          {!vehicle.equipment
+            ? 'Sem equipamento'
+            : canViewEquipmentDetails
+              ? (vehicle.equipment.imei ?? 'Rastreador')
+              : 'Rastreador'}
+        </span>
       ),
     },
     {

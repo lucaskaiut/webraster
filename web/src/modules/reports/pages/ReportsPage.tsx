@@ -20,6 +20,8 @@ import {
 import { formatDateTime } from '@/shared/utils/format'
 import { escapeHtml, printReportHtml } from '@/shared/utils/report-export'
 import { resolvePresetRange } from '@/shared/utils/date-range'
+import { Permission } from '@/shared/constants/permissions'
+import { usePermissions } from '@/shared/hooks/usePermissions'
 import { useSessionStore } from '@/shared/stores/session.store'
 import { clientsService } from '@/modules/clients/services/clients.service'
 import { vehiclesService } from '@/modules/vehicles/services/vehicles.service'
@@ -194,6 +196,11 @@ export default function ReportsPage() {
 
   const user = useSessionStore((state) => state.user)
   const isClientUser = Boolean(user?.client_id)
+  const { can } = usePermissions()
+  const canViewEquipmentDetails = can(Permission.EQUIPMENT_DETAILS_READ)
+  const commandColumns = canViewEquipmentDetails
+    ? COMMAND_COLUMNS
+    : COMMAND_COLUMNS.filter((column) => column.key !== 'equipment_imei')
 
   const baseFilters = {
     from: from || undefined,
@@ -265,7 +272,10 @@ export default function ReportsPage() {
       return
     }
 
-    printReportHtml('Comandos Enviados', buildCommandsReportHtml(commandsQuery.data?.rows ?? []))
+    printReportHtml(
+      'Comandos Enviados',
+      buildCommandsReportHtml(commandsQuery.data?.rows ?? [], canViewEquipmentDetails),
+    )
   }
 
   const handleExportXlsx = () => {
@@ -460,7 +470,7 @@ export default function ReportsPage() {
               ) : (
                 <DataTable
                   caption="Comandos Enviados"
-                  columns={COMMAND_COLUMNS}
+                  columns={commandColumns}
                   rows={rows as CommandReportRow[]}
                   rowKey={(row) => row.id}
                   loading={loading}
@@ -490,16 +500,22 @@ function RouteSummary({ label, value }: { label: string; value: string }) {
   )
 }
 
-function buildCommandsReportHtml(rows: CommandReportRow[]): string {
-  const headerCells = ['Equipamento (IMEI)', 'Veículo', 'Comando', 'Data do evento', 'Usuário', 'Situação']
-    .map((label) => `<th>${escapeHtml(label)}</th>`)
-    .join('')
+function buildCommandsReportHtml(rows: CommandReportRow[], showEquipment = true): string {
+  const labels = [
+    ...(showEquipment ? ['Equipamento (IMEI)'] : []),
+    'Veículo',
+    'Comando',
+    'Data do evento',
+    'Usuário',
+    'Situação',
+  ]
+  const headerCells = labels.map((label) => `<th>${escapeHtml(label)}</th>`).join('')
 
   const bodyRows = rows
     .map(
       (row) => `
       <tr>
-        <td>${escapeHtml(row.equipment_imei)}</td>
+        ${showEquipment ? `<td>${escapeHtml(row.equipment_imei)}</td>` : ''}
         <td>${escapeHtml(row.vehicle)}</td>
         <td>${escapeHtml(row.command_label)}</td>
         <td>${escapeHtml(formatDateTime(row.requested_at))}</td>

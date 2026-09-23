@@ -14,6 +14,8 @@ import {
   type SearchSelectOption,
 } from '@/shared/design-system'
 import { isApiError } from '@/shared/api/errors'
+import { Permission } from '@/shared/constants/permissions'
+import { usePermissions } from '@/shared/hooks/usePermissions'
 import { useSessionStore } from '@/shared/stores/session.store'
 import { applyApiErrorsToForm } from '@/shared/utils/forms'
 import type { EquipmentPayload } from '../services/equipments.service'
@@ -57,12 +59,19 @@ export function EquipmentForm({ mode, defaultValues, submitting, onSubmit }: Equ
   const serverDns = useSessionStore((state) => state.tenant?.traccar_server_dns)
   const hasServerInfo = Boolean(serverIp || serverDns)
 
+  const { can } = usePermissions()
+  const canViewDetails = can(Permission.EQUIPMENT_DETAILS_READ)
+
   const handleSubmit = async (values: EquipmentFormValues) => {
     const payload: EquipmentPayload = {
-      imei: values.imei,
-      model: values.model || null,
-      iccid: values.iccid || null,
-      carrier: values.carrier || null,
+      ...(canViewDetails
+        ? {
+            imei: values.imei,
+            model: values.model || null,
+            iccid: values.iccid || null,
+            carrier: values.carrier || null,
+          }
+        : {}),
       is_active: values.is_active,
     }
 
@@ -100,17 +109,21 @@ export function EquipmentForm({ mode, defaultValues, submitting, onSubmit }: Equ
         <Form form={form} onSubmit={handleSubmit} className="space-y-8">
           <Section title="Identificação do rastreador">
             <div className="grid gap-4 sm:grid-cols-2">
-              <TextField name="imei" label="IMEI" required className="sm:col-span-2" />
-              <SearchSelectField
-                name="model"
-                label="Modelo"
-                placeholder="Buscar modelo..."
-                emptyMessage="Nenhum modelo encontrado"
-                loadOptions={loadModelOptions}
-                resolveLabel={resolveModelOption}
-              />
-              <TextField name="carrier" label="Operadora" />
-              <TextField name="iccid" label="ICCID" className="sm:col-span-2" />
+              {canViewDetails && (
+                <>
+                  <TextField name="imei" label="IMEI" required className="sm:col-span-2" />
+                  <SearchSelectField
+                    name="model"
+                    label="Modelo"
+                    placeholder="Buscar modelo..."
+                    emptyMessage="Nenhum modelo encontrado"
+                    loadOptions={loadModelOptions}
+                    resolveLabel={resolveModelOption}
+                  />
+                  <TextField name="carrier" label="Operadora" />
+                  <TextField name="iccid" label="ICCID" className="sm:col-span-2" />
+                </>
+              )}
               <SwitchField name="is_active" label="Equipamento ativo" />
             </div>
           </Section>

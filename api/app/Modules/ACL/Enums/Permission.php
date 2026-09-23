@@ -74,6 +74,7 @@ enum Permission: string
     case EQUIPMENT_READ = 'equipment.read';
     case EQUIPMENT_UPDATE = 'equipment.update';
     case EQUIPMENT_DELETE = 'equipment.delete';
+    case EQUIPMENT_DETAILS_READ = 'equipment.details.read';
 
     case TRACKING_READ = 'tracking.read';
 

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Equipment;
 
+use App\Modules\ACL\Enums\Permission;
 use App\Modules\Client\Models\Client;
 use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Vehicle\Models\Vehicle;
@@ -37,6 +38,32 @@ class EquipmentCrudTest extends TestCase
             'imei' => '359633100000001',
             'vehicle_id' => null,
         ]);
+    }
+
+    public function test_index_hides_device_details_without_permission(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+
+        Equipment::factory()->forTenant($tenant)->create([
+            'imei' => '359633100000099',
+            'model' => 'E3+4G',
+            'iccid' => '8955051234567890123',
+            'carrier' => 'Vivo',
+            'traccar_status' => 'online',
+        ]);
+
+        $user = $this->createMember($tenant);
+        $user->roles()->firstOrFail()->revokePermissions(Permission::EQUIPMENT_DETAILS_READ);
+
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/equipments')
+            ->assertOk()
+            ->assertJsonPath('data.0.imei', null)
+            ->assertJsonPath('data.0.model', null)
+            ->assertJsonPath('data.0.iccid', null)
+            ->assertJsonPath('data.0.carrier', null)
+            ->assertJsonPath('data.0.traccar_status', 'online');
     }
 
     public function test_index_can_filter_available_only(): void

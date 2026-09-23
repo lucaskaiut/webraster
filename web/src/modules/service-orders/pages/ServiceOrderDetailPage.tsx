@@ -34,6 +34,7 @@ import {
 export default function ServiceOrderDetailPage() {
   const { id } = useParams()
   const { can } = usePermissions()
+  const canViewEquipmentDetails = can(Permission.EQUIPMENT_DETAILS_READ)
   const query = useServiceOrderQuery(id)
   const changeStatus = useChangeServiceOrderStatus()
   const [cancelOpen, setCancelOpen] = useState(false)
@@ -147,8 +148,12 @@ export default function ServiceOrderDetailPage() {
           <CardContent className="space-y-3 text-sm">
             <Row label="Cliente" value={order.client?.name ?? '—'} />
             <Row label="Veículo" value={order.vehicle?.plate ?? '—'} />
-            <Row label="Dispositivo" value={order.equipment?.imei ?? '—'} />
-            <Row label="Modelo" value={order.equipment?.model ?? '—'} />
+            {canViewEquipmentDetails && (
+              <>
+                <Row label="Dispositivo" value={order.equipment?.imei ?? '—'} />
+                <Row label="Modelo" value={order.equipment?.model ?? '—'} />
+              </>
+            )}
           </CardContent>
         </Card>
 

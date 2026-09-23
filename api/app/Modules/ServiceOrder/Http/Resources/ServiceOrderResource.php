@@ -2,6 +2,7 @@
 
 namespace App\Modules\ServiceOrder\Http\Resources;
 
+use App\Modules\ACL\Enums\Permission;
 use App\Modules\ServiceOrder\Models\ServiceOrder;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -16,6 +17,8 @@ class ServiceOrderResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $canViewEquipmentDetails = (bool) $request->user()?->hasPermission(Permission::EQUIPMENT_DETAILS_READ);
+
         return [
             'id' => $this->uuid,
             'number' => $this->number,
@@ -41,8 +44,8 @@ class ServiceOrderResource extends JsonResource
             'equipment_id' => $this->equipment?->uuid,
             'equipment' => $this->whenLoaded('equipment', fn () => $this->equipment ? [
                 'id' => $this->equipment->uuid,
-                'imei' => $this->equipment->imei,
-                'model' => $this->equipment->model,
+                'imei' => $canViewEquipmentDetails ? $this->equipment->imei : null,
+                'model' => $canViewEquipmentDetails ? $this->equipment->model : null,
             ] : null),
             'technician_id' => $this->technician?->uuid,
             'technician' => $this->whenLoaded('technician', fn () => $this->technician ? [

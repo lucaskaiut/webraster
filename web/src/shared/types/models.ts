@@ -300,7 +300,7 @@ export interface Equipment {
   id: string
   vehicle_id: string | null
   vehicle?: Vehicle
-  imei: string
+  imei: string | null
   model: string | null
   iccid: string | null
   carrier: string | null

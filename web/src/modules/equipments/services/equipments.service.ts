@@ -9,7 +9,7 @@ export interface EquipmentListParams extends ListParams {
 }
 
 export interface EquipmentPayload {
-  imei: string
+  imei?: string
   model?: string | null
   iccid?: string | null
   carrier?: string | null

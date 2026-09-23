@@ -69,6 +69,7 @@ export const Permission = {
   EQUIPMENT_READ: 'equipment.read',
   EQUIPMENT_UPDATE: 'equipment.update',
   EQUIPMENT_DELETE: 'equipment.delete',
+  EQUIPMENT_DETAILS_READ: 'equipment.details.read',
 
   TRACKING_READ: 'tracking.read',
 
@@ -256,6 +257,10 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { value: Permission.EQUIPMENT_CREATE, label: 'Criar equipamentos' },
       { value: Permission.EQUIPMENT_UPDATE, label: 'Editar equipamentos' },
       { value: Permission.EQUIPMENT_DELETE, label: 'Remover equipamentos' },
+      {
+        value: Permission.EQUIPMENT_DETAILS_READ,
+        label: 'Visualizar dados do dispositivo (IMEI, modelo, ICCID e operadora)',
+      },
     ],
   },
   {

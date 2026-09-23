@@ -130,28 +130,33 @@ export default function EquipmentsListPage() {
   }
 
   const canMutate = can(Permission.EQUIPMENT_UPDATE) || can(Permission.EQUIPMENT_DELETE)
+  const canViewDetails = can(Permission.EQUIPMENT_DETAILS_READ)
 
   const columns: Array<Column<Equipment>> = [
-    {
-      key: 'imei',
-      header: 'IMEI',
-      render: (equipment) => (
-        <div className="min-w-0">
-          <p className="truncate font-medium text-foreground">{equipment.imei}</p>
-          <p className="truncate text-[13px] text-muted">{equipment.model ?? '—'}</p>
-        </div>
-      ),
-    },
-    {
-      key: 'carrier',
-      header: 'Operadora',
-      render: (equipment) => <span className="text-muted">{equipment.carrier ?? '—'}</span>,
-    },
-    {
-      key: 'iccid',
-      header: 'ICCID',
-      render: (equipment) => <span className="text-muted">{equipment.iccid ?? '—'}</span>,
-    },
+    ...(canViewDetails
+      ? ([
+          {
+            key: 'imei',
+            header: 'IMEI',
+            render: (equipment) => (
+              <div className="min-w-0">
+                <p className="truncate font-medium text-foreground">{equipment.imei}</p>
+                <p className="truncate text-[13px] text-muted">{equipment.model ?? '—'}</p>
+              </div>
+            ),
+          },
+          {
+            key: 'carrier',
+            header: 'Operadora',
+            render: (equipment) => <span className="text-muted">{equipment.carrier ?? '—'}</span>,
+          },
+          {
+            key: 'iccid',
+            header: 'ICCID',
+            render: (equipment) => <span className="text-muted">{equipment.iccid ?? '—'}</span>,
+          },
+        ] satisfies Array<Column<Equipment>>)
+      : []),
     {
       key: 'vehicle',
       header: 'Veículo',
@@ -221,7 +226,7 @@ export default function EquipmentsListPage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => navigate(`/equipments/${equipment.id}/edit`)}
-                    aria-label={`Editar ${equipment.imei}`}
+                    aria-label={`Editar ${equipment.imei ?? 'equipamento'}`}
                   >
                     <Pencil className="size-4" />
                   </Button>
@@ -231,7 +236,7 @@ export default function EquipmentsListPage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => setEquipmentToDelete(equipment)}
-                    aria-label={`Excluir ${equipment.imei}`}
+                    aria-label={`Excluir ${equipment.imei ?? 'equipamento'}`}
                     className="text-danger hover:bg-danger-soft hover:text-danger"
                   >
                     <Trash2 className="size-4" />
@@ -251,19 +256,25 @@ export default function EquipmentsListPage() {
         description="Gerencie os rastreadores da frota."
         breadcrumb={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Equipamentos' }]}
         actions={
-          <Can permission={Permission.EQUIPMENT_CREATE}>
-            <ButtonLink to="/equipments/create">
-              <Plus className="size-4" />
-              Novo equipamento
-            </ButtonLink>
-          </Can>
+          canViewDetails ? (
+            <Can permission={Permission.EQUIPMENT_CREATE}>
+              <ButtonLink to="/equipments/create">
+                <Plus className="size-4" />
+                Novo equipamento
+              </ButtonLink>
+            </Can>
+          ) : undefined
         }
       />
 
       <PageContent>
         <FilterBar>
           <SearchInput
-            placeholder="Buscar por IMEI, modelo, ICCID ou operadora..."
+            placeholder={
+              canViewDetails
+                ? 'Buscar por IMEI, modelo, ICCID ou operadora...'
+                : 'Buscar equipamentos...'
+            }
             aria-label="Buscar equipamentos"
             value={search}
             onChange={(event) => {
@@ -329,7 +340,7 @@ export default function EquipmentsListPage() {
                   : 'Comece cadastrando o primeiro rastreador.'
               }
               action={
-                !debouncedSearch ? (
+                !debouncedSearch && canViewDetails ? (
                   <Can permission={Permission.EQUIPMENT_CREATE}>
                     <ButtonLink to="/equipments/create">
                       <Plus className="size-4" />
@@ -355,7 +366,8 @@ export default function EquipmentsListPage() {
         title="Excluir equipamento"
         description={
           <>
-            Tem certeza que deseja excluir o equipamento <strong>{equipmentToDelete?.imei}</strong>?
+            Tem certeza que deseja excluir o equipamento{' '}
+            <strong>{equipmentToDelete?.imei ?? 'selecionado'}</strong>?
           </>
         }
         confirmLabel="Excluir"

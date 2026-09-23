@@ -18,6 +18,7 @@ import {
 import { FormProvider, useForm } from 'react-hook-form'
 import { Can } from '@/app/guards/PermissionGuard'
 import { Permission } from '@/shared/constants/permissions'
+import { usePermissions } from '@/shared/hooks/usePermissions'
 import { formatDateTime } from '@/shared/utils/format'
 import { equipmentsService } from '@/modules/equipments/services/equipments.service'
 import { VehicleCommandsPanel } from '@/modules/tracking/components/VehicleCommandsPanel'
@@ -63,13 +64,15 @@ async function loadAvailableEquipments(search: string) {
 
   return response.data.map((item) => ({
     value: item.id,
-    label: `${item.imei}${item.model ? ` · ${item.model}` : ''}`,
+    label: [item.imei, item.model].filter(Boolean).join(' · ') || 'Equipamento',
   }))
 }
 
 export default function VehicleEditPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { can } = usePermissions()
+  const canViewEquipmentDetails = can(Permission.EQUIPMENT_DETAILS_READ)
 
   const query = useVehicleQuery(id)
   const historyQuery = useVehicleHistoryQuery(id)
@@ -221,11 +224,17 @@ export default function VehicleEditPage() {
                 {vehicle.equipment ? (
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-surface-2 px-4 py-3">
                     <div>
-                      <p className="font-medium text-foreground">{vehicle.equipment.imei}</p>
+                      <p className="font-medium text-foreground">
+                        {canViewEquipmentDetails
+                          ? (vehicle.equipment.imei ?? 'Rastreador')
+                          : 'Rastreador'}
+                      </p>
                       <p className="text-sm text-muted">
-                        {[vehicle.equipment.model, vehicle.equipment.carrier]
-                          .filter(Boolean)
-                          .join(' · ') || 'Equipamento instalado'}
+                        {canViewEquipmentDetails
+                          ? [vehicle.equipment.model, vehicle.equipment.carrier]
+                              .filter(Boolean)
+                              .join(' · ') || 'Equipamento instalado'
+                          : 'Equipamento instalado'}
                       </p>
                     </div>
                     <Can permission={Permission.VEHICLE_UPDATE}>
@@ -249,7 +258,9 @@ export default function VehicleEditPage() {
                         name="equipment_id"
                         label={hasEquipment ? 'Novo equipamento' : 'Equipamento disponível'}
                         required
-                        placeholder="Buscar por IMEI..."
+                        placeholder={
+                          canViewEquipmentDetails ? 'Buscar por IMEI...' : 'Buscar equipamento...'
+                        }
                         emptyMessage="Nenhum equipamento disponível"
                         loadOptions={loadAvailableEquipments}
                       />
@@ -299,12 +310,17 @@ export default function VehicleEditPage() {
                         <div className="flex items-center gap-2">
                           <Badge>{eventLabel[event.event]}</Badge>
                           <span className="text-sm text-foreground">
-                            {event.equipment?.imei ?? event.equipment_id}
+                            {canViewEquipmentDetails
+                              ? (event.equipment?.imei ?? event.equipment_id)
+                              : 'Rastreador'}
                           </span>
                         </div>
                         {event.previous_equipment && (
                           <p className="mt-1 text-sm text-muted">
-                            Anterior: {event.previous_equipment.imei}
+                            Anterior:{' '}
+                            {canViewEquipmentDetails
+                              ? (event.previous_equipment.imei ?? 'Rastreador')
+                              : 'Rastreador'}
                           </p>
                         )}
                         {event.notes && <p className="mt-1 text-sm text-muted">{event.notes}</p>}

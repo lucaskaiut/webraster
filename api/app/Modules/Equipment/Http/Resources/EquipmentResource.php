@@ -2,6 +2,7 @@
 
 namespace App\Modules\Equipment\Http\Resources;
 
+use App\Modules\ACL\Enums\Permission;
 use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Vehicle\Http\Resources\VehicleResource;
 use Illuminate\Http\Request;
@@ -17,14 +18,16 @@ class EquipmentResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $canViewDetails = (bool) $request->user()?->hasPermission(Permission::EQUIPMENT_DETAILS_READ);
+
         return [
             'id' => $this->uuid,
             'vehicle_id' => $this->vehicle?->uuid,
             'vehicle' => VehicleResource::make($this->whenLoaded('vehicle')),
-            'imei' => $this->imei,
-            'model' => $this->model,
-            'iccid' => $this->iccid,
-            'carrier' => $this->carrier,
+            'imei' => $canViewDetails ? $this->imei : null,
+            'model' => $canViewDetails ? $this->model : null,
+            'iccid' => $canViewDetails ? $this->iccid : null,
+            'carrier' => $canViewDetails ? $this->carrier : null,
             'is_active' => (bool) $this->is_active,
             'is_assigned' => $this->vehicle_id !== null,
             'traccar_status' => $this->traccar_status,

@@ -142,6 +142,7 @@ export function VehicleInfoPanel({
   const images = vehicle.images ?? []
   const [coverImage, ...otherImages] = images
   const canSendCommands = can(Permission.DEVICE_COMMANDS_SEND)
+  const canViewEquipmentDetails = can(Permission.EQUIPMENT_DETAILS_READ)
   const deviceId = vehicle.equipment?.id ?? null
 
   const title = [vehicle.model ?? vehicle.brand, vehicle.plate, vehicle.color]
@@ -328,8 +329,12 @@ export function VehicleInfoPanel({
                 label="Bateria"
                 value={position?.battery != null ? `${Math.round(position.battery)}%` : 'Não informado'}
               />
-              <Info label="IMEI" value={vehicle.equipment?.imei ?? 'Não informado'} />
-              <Info label="Dispositivo" value={vehicle.equipment?.model ?? 'Não informado'} />
+              {canViewEquipmentDetails && (
+                <>
+                  <Info label="IMEI" value={vehicle.equipment?.imei ?? 'Não informado'} />
+                  <Info label="Dispositivo" value={vehicle.equipment?.model ?? 'Não informado'} />
+                </>
+              )}
               <Info label="Cliente" value={vehicle.client?.name ?? 'Não informado'} />
               <Info label="Protocolo" value={position?.protocol ?? 'Não informado'} />
               <Info

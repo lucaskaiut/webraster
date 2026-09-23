@@ -82,14 +82,14 @@ async function loadEquipmentOptions(search: string) {
   const response = await equipmentsService.list({ search: search || undefined, per_page: 20 })
   return response.data.map((item) => ({
     value: item.id,
-    label: `${item.imei}${item.model ? ` · ${item.model}` : ''}`,
+    label: [item.imei, item.model].filter(Boolean).join(' · ') || 'Equipamento',
   }))
 }
 
 async function resolveEquipmentLabel(value: string) {
   try {
     const item = await equipmentsService.get(value)
-    return { value: item.id, label: item.imei }
+    return { value: item.id, label: item.imei ?? 'Equipamento' }
   } catch {
     return null
   }
@@ -204,7 +204,7 @@ export function ServiceOrderForm({ mode, initial, submitting, onSubmit }: Servic
                 name="equipment_id"
                 label="Dispositivo"
                 hint="Opcional"
-                placeholder="Buscar por IMEI..."
+                placeholder="Buscar equipamento..."
                 emptyMessage="Nenhum equipamento encontrado"
                 loadOptions={loadEquipmentOptions}
                 resolveLabel={resolveEquipmentLabel}

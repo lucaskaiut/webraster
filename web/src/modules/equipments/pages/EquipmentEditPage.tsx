@@ -45,7 +45,13 @@ export default function EquipmentEditPage() {
     <Page>
       <PageHeader
         title="Editar equipamento"
-        description={query.data ? `Atualize os dados de ${query.data.imei}.` : undefined}
+        description={
+          query.data
+            ? query.data.imei
+              ? `Atualize os dados de ${query.data.imei}.`
+              : 'Atualize os dados do equipamento.'
+            : undefined
+        }
         breadcrumb={[
           { label: 'Dashboard', to: '/dashboard' },
           { label: 'Equipamentos', to: '/equipments' },
@@ -76,7 +82,7 @@ export default function EquipmentEditPage() {
             <EquipmentForm
               mode="edit"
               defaultValues={{
-                imei: query.data.imei,
+                imei: query.data.imei ?? '',
                 model: query.data.model ?? '',
                 iccid: query.data.iccid ?? '',
                 carrier: query.data.carrier ?? '',

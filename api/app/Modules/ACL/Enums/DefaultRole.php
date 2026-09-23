@@ -58,6 +58,7 @@ enum DefaultRole: string
                 Permission::EQUIPMENT_READ,
                 Permission::EQUIPMENT_UPDATE,
                 Permission::EQUIPMENT_DELETE,
+                Permission::EQUIPMENT_DETAILS_READ,
                 Permission::TRACKING_READ,
                 Permission::GEOFENCE_CREATE,
                 Permission::GEOFENCE_READ,
