@@ -1,5 +1,7 @@
 import { RefreshCw } from 'lucide-react'
 import { Badge } from '@/shared/design-system'
+import { isRealtimeConfigured } from '@/shared/realtime/echo'
+import { useRealtimeStore } from '@/shared/realtime/realtime.store'
 import { formatUpdatedAt } from '../lib/tracking'
 
 export function MonitoringHeader({
@@ -15,6 +17,9 @@ export function MonitoringHeader({
   onRefresh: () => void
   error: string | null
 }) {
+  const realtimeConfigured = isRealtimeConfigured()
+  const realtimeConnected = useRealtimeStore((state) => state.connected)
+
   return (
     <header className="flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0">
@@ -30,6 +35,17 @@ export function MonitoringHeader({
               aria-hidden="true"
             />
             {connected ? 'Traccar conectado' : 'Traccar desconectado'}
+          </Badge>
+        )}
+        {realtimeConfigured && (
+          <Badge variant={realtimeConnected ? 'success' : 'neutral'}>
+            <span
+              className={
+                realtimeConnected ? 'size-1.5 rounded-full bg-success' : 'size-1.5 rounded-full bg-subtle'
+              }
+              aria-hidden="true"
+            />
+            {realtimeConnected ? 'Tempo real' : 'Tempo real inativo'}
           </Badge>
         )}
         <p className="text-xs text-muted">

@@ -7,6 +7,8 @@ use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Geofence\Services\GeofenceDetectionService;
 use App\Modules\Tracking\Contracts\TraccarGateway;
 use App\Modules\Tracking\DTOs\TraccarPosition;
+use App\Modules\Tracking\Events\PositionUpdated;
+use App\Modules\Tracking\Http\Resources\GpsPositionResource;
 use App\Modules\Tracking\Models\GpsPosition;
 use App\Modules\Vehicle\Models\Vehicle;
 use Carbon\CarbonImmutable;
@@ -386,6 +388,20 @@ class TrackingService
                 'vehicle_id' => $vehicle->getKey(),
                 'message' => $exception->getMessage(),
             ]);
+        }
+
+        // Toda posição nova alimenta o monitoramento em tempo real, seja ela
+        // vinda do webhook do Traccar ou da reconciliação periódica (sync).
+        if ($gpsPosition->wasRecentlyCreated) {
+            PositionUpdated::dispatch(
+                $equipment->tenant?->uuid,
+                $vehicle->client?->uuid,
+                [
+                    'vehicle_id' => $vehicle->uuid,
+                    'online' => true,
+                    'position' => GpsPositionResource::make($gpsPosition)->resolve(),
+                ],
+            );
         }
 
         return $gpsPosition;

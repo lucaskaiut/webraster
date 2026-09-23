@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTrackingLiveQuery, useTrackingStatusQuery } from '../hooks/useTracking'
+import { useTrackingRealtime } from '../hooks/useTrackingRealtime'
 import type { GpsPosition } from '@/shared/types/models'
 import type { FleetFilter } from '../lib/tracking'
 import { FleetPanel, FleetPanelToggle } from '../components/FleetPanel'
@@ -44,6 +45,7 @@ export default function MonitoringPage() {
   const { can } = usePermissions()
   const statusQuery = useTrackingStatusQuery()
   const liveQuery = useTrackingLiveQuery()
+  useTrackingRealtime()
   const geofencesQuery = useGeofencesMapQuery(undefined, can(Permission.GEOFENCE_READ) && showGeofences)
   const poisQuery = usePoisMapQuery(undefined, can(Permission.POI_READ) && showPois)
   const alertsQuery = useAlertsMapQuery('open', can(Permission.ALERT_READ) && showAlerts)

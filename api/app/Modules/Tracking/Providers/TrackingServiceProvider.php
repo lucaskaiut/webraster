@@ -2,6 +2,7 @@
 
 namespace App\Modules\Tracking\Providers;
 
+use App\Modules\Tracking\Console\Commands\SimulatePositionCommand;
 use App\Modules\Tracking\Contracts\TraccarGateway;
 use App\Modules\Tracking\Gateways\HttpTraccarGateway;
 use App\Modules\Tracking\Gateways\NullTraccarGateway;
@@ -16,5 +17,14 @@ class TrackingServiceProvider extends ServiceProvider
 
             return $http->isConfigured() ? $http : $this->app->make(NullTraccarGateway::class);
         });
+    }
+
+    public function boot(): void
+    {
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                SimulatePositionCommand::class,
+            ]);
+        }
     }
 }

@@ -31,7 +31,7 @@ Schedule::command(NotifyDueSoonCommand::class)->daily();
 
 Schedule::job(new DispatchPendingTraccarEventsJob)->everyMinute()->withoutOverlapping();
 Schedule::job(new SyncTraccarPositionsJob)
-    ->everyFiveMinutes()
+    ->everyMinute()
     ->withoutOverlapping()
     ->when(fn (): bool => (bool) config('traccar.enabled') && (bool) config('traccar.sync_enabled'));
 
