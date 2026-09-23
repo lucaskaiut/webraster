@@ -27,6 +27,7 @@ import { cn } from '@/shared/utils/cn'
 import {
   BATTERY_GOOD_MIN,
   BATTERY_LOW_MIN,
+  INDICATOR_RING_CLASS,
   INDICATOR_TONE_CLASS,
   batteryPercent,
   connectionIndicator,
@@ -37,6 +38,7 @@ import {
   voltageLevel,
   type ConnectionIndicator,
   type ExternalPowerStatus,
+  type IndicatorRing,
   type IndicatorTone,
   type SignalLevel,
   type VoltageLevel,
@@ -46,6 +48,7 @@ import { formatSpeed, formatUpdatedAt, motionStatus, speedKmh, vehicleAlarms } f
 type IndicatorConfig = {
   icon: LucideIcon
   tone: IndicatorTone
+  ring?: IndicatorRing
   title: string
   details?: string[]
 }
@@ -90,11 +93,13 @@ function AlarmsTooltip({ alarms }: { alarms: DeviceAlarm[] }) {
 
 function IndicatorIcon({
   tone,
+  ring,
   label,
   content,
   children,
 }: {
   tone: IndicatorTone
+  ring?: IndicatorRing
   label: string
   content: ReactNode
   children: ReactNode
@@ -104,7 +109,11 @@ function IndicatorIcon({
       <span
         role="img"
         aria-label={label}
-        className={cn('inline-flex transition-colors', INDICATOR_TONE_CLASS[tone])}
+        className={cn(
+          'inline-flex rounded-full transition-colors',
+          INDICATOR_TONE_CLASS[tone],
+          ring && cn('ring-2', INDICATOR_RING_CLASS[ring]),
+        )}
       >
         {children}
       </span>
@@ -112,9 +121,14 @@ function IndicatorIcon({
   )
 }
 
-function Indicator({ icon: Icon, tone, title, details }: IndicatorConfig) {
+function Indicator({ icon: Icon, tone, ring, title, details }: IndicatorConfig) {
   return (
-    <IndicatorIcon tone={tone} label={title} content={<TooltipContent title={title} details={details} />}>
+    <IndicatorIcon
+      tone={tone}
+      ring={ring}
+      label={title}
+      content={<TooltipContent title={title} details={details} />}
+    >
       <Icon className="size-3.5" aria-hidden="true" />
     </IndicatorIcon>
   )
@@ -144,9 +158,9 @@ function IgnitionIndicator({ vehicle }: { vehicle: TrackingLiveVehicle }) {
   }
 
   return ignition ? (
-    <Indicator icon={Power} tone="success" title="Ignição Ligada" />
+    <Indicator icon={Power} tone="success" ring="success" title="Ignição Ligada" />
   ) : (
-    <Indicator icon={Power} tone="danger" title="Ignição Desligada" />
+    <Indicator icon={Power} tone="danger" ring="danger" title="Ignição Desligada" />
   )
 }
 
@@ -158,6 +172,7 @@ function MovementIndicator({ vehicle }: { vehicle: TrackingLiveVehicle }) {
       <Indicator
         icon={Navigation}
         tone="success"
+        ring="info"
         title="Em Movimento"
         details={[`Velocidade Atual: ${formatSpeed(vehicle.position?.speed)}`]}
       />

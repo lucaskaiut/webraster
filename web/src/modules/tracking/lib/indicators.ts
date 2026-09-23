@@ -2,6 +2,7 @@ import type { TrackingLiveVehicle } from '@/shared/types/models'
 import { vehicleAlarms } from './tracking'
 
 export type IndicatorTone = 'success' | 'warning' | 'danger' | 'muted'
+export type IndicatorRing = 'success' | 'danger' | 'info'
 export type ConnectionIndicator = 'online' | 'delayed' | 'offline' | 'unknown'
 export type ExternalPowerStatus = 'connected' | 'disconnected' | 'unknown'
 export type GpsStatus = 'valid' | 'invalid' | 'unknown'
@@ -19,6 +20,12 @@ export const INDICATOR_TONE_CLASS: Record<IndicatorTone, string> = {
   warning: 'text-warning',
   danger: 'text-danger',
   muted: 'text-subtle',
+}
+
+export const INDICATOR_RING_CLASS: Record<IndicatorRing, string> = {
+  success: 'ring-success',
+  danger: 'ring-danger',
+  info: 'ring-primary',
 }
 
 export function connectionIndicator(vehicle: TrackingLiveVehicle, now: number): ConnectionIndicator {
