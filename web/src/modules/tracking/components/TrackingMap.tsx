@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { Crosshair, Locate } from 'lucide-react'
 import type { Alert, Geofence, GpsPosition, Poi, TrackingLiveVehicle } from '@/shared/types/models'
 import { cn } from '@/shared/utils/cn'
-import { connectionStatus, hasActiveAlarm } from '../lib/tracking'
+import { connectionStatus, hasActiveAlarm, motionStatus } from '../lib/tracking'
 import { vehicleTypeIcon } from '@/modules/vehicles/lib/vehicle-types'
 import { MapLayerToggles, MapLayersOverlay } from './MapLayers'
 
@@ -149,6 +149,16 @@ function VehicleMarker({
 
   const status = connectionStatus(vehicle)
   const alarm = hasActiveAlarm(vehicle)
+  const motion = motionStatus(vehicle)
+  const ignition = vehicle.position?.ignition ?? null
+  const statusRing =
+    motion === 'moving'
+      ? 'ring-blue-500'
+      : ignition === true
+        ? 'ring-success'
+        : ignition === false
+          ? 'ring-danger'
+          : null
   const TypeIcon = vehicleTypeIcon(vehicle.vehicle_type)
 
   return (
@@ -167,7 +177,11 @@ function VehicleMarker({
             !alarm && status === 'offline' && 'bg-muted',
             !alarm && status === 'no_position' && 'bg-warning',
             selected && 'ring-2 ring-primary ring-offset-1 ring-offset-white',
-            alarm && !selected && 'ring-2 ring-danger/40 ring-offset-1 ring-offset-white',
+            !selected && alarm && 'ring-2 ring-danger/40 ring-offset-1 ring-offset-white',
+            !selected &&
+              !alarm &&
+              statusRing &&
+              cn('ring-2 ring-offset-1 ring-offset-white', statusRing),
           )}
         >
           <TypeIcon className="size-4 text-white" aria-hidden="true" />
