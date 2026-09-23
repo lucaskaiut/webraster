@@ -162,6 +162,8 @@ class TrackingLiveTest extends TestCase
                 'sat' => 19,
                 'adc1' => 14.01,
                 'blocked' => false,
+                'hours' => 2582580000,
+                'totalDistance' => 349709.57,
             ],
         ]);
 
@@ -173,7 +175,9 @@ class TrackingLiveTest extends TestCase
             ->assertJsonPath('data.0.position.signal', 23)
             ->assertJsonPath('data.0.position.satellites', 19)
             ->assertJsonPath('data.0.position.voltage', 14.01)
-            ->assertJsonPath('data.0.position.blocked', false);
+            ->assertJsonPath('data.0.position.blocked', false)
+            ->assertJsonPath('data.0.position.hours', 717.38)
+            ->assertJsonPath('data.0.position.odometer', 349709.57);
     }
 
     public function test_live_resolves_missing_traccar_device_id(): void

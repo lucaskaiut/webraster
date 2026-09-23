@@ -139,7 +139,7 @@ class ReportTest extends TestCase
             'recorded_at' => now()->subHour(),
             'attributes' => [
                 'totalDistance' => 12345,
-                'hours' => 678,
+                'hours' => 2582580000,
                 'odometer' => 12000,
                 'power' => 12.6,
                 'blocked' => false,
@@ -157,7 +157,9 @@ class ReportTest extends TestCase
             ->assertJsonPath('data.rows.0.gps_status', true)
             ->assertJsonPath('data.rows.0.address', 'Rua XV de Novembro')
             ->assertJsonPath('data.rows.0.period_odometer', 12345)
-            ->assertJsonPath('data.rows.0.onboard_odometer', 12000)
+            ->assertJsonPath('data.rows.0.period_horimeter', 717.38)
+            ->assertJsonPath('data.rows.0.onboard_horimeter', 717.38)
+            ->assertJsonPath('data.rows.0.onboard_odometer', 12)
             ->assertJsonPath('data.rows.0.voltage', 12.6)
             ->assertJsonPath('data.rows.0.blocked', false);
     }

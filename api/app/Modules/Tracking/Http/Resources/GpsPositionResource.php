@@ -33,6 +33,9 @@ class GpsPositionResource extends JsonResource
             'altitude' => $this->altitude,
             'motion' => array_key_exists('motion', $attributes) ? (bool) $attributes['motion'] : null,
             'odometer' => isset($attributes['totalDistance']) ? (float) $attributes['totalDistance'] : null,
+            'hours' => isset($attributes['hours']) && is_numeric($attributes['hours'])
+                ? round((float) $attributes['hours'] / 3_600_000, 2)
+                : null,
             'charging' => array_key_exists('charge', $attributes) ? (bool) $attributes['charge'] : null,
             'protocol' => isset($attributes['protocol']) ? (string) $attributes['protocol'] : null,
             'valid' => $this->valid,

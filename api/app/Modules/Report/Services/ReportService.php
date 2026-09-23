@@ -689,9 +689,9 @@ class ReportService
             'input' => $this->attributeString($attributes, ['input', 'inputState', 'ioState']),
             'package' => $this->attributeString($attributes, ['protocol']),
             'period_odometer' => $this->attributeFloat($attributes, ['totalDistance']),
-            'period_horimeter' => $this->attributeFloat($attributes, ['engineHours', 'hours']),
-            'onboard_horimeter' => $this->attributeFloat($attributes, ['hours']),
-            'onboard_odometer' => $this->attributeFloat($attributes, ['odometer']),
+            'period_horimeter' => $this->attributeHours($attributes, ['engineHours', 'hours']),
+            'onboard_horimeter' => $this->attributeHours($attributes, ['hours']),
+            'onboard_odometer' => $this->attributeKilometers($attributes, ['odometer']),
             'battery' => $position->battery,
             'image' => $this->attributeString($attributes, ['image', 'imageUrl', 'photo']),
             'voltage' => TraccarAttributeReader::voltage($attributes),
@@ -725,6 +725,20 @@ class ReportService
         }
 
         return null;
+    }
+
+    private function attributeHours(array $attributes, array $keys): ?float
+    {
+        $value = $this->attributeFloat($attributes, $keys);
+
+        return $value === null ? null : round($value / 3_600_000, 2);
+    }
+
+    private function attributeKilometers(array $attributes, array $keys): ?float
+    {
+        $value = $this->attributeFloat($attributes, $keys);
+
+        return $value === null ? null : round($value / 1000, 2);
     }
 
     /**

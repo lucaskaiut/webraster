@@ -504,6 +504,7 @@ export interface GpsPosition {
   altitude: number | null
   motion?: boolean | null
   odometer?: number | null
+  hours?: number | null
   charging?: boolean | null
   protocol?: string | null
   valid?: boolean | null

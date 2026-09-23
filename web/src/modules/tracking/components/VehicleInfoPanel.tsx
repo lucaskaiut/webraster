@@ -22,6 +22,7 @@ import { cn } from '@/shared/utils/cn'
 import { formatDateTime, formatDateTimeWithSeconds } from '@/shared/utils/format'
 import {
   formatCoordinates,
+  formatDuration,
   formatHeading,
   formatUpdatedAt,
   speedKmh,
@@ -158,6 +159,8 @@ export function VehicleInfoPanel({
     position?.odometer != null
       ? `${Math.round(position.odometer).toLocaleString('pt-BR')} Km`
       : '---'
+  const hoursValue =
+    position?.hours != null ? formatDuration(position.hours * 3_600_000) : '---'
 
   const lastConnection = vehicle.equipment?.traccar_last_update
     ? formatDateTimeWithSeconds(vehicle.equipment.traccar_last_update)
@@ -212,7 +215,7 @@ export function VehicleInfoPanel({
           <GridItem label="Última posição" value={lastPosition} />
           <GridItem label="Velocidade" value={speedValue} />
           <GridItem label="Odômetro" value={odometerValue} />
-          <GridItem label="Horímetro" value="---" />
+          <GridItem label="Horímetro" value={hoursValue} />
         <GridItem label="Endereço" value={position?.address ?? '---'} className="col-span-3" />
       </dl>
 
