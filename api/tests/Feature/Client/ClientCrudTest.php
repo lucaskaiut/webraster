@@ -4,6 +4,10 @@ namespace Tests\Feature\Client;
 
 use App\Modules\ACL\Enums\DefaultRole;
 use App\Modules\Client\Models\Client;
+use App\Modules\Finance\Models\FinanceBilling;
+use App\Modules\Finance\Models\FinancePlan;
+use App\Modules\Finance\Models\FinanceSubscription;
+use App\Modules\Shared\Subscription\Enums\BillingStatus;
 use App\Modules\Shared\Support\Document;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -31,6 +35,39 @@ class ClientCrudTest extends TestCase
 
         $this->assertTrue($names->contains('Cliente A'));
         $this->assertFalse($names->contains('Cliente B'));
+    }
+
+    public function test_index_can_filter_by_delinquency(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $plan = FinancePlan::factory()->forTenant($tenant)->create();
+
+        $overdue = Client::factory()->for($tenant)->create(['name' => 'Cliente Inadimplente']);
+        $current = Client::factory()->for($tenant)->create(['name' => 'Cliente Em Dia']);
+
+        $overdueSubscription = FinanceSubscription::factory()->forClient($overdue, $plan)->create();
+        $currentSubscription = FinanceSubscription::factory()->forClient($current, $plan)->create();
+
+        FinanceBilling::factory()->forSubscription($overdueSubscription)->create([
+            'number' => 1,
+            'status' => BillingStatus::OVERDUE,
+        ]);
+        FinanceBilling::factory()->forSubscription($currentSubscription)->create([
+            'number' => 2,
+            'status' => BillingStatus::PAID,
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $delinquentNames = collect($this->getJson('/api/clients?delinquent=1')->assertOk()->json('data'))
+            ->pluck('name');
+        $this->assertTrue($delinquentNames->contains('Cliente Inadimplente'));
+        $this->assertFalse($delinquentNames->contains('Cliente Em Dia'));
+
+        $currentNames = collect($this->getJson('/api/clients?delinquent=0')->assertOk()->json('data'))
+            ->pluck('name');
+        $this->assertTrue($currentNames->contains('Cliente Em Dia'));
+        $this->assertFalse($currentNames->contains('Cliente Inadimplente'));
     }
 
     public function test_store_creates_client_for_current_tenant(): void

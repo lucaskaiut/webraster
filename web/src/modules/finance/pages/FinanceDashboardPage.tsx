@@ -1,15 +1,35 @@
+import { Link } from 'react-router'
 import { Card, CardContent, Loading, Page, PageContent, PageHeader } from '@/shared/design-system'
+import { cn } from '@/shared/utils/cn'
 import { formatCurrency } from '@/shared/utils/format'
 import { useFinanceDashboardQuery } from '../hooks/useFinance'
 
-function MetricCard({ label, value }: { label: string; value: string | number }) {
-  return (
-    <Card>
+function MetricCard({
+  label,
+  value,
+  to,
+}: {
+  label: string
+  value: string | number
+  to?: string
+}) {
+  const card = (
+    <Card className={cn(to && 'h-full transition-shadow hover:shadow-raised')}>
       <CardContent>
         <p className="text-[13px] text-muted">{label}</p>
         <p className="mt-1 text-2xl font-semibold text-foreground">{value}</p>
       </CardContent>
     </Card>
+  )
+
+  if (!to) {
+    return card
+  }
+
+  return (
+    <Link to={to} className="block h-full rounded-xl">
+      {card}
+    </Link>
   )
 }
 
@@ -37,7 +57,11 @@ export default function FinanceDashboardPage() {
             <MetricCard label="Em aberto" value={formatCurrency(query.data.open_amount)} />
             <MetricCard label="Clientes ativos" value={query.data.active_clients} />
             <MetricCard label="Assinaturas ativas" value={query.data.active_subscriptions} />
-            <MetricCard label="Clientes inadimplentes" value={query.data.delinquent_clients} />
+            <MetricCard
+              label="Clientes inadimplentes"
+              value={query.data.delinquent_clients}
+              to="/clients?delinquent=1"
+            />
           </div>
         )}
       </PageContent>

@@ -4,6 +4,7 @@ namespace App\Modules\Client\Models;
 
 use App\Modules\Client\Models\Scopes\ClientScope;
 use App\Modules\Driver\Models\Driver;
+use App\Modules\Finance\Models\FinanceBilling;
 use App\Modules\Finance\Models\FinancePlan;
 use App\Modules\Finance\Models\FinanceSubscription;
 use App\Modules\Shared\Models\Concerns\HasUuid;
@@ -74,6 +75,11 @@ class Client extends Model
     public function financeSubscription(): HasOne
     {
         return $this->hasOne(FinanceSubscription::class)->latestOfMany();
+    }
+
+    public function billings(): HasMany
+    {
+        return $this->hasMany(FinanceBilling::class);
     }
 
     public function drivers(): HasMany

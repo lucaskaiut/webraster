@@ -14,6 +14,7 @@ import {
   PageHeader,
   Pagination,
   SearchInput,
+  Select,
   type Column,
 } from '@/shared/design-system'
 import { Can } from '@/app/guards/PermissionGuard'
@@ -32,6 +33,8 @@ export default function ClientsListPage() {
   const [search, setSearch] = useState(searchParams.get('search') ?? '')
   const debouncedSearch = useDebounce(search)
   const page = Number(searchParams.get('page') ?? 1)
+  const delinquentParam = searchParams.get('delinquent')
+  const delinquencyFilter = delinquentParam === '1' ? 'delinquent' : ''
 
   const navigate = useNavigate()
   const { can } = usePermissions()
@@ -39,13 +42,22 @@ export default function ClientsListPage() {
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null)
   const deleteClient = useDeleteClient()
 
-  const query = useClientsQuery({ page, per_page: PER_PAGE, search: debouncedSearch || undefined })
+  const query = useClientsQuery({
+    page,
+    per_page: PER_PAGE,
+    search: debouncedSearch || undefined,
+    delinquent: delinquentParam === '1' ? true : undefined,
+  })
 
-  const updateParams = (next: { page?: number; search?: string }) => {
+  const updateParams = (next: { page?: number; search?: string; delinquent?: string }) => {
     setSearchParams(
       (params) => {
         if (next.search !== undefined) {
           next.search ? params.set('search', next.search) : params.delete('search')
+          params.delete('page')
+        }
+        if (next.delinquent !== undefined) {
+          next.delinquent ? params.set('delinquent', next.delinquent) : params.delete('delinquent')
           params.delete('page')
         }
         if (next.page !== undefined) {
@@ -165,6 +177,18 @@ export default function ClientsListPage() {
             value={search}
             onChange={(event) => handleSearch(event.target.value)}
           />
+          <Select
+            aria-label="Filtrar por inadimplência"
+            className="w-48"
+            value={delinquencyFilter}
+            onChange={(event) =>
+              updateParams({ delinquent: event.target.value === 'delinquent' ? '1' : '' })
+            }
+            options={[
+              { value: '', label: 'Todos os clientes' },
+              { value: 'delinquent', label: 'Somente inadimplentes' },
+            ]}
+          />
         </FilterBar>
 
         <DataTable
@@ -176,14 +200,22 @@ export default function ClientsListPage() {
           emptyState={
             <EmptyState
               icon={Contact}
-              title={debouncedSearch ? 'Nenhum resultado encontrado' : 'Nenhum cliente cadastrado'}
+              title={
+                debouncedSearch
+                  ? 'Nenhum resultado encontrado'
+                  : delinquencyFilter
+                    ? 'Nenhum cliente inadimplente'
+                    : 'Nenhum cliente cadastrado'
+              }
               description={
                 debouncedSearch
                   ? 'Tente ajustar os termos da busca.'
-                  : 'Comece cadastrando o primeiro cliente da sua operação.'
+                  : delinquencyFilter
+                    ? 'Nenhum cliente com cobrança em atraso no momento.'
+                    : 'Comece cadastrando o primeiro cliente da sua operação.'
               }
               action={
-                !debouncedSearch ? (
+                !debouncedSearch && !delinquencyFilter ? (
                   <Can permission={Permission.CLIENT_CREATE}>
                     <ButtonLink to="/clients/create">
                       <Plus className="size-4" />

@@ -7,6 +7,7 @@ use App\Modules\Client\Models\ClientOrder;
 use App\Modules\Driver\Models\Driver;
 use App\Modules\Finance\Models\FinancePlan;
 use App\Modules\Finance\Services\FinanceSubscriptionService;
+use App\Modules\Shared\Subscription\Enums\BillingStatus;
 use App\Modules\Geofence\Models\Geofence;
 use App\Modules\Poi\Models\Poi;
 use App\Modules\ServiceOrder\Models\ServiceOrder;
@@ -22,8 +23,11 @@ class ClientService
         private readonly FinanceSubscriptionService $subscriptions,
     ) {}
 
-    public function paginate(int $perPage = 15, ?string $search = null): LengthAwarePaginator
-    {
+    public function paginate(
+        int $perPage = 15,
+        ?string $search = null,
+        ?bool $delinquent = null,
+    ): LengthAwarePaginator {
         return Client::query()
             ->when(filled($search), function ($query) use ($search): void {
                 $digits = preg_replace('/\D+/', '', $search) ?: null;
@@ -37,6 +41,18 @@ class ClientService
                         $query->orWhere('document', 'like', "%{$digits}%");
                     }
                 });
+            })
+            ->when($delinquent === true, function ($query): void {
+                $query->whereHas(
+                    'billings',
+                    fn ($query) => $query->where('status', BillingStatus::OVERDUE->value),
+                );
+            })
+            ->when($delinquent === false, function ($query): void {
+                $query->whereDoesntHave(
+                    'billings',
+                    fn ($query) => $query->where('status', BillingStatus::OVERDUE->value),
+                );
             })
             ->orderBy('name')
             ->paginate(min(max($perPage, 1), 100));
