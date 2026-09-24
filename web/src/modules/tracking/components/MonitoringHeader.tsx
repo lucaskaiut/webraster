@@ -28,15 +28,6 @@ export function MonitoringHeader({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        {connected !== null && (
-          <Badge variant={connected ? 'success' : 'warning'}>
-            <span
-              className={connected ? 'size-1.5 rounded-full bg-success' : 'size-1.5 rounded-full bg-warning'}
-              aria-hidden="true"
-            />
-            {connected ? 'Traccar conectado' : 'Traccar desconectado'}
-          </Badge>
-        )}
         {realtimeConfigured && (
           <Badge variant={realtimeConnected ? 'success' : 'neutral'}>
             <span
