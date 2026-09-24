@@ -24,7 +24,7 @@ Schedule::command(CheckInvoiceStatusCommand::class)->everyFifteenMinutes();
 Schedule::command(SuspendExpiredSubscriptionsCommand::class)->daily();
 Schedule::job(new CheckOfflineDevicesJob)->everyMinute();
 
-Schedule::command(GenerateBillingsCommand::class)->daily();
+Schedule::command(GenerateBillingsCommand::class)->hourly();
 Schedule::command(MarkOverdueBillingsCommand::class)->hourly();
 Schedule::command(ProcessDelinquencyCommand::class)->daily();
 Schedule::command(NotifyDueSoonCommand::class)->daily();
