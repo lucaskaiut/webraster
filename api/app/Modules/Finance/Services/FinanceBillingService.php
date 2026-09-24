@@ -268,9 +268,7 @@ class FinanceBillingService
             $query->where(function ($builder) use ($search): void {
                 $builder->where('description', 'like', "%{$search}%");
 
-                if (preg_match('/^BILL-?0*(\d+)$/i', $search, $matches)) {
-                    $builder->orWhere('number', (int) $matches[1]);
-                } elseif (ctype_digit($search)) {
+                if (ctype_digit($search)) {
                     $builder->orWhere('number', (int) $search);
                 }
 

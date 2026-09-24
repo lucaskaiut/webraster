@@ -97,7 +97,7 @@ class FinanceModuleTest extends TestCase
             'subscription_id' => $subscription->uuid,
         ])
             ->assertCreated()
-            ->assertJsonPath('data.code', 'BILL-000001')
+            ->assertJsonPath('data.code', '1')
             ->assertJsonPath('data.status', 'pending');
     }
 

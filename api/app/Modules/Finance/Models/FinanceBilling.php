@@ -70,7 +70,7 @@ class FinanceBilling extends Model
 
     public function getCodeAttribute(): string
     {
-        return sprintf('BILL-%06d', $this->number);
+        return (string) $this->number;
     }
 
     public function totalCents(): int
