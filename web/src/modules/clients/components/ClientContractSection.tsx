@@ -19,7 +19,8 @@ import {
 import { isApiError } from '@/shared/api/errors'
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
-import { formatDateTime } from '@/shared/utils/format'
+import { formatDocument } from '@/shared/utils/document'
+import { formatDate, formatDateTime } from '@/shared/utils/format'
 import { applyApiErrorsToForm, formResolver } from '@/shared/utils/forms'
 import { useContractsQuery } from '@/modules/contracts/hooks/useContracts'
 import type { ClientContract, ContractSignatureStatus } from '@/shared/types/models'
@@ -36,6 +37,15 @@ const clientContractSchema = z.object({
 })
 
 type ClientContractFormValues = z.infer<typeof clientContractSchema>
+
+function SignerField({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div className="space-y-0.5">
+      <dt className="text-xs text-muted">{label}</dt>
+      <dd className="text-[13px] font-medium text-foreground">{value ?? '—'}</dd>
+    </div>
+  )
+}
 
 export function ClientContractSection({ clientId }: { clientId: string }) {
   const contractsQuery = useContractsQuery({ per_page: 100 })
@@ -120,6 +130,9 @@ function ClientContractForm({
   )
 
   const signed = current?.signature_status === 'signed'
+  const hasSignerData = Boolean(
+    current?.signer_name || current?.signer_cpf || current?.signer_birth_date,
+  )
 
   const handleSubmit = async (values: ClientContractFormValues) => {
     try {
@@ -157,34 +170,49 @@ function ClientContractForm({
               </div>
 
               {current && (
-                <div className="flex flex-col gap-3 rounded-lg border border-border p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-medium text-foreground">
-                        Status da assinatura
-                      </span>
-                      <Badge variant={signatureStatusBadgeVariant(current.signature_status)}>
-                        {current.signature_status_label ??
-                          signatureStatusLabel(current.signature_status)}
-                      </Badge>
+                <div className="space-y-3 rounded-xl bg-surface-2 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium text-foreground">
+                          Status da assinatura
+                        </span>
+                        <Badge variant={signatureStatusBadgeVariant(current.signature_status)}>
+                          {current.signature_status_label ??
+                            signatureStatusLabel(current.signature_status)}
+                        </Badge>
+                      </div>
+                      <p className="text-[13px] text-muted">
+                        {signed && current.signed_at
+                          ? `Assinado em ${formatDateTime(current.signed_at)}`
+                          : 'Marque quando o cliente assinar o contrato.'}
+                      </p>
                     </div>
-                    <p className="text-[13px] text-muted">
-                      {signed && current.signed_at
-                        ? `Assinado em ${formatDateTime(current.signed_at)}`
-                        : 'Marque quando o cliente assinar o contrato.'}
-                    </p>
+                    {canUpdate && (
+                      <Button
+                        type="button"
+                        variant={signed ? 'secondary' : 'primary'}
+                        loading={signatureUpdating}
+                        onClick={() => {
+                          void onChangeSignature(signed ? 'pending' : 'signed').catch(
+                            () => undefined,
+                          )
+                        }}
+                      >
+                        {signed ? 'Marcar como pendente' : 'Marcar como assinado'}
+                      </Button>
+                    )}
                   </div>
-                  {canUpdate && (
-                    <Button
-                      type="button"
-                      variant={signed ? 'secondary' : 'primary'}
-                      loading={signatureUpdating}
-                      onClick={() => {
-                        void onChangeSignature(signed ? 'pending' : 'signed').catch(() => undefined)
-                      }}
-                    >
-                      {signed ? 'Marcar como pendente' : 'Marcar como assinado'}
-                    </Button>
+
+                  {hasSignerData && (
+                    <dl className="grid gap-3 rounded-xl bg-surface p-3.5 sm:grid-cols-3">
+                      <SignerField label="Nome completo" value={current.signer_name} />
+                      <SignerField label="CPF" value={formatDocument(current.signer_cpf)} />
+                      <SignerField
+                        label="Data de nascimento"
+                        value={formatDate(current.signer_birth_date)}
+                      />
+                    </dl>
                   )}
                 </div>
               )}
