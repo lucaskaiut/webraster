@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useTrackingLiveQuery, useTrackingStatusQuery } from '../hooks/useTracking'
+import { useTrackingLiveQuery } from '../hooks/useTracking'
 import { useTrackingRealtime } from '../hooks/useTrackingRealtime'
 import type { GpsPosition } from '@/shared/types/models'
 import type { FleetFilter } from '../lib/tracking'
@@ -43,7 +43,6 @@ export default function MonitoringPage() {
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null)
 
   const { can } = usePermissions()
-  const statusQuery = useTrackingStatusQuery()
   const liveQuery = useTrackingLiveQuery()
   useTrackingRealtime()
   const geofencesQuery = useGeofencesMapQuery(undefined, can(Permission.GEOFENCE_READ) && showGeofences)
@@ -131,7 +130,6 @@ export default function MonitoringPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <MonitoringHeader
-        connected={statusQuery.data ? statusQuery.data.configured : null}
         updating={liveQuery.isFetching}
         updatedAt={liveQuery.dataUpdatedAt || null}
         onRefresh={() => void liveQuery.refetch()}

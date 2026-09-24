@@ -5,13 +5,11 @@ import { useRealtimeStore } from '@/shared/realtime/realtime.store'
 import { formatUpdatedAt } from '../lib/tracking'
 
 export function MonitoringHeader({
-  connected,
   updating,
   updatedAt,
   onRefresh,
   error,
 }: {
-  connected: boolean | null
   updating: boolean
   updatedAt: number | null
   onRefresh: () => void
