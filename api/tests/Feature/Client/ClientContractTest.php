@@ -207,18 +207,61 @@ class ClientContractTest extends TestCase
             [
                 'image' => UploadedFile::fake()->image('assinatura.png'),
                 'contract_id' => $contract->uuid,
+                'signer_name' => 'Maria da Silva',
+                'signer_cpf' => '529.982.247-25',
+                'signer_birth_date' => '1990-05-20',
             ],
             ['Accept' => 'application/json'],
         );
 
         $response->assertOk()
             ->assertJsonPath('data.signature_status', 'signed')
-            ->assertJsonPath('data.signature_status_label', 'Assinado');
+            ->assertJsonPath('data.signature_status_label', 'Assinado')
+            ->assertJsonPath('data.signer_name', 'Maria da Silva')
+            ->assertJsonPath('data.signer_cpf', '52998224725')
+            ->assertJsonPath('data.signer_birth_date', '1990-05-20');
 
         $this->assertNotNull($response->json('data.signed_at'));
         $this->assertNotNull($response->json('data.signature_url'));
 
         Storage::disk('public')->assertExists($response->json('data.signature_path'));
+
+        $this->assertDatabaseHas('client_contracts', [
+            'client_id' => $client->getKey(),
+            'signer_name' => 'Maria da Silva',
+            'signer_cpf' => '52998224725',
+        ]);
+    }
+
+    public function test_sign_validates_signer_data(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $contract = Contract::factory()->forTenant($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $contract->uuid,
+            'valid_until' => '2027-01-01',
+        ])->assertOk();
+
+        Sanctum::actingAs($this->createClient($tenant, ['client_id' => $client->getKey()]));
+
+        $this->post(
+            "/api/clients/{$client->uuid}/contract/signature",
+            [
+                'image' => UploadedFile::fake()->image('assinatura.png'),
+                'contract_id' => $contract->uuid,
+                'signer_cpf' => '111.111.111-11',
+                'signer_birth_date' => now()->addDay()->toDateString(),
+            ],
+            ['Accept' => 'application/json'],
+        )->assertUnprocessable()->assertJsonValidationErrors([
+            'signer_name',
+            'signer_cpf',
+            'signer_birth_date',
+        ]);
     }
 
     public function test_sign_requires_contract_assigned_to_client(): void
@@ -234,6 +277,9 @@ class ClientContractTest extends TestCase
             [
                 'image' => UploadedFile::fake()->image('assinatura.png'),
                 'contract_id' => $contract->uuid,
+                'signer_name' => 'Maria da Silva',
+                'signer_cpf' => '529.982.247-25',
+                'signer_birth_date' => '1990-05-20',
             ],
             ['Accept' => 'application/json'],
         )->assertUnprocessable()->assertJsonValidationErrors(['contract_id']);
@@ -260,6 +306,9 @@ class ClientContractTest extends TestCase
             [
                 'image' => UploadedFile::fake()->image('assinatura.png'),
                 'contract_id' => $another->uuid,
+                'signer_name' => 'Maria da Silva',
+                'signer_cpf' => '529.982.247-25',
+                'signer_birth_date' => '1990-05-20',
             ],
             ['Accept' => 'application/json'],
         )->assertUnprocessable()->assertJsonValidationErrors(['contract_id']);
@@ -286,6 +335,9 @@ class ClientContractTest extends TestCase
             [
                 'image' => UploadedFile::fake()->image('assinatura.png'),
                 'contract_id' => $contract->uuid,
+                'signer_name' => 'Maria da Silva',
+                'signer_cpf' => '529.982.247-25',
+                'signer_birth_date' => '1990-05-20',
             ],
             ['Accept' => 'application/json'],
         )->assertNotFound();
@@ -336,6 +388,9 @@ class ClientContractTest extends TestCase
             [
                 'image' => UploadedFile::fake()->image('assinatura.png'),
                 'contract_id' => $contract->uuid,
+                'signer_name' => 'Maria da Silva',
+                'signer_cpf' => '529.982.247-25',
+                'signer_birth_date' => '1990-05-20',
             ],
             ['Accept' => 'application/json'],
         )->assertForbidden();
@@ -364,6 +419,9 @@ class ClientContractTest extends TestCase
             [
                 'image' => UploadedFile::fake()->image('assinatura.png'),
                 'contract_id' => $contract->uuid,
+                'signer_name' => 'Maria da Silva',
+                'signer_cpf' => '529.982.247-25',
+                'signer_birth_date' => '1990-05-20',
             ],
             ['Accept' => 'application/json'],
         )->assertOk()->assertJsonPath('data.signature_status', 'signed');
@@ -378,7 +436,10 @@ class ClientContractTest extends TestCase
             ->assertJsonPath('data.signature_status', 'pending')
             ->assertJsonPath('data.signed_at', null)
             ->assertJsonPath('data.signature_path', null)
-            ->assertJsonPath('data.signature_url', null);
+            ->assertJsonPath('data.signature_url', null)
+            ->assertJsonPath('data.signer_name', null)
+            ->assertJsonPath('data.signer_cpf', null)
+            ->assertJsonPath('data.signer_birth_date', null);
     }
 
     public function test_client_user_reads_own_contract_through_portal(): void

@@ -59,6 +59,11 @@ class ClientContractController extends ApiController
             $client,
             (int) $request->validated('contract_id'),
             $request->file('image'),
+            [
+                'signer_name' => $request->validated('signer_name'),
+                'signer_cpf' => $request->validated('signer_cpf'),
+                'signer_birth_date' => $request->validated('signer_birth_date'),
+            ],
         );
 
         return $this->success(ClientContractResource::make($contract), 'Contrato assinado com sucesso.');

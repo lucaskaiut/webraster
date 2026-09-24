@@ -59,6 +59,9 @@ class ClientContractService
                 $clientContract->signature_status = ContractSignatureStatus::PENDING;
                 $clientContract->signed_at = null;
                 $clientContract->signature_path = null;
+                $clientContract->signer_name = null;
+                $clientContract->signer_cpf = null;
+                $clientContract->signer_birth_date = null;
             }
 
             $clientContract->save();
@@ -67,7 +70,10 @@ class ClientContractService
         });
     }
 
-    public function sign(Client $client, int $contractId, UploadedFile $image): ClientContract
+    /**
+     * @param  array{signer_name: string, signer_cpf: string, signer_birth_date: string}  $signer
+     */
+    public function sign(Client $client, int $contractId, UploadedFile $image, array $signer): ClientContract
     {
         $clientContract = $this->currentForClient($client);
 
@@ -89,6 +95,9 @@ class ClientContractService
             'signature_status' => ContractSignatureStatus::SIGNED,
             'signed_at' => now(),
             'signature_path' => $path,
+            'signer_name' => $signer['signer_name'],
+            'signer_cpf' => $signer['signer_cpf'],
+            'signer_birth_date' => $signer['signer_birth_date'],
         ]);
         $clientContract->save();
 
@@ -110,6 +119,9 @@ class ClientContractService
 
         if (! $status->isSigned()) {
             $clientContract->signature_path = null;
+            $clientContract->signer_name = null;
+            $clientContract->signer_cpf = null;
+            $clientContract->signer_birth_date = null;
         }
 
         $clientContract->save();

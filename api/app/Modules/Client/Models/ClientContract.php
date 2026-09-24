@@ -23,6 +23,9 @@ class ClientContract extends Model
         'signature_status',
         'signed_at',
         'signature_path',
+        'signer_name',
+        'signer_cpf',
+        'signer_birth_date',
         'body',
     ];
 
@@ -32,6 +35,7 @@ class ClientContract extends Model
             'valid_until' => 'date',
             'signature_status' => ContractSignatureStatus::class,
             'signed_at' => 'datetime',
+            'signer_birth_date' => 'date',
         ];
     }
 
