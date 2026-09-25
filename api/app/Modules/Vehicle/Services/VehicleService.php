@@ -12,7 +12,7 @@ class VehicleService
     public function paginate(int $perPage = 15, ?string $search = null, ?int $clientId = null): LengthAwarePaginator
     {
         return Vehicle::query()
-            ->with(['client', 'equipment'])
+            ->with(['client', 'equipment', 'images'])
             ->when($clientId !== null, fn ($query) => $query->where('client_id', $clientId))
             ->when(filled($search), function ($query) use ($search): void {
                 $normalized = $this->normalizePlate($search);

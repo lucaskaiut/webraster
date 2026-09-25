@@ -41,6 +41,29 @@ class VehicleImageTest extends TestCase
             ->assertJsonPath('data.images.0.path', 'uploads/foto-1.jpg');
     }
 
+    public function test_index_exposes_images_ordered_by_sort_order(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create();
+
+        VehicleImage::factory()->forVehicle($vehicle)->create([
+            'path' => 'uploads/capa.jpg',
+            'sort_order' => 1,
+        ]);
+        VehicleImage::factory()->forVehicle($vehicle)->create([
+            'path' => 'uploads/detalhe.jpg',
+            'sort_order' => 2,
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->getJson('/api/vehicles')
+            ->assertOk()
+            ->assertJsonPath('data.0.images.0.path', 'uploads/capa.jpg')
+            ->assertJsonPath('data.0.images.1.path', 'uploads/detalhe.jpg');
+    }
+
     public function test_removes_image_and_deletes_stored_file(): void
     {
         [, $tenant] = $this->createOperationalChild();
