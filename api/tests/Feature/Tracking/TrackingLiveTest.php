@@ -77,6 +77,7 @@ class TrackingLiveTest extends TestCase
         GpsPosition::factory()->forVehicle($vehicle)->create([
             'latitude' => -25.4284,
             'longitude' => -49.2733,
+            'address' => 'Rua XV de Novembro, 100',
             'ignition' => true,
             'recorded_at' => now()->subMinute(),
         ]);
@@ -94,6 +95,7 @@ class TrackingLiveTest extends TestCase
             ->assertJsonPath('data.0.online', true)
             ->assertJsonPath('data.0.position.latitude', -25.4284)
             ->assertJsonPath('data.0.position.longitude', -49.2733)
+            ->assertJsonPath('data.0.position.address', 'Rua XV de Novembro, 100')
             ->assertJsonPath('data.0.position.ignition', true);
     }
 

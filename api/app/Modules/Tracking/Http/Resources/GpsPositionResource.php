@@ -25,6 +25,7 @@ class GpsPositionResource extends JsonResource
             'vehicle_id' => $this->vehicle?->uuid ?? null,
             'latitude' => $this->latitude,
             'longitude' => $this->longitude,
+            'address' => $this->address,
             'recorded_at' => $this->recorded_at?->toIso8601String(),
             'speed' => $this->speed,
             'ignition' => $this->ignition,

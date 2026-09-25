@@ -69,6 +69,7 @@ class TraccarWebhookTest extends TestCase
             'vehicle_id' => $vehicle->getKey(),
             'traccar_position_id' => 12345,
             'latitude' => -25.4284,
+            'address' => 'Rua XV de Novembro',
         ]);
     }
 

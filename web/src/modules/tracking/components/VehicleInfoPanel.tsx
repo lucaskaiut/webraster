@@ -321,7 +321,13 @@ export function VehicleInfoPanel({
                 label="Direção"
                 value={position ? formatHeading(position.heading) : 'Não informado'}
               />
-              <Info label="Coordenadas" value={formatCoordinates(position?.latitude, position?.longitude)} />
+              <Info
+                label="Localização"
+                value={
+                  position?.address?.trim() ||
+                  formatCoordinates(position?.latitude, position?.longitude)
+                }
+              />
               <Info
                 label="Atualização"
                 value={formatUpdatedAt(position?.recorded_at, now)}
