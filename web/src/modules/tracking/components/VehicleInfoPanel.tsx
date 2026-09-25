@@ -28,6 +28,7 @@ import {
   speedKmh,
   vehicleAlarms,
 } from '../lib/tracking'
+import { externalPowerStatus } from '../lib/indicators'
 import { VehicleCommandsPanel } from './VehicleCommandsPanel'
 import { VehicleStatusIndicators } from './VehicleStatusIndicators'
 
@@ -140,6 +141,13 @@ export function VehicleInfoPanel({
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const position = vehicle.position
   const alarms = vehicleAlarms(vehicle)
+  const powerStatus = externalPowerStatus(vehicle)
+  const externalPowerValue =
+    powerStatus === 'connected'
+      ? 'Conectada'
+      : powerStatus === 'disconnected'
+        ? 'Desconectada'
+        : 'Não informado'
   const images = vehicle.images ?? []
   const [coverImage, ...otherImages] = images
   const canSendCommands = can(Permission.DEVICE_COMMANDS_SEND)
@@ -340,10 +348,7 @@ export function VehicleInfoPanel({
               )}
               <Info label="Cliente" value={vehicle.client?.name ?? 'Não informado'} />
               <Info label="Protocolo" value={position?.protocol ?? 'Não informado'} />
-              <Info
-                label="Carregando"
-                value={position?.charging == null ? 'Não informado' : position.charging ? 'Sim' : 'Não'}
-              />
+              <Info label="Alimentação Externa" value={externalPowerValue} />
             </dl>
           )}
   

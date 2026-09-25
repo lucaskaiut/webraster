@@ -54,6 +54,16 @@ export function externalPowerStatus(vehicle: TrackingLiveVehicle): ExternalPower
     return 'disconnected'
   }
 
+  const externalPower = vehicle.position?.external_power
+
+  if (externalPower === true) {
+    return 'connected'
+  }
+
+  if (externalPower === false) {
+    return 'disconnected'
+  }
+
   return 'unknown'
 }
 

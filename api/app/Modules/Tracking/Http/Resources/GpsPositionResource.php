@@ -37,6 +37,7 @@ class GpsPositionResource extends JsonResource
                 ? round((float) $attributes['hours'] / 3_600_000, 2)
                 : null,
             'charging' => array_key_exists('charge', $attributes) ? (bool) $attributes['charge'] : null,
+            'external_power' => TraccarAttributeReader::externalPower($attributes),
             'protocol' => isset($attributes['protocol']) ? (string) $attributes['protocol'] : null,
             'valid' => $this->valid,
             'signal' => TraccarAttributeReader::signal($attributes),

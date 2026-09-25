@@ -107,4 +107,18 @@ class AlertSupportTest extends TestCase
         $this->assertNull(TraccarAttributeReader::voltage(['power' => 98]));
         $this->assertNull(TraccarAttributeReader::isBlocked([]));
     }
+
+    #[Test]
+    public function infers_external_power_from_voltage(): void
+    {
+        $this->assertTrue(TraccarAttributeReader::externalPower(['adc1' => 12.63]));
+        $this->assertTrue(TraccarAttributeReader::externalPower(['externalPower' => 24.1]));
+        $this->assertTrue(TraccarAttributeReader::externalPower(['externalPower' => true]));
+        $this->assertTrue(TraccarAttributeReader::externalPower(['power' => 12.6]));
+        $this->assertFalse(TraccarAttributeReader::externalPower(['externalPower' => false]));
+        $this->assertFalse(TraccarAttributeReader::externalPower(['adc1' => 4.2]));
+        $this->assertFalse(TraccarAttributeReader::externalPower(['adc1' => 0]));
+        $this->assertNull(TraccarAttributeReader::externalPower(['power' => 98]));
+        $this->assertNull(TraccarAttributeReader::externalPower(null));
+    }
 }

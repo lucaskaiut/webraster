@@ -514,6 +514,7 @@ export interface GpsPosition {
   odometer?: number | null
   hours?: number | null
   charging?: boolean | null
+  external_power?: boolean | null
   protocol?: string | null
   valid?: boolean | null
   signal?: number | null

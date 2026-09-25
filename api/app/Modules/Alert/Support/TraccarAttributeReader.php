@@ -11,6 +11,9 @@ use App\Modules\Tracking\Support\TraccarBatteryLevel;
  */
 final class TraccarAttributeReader
 {
+    /** Tensão mínima (V) para considerar alimentação externa conectada. */
+    private const EXTERNAL_POWER_MIN_VOLTAGE = 10.0;
+
     /** Alarmes tratados por regras dedicadas (SOS, jamming, velocidade). */
     private const EXCLUDED_DEVICE_ALARMS = [
         'sos',
@@ -383,6 +386,34 @@ final class TraccarAttributeReader
         }
 
         return null;
+    }
+
+    /**
+     * Alimentação externa inferida quando o protocolo não envia um booleano.
+     * Chaves dedicadas (adc1 etc.) permitem detectar o corte mesmo abaixo de
+     * 6V; como fallback usa a tensão já normalizada (6V a 30V).
+     *
+     * @param  array<string, mixed>|null  $attributes
+     */
+    public static function externalPower(?array $attributes): ?bool
+    {
+        if ($attributes === null) {
+            return null;
+        }
+
+        if (array_key_exists('externalPower', $attributes) && is_bool($attributes['externalPower'])) {
+            return $attributes['externalPower'];
+        }
+
+        foreach (['adc1', 'externalPower', 'batteryVoltage'] as $key) {
+            if (isset($attributes[$key]) && is_numeric($attributes[$key])) {
+                return (float) $attributes[$key] >= self::EXTERNAL_POWER_MIN_VOLTAGE;
+            }
+        }
+
+        $voltage = self::voltage($attributes);
+
+        return $voltage !== null ? $voltage >= self::EXTERNAL_POWER_MIN_VOLTAGE : null;
     }
 
     /**
