@@ -370,29 +370,31 @@ class TrackingService
             ],
         );
 
-        try {
-            $this->geofenceDetection->process($gpsPosition);
-        } catch (\Throwable $exception) {
-            Log::warning('geofence.detection_failed', [
-                'position_id' => $gpsPosition->getKey(),
-                'vehicle_id' => $vehicle->getKey(),
-                'message' => $exception->getMessage(),
-            ]);
-        }
-
-        try {
-            $this->alertEngine->process($gpsPosition);
-        } catch (\Throwable $exception) {
-            Log::warning('alert.detection_failed', [
-                'position_id' => $gpsPosition->getKey(),
-                'vehicle_id' => $vehicle->getKey(),
-                'message' => $exception->getMessage(),
-            ]);
-        }
-
-        // Toda posição nova alimenta o monitoramento em tempo real, seja ela
-        // vinda do webhook do Traccar ou da reconciliação periódica (sync).
+        // Apenas posições novas alimentam geocercas, alertas e o tempo real.
+        // Reprocessar posições já persistidas (reconciliação do sync ou
+        // reentrega do webhook) fazia posições antigas de um dispositivo parado
+        // dispararem "dispositivo online" a cada varredura.
         if ($gpsPosition->wasRecentlyCreated) {
+            try {
+                $this->geofenceDetection->process($gpsPosition);
+            } catch (\Throwable $exception) {
+                Log::warning('geofence.detection_failed', [
+                    'position_id' => $gpsPosition->getKey(),
+                    'vehicle_id' => $vehicle->getKey(),
+                    'message' => $exception->getMessage(),
+                ]);
+            }
+
+            try {
+                $this->alertEngine->process($gpsPosition);
+            } catch (\Throwable $exception) {
+                Log::warning('alert.detection_failed', [
+                    'position_id' => $gpsPosition->getKey(),
+                    'vehicle_id' => $vehicle->getKey(),
+                    'message' => $exception->getMessage(),
+                ]);
+            }
+
             PositionUpdated::dispatch(
                 $equipment->tenant?->uuid,
                 $vehicle->client?->uuid,

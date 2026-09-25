@@ -137,6 +137,13 @@ class OfflineAlertService
         }
 
         foreach ($activeStates as $state) {
+            // Posição anterior (ou igual) ao início do offline é reprocessamento
+            // e não caracteriza reconexão do dispositivo.
+            if ($state->started_at !== null
+                && CarbonImmutable::parse($position->recorded_at)->lessThanOrEqualTo($state->started_at)) {
+                continue;
+            }
+
             $config = null;
 
             if ((int) $state->alert_config_id > 0) {
