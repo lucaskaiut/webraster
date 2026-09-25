@@ -5,7 +5,6 @@ namespace App\Modules\Tenant\Http\Requests;
 use App\Modules\Shared\Rules\CpfOrCnpj;
 use App\Modules\Tenant\Support\Facades\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class UpdateTenantRequest extends FormRequest
@@ -30,28 +29,17 @@ class UpdateTenantRequest extends FormRequest
                 Rule::unique('tenants', 'email')->ignore($tenantId),
             ],
             'phone' => ['sometimes', 'nullable', 'string', 'max:20'],
-            'domain' => [
-                'sometimes', 'required', 'string', 'max:255',
-                'regex:/^(?=.{1,253}$)((?!-)[a-z0-9-]{1,63}(?<!-)\.)+[a-z]{2,63}$/',
-                Rule::unique('tenants', 'domain')->ignore($tenantId),
-            ],
+            'logo_path' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'favicon_path' => ['sometimes', 'nullable', 'string', 'max:255'],
         ];
     }
 
     protected function prepareForValidation(): void
     {
-        $input = [];
-
         if ($this->has('document')) {
-            $input['document'] = (string) preg_replace('/\D+/', '', (string) $this->input('document'));
-        }
-
-        if ($this->has('domain')) {
-            $input['domain'] = Str::lower(trim((string) $this->input('domain')));
-        }
-
-        if ($input !== []) {
-            $this->merge($input);
+            $this->merge([
+                'document' => (string) preg_replace('/\D+/', '', (string) $this->input('document')),
+            ]);
         }
     }
 }

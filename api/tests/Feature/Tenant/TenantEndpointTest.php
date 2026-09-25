@@ -15,14 +15,14 @@ class TenantEndpointTest extends TestCase
     public function test_show_returns_only_the_current_tenant(): void
     {
         $tenant = $this->createTenantWithRoles();
-        $this->createTenantWithRoles(['domain' => 'outro.com.br']);
+        $this->createTenantWithRoles();
 
         Sanctum::actingAs($this->createAdmin($tenant));
 
         $this->getJson('/api/tenant')
             ->assertOk()
             ->assertJsonPath('data.id', $tenant->uuid)
-            ->assertJsonPath('data.domain', $tenant->domain);
+            ->assertJsonPath('data.name', $tenant->name);
     }
 
     public function test_update_operates_on_the_authenticated_tenant_only(): void
@@ -33,23 +33,20 @@ class TenantEndpointTest extends TestCase
 
         $this->putJson('/api/tenant', [
             'name' => 'Novo Nome',
-            'domain' => 'novo-dominio.com.br',
         ])
             ->assertOk()
-            ->assertJsonPath('data.name', 'Novo Nome')
-            ->assertJsonPath('data.domain', 'novo-dominio.com.br');
+            ->assertJsonPath('data.name', 'Novo Nome');
 
         $this->assertDatabaseHas('tenants', [
             'id' => $tenant->getKey(),
             'name' => 'Novo Nome',
-            'domain' => 'novo-dominio.com.br',
         ]);
     }
 
     public function test_update_ignores_tenant_id_sent_in_payload(): void
     {
         $tenantA = $this->createTenantWithRoles();
-        $tenantB = $this->createTenantWithRoles(['domain' => 'outro.com.br']);
+        $tenantB = $this->createTenantWithRoles();
 
         Sanctum::actingAs($this->createAdmin($tenantA));
 
@@ -63,20 +60,41 @@ class TenantEndpointTest extends TestCase
         $this->assertDatabaseMissing('tenants', ['id' => $tenantB->getKey(), 'name' => 'Atualizado']);
     }
 
-    public function test_update_validates_domain_and_document(): void
+    public function test_update_persists_logo_and_favicon(): void
     {
         $tenant = $this->createTenantWithRoles();
-        $this->createTenantWithRoles(['domain' => 'existente.com.br']);
 
         Sanctum::actingAs($this->createAdmin($tenant));
 
-        $this->putJson('/api/tenant', ['domain' => 'não é um domínio'])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['domain']);
+        $this->putJson('/api/tenant', [
+            'logo_path' => 'uploads/logo.png',
+            'favicon_path' => 'uploads/favicon.ico',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.logo_path', 'uploads/logo.png')
+            ->assertJsonPath('data.logo_url', asset('storage/uploads/logo.png'))
+            ->assertJsonPath('data.favicon_path', 'uploads/favicon.ico')
+            ->assertJsonPath('data.favicon_url', asset('storage/uploads/favicon.ico'));
 
-        $this->putJson('/api/tenant', ['domain' => 'existente.com.br'])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['domain']);
+        $this->assertDatabaseHas('tenants', [
+            'id' => $tenant->getKey(),
+            'logo_path' => 'uploads/logo.png',
+            'favicon_path' => 'uploads/favicon.ico',
+        ]);
+
+        $this->putJson('/api/tenant', ['logo_path' => null, 'favicon_path' => null])
+            ->assertOk()
+            ->assertJsonPath('data.logo_path', null)
+            ->assertJsonPath('data.logo_url', null)
+            ->assertJsonPath('data.favicon_path', null)
+            ->assertJsonPath('data.favicon_url', null);
+    }
+
+    public function test_update_validates_document(): void
+    {
+        $tenant = $this->createTenantWithRoles();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
 
         $this->putJson('/api/tenant', ['document' => '123'])
             ->assertUnprocessable()

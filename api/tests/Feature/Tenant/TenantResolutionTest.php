@@ -74,47 +74,6 @@ class TenantResolutionTest extends TestCase
             ->assertJsonPath('success', false);
     }
 
-    public function test_resolves_tenant_from_referer_header(): void
-    {
-        $tenant = $this->createTenantWithRoles(['domain' => 'cliente1.com.br']);
-
-        $this->forgetTenantContext();
-
-        $this->getJson('/api/testing/current-tenant', ['Referer' => 'https://cliente1.com.br/dashboard'])
-            ->assertOk()
-            ->assertJsonPath('tenant_uuid', $tenant->uuid);
-
-        $this->forgetTenantContext();
-
-        $this->getJson('/api/testing/current-tenant', ['Referer' => 'https://www.cliente1.com.br'])
-            ->assertOk()
-            ->assertJsonPath('tenant_uuid', $tenant->uuid);
-    }
-
-    public function test_authenticated_user_takes_precedence_over_referer(): void
-    {
-        $tenantA = $this->createTenantWithRoles();
-        $tenantB = $this->createTenantWithRoles(['domain' => 'cliente2.com.br']);
-
-        Sanctum::actingAs($this->createMember($tenantA));
-
-        $this->getJson('/api/testing/current-tenant', ['Referer' => 'https://cliente2.com.br'])
-            ->assertOk()
-            ->assertJsonPath('tenant_uuid', $tenantA->uuid);
-    }
-
-    public function test_unknown_referer_returns_404(): void
-    {
-        $this->createTenantWithRoles(['domain' => 'cliente1.com.br']);
-
-        $this->forgetTenantContext();
-
-        $this->getJson('/api/testing/current-tenant', ['Referer' => 'https://desconhecido.com.br'])
-            ->assertNotFound()
-            ->assertJsonPath('success', false)
-            ->assertJsonPath('message', 'Tenant não encontrado para a requisição atual.');
-    }
-
     public function test_unresolvable_request_returns_404(): void
     {
         $this->forgetTenantContext();

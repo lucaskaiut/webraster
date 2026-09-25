@@ -91,7 +91,7 @@ class TrackingBroadcastTest extends TestCase
     public function test_broadcast_auth_authorizes_staff_of_accessible_tenants_only(): void
     {
         [$umbrella, $tenant] = $this->createOperationalChild();
-        $other = $this->createChildTenant($umbrella, ['domain' => 'outro.com.br']);
+        $other = $this->createChildTenant($umbrella);
 
         $admin = $this->createAdmin($tenant);
         Sanctum::actingAs($admin);

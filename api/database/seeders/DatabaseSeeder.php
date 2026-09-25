@@ -27,7 +27,6 @@ class DatabaseSeeder extends Seeder
                 document: '11222333000181',
                 email: 'contato@demo.localhost',
                 phone: '41999999999',
-                domain: 'demo.localhost',
             ),
             new NewUserData(
                 name: 'Administrador',

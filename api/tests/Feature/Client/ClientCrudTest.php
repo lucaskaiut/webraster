@@ -22,7 +22,7 @@ class ClientCrudTest extends TestCase
     public function test_index_lists_only_clients_of_current_tenant(): void
     {
         [$umbrella, $tenant] = $this->createOperationalChild();
-        $other = $this->createChildTenant($umbrella, ['domain' => 'outro.com.br']);
+        $other = $this->createChildTenant($umbrella);
 
         Client::factory()->for($tenant)->create(['name' => 'Cliente A']);
         Client::factory()->for($other)->create(['name' => 'Cliente B']);
@@ -262,7 +262,7 @@ class ClientCrudTest extends TestCase
     public function test_cannot_access_client_of_other_tenant(): void
     {
         [$umbrella, $tenantA] = $this->createOperationalChild();
-        $tenantB = $this->createChildTenant($umbrella, ['domain' => 'outro.com.br']);
+        $tenantB = $this->createChildTenant($umbrella);
         $foreign = Client::factory()->for($tenantB)->create();
 
         Sanctum::actingAs($this->createAdmin($tenantA));

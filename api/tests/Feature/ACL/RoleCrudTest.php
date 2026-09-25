@@ -19,7 +19,7 @@ class RoleCrudTest extends TestCase
     public function test_index_lists_only_roles_of_the_current_tenant(): void
     {
         $tenantA = $this->createTenantWithRoles();
-        $tenantB = $this->createTenantWithRoles(['domain' => 'outro.com.br']);
+        $tenantB = $this->createTenantWithRoles();
 
         Role::factory()->for($tenantA)->create(['name' => 'Suporte']);
         Role::factory()->for($tenantB)->create(['name' => 'Financeiro']);
@@ -79,7 +79,7 @@ class RoleCrudTest extends TestCase
     public function test_same_role_name_is_allowed_in_different_tenants(): void
     {
         $tenantA = $this->createTenantWithRoles();
-        $tenantB = $this->createTenantWithRoles(['domain' => 'outro.com.br']);
+        $tenantB = $this->createTenantWithRoles();
 
         Role::factory()->for($tenantB)->create(['name' => 'Suporte']);
 
@@ -91,7 +91,7 @@ class RoleCrudTest extends TestCase
     public function test_show_returns_role_and_404_for_other_tenant(): void
     {
         $tenantA = $this->createTenantWithRoles();
-        $tenantB = $this->createTenantWithRoles(['domain' => 'outro.com.br']);
+        $tenantB = $this->createTenantWithRoles();
 
         $mine = Role::factory()->for($tenantA)->create(['name' => 'Suporte']);
         $foreign = Role::factory()->for($tenantB)->create(['name' => 'Financeiro']);
@@ -166,7 +166,7 @@ class RoleCrudTest extends TestCase
     public function test_update_cannot_reach_roles_of_other_tenants(): void
     {
         $tenantA = $this->createTenantWithRoles();
-        $tenantB = $this->createTenantWithRoles(['domain' => 'outro.com.br']);
+        $tenantB = $this->createTenantWithRoles();
 
         $foreign = Role::factory()->for($tenantB)->create(['name' => 'Financeiro']);
 

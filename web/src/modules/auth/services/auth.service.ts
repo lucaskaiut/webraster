@@ -27,7 +27,6 @@ export interface RegisterPayload {
     document: string
     email: string
     phone: string
-    domain: string
   }
   user: {
     name: string

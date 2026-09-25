@@ -5,7 +5,6 @@ namespace App\Modules\Tenant\Http\Requests;
 use App\Modules\Shared\Rules\CpfOrCnpj;
 use App\Modules\Tenant\Models\Tenant;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
@@ -33,11 +32,6 @@ class UpdateChildTenantRequest extends FormRequest
                 Rule::unique('tenants', 'email')->ignore($child->getKey()),
             ],
             'tenant.phone' => ['required', 'string', 'max:20'],
-            'tenant.domain' => [
-                'required', 'string', 'max:255',
-                'regex:/^(?=.{1,253}$)((?!-)[a-z0-9-]{1,63}(?<!-)\.)+[a-z]{2,63}$/',
-                Rule::unique('tenants', 'domain')->ignore($child->getKey()),
-            ],
 
             'plan_id' => [
                 'nullable',
@@ -66,10 +60,6 @@ class UpdateChildTenantRequest extends FormRequest
 
         if ($this->has('tenant.document')) {
             $input['tenant']['document'] = (string) preg_replace('/\D+/', '', (string) $this->input('tenant.document'));
-        }
-
-        if ($this->has('tenant.domain')) {
-            $input['tenant']['domain'] = Str::lower(trim((string) $this->input('tenant.domain')));
         }
 
         if ($this->has('is_complimentary')) {

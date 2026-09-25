@@ -23,6 +23,8 @@ class AvailableTenantResource extends JsonResource
             'name' => $this->name,
             'is_home' => (bool) ($this->is_home ?? $this->parent_id === null),
             'is_umbrella' => $this->isUmbrella(),
+            'logo_url' => $this->logoUrl(),
+            'favicon_url' => $this->faviconUrl(),
         ];
     }
 }

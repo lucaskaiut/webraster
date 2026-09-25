@@ -6,13 +6,6 @@ const tenantFields = z.object({
   document: z.string().refine((value) => isValidCpfOrCnpj(value), 'Informe um CPF ou CNPJ válido'),
   email: z.string().min(1, 'Informe o e-mail').email('Informe um e-mail válido'),
   phone: z.string().min(1, 'Informe o telefone'),
-  domain: z
-    .string()
-    .min(1, 'Informe o domínio')
-    .regex(
-      /^(?=.{1,253}$)((?!-)[a-z0-9-]{1,63}(?<!-)\.)+[a-z]{2,63}$/,
-      'Informe um domínio válido (ex.: empresa.com.br)',
-    ),
 })
 
 export const createChildTenantSchema = z.object({
@@ -28,9 +21,15 @@ export const updateChildTenantSchema = z.object({
   tenant: tenantFields,
 })
 
+export const tenantSettingsSchema = tenantFields.extend({
+  logo_path: z.string().nullable(),
+  favicon_path: z.string().nullable(),
+})
+
 /** @deprecated use createChildTenantSchema */
 export const childTenantSchema = createChildTenantSchema
 
 export type CreateChildTenantFormValues = z.infer<typeof createChildTenantSchema>
 export type UpdateChildTenantFormValues = z.infer<typeof updateChildTenantSchema>
 export type ChildTenantFormValues = CreateChildTenantFormValues
+export type TenantSettingsFormValues = z.infer<typeof tenantSettingsSchema>

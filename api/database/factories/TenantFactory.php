@@ -24,7 +24,6 @@ class TenantFactory extends Factory
             'document' => Document::fakeCnpj(),
             'email' => fake()->unique()->companyEmail(),
             'phone' => fake()->numerify('419########'),
-            'domain' => fake()->unique()->domainName(),
         ];
     }
 

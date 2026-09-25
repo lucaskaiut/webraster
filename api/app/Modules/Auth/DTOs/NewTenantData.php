@@ -9,11 +9,10 @@ final readonly class NewTenantData
         public string $document,
         public string $email,
         public ?string $phone,
-        public string $domain,
     ) {}
 
     /**
-     * @param  array{name: string, document: string, email: string, phone?: ?string, domain: string}  $data
+     * @param  array{name: string, document: string, email: string, phone?: ?string}  $data
      */
     public static function fromArray(array $data): self
     {
@@ -22,12 +21,11 @@ final readonly class NewTenantData
             document: $data['document'],
             email: $data['email'],
             phone: $data['phone'] ?? null,
-            domain: $data['domain'],
         );
     }
 
     /**
-     * @return array{name: string, document: string, email: string, phone: ?string, domain: string}
+     * @return array{name: string, document: string, email: string, phone: ?string}
      */
     public function toArray(): array
     {
@@ -36,7 +34,6 @@ final readonly class NewTenantData
             'document' => $this->document,
             'email' => $this->email,
             'phone' => $this->phone,
-            'domain' => $this->domain,
         ];
     }
 }

@@ -2,7 +2,6 @@
 
 namespace App\Modules\Shared\Http\Controllers;
 
-use App\Modules\Shared\Http\Controllers\ApiController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -11,7 +10,7 @@ class FileUploadController extends ApiController
     public function __invoke(Request $request): JsonResponse
     {
         $request->validate([
-            'file' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:10240'],
+            'file' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,ico,pdf', 'max:10240'],
         ]);
 
         $path = $request->file('file')->store('uploads', 'public');

@@ -6,7 +6,29 @@ import {
   tenantsService,
   type CreateChildTenantPayload,
   type UpdateChildTenantPayload,
+  type UpdateTenantPayload,
 } from '../services/tenants.service'
+
+export function useTenantQuery() {
+  return useQuery({
+    queryKey: queryKeys.tenants.current(),
+    queryFn: () => tenantsService.getCurrent(),
+  })
+}
+
+export function useUpdateTenant() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: UpdateTenantPayload) => tenantsService.updateCurrent(payload),
+    onSuccess: (tenant) => {
+      queryClient.setQueryData(queryKeys.tenants.current(), tenant)
+      queryClient.invalidateQueries({ queryKey: queryKeys.session })
+      queryClient.invalidateQueries({ queryKey: queryKeys.tenants.all })
+      toast.success('Configurações salvas', 'Os dados da empresa foram atualizados.')
+    },
+  })
+}
 
 export function useTenantChildrenQuery(params: ListParams) {
   return useQuery({

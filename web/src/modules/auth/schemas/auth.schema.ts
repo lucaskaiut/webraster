@@ -15,8 +15,6 @@ export {
   type ResetPasswordFormValues,
 } from './password.schema'
 
-const DOMAIN_REGEX = /^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i
-
 export const registerSchema = z.object({
   tenant: z.object({
     name: z.string().min(1, 'Informe o nome da empresa'),
@@ -26,10 +24,6 @@ export const registerSchema = z.object({
       .refine(isValidCpfOrCnpj, 'Informe um CPF ou CNPJ válido'),
     email: z.string().min(1, 'Informe o e-mail da empresa').email('Informe um e-mail válido'),
     phone: z.string().min(10, 'Informe um telefone válido'),
-    domain: z
-      .string()
-      .min(1, 'Informe o domínio')
-      .regex(DOMAIN_REGEX, 'Informe um domínio válido (ex.: empresa.com.br)'),
   }),
   user: z
     .object({

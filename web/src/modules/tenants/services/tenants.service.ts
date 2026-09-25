@@ -8,7 +8,6 @@ export interface CreateChildTenantPayload {
     document: string
     email: string
     phone: string
-    domain: string
   }
   user: {
     name: string
@@ -23,11 +22,31 @@ export interface UpdateChildTenantPayload {
     document: string
     email: string
     phone: string
-    domain: string
   }
 }
 
+export interface UpdateTenantPayload {
+  name?: string
+  document?: string
+  email?: string
+  phone?: string | null
+  logo_path?: string | null
+  favicon_path?: string | null
+}
+
 export const tenantsService = {
+  async getCurrent(): Promise<Tenant> {
+    const response = await http.get<ApiResponse<Tenant>>('/tenant')
+
+    return response.data.data
+  },
+
+  async updateCurrent(payload: UpdateTenantPayload): Promise<Tenant> {
+    const response = await http.put<ApiResponse<Tenant>>('/tenant', payload)
+
+    return response.data.data
+  },
+
   async listChildren(params: ListParams): Promise<PaginatedResponse<Tenant>> {
     const response = await http.get<PaginatedResponse<Tenant>>('/tenant/children', { params })
 

@@ -1,11 +1,11 @@
 import { Suspense } from 'react'
 import { Outlet, useLocation } from 'react-router'
-import { Building2, BellRing, Car, ClipboardList, Contact, Cpu, CreditCard, FileBarChart, FileText, Hexagon, History, IdCard, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, Package, Receipt, Repeat, ScrollText, Search, Settings2, ShieldCheck, Users, Wallet, Wrench } from 'lucide-react'
+import { Building2, BellRing, Car, ClipboardList, Contact, Cpu, CreditCard, FileBarChart, FileText, Hexagon, History, IdCard, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, Package, Receipt, Repeat, ScrollText, Search, Settings, Settings2, ShieldCheck, Users, Wallet, Wrench } from 'lucide-react'
 import { AppLogo } from '@/shared/brand/AppLogo'
+import { useActiveTenant } from '@/shared/brand/useActiveTenant'
 import { TenantSelector } from '@/modules/auth/components/TenantSelector'
 import { NotificationBell } from '@/modules/notifications/components/NotificationBell'
 import { useSessionStore } from '@/shared/stores/session.store'
-import { useTenantContextStore } from '@/shared/stores/tenant.store'
 import { useUiStore } from '@/shared/stores/ui.store'
 import { Permission } from '@/shared/constants/permissions'
 import { useIsUmbrellaTenant } from '@/shared/hooks/useIsUmbrellaTenant'
@@ -28,14 +28,7 @@ import {
 import { cn } from '@/shared/utils/cn'
 
 function Brand({ collapsed = false }: { collapsed?: boolean }) {
-  const tenant = useSessionStore((state) => state.tenant)
-  const isMaster = useSessionStore((state) => state.isMaster)
-  const availableTenants = useSessionStore((state) => state.availableTenants)
-  const selectedTenantId = useTenantContextStore((state) => state.selectedTenantId)
-
-  const activeName = isMaster
-    ? (availableTenants.find((item) => item.id === selectedTenantId)?.name ?? tenant?.name)
-    : tenant?.name
+  const activeTenant = useActiveTenant()
 
   if (collapsed) {
     return (
@@ -48,8 +41,8 @@ function Brand({ collapsed = false }: { collapsed?: boolean }) {
   return (
     <div className="px-1">
       <AppLogo size="sm" />
-      {activeName ? (
-        <span className="mt-1 block truncate text-xs text-muted">{activeName}</span>
+      {activeTenant?.name ? (
+        <span className="mt-1 block truncate text-xs text-muted">{activeTenant.name}</span>
       ) : null}
     </div>
   )
@@ -310,6 +303,9 @@ function SidebarNavigation({
         */}
         {can(Permission.AUDIT_VIEW) && (
           <SidebarItem to="/audit" icon={ScrollText} label="Auditoria" onNavigate={onNavigate} />
+        )}
+        {can(Permission.TENANT_UPDATE) && (
+          <SidebarItem to="/settings" icon={Settings} label="Configurações" onNavigate={onNavigate} />
         )}
       </SidebarGroup>
 

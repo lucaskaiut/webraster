@@ -1,10 +1,12 @@
 import { Code, ImagePlus, Trash2 } from 'lucide-react'
+import { http } from '@/shared/api/http'
 import { Button } from './Button'
 import { Field } from './Field'
 import { cn } from '@/shared/utils/cn'
 
 export interface ImageValue {
   url: string
+  path?: string
   alt?: string
 }
 
@@ -16,6 +18,7 @@ interface ImageUploaderProps {
   error?: string
   className?: string
   uploadUrl?: string
+  accept?: string
 }
 
 /**
@@ -29,24 +32,17 @@ export function ImageUploader({
   hint,
   error,
   className,
-  uploadUrl = '/api/uploads',
+  uploadUrl = '/uploads',
+  accept = 'image/*',
 }: ImageUploaderProps) {
   const upload = async (file: File) => {
     const formData = new FormData()
     formData.append('file', file)
 
-    const response = await fetch(uploadUrl, {
-      method: 'POST',
-      body: formData,
-      credentials: 'include',
-      headers: { 'X-XSRF-TOKEN': decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] ?? '') },
-    })
+    const response = await http.post<{ data: { url: string; path: string } }>(uploadUrl, formData)
+    const { url, path } = response.data.data
 
-    if (!response.ok) throw new Error('Falha no upload')
-
-    const { data } = await response.json()
-
-    onChange({ url: data.url, alt: value?.alt ?? '' })
+    onChange({ url, path, alt: value?.alt ?? '' })
   }
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,7 +93,7 @@ export function ImageUploader({
               <span className="text-sm text-muted">Cole a URL da imagem no campo abaixo</span>
             </>
           )}
-          <input type="file" accept="image/*" className="sr-only" onChange={handleFileChange} />
+          <input type="file" accept={accept} className="sr-only" onChange={handleFileChange} />
         </label>
       )}
     </Field>

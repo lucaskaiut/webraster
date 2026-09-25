@@ -20,7 +20,7 @@ class TenantChildrenTest extends TestCase
         $this->createChildTenant($umbrella, ['name' => 'Empresa A']);
         $this->createChildTenant($umbrella, ['name' => 'Empresa B']);
 
-        $other = $this->createTenantWithRoles(['name' => 'Outro Grupo', 'domain' => 'outro.com.br']);
+        $other = $this->createTenantWithRoles(['name' => 'Outro Grupo']);
         $this->createChildTenant($other, ['name' => 'Empresa Z']);
 
         Sanctum::actingAs($this->createMaster($umbrella));
@@ -45,7 +45,6 @@ class TenantChildrenTest extends TestCase
                 'document' => '04.252.011/0001-10',
                 'email' => 'contato@nova.com',
                 'phone' => '41999999999',
-                'domain' => 'nova.com.br',
             ],
             'user' => [
                 'name' => 'Admin Nova',
@@ -61,7 +60,7 @@ class TenantChildrenTest extends TestCase
             ->assertJsonPath('data.user.email', 'admin@nova.com')
             ->assertJsonPath('data.user.is_master', false);
 
-        $child = Tenant::query()->where('domain', 'nova.com.br')->firstOrFail();
+        $child = Tenant::query()->where('email', 'contato@nova.com')->firstOrFail();
 
         $this->assertSame($umbrella->getKey(), $child->parent_id);
 
@@ -85,7 +84,6 @@ class TenantChildrenTest extends TestCase
                 'document' => '11.222.333/0001-81',
                 'email' => 'contato@paga.com',
                 'phone' => '41999999999',
-                'domain' => 'paga.com.br',
             ],
             'user' => [
                 'name' => 'Admin Paga',
@@ -95,7 +93,7 @@ class TenantChildrenTest extends TestCase
             'plan_id' => $plan->uuid,
         ])->assertCreated();
 
-        $child = Tenant::query()->where('domain', 'paga.com.br')->firstOrFail();
+        $child = Tenant::query()->where('email', 'contato@paga.com')->firstOrFail();
 
         $this->assertDatabaseHas('subscriptions', [
             'tenant_id' => $child->getKey(),
@@ -117,7 +115,6 @@ class TenantChildrenTest extends TestCase
                 'document' => '04.252.011/0001-10',
                 'email' => 'x@x.com',
                 'phone' => '41999999999',
-                'domain' => 'x.com.br',
             ],
             'user' => [
                 'name' => 'X',
@@ -139,7 +136,6 @@ class TenantChildrenTest extends TestCase
                 'document' => '04.252.011/0001-10',
                 'email' => 'x@x.com',
                 'phone' => '41999999999',
-                'domain' => 'x.com.br',
             ],
             'user' => [
                 'name' => 'X',
@@ -162,7 +158,6 @@ class TenantChildrenTest extends TestCase
                 'document' => '11.222.333/0001-81',
                 'email' => 'contato@parceira.com',
                 'phone' => '41999999999',
-                'domain' => 'parceira.com.br',
             ],
             'user' => [
                 'name' => 'Admin Parceira',
@@ -177,7 +172,7 @@ class TenantChildrenTest extends TestCase
             ->assertJsonPath('data.tenant.subscription.is_complimentary', true)
             ->assertJsonPath('data.tenant.subscription.is_complimentary_active', true);
 
-        $child = Tenant::query()->where('domain', 'parceira.com.br')->firstOrFail();
+        $child = Tenant::query()->where('email', 'contato@parceira.com')->firstOrFail();
 
         $this->assertDatabaseHas('subscriptions', [
             'tenant_id' => $child->getKey(),
@@ -203,7 +198,6 @@ class TenantChildrenTest extends TestCase
                 'document' => '11.222.333/0001-81',
                 'email' => 'contato@parceira.com',
                 'phone' => '41999999999',
-                'domain' => 'parceira.com.br',
             ],
             'user' => [
                 'name' => 'Admin Parceira',
@@ -221,7 +215,6 @@ class TenantChildrenTest extends TestCase
         $umbrella = $this->createTenantWithRoles();
         $child = $this->createChildTenant($umbrella, [
             'name' => 'Empresa Edit',
-            'domain' => 'edit.com.br',
             'email' => 'contato@edit.com.br',
         ]);
 
@@ -238,7 +231,6 @@ class TenantChildrenTest extends TestCase
                 'document' => $child->document,
                 'email' => $child->email,
                 'phone' => $child->phone,
-                'domain' => $child->domain,
             ],
         ])
             ->assertOk()
@@ -248,9 +240,9 @@ class TenantChildrenTest extends TestCase
 
     public function test_master_cannot_manage_foreign_child(): void
     {
-        $umbrellaA = $this->createTenantWithRoles(['domain' => 'a.com.br', 'email' => 'a@a.com']);
-        $umbrellaB = $this->createTenantWithRoles(['domain' => 'b.com.br', 'email' => 'b@b.com']);
-        $foreignChild = $this->createChildTenant($umbrellaB, ['domain' => 'filho-b.com.br']);
+        $umbrellaA = $this->createTenantWithRoles(['email' => 'a@a.com']);
+        $umbrellaB = $this->createTenantWithRoles(['email' => 'b@b.com']);
+        $foreignChild = $this->createChildTenant($umbrellaB);
         $plan = Plan::factory()->forTenant($umbrellaA)->create();
 
         Sanctum::actingAs($this->createMaster($umbrellaA));
@@ -263,7 +255,6 @@ class TenantChildrenTest extends TestCase
                 'document' => $foreignChild->document,
                 'email' => $foreignChild->email,
                 'phone' => $foreignChild->phone,
-                'domain' => $foreignChild->domain,
             ],
             'plan_id' => $plan->uuid,
             'is_complimentary' => true,
@@ -275,7 +266,6 @@ class TenantChildrenTest extends TestCase
         $umbrella = $this->createTenantWithRoles();
         $child = $this->createChildTenant($umbrella, [
             'name' => 'Empresa Contexto',
-            'domain' => 'contexto.com.br',
         ]);
         $plan = Plan::factory()->forTenant($umbrella)->withoutTrial()->create();
 
@@ -300,7 +290,6 @@ class TenantChildrenTest extends TestCase
                 'document' => $child->document,
                 'email' => $child->email,
                 'phone' => $child->phone,
-                'domain' => $child->domain,
             ],
             'plan_id' => $plan->uuid,
             'is_complimentary' => true,

@@ -21,7 +21,6 @@ class RegisterTest extends TestCase
                 'document' => '11.222.333/0001-81',
                 'email' => 'contato@empresa.com',
                 'phone' => '41999999999',
-                'domain' => 'empresa.com.br',
             ],
             'user' => [
                 'name' => 'Administrador',
@@ -41,12 +40,11 @@ class RegisterTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.token_type', 'Bearer')
-            ->assertJsonPath('data.tenant.domain', 'empresa.com.br')
             ->assertJsonPath('data.user.email', 'admin@empresa.com')
             ->assertJsonStructure(['data' => ['token', 'user' => ['id'], 'tenant' => ['id']]]);
 
         $this->assertDatabaseHas('tenants', [
-            'domain' => 'empresa.com.br',
+            'email' => 'contato@empresa.com',
             'document' => '11222333000181',
         ]);
 
@@ -99,17 +97,16 @@ class RegisterTest extends TestCase
         ]))->assertUnprocessable()->assertJsonValidationErrors(['user.document']);
     }
 
-    public function test_register_rejects_duplicated_domain_and_emails(): void
+    public function test_register_rejects_duplicated_emails(): void
     {
         $this->postJson('/api/auth/register', $this->payload())->assertCreated();
 
         $this->postJson('/api/auth/register', $this->payload([
-            'tenant' => ['email' => 'outro@empresa.com'],
             'user' => ['email' => 'outro-admin@empresa.com'],
-        ]))->assertUnprocessable()->assertJsonValidationErrors(['tenant.domain']);
+        ]))->assertUnprocessable()->assertJsonValidationErrors(['tenant.email']);
 
         $this->postJson('/api/auth/register', $this->payload([
-            'tenant' => ['domain' => 'outra.com.br', 'email' => 'outro@empresa.com'],
+            'tenant' => ['email' => 'outro@empresa.com'],
         ]))->assertUnprocessable()->assertJsonValidationErrors(['user.email']);
     }
 
@@ -129,7 +126,6 @@ class RegisterTest extends TestCase
                 'name' => 'Filial',
                 'document' => '04.252.011/0001-10',
                 'email' => 'contato@filial.com',
-                'domain' => 'filial.com.br',
             ],
             'user' => [
                 'email' => 'admin@filial.com',
@@ -137,7 +133,7 @@ class RegisterTest extends TestCase
         ]))->assertCreated();
 
         $this->assertDatabaseHas('tenants', [
-            'domain' => 'filial.com.br',
+            'email' => 'contato@filial.com',
             'parent_id' => $firstTenantId,
         ]);
     }
@@ -153,7 +149,7 @@ class RegisterTest extends TestCase
     private function getTenantId(): int
     {
         return (int) DB::table('tenants')
-            ->where('domain', 'empresa.com.br')
+            ->where('email', 'contato@empresa.com')
             ->value('id');
     }
 }

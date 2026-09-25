@@ -37,6 +37,7 @@ const AuditPage = lazy(() => import('@/modules/audit/pages/AuditPage'))
 const TenantsListPage = lazy(() => import('@/modules/tenants/pages/TenantsListPage'))
 const TenantCreatePage = lazy(() => import('@/modules/tenants/pages/TenantCreatePage'))
 const TenantEditPage = lazy(() => import('@/modules/tenants/pages/TenantEditPage'))
+const TenantSettingsPage = lazy(() => import('@/modules/tenants/pages/TenantSettingsPage'))
 const ClientsListPage = lazy(() => import('@/modules/clients/pages/ClientsListPage'))
 const ClientCreatePage = lazy(() => import('@/modules/clients/pages/ClientCreatePage'))
 const ClientEditPage = lazy(() => import('@/modules/clients/pages/ClientEditPage'))
@@ -286,6 +287,14 @@ export const router = createBrowserRouter([
             element: (
               <PermissionGuard permission={Permission.TENANT_UPDATE} requiresUmbrella>
                 <TenantEditPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/settings',
+            element: (
+              <PermissionGuard permission={Permission.TENANT_UPDATE}>
+                <TenantSettingsPage />
               </PermissionGuard>
             ),
           },

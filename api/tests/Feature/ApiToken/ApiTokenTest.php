@@ -63,7 +63,7 @@ class ApiTokenTest extends TestCase
     public function test_index_lists_only_tokens_of_the_current_tenant(): void
     {
         $tenantA = $this->createTenantWithRoles();
-        $tenantB = $this->createTenantWithRoles(['domain' => 'outro.com.br']);
+        $tenantB = $this->createTenantWithRoles();
 
         ApiToken::factory()->count(2)->for($tenantA)->create();
         ApiToken::factory()->count(3)->for($tenantB)->create();
@@ -126,7 +126,7 @@ class ApiTokenTest extends TestCase
     public function test_cannot_revoke_tokens_of_other_tenants(): void
     {
         $tenantA = $this->createTenantWithRoles();
-        $tenantB = $this->createTenantWithRoles(['domain' => 'outro.com.br']);
+        $tenantB = $this->createTenantWithRoles();
 
         $foreign = ApiToken::factory()->for($tenantB)->create();
 

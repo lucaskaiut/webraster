@@ -72,7 +72,6 @@ export default function TenantsListPage() {
       render: (tenant) => (
         <div className="min-w-0">
           <p className="truncate font-medium text-foreground">{tenant.name}</p>
-          <p className="truncate text-[13px] text-muted">{tenant.domain}</p>
         </div>
       ),
     },

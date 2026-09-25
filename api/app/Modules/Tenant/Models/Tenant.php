@@ -28,7 +28,8 @@ class Tenant extends Model
         'document',
         'email',
         'phone',
-        'domain',
+        'logo_path',
+        'favicon_path',
     ];
 
     public function parent(): BelongsTo
@@ -69,6 +70,16 @@ class Tenant extends Model
     public function isUmbrella(): bool
     {
         return $this->parent_id === null;
+    }
+
+    public function logoUrl(): ?string
+    {
+        return $this->logo_path ? asset("storage/{$this->logo_path}") : null;
+    }
+
+    public function faviconUrl(): ?string
+    {
+        return $this->favicon_path ? asset("storage/{$this->favicon_path}") : null;
     }
 
     protected static function newFactory(): TenantFactory

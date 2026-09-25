@@ -149,7 +149,6 @@ class SubscriptionServiceTest extends TestCase
     public function test_register_with_plan_creates_subscription(): void
     {
         $umbrella = $this->createTenantWithRoles([
-            'domain' => 'grupo.com.br',
             'email' => 'contato@grupo.com.br',
         ]);
         $this->createChildTenant($umbrella);
@@ -165,7 +164,6 @@ class SubscriptionServiceTest extends TestCase
                 'document' => '11.222.333/0001-81',
                 'email' => 'contato@nova.com',
                 'phone' => '41999999999',
-                'domain' => 'nova.com.br',
             ],
             'user' => [
                 'name' => 'Admin Nova',
@@ -199,7 +197,6 @@ class SubscriptionServiceTest extends TestCase
     public function test_register_with_paid_plan_creates_local_invoice(): void
     {
         $umbrella = $this->createTenantWithRoles([
-            'domain' => 'grupo-pago.com.br',
             'email' => 'contato@grupo-pago.com.br',
         ]);
         $this->createChildTenant($umbrella);
@@ -215,7 +212,6 @@ class SubscriptionServiceTest extends TestCase
                 'document' => '04.252.011/0001-10',
                 'email' => 'contato@paga.com',
                 'phone' => '41999999999',
-                'domain' => 'paga.com.br',
             ],
             'user' => [
                 'name' => 'Admin Paga',
@@ -268,7 +264,6 @@ class SubscriptionServiceTest extends TestCase
         $this->assertCount(0, $service->dueForBilling());
 
         $paidChild = $this->createChildTenant($umbrella, [
-            'domain' => 'paga.com.br',
             'email' => 'contato@paga.com.br',
         ]);
         $paid = $service->createForTenant($paidChild, $plan);

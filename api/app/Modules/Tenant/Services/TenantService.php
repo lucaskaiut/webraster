@@ -23,7 +23,7 @@ class TenantService
     ) {}
 
     /**
-     * @param  array{name: string, document: string, email: string, phone: ?string, domain: string, parent_id?: int|null}  $data
+     * @param  array{name: string, document: string, email: string, phone: ?string, parent_id?: int|null}  $data
      */
     public function create(array $data): Tenant
     {
@@ -59,7 +59,6 @@ class TenantService
             ->when(filled($search), function ($query) use ($search): void {
                 $query->where(function ($query) use ($search): void {
                     $query->where('name', 'like', "%{$search}%")
-                        ->orWhere('domain', 'like', "%{$search}%")
                         ->orWhere('email', 'like', "%{$search}%");
                 });
             })
@@ -82,7 +81,7 @@ class TenantService
      * Provisiona um tenant filho sob o umbrella: tenant + perfis padrão +
      * usuário administrador (não master) e, opcionalmente, assinatura.
      *
-     * @param  array{name: string, document: string, email: string, phone: ?string, domain: string}  $tenantData
+     * @param  array{name: string, document: string, email: string, phone: ?string}  $tenantData
      * @param  array{name: string, email: string, phone?: ?string, document?: ?string, password: string}  $userData
      * @return array{tenant: Tenant, user: User, subscription: ?Subscription}
      */
@@ -136,7 +135,7 @@ class TenantService
      * Atualiza dados da empresa filha.
      * Controle de assinatura desabilitado — plano/cortesia não são alterados aqui.
      *
-     * @param  array{name: string, document: string, email: string, phone: ?string, domain: string}  $tenantData
+     * @param  array{name: string, document: string, email: string, phone: ?string}  $tenantData
      */
     public function updateChild(
         Tenant $umbrella,

@@ -74,7 +74,7 @@ function CreateForm({
   const form = useForm<CreateChildTenantFormValues>({
     resolver: zodResolver(createChildTenantSchema),
     defaultValues: {
-      tenant: { name: '', document: '', email: '', phone: '', domain: '' },
+      tenant: { name: '', document: '', email: '', phone: '' },
       user: { name: '', email: '', password: '' },
       ...defaultValues,
     },
@@ -87,7 +87,6 @@ function CreateForm({
         document: onlyDigits(values.tenant.document),
         email: values.tenant.email,
         phone: onlyDigits(values.tenant.phone),
-        domain: values.tenant.domain,
       },
       user: {
         name: values.user.name,
@@ -133,7 +132,6 @@ function EditForm({
       tenant: {
         name: defaultValues?.tenant?.name ?? '',
         email: defaultValues?.tenant?.email ?? '',
-        domain: defaultValues?.tenant?.domain ?? '',
         document: maskCpfCnpj(defaultValues?.tenant?.document ?? ''),
         phone: maskPhone(defaultValues?.tenant?.phone ?? ''),
       },
@@ -147,7 +145,6 @@ function EditForm({
         document: onlyDigits(values.tenant.document),
         email: values.tenant.email,
         phone: onlyDigits(values.tenant.phone),
-        domain: values.tenant.domain,
       },
     }
 
@@ -194,7 +191,6 @@ function TenantFields() {
           inputMode="tel"
           mask={maskPhone}
         />
-        <TextField name="tenant.domain" label="Domínio" required placeholder="empresa.com.br" />
       </div>
     </Section>
   )

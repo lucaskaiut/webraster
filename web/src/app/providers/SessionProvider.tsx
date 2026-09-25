@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { sessionQueryOptions } from '@/modules/auth/services/auth.service'
+import { applyFavicon } from '@/shared/brand/favicon'
 import { useSessionStore } from '@/shared/stores/session.store'
 import { useTenantContextStore } from '@/shared/stores/tenant.store'
 
@@ -27,6 +28,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       clearSelectedTenantId()
     }
   }, [isError, setGuest, clearSelectedTenantId])
+
+  useEffect(() => {
+    if (!isSuccess || !data) {
+      applyFavicon(null)
+      return
+    }
+
+    const activeTenant = data.is_master
+      ? (data.available_tenants.find((tenant) => tenant.id === selectedTenantId) ?? data.tenant)
+      : data.tenant
+
+    applyFavicon(activeTenant?.favicon_url)
+  }, [isSuccess, data, selectedTenantId])
 
   useEffect(() => {
     if (!isSuccess || !data) return

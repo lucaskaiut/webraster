@@ -26,7 +26,10 @@ export interface Tenant {
   document: string
   email: string
   phone: string | null
-  domain: string
+  logo_path: string | null
+  logo_url: string | null
+  favicon_path: string | null
+  favicon_url: string | null
   traccar_server_ip: string | null
   traccar_server_dns: string | null
   is_umbrella?: boolean
@@ -41,6 +44,8 @@ export interface AvailableTenant {
   name: string
   is_home?: boolean
   is_umbrella?: boolean
+  logo_url?: string | null
+  favicon_url?: string | null
 }
 
 export interface ApiToken {

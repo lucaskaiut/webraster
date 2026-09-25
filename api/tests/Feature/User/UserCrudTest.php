@@ -17,7 +17,7 @@ class UserCrudTest extends TestCase
     public function test_index_lists_only_users_of_the_current_tenant(): void
     {
         $tenantA = $this->createTenantWithRoles();
-        $tenantB = $this->createTenantWithRoles(['domain' => 'outro.com.br']);
+        $tenantB = $this->createTenantWithRoles();
 
         $admin = $this->createAdmin($tenantA);
         User::factory()->count(2)->for($tenantA)->create();
@@ -38,7 +38,7 @@ class UserCrudTest extends TestCase
     public function test_show_returns_user_of_same_tenant_and_404_for_other_tenant(): void
     {
         $tenantA = $this->createTenantWithRoles();
-        $tenantB = $this->createTenantWithRoles(['domain' => 'outro.com.br']);
+        $tenantB = $this->createTenantWithRoles();
 
         $admin = $this->createAdmin($tenantA);
         $mine = User::factory()->for($tenantA)->create();
@@ -85,7 +85,7 @@ class UserCrudTest extends TestCase
     public function test_store_requires_at_least_one_role_from_current_tenant(): void
     {
         $tenantA = $this->createTenantWithRoles();
-        $tenantB = $this->createTenantWithRoles(['domain' => 'outro.com.br']);
+        $tenantB = $this->createTenantWithRoles();
 
         Sanctum::actingAs($this->createAdmin($tenantA));
 
@@ -160,7 +160,7 @@ class UserCrudTest extends TestCase
     public function test_update_cannot_reach_users_of_other_tenants(): void
     {
         $tenantA = $this->createTenantWithRoles();
-        $tenantB = $this->createTenantWithRoles(['domain' => 'outro.com.br']);
+        $tenantB = $this->createTenantWithRoles();
         $foreign = User::factory()->for($tenantB)->create();
 
         Sanctum::actingAs($this->createAdmin($tenantA));
