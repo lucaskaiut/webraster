@@ -8,6 +8,7 @@ use App\Modules\Alert\Models\Alert;
 use App\Modules\Alert\Models\AlertConfig;
 use App\Modules\Alert\Policies\AlertConfigPolicy;
 use App\Modules\Alert\Policies\AlertPolicy;
+use App\Modules\Alert\Services\AlertConfigService;
 use App\Modules\ApiToken\Models\ApiToken;
 use App\Modules\ApiToken\Policies\ApiTokenPolicy;
 use App\Modules\Assistant\Models\Conversation;
@@ -85,6 +86,11 @@ class AppServiceProvider extends ServiceProvider
         $this->configureRateLimiting();
         $this->configurePolicies();
         $this->configureRouteBindings();
+
+        // Cada cliente começa com seus alertas criados (desligados) para o portal.
+        Client::created(function (Client $client): void {
+            app(AlertConfigService::class)->ensureClientDefaults($client);
+        });
     }
 
     private function configureRouteBindings(): void

@@ -91,3 +91,30 @@ export function useDeleteAlertConfig() {
     },
   })
 }
+
+export function usePortalAlertConfigsQuery(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.alerts.portalConfigs(),
+    queryFn: () => alertsService.portalConfigs(),
+    enabled,
+  })
+}
+
+export function useUpdatePortalAlertConfig() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ type, isEnabled }: { type: string; isEnabled: boolean }) =>
+      alertsService.updatePortalConfig(type, isEnabled),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.alerts.portalConfigs() })
+    },
+  })
+}
+
+export function useClientAlertConfigsQuery(clientId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.alerts.clientConfigs(clientId ?? ''),
+    queryFn: () => alertsService.clientConfigs(clientId as string),
+    enabled: Boolean(clientId),
+  })
+}

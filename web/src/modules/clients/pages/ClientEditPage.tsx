@@ -15,6 +15,7 @@ import {
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import { ClientForm } from '../forms/ClientForm'
+import { ClientAlertsSection } from '../components/ClientAlertsSection'
 import { ClientContractSection } from '../components/ClientContractSection'
 import { ClientFinanceSection } from '../components/ClientFinanceSection'
 import { ClientOrderSection } from '../components/ClientOrderSection'
@@ -22,7 +23,7 @@ import { ClientUsersSection } from '../components/ClientUsersSection'
 import { ClientVehiclesSection } from '../components/ClientVehiclesSection'
 import { useClientQuery, useUpdateClient } from '../hooks/useClients'
 
-type ClientEditTab = 'dados' | 'usuarios' | 'veiculos' | 'pedido' | 'contrato'
+type ClientEditTab = 'dados' | 'usuarios' | 'veiculos' | 'alertas' | 'pedido' | 'contrato'
 
 function FormSkeleton() {
   return (
@@ -55,16 +56,18 @@ export default function ClientEditPage() {
   const updateClient = useUpdateClient(id ?? '')
   const showOrderTab = can(Permission.CLIENT_READ)
   const showFinance = can(Permission.FINANCE_SUBSCRIPTION_READ)
+  const showAlertsTab = can(Permission.ALERT_CONFIG_READ)
 
   const tabOptions = useMemo(
     () => [
       { value: 'dados' as const, label: 'Dados' },
       { value: 'usuarios' as const, label: 'Usuários' },
       { value: 'veiculos' as const, label: 'Veículos' },
+      ...(showAlertsTab ? [{ value: 'alertas' as const, label: 'Alertas' }] : []),
       ...(showOrderTab ? [{ value: 'pedido' as const, label: 'Pedido' }] : []),
       ...(showOrderTab ? [{ value: 'contrato' as const, label: 'Contrato' }] : []),
     ],
-    [showOrderTab],
+    [showAlertsTab, showOrderTab],
   )
 
   const rawTab = searchParams.get('tab')
@@ -77,9 +80,11 @@ export default function ClientEditPage() {
           ? 'usuarios'
           : rawTab === 'veiculos'
             ? 'veiculos'
-            : rawTab === 'assinatura' && showOrderTab
-              ? 'pedido'
-              : 'dados'
+            : rawTab === 'alertas' && showAlertsTab
+              ? 'alertas'
+              : rawTab === 'assinatura' && showOrderTab
+                ? 'pedido'
+                : 'dados'
 
   const setTab = (value: ClientEditTab) => {
     setSearchParams(
@@ -161,6 +166,8 @@ export default function ClientEditPage() {
             {tab === 'usuarios' && <ClientUsersSection clientId={id} />}
 
             {tab === 'veiculos' && <ClientVehiclesSection clientId={id} />}
+
+            {tab === 'alertas' && <ClientAlertsSection clientId={id} />}
 
             {tab === 'contrato' && <ClientContractSection clientId={id} />}
 

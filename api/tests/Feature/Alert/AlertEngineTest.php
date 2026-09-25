@@ -4,6 +4,7 @@ namespace Tests\Feature\Alert;
 
 use App\Modules\Alert\Enums\AlertType;
 use App\Modules\Alert\Models\Alert;
+use App\Modules\Alert\Models\AlertConfig;
 use App\Modules\Alert\Services\AlertConfigService;
 use App\Modules\Alert\Services\AlertEngine;
 use App\Modules\Alert\Services\OfflineAlertService;
@@ -32,10 +33,7 @@ class AlertEngineTest extends TestCase
             'speed_min_duration_seconds' => 30,
         ]);
         Equipment::factory()->assignedTo($vehicle)->create();
-        app(AlertConfigService::class)->ensureDefaults($tenant);
-
-        $config = app(AlertConfigService::class)->findForTenant($tenant->getKey(), AlertType::SPEED);
-        $config->forceFill(['notify_email' => false])->save();
+        $this->enableClientAlert($client, AlertType::SPEED);
 
         $engine = app(AlertEngine::class);
         $base = CarbonImmutable::parse('2026-09-05 10:00:00');
@@ -62,7 +60,7 @@ class AlertEngineTest extends TestCase
         $this->assertSame('Excesso de Velocidade', $alert->title);
         $this->assertSame(40, $alert->meta['duration_seconds'] ?? null);
         $this->assertSame(105.6, $alert->meta['max_speed_kmh'] ?? null);
-        $this->assertSame(80.0, $alert->meta['limit_kmh'] ?? null);
+        $this->assertEquals(80.0, $alert->meta['limit_kmh'] ?? null);
 
         // novo episódio curto — descartado
         $engine->process($this->pos($tenant, $client, $vehicle, 54, $base->addSeconds(60), 7));
@@ -76,7 +74,16 @@ class AlertEngineTest extends TestCase
         $client = Client::factory()->for($tenant)->create();
         $vehicle = Vehicle::factory()->forClient($client)->create();
         Equipment::factory()->assignedTo($vehicle)->create();
-        app(AlertConfigService::class)->ensureDefaults($tenant);
+
+        foreach ([
+            AlertType::IGNITION_ON,
+            AlertType::IGNITION_OFF,
+            AlertType::SOS,
+            AlertType::BATTERY,
+            AlertType::JAMMING,
+        ] as $type) {
+            $this->enableClientAlert($client, $type);
+        }
 
         $engine = app(AlertEngine::class);
         $base = CarbonImmutable::parse('2026-09-05 11:00:00');
@@ -114,13 +121,10 @@ class AlertEngineTest extends TestCase
         $client = Client::factory()->for($tenant)->create();
         $vehicle = Vehicle::factory()->forClient($client)->create();
         Equipment::factory()->assignedTo($vehicle)->create();
-        app(AlertConfigService::class)->ensureDefaults($tenant);
 
-        $config = app(AlertConfigService::class)->findForTenant($tenant->getKey(), AlertType::OFFLINE);
-        $config->forceFill([
-            'settings' => ['offline_minutes' => 5],
-            'notify_email' => false,
-        ])->save();
+        $this->enableClientAlert($client, AlertType::OFFLINE)
+            ->forceFill(['settings' => ['offline_minutes' => 5]])
+            ->save();
 
         $old = CarbonImmutable::parse('2026-09-05 08:00:00');
         $this->pos($tenant, $client, $vehicle, 10, $old, 100);
@@ -145,31 +149,55 @@ class AlertEngineTest extends TestCase
         $this->assertSame(AlertType::ONLINE, $online->first()->type);
     }
 
-    public function test_vehicle_scoped_config_does_not_fire_for_other_vehicles(): void
+    public function test_legacy_vehicle_scoped_config_is_ignored(): void
     {
         [, $tenant] = $this->createOperationalChild();
         $client = Client::factory()->for($tenant)->create();
-        $vehicleA = Vehicle::factory()->forClient($client)->create();
-        $vehicleB = Vehicle::factory()->forClient($client)->create();
-        Equipment::factory()->assignedTo($vehicleA)->create();
-        Equipment::factory()->assignedTo($vehicleB)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create();
+        Equipment::factory()->assignedTo($vehicle)->create();
 
         app(AlertConfigService::class)->create([
             'type' => AlertType::SOS,
-            'vehicle_id' => $vehicleA->getKey(),
+            'vehicle_id' => $vehicle->getKey(),
             'is_enabled' => true,
             'notify_in_app' => true,
             'notify_email' => false,
         ]);
 
         $engine = app(AlertEngine::class);
-        $base = CarbonImmutable::parse('2026-09-05 12:00:00');
+        $engine->process($this->pos(
+            $tenant,
+            $client,
+            $vehicle,
+            10,
+            CarbonImmutable::parse('2026-09-05 12:00:00'),
+            200,
+            attributes: ['sos' => true],
+        ));
 
-        $engine->process($this->pos($tenant, $client, $vehicleB, 10, $base, 200, attributes: ['sos' => true]));
         $this->assertSame(0, Alert::query()->withoutGlobalScopes()->where('type', 'sos')->count());
+    }
 
-        $engine->process($this->pos($tenant, $client, $vehicleA, 10, $base->addMinute(), 201, attributes: ['sos' => true]));
-        $this->assertSame(1, Alert::query()->withoutGlobalScopes()->where('type', 'sos')->count());
+    public function test_client_config_disabled_by_default_does_not_fire(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create();
+        Equipment::factory()->assignedTo($vehicle)->create();
+
+        $engine = app(AlertEngine::class);
+
+        $engine->process($this->pos(
+            $tenant,
+            $client,
+            $vehicle,
+            10,
+            CarbonImmutable::parse('2026-09-05 15:00:00'),
+            500,
+            attributes: ['sos' => true],
+        ));
+
+        $this->assertSame(0, Alert::query()->withoutGlobalScopes()->where('type', 'sos')->count());
     }
 
     public function test_client_scoped_config_applies_to_client_vehicles_only(): void
@@ -182,13 +210,7 @@ class AlertEngineTest extends TestCase
         Equipment::factory()->assignedTo($vehicleA)->create();
         Equipment::factory()->assignedTo($vehicleB)->create();
 
-        app(AlertConfigService::class)->create([
-            'type' => AlertType::IGNITION_ON,
-            'client_id' => $clientA->getKey(),
-            'is_enabled' => true,
-            'notify_in_app' => true,
-            'notify_email' => false,
-        ]);
+        $this->enableClientAlert($clientA, AlertType::IGNITION_ON);
 
         $engine = app(AlertEngine::class);
         $base = CarbonImmutable::parse('2026-09-05 13:00:00');
@@ -236,7 +258,7 @@ class AlertEngineTest extends TestCase
         $client = Client::factory()->for($tenant)->create();
         $vehicle = Vehicle::factory()->forClient($client)->create();
         Equipment::factory()->assignedTo($vehicle)->create();
-        app(AlertConfigService::class)->ensureDefaults($tenant);
+        $this->enableClientAlert($client, AlertType::DEVICE_ALARM);
 
         $engine = app(AlertEngine::class);
         $base = CarbonImmutable::parse('2026-09-05 14:00:00');
@@ -292,6 +314,11 @@ class AlertEngineTest extends TestCase
             'settings' => ['speed_limit_kmh' => 90],
             'notify_email' => true,
         ])->assertOk()->assertJsonPath('data.settings.speed_limit_kmh', 90);
+    }
+
+    private function enableClientAlert(Client $client, AlertType $type): AlertConfig
+    {
+        return app(AlertConfigService::class)->setClientEnabled($client, $type, true);
     }
 
     /**

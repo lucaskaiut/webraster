@@ -5,9 +5,13 @@ namespace App\Modules\Alert\Http\Controllers;
 use App\Modules\Alert\Http\Requests\StoreAlertConfigRequest;
 use App\Modules\Alert\Http\Requests\UpdateAlertConfigRequest;
 use App\Modules\Alert\Http\Resources\AlertConfigResource;
+use App\Modules\Alert\Http\Resources\ClientAlertConfigResource;
 use App\Modules\Alert\Models\AlertConfig;
 use App\Modules\Alert\Services\AlertConfigService;
+use App\Modules\Client\Models\Client;
+use App\Modules\Client\Support\ClientAuthorization;
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\Tenant\Support\TenantAuthorization;
 use Illuminate\Http\JsonResponse;
 
 class AlertConfigController extends ApiController
@@ -19,6 +23,22 @@ class AlertConfigController extends ApiController
         $this->authorize('viewAny', AlertConfig::class);
 
         return $this->success(AlertConfigResource::collection($this->service->listForCurrentTenant()));
+    }
+
+    /**
+     * Visão do tenant: alertas configurados por um cliente (somente leitura).
+     */
+    public function clientConfigs(Client $client): JsonResponse
+    {
+        abort_unless(
+            TenantAuthorization::matchesCurrentTenant((int) $client->tenant_id)
+            && ClientAuthorization::allowsClient((int) $client->getKey()),
+            403,
+        );
+
+        return $this->success(
+            ClientAlertConfigResource::collection($this->service->clientConfigurations($client)),
+        );
     }
 
     public function store(StoreAlertConfigRequest $request): JsonResponse

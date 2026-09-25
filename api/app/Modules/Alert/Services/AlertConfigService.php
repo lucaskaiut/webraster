@@ -88,26 +88,119 @@ class AlertConfigService
      */
     public function matchingForVehicle(Vehicle $vehicle, AlertType $type, bool $enabledOnly = true): Collection
     {
+        if ($vehicle->client_id === null) {
+            return collect();
+        }
+
         $query = AlertConfig::query()
             ->withoutGlobalScopes()
             ->where('tenant_id', $vehicle->tenant_id)
-            ->where('type', $type->value)
-            ->where(function ($builder) use ($vehicle): void {
-                $builder
-                    ->where(function ($global): void {
-                        $global->whereNull('vehicle_id')->whereNull('client_id');
-                    })
-                    ->orWhere('vehicle_id', $vehicle->getKey())
-                    ->orWhere(function ($client) use ($vehicle): void {
-                        $client->whereNull('vehicle_id')->where('client_id', $vehicle->client_id);
-                    });
-            });
+            ->where('client_id', $vehicle->client_id)
+            ->whereNull('vehicle_id')
+            ->where('type', $type->value);
 
         if ($enabledOnly) {
             $query->where('is_enabled', true);
         }
 
-        return $query->orderByRaw('CASE WHEN vehicle_id IS NOT NULL THEN 0 WHEN client_id IS NOT NULL THEN 1 ELSE 2 END')->get();
+        return $query->get();
+    }
+
+    /**
+     * Garante uma configuração (desligada) por cliente para cada tipo
+     * configurável. É o ponto de partida do cliente no portal.
+     */
+    public function ensureClientDefaults(Client|int $client, ?int $tenantId = null): void
+    {
+        $clientId = $client instanceof Client ? $client->getKey() : $client;
+
+        if ($tenantId === null) {
+            $tenantId = $client instanceof Client
+                ? (int) $client->tenant_id
+                : (int) Client::query()->withoutGlobalScopes()->whereKey($clientId)->value('tenant_id');
+        }
+
+        if ($tenantId === 0 || $clientId === 0) {
+            return;
+        }
+
+        foreach (AlertType::configurable() as $type) {
+            $exists = AlertConfig::query()
+                ->withoutGlobalScopes()
+                ->where('tenant_id', $tenantId)
+                ->where('client_id', $clientId)
+                ->whereNull('vehicle_id')
+                ->where('type', $type->value)
+                ->exists();
+
+            if ($exists) {
+                continue;
+            }
+
+            $config = new AlertConfig;
+            $config->forceFill([
+                'tenant_id' => $tenantId,
+                'client_id' => $clientId,
+                'vehicle_id' => null,
+                'name' => $type->label(),
+                'type' => $type,
+                'is_enabled' => false,
+                'notify_in_app' => true,
+                'notify_email' => true,
+                'notify_push' => true,
+                'settings' => self::defaultSettings($type),
+            ])->save();
+        }
+    }
+
+    /**
+     * Configurações que o cliente vê/edita no portal (subconjunto simples),
+     * na ordem definida em AlertType::clientConfigurable().
+     *
+     * @return Collection<int, AlertConfig>
+     */
+    public function clientConfigurations(Client|int $client): Collection
+    {
+        $clientId = $client instanceof Client ? $client->getKey() : $client;
+
+        $this->ensureClientDefaults($client);
+
+        $types = array_map(fn (AlertType $type) => $type->value, AlertType::clientConfigurable());
+
+        return AlertConfig::query()
+            ->withoutGlobalScopes()
+            ->where('client_id', $clientId)
+            ->whereNull('vehicle_id')
+            ->whereIn('type', $types)
+            ->get()
+            ->sortBy(fn (AlertConfig $config) => array_search($config->type->value, $types, true))
+            ->values();
+    }
+
+    public function setClientEnabled(Client|int $client, AlertType $type, bool $enabled): AlertConfig
+    {
+        $clientModel = $client instanceof Client
+            ? $client
+            : Client::query()->withoutGlobalScopes()->findOrFail($client);
+
+        $this->ensureClientDefaults($clientModel);
+
+        $config = AlertConfig::query()
+            ->withoutGlobalScopes()
+            ->where('tenant_id', $clientModel->tenant_id)
+            ->where('client_id', $clientModel->getKey())
+            ->whereNull('vehicle_id')
+            ->where('type', $type->value)
+            ->firstOrFail();
+
+        $config->forceFill([
+            'is_enabled' => $enabled,
+            'notify_in_app' => $enabled ? true : $config->notify_in_app,
+            'notify_email' => $enabled ? true : $config->notify_email,
+            'notify_push' => $enabled ? true : $config->notify_push,
+        ])->save();
+
+        return $config;
     }
 
     /**

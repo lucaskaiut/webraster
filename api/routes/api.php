@@ -2,6 +2,7 @@
 
 use App\Modules\ACL\Http\Controllers\RoleController;
 use App\Modules\Alert\Http\Controllers\AlertConfigController;
+use App\Modules\Alert\Http\Controllers\AlertConfigPortalController;
 use App\Modules\Alert\Http\Controllers\AlertController;
 use App\Modules\Alert\Http\Controllers\NotificationController;
 use App\Modules\ApiToken\Http\Controllers\ApiTokenController;
@@ -258,6 +259,10 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::get('alerts/{alert}', [AlertController::class, 'show'])->middleware('permission:alert.read');
     Route::post('alerts/{alert}/acknowledge', [AlertController::class, 'acknowledge'])->middleware('permission:alert.manage');
     Route::post('alerts/{alert}/resolve', [AlertController::class, 'resolve'])->middleware('permission:alert.manage');
+
+    Route::get('alert-configs/portal', [AlertConfigPortalController::class, 'index']);
+    Route::put('alert-configs/portal/{type}', [AlertConfigPortalController::class, 'update']);
+    Route::get('alert-configs/client/{client}', [AlertConfigController::class, 'clientConfigs'])->middleware('permission:alert-config.read');
 
     Route::get('alert-configs', [AlertConfigController::class, 'index'])->middleware('permission:alert-config.read');
     Route::post('alert-configs', [AlertConfigController::class, 'store'])->middleware('permission:alert-config.update');

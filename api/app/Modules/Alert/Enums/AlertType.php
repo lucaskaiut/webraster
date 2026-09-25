@@ -57,4 +57,36 @@ enum AlertType: string
             self::DEVICE_ALARM,
         ];
     }
+
+    /**
+     * Alertas que o cliente liga/desliga no portal (subconjunto simples).
+     *
+     * @return list<self>
+     */
+    public static function clientConfigurable(): array
+    {
+        return [
+            self::IGNITION_ON,
+            self::IGNITION_OFF,
+            self::SOS,
+            self::OFFLINE,
+            self::BATTERY,
+            self::DEVICE_ALARM,
+        ];
+    }
+
+    public function description(): string
+    {
+        return match ($this) {
+            self::SPEED => 'Avisa quando o veículo passa do limite de velocidade.',
+            self::IGNITION_ON => 'Avisa quando o veículo é ligado.',
+            self::IGNITION_OFF => 'Avisa quando o veículo é desligado.',
+            self::SOS => 'Avisa quando o botão de SOS é acionado.',
+            self::OFFLINE => 'Avisa quando o rastreador fica sem comunicação.',
+            self::ONLINE => 'Avisa quando o rastreador volta a comunicar.',
+            self::BATTERY => 'Avisa quando a bateria do rastreador fica baixa.',
+            self::JAMMING => 'Avisa quando há tentativa de bloquear o sinal de GPS/GSM.',
+            self::DEVICE_ALARM => 'Avisa alarmes do rastreador, como energia cortada, reboque ou porta aberta.',
+        };
+    }
 }

@@ -66,7 +66,7 @@ const PoisListPage = lazy(() => import('@/modules/pois/pages/PoisListPage'))
 const PoiCreatePage = lazy(() => import('@/modules/pois/pages/PoiCreatePage'))
 const PoiEditPage = lazy(() => import('@/modules/pois/pages/PoiEditPage'))
 const AlertsListPage = lazy(() => import('@/modules/alerts/pages/AlertsListPage'))
-const AlertConfigPage = lazy(() => import('@/modules/alerts/pages/AlertConfigPage'))
+const AlertPreferencesPage = lazy(() => import('@/modules/alerts/pages/AlertPreferencesPage'))
 const NotificationSendPage = lazy(() => import('@/modules/notifications/pages/NotificationSendPage'))
 const NotificationHistoryPage = lazy(() => import('@/modules/notifications/pages/NotificationHistoryPage'))
 const ServiceOrdersListPage = lazy(() => import('@/modules/service-orders/pages/ServiceOrdersListPage'))
@@ -520,10 +520,10 @@ export const router = createBrowserRouter([
             ),
           },
           {
-            path: '/alert-configs',
+            path: '/alerts/preferences',
             element: (
-              <PermissionGuard permission={Permission.ALERT_CONFIG_READ} requiresChildTenant>
-                <AlertConfigPage />
+              <PermissionGuard permission={Permission.ALERT_READ} requiresChildTenant>
+                <AlertPreferencesPage />
               </PermissionGuard>
             ),
           },

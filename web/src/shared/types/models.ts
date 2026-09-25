@@ -712,6 +712,13 @@ export interface AppNotification {
   created_at: string | null
 }
 
+export interface ClientAlertConfigOption {
+  type: string
+  label: string
+  description: string
+  is_enabled: boolean
+}
+
 export interface NotificationDelivery {
   id: string
   channel: 'in_app' | 'push' | 'email' | string

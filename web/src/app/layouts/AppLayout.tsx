@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { Outlet, useLocation } from 'react-router'
-import { Building2, BellRing, Car, ClipboardList, Contact, Cpu, CreditCard, FileBarChart, FileText, Hexagon, History, IdCard, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, Package, Receipt, Repeat, ScrollText, Search, Send, Settings, Settings2, ShieldCheck, Users, Wallet, Wrench } from 'lucide-react'
+import { Building2, BellRing, Car, ClipboardList, Contact, Cpu, CreditCard, FileBarChart, FileText, Hexagon, History, IdCard, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, Package, Receipt, Repeat, ScrollText, Search, Send, Settings, ShieldCheck, Users, Wallet, Wrench } from 'lucide-react'
 import { AppLogo } from '@/shared/brand/AppLogo'
 import { useActiveTenant } from '@/shared/brand/useActiveTenant'
 import { TenantSelector } from '@/modules/auth/components/TenantSelector'
@@ -55,6 +55,7 @@ function SidebarNavigation({
   onNavigate?: () => void
   collapsed?: boolean
 }) {
+  const user = useSessionStore((state) => state.user)
   const { can } = usePermissions()
   const isUmbrella = useIsUmbrellaTenant()
   /** Funcionalidades de uso final só no tenant filho (empresa operacional). */
@@ -78,13 +79,13 @@ function SidebarNavigation({
   const showGeofences = isOperatingTenant && can(Permission.GEOFENCE_READ)
   const showPois = isOperatingTenant && can(Permission.POI_READ)
   const showAlerts = isOperatingTenant && can(Permission.ALERT_READ)
-  const showAlertConfig = isOperatingTenant && can(Permission.ALERT_CONFIG_READ)
+  const showAlertPreferences = showAlerts && user?.client_id != null
   const showNotificationSend = isOperatingTenant && can(Permission.NOTIFICATION_SEND)
   const showServiceOrders = isOperatingTenant && can(Permission.SERVICE_ORDER_READ)
   const showCadastrosGroup =
     showClients || showDrivers || showServices || showContracts || showVehicles || showEquipments
   const showGeoGroup = showGeofences || showPois
-  const showAlertsGroup = showAlerts || showAlertConfig || showNotificationSend
+  const showAlertsGroup = showAlerts || showNotificationSend
   const showOpsGroup = showServiceOrders
 
   const showFinanceDashboard = isOperatingTenant && can(Permission.FINANCE_DASHBOARD_READ)
@@ -278,8 +279,13 @@ function SidebarNavigation({
           {showAlerts && (
             <SidebarItem to="/alerts" icon={BellRing} label="Alertas" onNavigate={onNavigate} />
           )}
-          {showAlertConfig && (
-            <SidebarItem to="/alert-configs" icon={Settings2} label="Configuração" onNavigate={onNavigate} />
+          {showAlertPreferences && (
+            <SidebarItem
+              to="/alerts/preferences"
+              icon={BellRing}
+              label="Meus alertas"
+              onNavigate={onNavigate}
+            />
           )}
           {showNotificationSend && (
             <SidebarItem to="/notifications/send" icon={Send} label="Enviar notificação" onNavigate={onNavigate} />

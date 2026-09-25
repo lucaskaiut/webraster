@@ -194,6 +194,8 @@ export const queryKeys = {
     map: (status?: string) => ['alerts', 'map', status ?? 'open'] as const,
     dashboard: () => ['alerts', 'dashboard'] as const,
     configs: () => ['alerts', 'configs'] as const,
+    portalConfigs: () => ['alerts', 'portal-configs'] as const,
+    clientConfigs: (clientId: string) => ['alerts', 'client-configs', clientId] as const,
   },
 
   notifications: {
