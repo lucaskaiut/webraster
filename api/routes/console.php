@@ -8,6 +8,7 @@ use App\Modules\Finance\Console\Commands\GenerateBillingsCommand;
 use App\Modules\Finance\Console\Commands\MarkOverdueBillingsCommand;
 use App\Modules\Finance\Console\Commands\NotifyDueSoonCommand;
 use App\Modules\Finance\Console\Commands\ProcessDelinquencyCommand;
+use App\Modules\Notification\Jobs\CheckPushReceiptsJob;
 use App\Modules\Tracking\Jobs\DispatchPendingTraccarEventsJob;
 use App\Modules\Tracking\Jobs\SyncTraccarDevicesJob;
 use App\Modules\Tracking\Jobs\SyncTraccarPositionsJob;
@@ -39,3 +40,8 @@ Schedule::job(new SyncTraccarDevicesJob)
     ->everyFiveMinutes()
     ->withoutOverlapping()
     ->when(fn (): bool => (bool) config('traccar.enabled') && (bool) config('traccar.sync_enabled'));
+
+Schedule::job(new CheckPushReceiptsJob)
+    ->everyTenMinutes()
+    ->withoutOverlapping()
+    ->when(fn (): bool => (bool) config('notification.push.enabled'));

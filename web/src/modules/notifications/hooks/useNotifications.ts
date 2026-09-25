@@ -1,6 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/shared/constants/query-keys'
-import { notificationsService } from '../services/notifications.service'
+import {
+  notificationsService,
+  type SendNotificationPayload,
+  type SentNotificationsParams,
+} from '../services/notifications.service'
 
 export function useNotificationsQuery(params: { page?: number; per_page?: number; unread?: boolean } = {}) {
   return useQuery({
@@ -36,5 +40,23 @@ export function useMarkAllNotificationsRead() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
     },
+  })
+}
+
+export function useSendNotification() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: SendNotificationPayload) => notificationsService.send(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
+    },
+  })
+}
+
+export function useSentNotificationsQuery(params: SentNotificationsParams) {
+  return useQuery({
+    queryKey: queryKeys.notifications.sent(params),
+    queryFn: () => notificationsService.sent(params),
+    placeholderData: keepPreviousData,
   })
 }

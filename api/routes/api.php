@@ -32,6 +32,9 @@ use App\Modules\Finance\Http\Controllers\FinanceSubscriptionController;
 use App\Modules\Finance\Http\Controllers\PaymentWebhookController;
 use App\Modules\Geofence\Http\Controllers\GeofenceController;
 use App\Modules\Geofence\Http\Controllers\GeofenceEventController;
+use App\Modules\Notification\Http\Controllers\DeviceTokenController;
+use App\Modules\Notification\Http\Controllers\NotificationLogController;
+use App\Modules\Notification\Http\Controllers\NotificationSendController;
 use App\Modules\Poi\Http\Controllers\PoiController;
 use App\Modules\Report\Http\Controllers\ReportController;
 use App\Modules\Service\Http\Controllers\ServiceController;
@@ -264,7 +267,18 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::get('notifications', [NotificationController::class, 'index']);
     Route::get('notifications/unread-count', [NotificationController::class, 'unreadCount']);
     Route::post('notifications/read-all', [NotificationController::class, 'markAllRead']);
-    Route::post('notifications/{notification}/read', [NotificationController::class, 'markRead']);
+    Route::post('notifications/{notification}/read', [NotificationController::class, 'markRead'])
+        ->name('notifications.read');
+    Route::post('notifications/{notification}/click', [NotificationLogController::class, 'click'])
+        ->name('notifications.click');
+
+    Route::post('notifications/devices', [DeviceTokenController::class, 'store']);
+    Route::delete('notifications/devices/{deviceToken}', [DeviceTokenController::class, 'destroy']);
+
+    Route::get('notifications/sent', [NotificationLogController::class, 'index'])
+        ->middleware('permission:notification.send');
+    Route::post('notifications/send', [NotificationSendController::class, 'store'])
+        ->middleware('permission:notification.send');
 
     Route::get('roles', [RoleController::class, 'index'])->middleware('permission:role.read');
     Route::post('roles', [RoleController::class, 'store'])->middleware('permission:role.create');

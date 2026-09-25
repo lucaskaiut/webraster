@@ -65,6 +65,7 @@ class ServiceOrderNotificationService
             'user_id' => $userId,
             'alert_id' => null,
             'type' => $type,
+            'source' => 'service_order',
             'title' => $title,
             'body' => $body,
             'data' => array_merge([

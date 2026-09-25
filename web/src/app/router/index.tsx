@@ -67,6 +67,8 @@ const PoiCreatePage = lazy(() => import('@/modules/pois/pages/PoiCreatePage'))
 const PoiEditPage = lazy(() => import('@/modules/pois/pages/PoiEditPage'))
 const AlertsListPage = lazy(() => import('@/modules/alerts/pages/AlertsListPage'))
 const AlertConfigPage = lazy(() => import('@/modules/alerts/pages/AlertConfigPage'))
+const NotificationSendPage = lazy(() => import('@/modules/notifications/pages/NotificationSendPage'))
+const NotificationHistoryPage = lazy(() => import('@/modules/notifications/pages/NotificationHistoryPage'))
 const ServiceOrdersListPage = lazy(() => import('@/modules/service-orders/pages/ServiceOrdersListPage'))
 const ServiceOrderCreatePage = lazy(() => import('@/modules/service-orders/pages/ServiceOrderCreatePage'))
 const ServiceOrderEditPage = lazy(() => import('@/modules/service-orders/pages/ServiceOrderEditPage'))
@@ -522,6 +524,22 @@ export const router = createBrowserRouter([
             element: (
               <PermissionGuard permission={Permission.ALERT_CONFIG_READ} requiresChildTenant>
                 <AlertConfigPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/notifications/send',
+            element: (
+              <PermissionGuard permission={Permission.NOTIFICATION_SEND} requiresChildTenant>
+                <NotificationSendPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/notifications/sent',
+            element: (
+              <PermissionGuard permission={Permission.NOTIFICATION_SEND} requiresChildTenant>
+                <NotificationHistoryPage />
               </PermissionGuard>
             ),
           },

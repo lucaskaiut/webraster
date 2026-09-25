@@ -23,6 +23,7 @@ class AlertConfig extends Model
         'is_enabled',
         'notify_in_app',
         'notify_email',
+        'notify_push',
         'settings',
     ];
 
@@ -33,6 +34,7 @@ class AlertConfig extends Model
             'is_enabled' => 'boolean',
             'notify_in_app' => 'boolean',
             'notify_email' => 'boolean',
+            'notify_push' => 'boolean',
             'settings' => 'array',
         ];
     }

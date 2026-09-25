@@ -2,20 +2,26 @@
 
 namespace App\Modules\Alert\Services;
 
-use App\Modules\ACL\Enums\Permission;
 use App\Modules\Alert\Enums\AlertSeverity;
 use App\Modules\Alert\Enums\AlertStatus;
 use App\Modules\Alert\Enums\AlertType;
 use App\Modules\Alert\Models\Alert;
 use App\Modules\Alert\Models\AlertConfig;
-use App\Modules\Alert\Models\UserNotification;
 use App\Modules\Alert\Notifications\AlertMailNotification;
-use App\Modules\User\Models\User;
+use App\Modules\Notification\DTOs\NotificationMessage;
+use App\Modules\Notification\Enums\NotificationSource;
+use App\Modules\Notification\Services\NotificationEngine;
+use App\Modules\Notification\Services\NotificationRecipientResolver;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Support\Facades\Log;
 
 class AlertDispatcher
 {
+    public function __construct(
+        private readonly NotificationEngine $engine,
+        private readonly NotificationRecipientResolver $recipients,
+    ) {}
+
     /**
      * @param  array<string, mixed>  $payload
      */
@@ -50,8 +56,8 @@ class AlertDispatcher
             'occurred_at' => $payload['occurred_at'] ?? now(),
         ])->save();
 
-        if ($config->is_enabled && $config->notify_in_app) {
-            $this->notifyInApp($alert, $vehicle);
+        if ($config->is_enabled && ($config->notify_in_app || $config->notify_push)) {
+            $this->notify($alert, $vehicle, (bool) $config->notify_push);
         }
 
         if ($config->is_enabled && $config->notify_email) {
@@ -68,47 +74,29 @@ class AlertDispatcher
         return $alert;
     }
 
-    private function recipients(Vehicle $vehicle)
+    private function notify(Alert $alert, Vehicle $vehicle, bool $push): void
     {
-        return User::query()
-            ->withoutGlobalScopes()
-            ->where('tenant_id', $vehicle->tenant_id)
-            ->whereNull('deleted_at')
-            ->where(function ($query) use ($vehicle): void {
-                $query->whereNull('client_id')
-                    ->orWhere('client_id', $vehicle->client_id);
-            })
-            ->get()
-            ->filter(fn (User $user) => $user->hasPermission(Permission::ALERT_READ)
-                || $user->hasPermission(Permission::NOTIFICATION_READ));
-    }
-
-    private function notifyInApp(Alert $alert, Vehicle $vehicle): void
-    {
-        foreach ($this->recipients($vehicle) as $user) {
-            $notification = new UserNotification;
-            $notification->forceFill([
-                'tenant_id' => $alert->tenant_id,
-                'user_id' => $user->getKey(),
-                'alert_id' => $alert->getKey(),
-                'type' => $alert->type->value,
-                'title' => $alert->title,
-                'body' => $alert->description,
-                'data' => [
-                    'alert_id' => $alert->uuid,
-                    'vehicle_id' => $vehicle->uuid,
-                    'plate' => $vehicle->plate,
-                    'severity' => $alert->severity->value,
-                    'latitude' => $alert->latitude,
-                    'longitude' => $alert->longitude,
-                ],
-            ])->save();
-        }
+        $this->engine->send($this->recipients->forVehicle($vehicle), new NotificationMessage(
+            type: $alert->type->value,
+            title: $alert->title,
+            body: $alert->description,
+            data: [
+                'alert_id' => $alert->uuid,
+                'vehicle_id' => $vehicle->uuid,
+                'plate' => $vehicle->plate,
+                'severity' => $alert->severity->value,
+                'latitude' => $alert->latitude,
+                'longitude' => $alert->longitude,
+            ],
+            source: NotificationSource::ALERT,
+            alertId: (int) $alert->getKey(),
+            push: $push,
+        ));
     }
 
     private function notifyEmail(Alert $alert, Vehicle $vehicle): void
     {
-        foreach ($this->recipients($vehicle) as $user) {
+        foreach ($this->recipients->forVehicle($vehicle) as $user) {
             try {
                 $user->notify(new AlertMailNotification($alert, $vehicle));
             } catch (\Throwable $exception) {

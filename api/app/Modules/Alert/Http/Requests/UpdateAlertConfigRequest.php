@@ -32,6 +32,7 @@ class UpdateAlertConfigRequest extends FormRequest
             'is_enabled' => ['sometimes', 'boolean'],
             'notify_in_app' => ['sometimes', 'boolean'],
             'notify_email' => ['sometimes', 'boolean'],
+            'notify_push' => ['sometimes', 'boolean'],
             'settings' => ['sometimes', 'array'],
             'settings.speed_limit_kmh' => ['sometimes', 'numeric', 'min:1', 'max:300'],
             'settings.min_duration_seconds' => ['sometimes', 'integer', 'min:0', 'max:3600'],

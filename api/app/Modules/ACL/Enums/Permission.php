@@ -96,6 +96,7 @@ enum Permission: string
     case ALERT_CONFIG_READ = 'alert-config.read';
     case ALERT_CONFIG_UPDATE = 'alert-config.update';
     case NOTIFICATION_READ = 'notification.read';
+    case NOTIFICATION_SEND = 'notification.send';
 
     case DEVICE_COMMANDS_SEND = 'device.commands.send';
 

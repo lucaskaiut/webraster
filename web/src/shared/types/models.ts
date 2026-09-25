@@ -678,6 +678,7 @@ export interface AlertConfig {
   is_enabled: boolean
   notify_in_app: boolean
   notify_email: boolean
+  notify_push: boolean
   settings: {
     speed_limit_kmh?: number
     min_duration_seconds?: number
@@ -702,12 +703,38 @@ export interface AlertDashboardStats {
 export interface AppNotification {
   id: string
   type: string
+  source?: string | null
   title: string
   body: string | null
   data?: Record<string, unknown> | null
   read_at: string | null
   alert?: Alert | null
   created_at: string | null
+}
+
+export interface NotificationDelivery {
+  id: string
+  channel: 'in_app' | 'push' | 'email' | string
+  channel_label: string
+  status: 'sent' | 'delivered' | 'failed' | string
+  status_label: string
+  sent_at: string | null
+  delivered_at: string | null
+  error: string | null
+}
+
+export interface NotificationLog {
+  id: string
+  type: string
+  source: string | null
+  title: string
+  body: string | null
+  data?: Record<string, unknown> | null
+  read_at: string | null
+  clicked_at: string | null
+  created_at: string | null
+  user: { id: string; name: string; email: string | null } | null
+  deliveries: NotificationDelivery[]
 }
 
 export type ServiceOrderType = 'installation' | 'maintenance' | 'removal'

@@ -99,6 +99,7 @@ export const Permission = {
   ALERT_CONFIG_READ: 'alert-config.read',
   ALERT_CONFIG_UPDATE: 'alert-config.update',
   NOTIFICATION_READ: 'notification.read',
+  NOTIFICATION_SEND: 'notification.send',
 
   FINANCE_PLAN_CREATE: 'finance-plan.create',
   FINANCE_PLAN_READ: 'finance-plan.read',
@@ -313,6 +314,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { value: Permission.ALERT_CONFIG_READ, label: 'Visualizar configuração de alertas' },
       { value: Permission.ALERT_CONFIG_UPDATE, label: 'Editar configuração de alertas' },
       { value: Permission.NOTIFICATION_READ, label: 'Visualizar notificações' },
+      { value: Permission.NOTIFICATION_SEND, label: 'Enviar notificações' },
     ],
   },
   {

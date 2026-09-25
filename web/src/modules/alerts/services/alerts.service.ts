@@ -20,6 +20,7 @@ export interface AlertConfigPayload {
   is_enabled?: boolean
   notify_in_app?: boolean
   notify_email?: boolean
+  notify_push?: boolean
   settings?: AlertConfig['settings']
 }
 

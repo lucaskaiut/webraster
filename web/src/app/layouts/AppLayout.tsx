@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { Outlet, useLocation } from 'react-router'
-import { Building2, BellRing, Car, ClipboardList, Contact, Cpu, CreditCard, FileBarChart, FileText, Hexagon, History, IdCard, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, Package, Receipt, Repeat, ScrollText, Search, Settings, Settings2, ShieldCheck, Users, Wallet, Wrench } from 'lucide-react'
+import { Building2, BellRing, Car, ClipboardList, Contact, Cpu, CreditCard, FileBarChart, FileText, Hexagon, History, IdCard, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, Package, Receipt, Repeat, ScrollText, Search, Send, Settings, Settings2, ShieldCheck, Users, Wallet, Wrench } from 'lucide-react'
 import { AppLogo } from '@/shared/brand/AppLogo'
 import { useActiveTenant } from '@/shared/brand/useActiveTenant'
 import { TenantSelector } from '@/modules/auth/components/TenantSelector'
@@ -79,11 +79,12 @@ function SidebarNavigation({
   const showPois = isOperatingTenant && can(Permission.POI_READ)
   const showAlerts = isOperatingTenant && can(Permission.ALERT_READ)
   const showAlertConfig = isOperatingTenant && can(Permission.ALERT_CONFIG_READ)
+  const showNotificationSend = isOperatingTenant && can(Permission.NOTIFICATION_SEND)
   const showServiceOrders = isOperatingTenant && can(Permission.SERVICE_ORDER_READ)
   const showCadastrosGroup =
     showClients || showDrivers || showServices || showContracts || showVehicles || showEquipments
   const showGeoGroup = showGeofences || showPois
-  const showAlertsGroup = showAlerts || showAlertConfig
+  const showAlertsGroup = showAlerts || showAlertConfig || showNotificationSend
   const showOpsGroup = showServiceOrders
 
   const showFinanceDashboard = isOperatingTenant && can(Permission.FINANCE_DASHBOARD_READ)
@@ -279,6 +280,12 @@ function SidebarNavigation({
           )}
           {showAlertConfig && (
             <SidebarItem to="/alert-configs" icon={Settings2} label="Configuração" onNavigate={onNavigate} />
+          )}
+          {showNotificationSend && (
+            <SidebarItem to="/notifications/send" icon={Send} label="Enviar notificação" onNavigate={onNavigate} />
+          )}
+          {showNotificationSend && (
+            <SidebarItem to="/notifications/sent" icon={History} label="Histórico" onNavigate={onNavigate} />
           )}
         </SidebarGroup>
       )}

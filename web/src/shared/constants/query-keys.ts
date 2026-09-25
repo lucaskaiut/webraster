@@ -200,6 +200,16 @@ export const queryKeys = {
     all: ['notifications'] as const,
     list: (params: ListParams & { unread?: boolean }) => ['notifications', 'list', params] as const,
     unreadCount: () => ['notifications', 'unread-count'] as const,
+    sent: (
+      params: ListParams & {
+        source?: string
+        type?: string
+        user_id?: string
+        clicked?: boolean
+        from?: string
+        to?: string
+      },
+    ) => ['notifications', 'sent', params] as const,
   },
 
   serviceOrders: {

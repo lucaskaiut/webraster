@@ -96,6 +96,7 @@ export function AlertConfigForm({ mode, initial, submitting, onSubmit, onCancel 
       is_enabled: initial?.is_enabled ?? true,
       notify_in_app: initial?.notify_in_app ?? true,
       notify_email: initial?.notify_email ?? false,
+      notify_push: initial?.notify_push ?? true,
       speed_limit_kmh: initial?.settings.speed_limit_kmh ?? 80,
       min_duration_seconds: initial?.settings.min_duration_seconds ?? 60,
       offline_minutes: initial?.settings.offline_minutes ?? 15,
@@ -127,6 +128,7 @@ export function AlertConfigForm({ mode, initial, submitting, onSubmit, onCancel 
       is_enabled: values.is_enabled,
       notify_in_app: values.notify_in_app,
       notify_email: values.notify_email,
+      notify_push: values.notify_push,
       settings,
     }
 
@@ -141,6 +143,7 @@ export function AlertConfigForm({ mode, initial, submitting, onSubmit, onCancel 
           is_enabled: true,
           notify_in_app: true,
           notify_email: false,
+          notify_push: true,
           speed_limit_kmh: 80,
           min_duration_seconds: 60,
           offline_minutes: 15,
@@ -238,6 +241,7 @@ export function AlertConfigForm({ mode, initial, submitting, onSubmit, onCancel 
               <SwitchField name="is_enabled" label="Regra ativa" className="sm:col-span-2" />
               <CheckboxField name="notify_in_app" label="Notificar no sistema" />
               <CheckboxField name="notify_email" label="Enviar e-mail" />
+              <CheckboxField name="notify_push" label="Enviar push" />
             </div>
           </Section>
 

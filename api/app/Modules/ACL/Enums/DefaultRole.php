@@ -73,6 +73,7 @@ enum DefaultRole: string
                 Permission::ALERT_CONFIG_READ,
                 Permission::ALERT_CONFIG_UPDATE,
                 Permission::NOTIFICATION_READ,
+                Permission::NOTIFICATION_SEND,
                 Permission::DEVICE_COMMANDS_SEND,
                 Permission::SERVICE_ORDER_CREATE,
                 Permission::SERVICE_ORDER_READ,

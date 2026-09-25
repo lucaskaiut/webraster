@@ -19,6 +19,7 @@ class UserNotificationResource extends JsonResource
         return [
             'id' => $this->uuid,
             'type' => $this->type,
+            'source' => $this->source,
             'title' => $this->title,
             'body' => $this->body,
             'data' => $this->data,

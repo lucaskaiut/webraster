@@ -22,6 +22,7 @@ export const alertConfigSchema = z
     is_enabled: z.boolean(),
     notify_in_app: z.boolean(),
     notify_email: z.boolean(),
+    notify_push: z.boolean(),
     speed_limit_kmh: z.coerce.number().min(1).max(300).optional(),
     min_duration_seconds: z.coerce.number().min(0).max(3600).optional(),
     offline_minutes: z.coerce.number().min(1).max(1440).optional(),

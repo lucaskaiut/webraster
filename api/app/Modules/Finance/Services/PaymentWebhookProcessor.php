@@ -6,6 +6,7 @@ use App\Modules\Finance\Contracts\PaymentGatewayInterface;
 use App\Modules\Finance\DTOs\GatewayPaymentDTO;
 use App\Modules\Finance\DTOs\GatewayWebhookEventDTO;
 use App\Modules\Finance\Enums\GatewayWebhookEventType;
+use App\Modules\Finance\Events\InvoiceOverdue;
 use App\Modules\Finance\Exceptions\GatewayException;
 use App\Modules\Finance\Models\FinanceBilling;
 use App\Modules\Finance\Models\FinanceWebhookLog;
@@ -187,6 +188,7 @@ class PaymentWebhookProcessor
             $billing->status = BillingStatus::OVERDUE;
             $billing->save();
             $this->billings->recordEvent($billing, 'webhook_overdue', $from, BillingStatus::OVERDUE);
+            InvoiceOverdue::dispatch($billing);
         }
     }
 
