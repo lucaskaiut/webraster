@@ -1,4 +1,4 @@
-import { lazy } from 'react'
+import { lazy, Suspense } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router'
 import { AuthGuard } from '@/app/guards/AuthGuard'
 import { GuestGuard } from '@/app/guards/GuestGuard'
@@ -6,8 +6,10 @@ import { PermissionGuard } from '@/app/guards/PermissionGuard'
 import { AppLayout } from '@/app/layouts/AppLayout'
 import { AuthLayout } from '@/app/layouts/AuthLayout'
 import { Permission } from '@/shared/constants/permissions'
+import { Loading } from '@/shared/design-system'
 import { NotFoundPage } from './NotFoundPage'
 
+const PrivacyPolicyPage = lazy(() => import('@/modules/legal/pages/PrivacyPolicyPage'))
 const LoginPage = lazy(() => import('@/modules/auth/pages/LoginPage'))
 const RegisterPage = lazy(() => import('@/modules/auth/pages/RegisterPage'))
 const ForgotPasswordPage = lazy(() => import('@/modules/auth/pages/ForgotPasswordPage'))
@@ -96,6 +98,18 @@ const FinancePortalSubscriptionPage = lazy(
 const FinancePortalHistoryPage = lazy(() => import('@/modules/finance/pages/FinancePortalHistoryPage'))
 
 export const router = createBrowserRouter([
+  {
+    path: '/app/privacy-policy',
+    element: (
+      <Suspense fallback={<Loading />}>
+        <PrivacyPolicyPage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/privacy-policy',
+    element: <Navigate to="/app/privacy-policy" replace />,
+  },
   {
     element: <GuestGuard />,
     children: [
