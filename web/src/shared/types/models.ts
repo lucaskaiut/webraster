@@ -676,6 +676,8 @@ export interface AlertConfig {
   name: string | null
   type: AlertType
   type_label?: string
+  alarm_code?: string | null
+  alarm_label?: string | null
   is_enabled: boolean
   notify_in_app: boolean
   notify_email: boolean

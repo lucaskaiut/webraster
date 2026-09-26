@@ -56,36 +56,35 @@ class DeviceAlarmAlertRule implements AlertRule
             if (! $state->is_active) {
                 $label = TraccarAttributeReader::deviceAlarmLabel($alarm);
                 $severity = TraccarAttributeReader::deviceAlarmSeverity($alarm);
+                $config = $this->configs->deviceAlarmConfig($vehicle, $alarm);
 
-                foreach ($this->configs->matchingForVehicle($vehicle, AlertType::DEVICE_ALARM) as $config) {
-                    $alert = $this->dispatcher->dispatch(
-                        $config,
-                        AlertType::DEVICE_ALARM,
-                        $vehicle,
-                        [
-                            'gps_position_id' => $position->getKey(),
-                            'equipment_id' => $position->equipment_id,
-                            'title' => $label,
-                            'description' => sprintf(
-                                'Alarme "%s" no veículo %s.',
-                                $label,
-                                $vehicle->plate,
-                            ),
-                            'latitude' => $position->latitude,
-                            'longitude' => $position->longitude,
-                            'occurred_at' => $position->recorded_at,
-                            'meta' => [
-                                'alarm_code' => $alarm,
-                                'attributes' => array_intersect_key($attributes, array_flip(['alarm', 'event'])),
-                                'alert_config_id' => $config->uuid,
-                            ],
+                $alert = $this->dispatcher->dispatch(
+                    $config,
+                    AlertType::DEVICE_ALARM,
+                    $vehicle,
+                    [
+                        'gps_position_id' => $position->getKey(),
+                        'equipment_id' => $position->equipment_id,
+                        'title' => $label,
+                        'description' => sprintf(
+                            'Alarme "%s" no veículo %s.',
+                            $label,
+                            $vehicle->plate,
+                        ),
+                        'latitude' => $position->latitude,
+                        'longitude' => $position->longitude,
+                        'occurred_at' => $position->recorded_at,
+                        'meta' => [
+                            'alarm_code' => $alarm,
+                            'attributes' => array_intersect_key($attributes, array_flip(['alarm', 'event'])),
+                            'alert_config_id' => $config->uuid,
                         ],
-                        $severity,
-                    );
+                    ],
+                    $severity,
+                );
 
-                    if ($alert) {
-                        $events->push($alert);
-                    }
+                if ($alert) {
+                    $events->push($alert);
                 }
 
                 $this->states->activate($state, $position, ['alarm_code' => $alarm]);

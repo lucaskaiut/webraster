@@ -18,6 +18,7 @@ class AlertConfig extends Model
     protected $fillable = [
         'client_id',
         'vehicle_id',
+        'alarm_code',
         'name',
         'type',
         'is_enabled',

@@ -80,6 +80,14 @@ class VehicleCrudTest extends TestCase
                     'notify_push' => true,
                     'notify_email' => false,
                 ],
+                [
+                    'type' => 'device_alarm',
+                    'alarm_code' => 'tow',
+                    'is_enabled' => true,
+                    'notify_in_app' => true,
+                    'notify_push' => true,
+                    'notify_email' => false,
+                ],
             ],
         ])
             ->assertCreated()
@@ -99,6 +107,13 @@ class VehicleCrudTest extends TestCase
             'vehicle_id' => $vehicle->getKey(),
             'type' => 'sos',
             'is_enabled' => false,
+        ]);
+
+        $this->assertDatabaseHas('alert_configs', [
+            'vehicle_id' => $vehicle->getKey(),
+            'type' => 'device_alarm',
+            'alarm_code' => 'tow',
+            'is_enabled' => true,
         ]);
 
         // Tipos não enviados mantêm o padrão do veículo.

@@ -249,6 +249,47 @@ final class TraccarAttributeReader
         return ucfirst(str_replace('_', ' ', $normalized));
     }
 
+    /**
+     * Alarmes de dispositivo configuráveis individualmente, ordenados por
+     * severidade (críticos primeiro). Exclui SOS/jamming/velocidade, que têm
+     * tipos dedicados, e alarmes de restauração.
+     *
+     * @return list<array{code: string, label: string, severity: string}>
+     */
+    public static function configurableDeviceAlarms(): array
+    {
+        $alarms = [];
+
+        foreach (self::LABELS as $code => $label) {
+            if (self::isExcludedDeviceAlarm($code) || self::isRestoredAlarm($code)) {
+                continue;
+            }
+
+            $alarms[] = [
+                'code' => $code,
+                'label' => $label,
+                'severity' => self::deviceAlarmSeverity($code)->value,
+            ];
+        }
+
+        usort($alarms, function (array $a, array $b): int {
+            return [self::severityRank($a['severity']), $a['label']]
+                <=> [self::severityRank($b['severity']), $b['label']];
+        });
+
+        return array_values($alarms);
+    }
+
+    private static function severityRank(string $severity): int
+    {
+        return match ($severity) {
+            'critical' => 0,
+            'high' => 1,
+            'medium' => 2,
+            default => 3,
+        };
+    }
+
     public static function deviceAlarmSeverity(string $code): AlertSeverity
     {
         $normalized = self::normalizeAlarmCode($code);

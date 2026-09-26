@@ -9,6 +9,7 @@ use App\Modules\Alert\Models\UserNotification;
 use App\Modules\Alert\Services\AlertConfigService;
 use App\Modules\Alert\Services\AlertEngine;
 use App\Modules\Alert\Services\OfflineAlertService;
+use App\Modules\Alert\Support\TraccarAttributeReader;
 use App\Modules\Client\Models\Client;
 use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Tracking\Models\GpsPosition;
@@ -159,16 +160,30 @@ class AlertEngineTest extends TestCase
         $configs = AlertConfig::query()
             ->withoutGlobalScopes()
             ->where('vehicle_id', $vehicle->getKey())
-            ->pluck('is_enabled', 'type');
+            ->get()
+            ->keyBy(fn (AlertConfig $config) => $config->type->value.'|'.($config->alarm_code ?? ''));
 
-        $this->assertCount(count(AlertType::configurable()), $configs);
+        $expected = count(AlertType::configurable()) - 1
+            + count(TraccarAttributeReader::configurableDeviceAlarms());
 
-        foreach ([AlertType::SOS, AlertType::JAMMING, AlertType::DEVICE_ALARM, AlertType::OFFLINE] as $type) {
-            $this->assertTrue((bool) $configs[$type->value], "Esperado {$type->value} habilitado");
+        $this->assertCount($expected, $configs);
+        $this->assertFalse($configs->has('device_alarm|'));
+
+        foreach ([AlertType::SOS, AlertType::JAMMING, AlertType::OFFLINE] as $type) {
+            $this->assertTrue((bool) $configs[$type->value.'|']->is_enabled, "Esperado {$type->value} habilitado");
         }
 
         foreach ([AlertType::SPEED, AlertType::IGNITION_ON, AlertType::IGNITION_OFF, AlertType::BATTERY] as $type) {
-            $this->assertFalse((bool) $configs[$type->value], "Esperado {$type->value} desabilitado");
+            $this->assertFalse((bool) $configs[$type->value.'|']->is_enabled, "Esperado {$type->value} desabilitado");
+        }
+
+        foreach (['powercut', 'tampering', 'removing', 'accident'] as $code) {
+            $this->assertTrue((bool) $configs['device_alarm|'.$code]->is_enabled, "Esperado {$code} habilitado");
+            $this->assertTrue((bool) $configs['device_alarm|'.$code]->notify_email);
+        }
+
+        foreach (['tow', 'door', 'vibration', 'lowbattery'] as $code) {
+            $this->assertFalse((bool) $configs['device_alarm|'.$code]->is_enabled, "Esperado {$code} desabilitado");
         }
     }
 
@@ -322,7 +337,7 @@ class AlertEngineTest extends TestCase
         $client = Client::factory()->for($tenant)->create();
         $vehicle = Vehicle::factory()->forClient($client)->create();
         Equipment::factory()->assignedTo($vehicle)->create();
-        $this->enableVehicleAlert($vehicle, AlertType::DEVICE_ALARM);
+        $this->enableVehicleAlert($vehicle, AlertType::DEVICE_ALARM, [], 'powercut');
 
         $engine = app(AlertEngine::class);
         $base = CarbonImmutable::parse('2026-09-05 14:00:00');
@@ -341,6 +356,62 @@ class AlertEngineTest extends TestCase
         $engine->process($this->pos($tenant, $client, $vehicle, 0, $base->addMinutes(2), 402, attributes: ['alarm' => 'powerRestored']));
         $engine->process($this->pos($tenant, $client, $vehicle, 0, $base->addMinutes(3), 403, attributes: ['alarm' => 'powerCut']));
         $this->assertSame(2, Alert::query()->withoutGlobalScopes()->where('type', 'device_alarm')->count());
+    }
+
+    public function test_disabling_one_device_alarm_does_not_affect_others(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create();
+        Equipment::factory()->assignedTo($vehicle)->create();
+
+        $tow = $this->enableVehicleAlert($vehicle, AlertType::DEVICE_ALARM, [], 'tow');
+        $this->enableVehicleAlert($vehicle, AlertType::DEVICE_ALARM, [], 'vibration');
+        $tow->forceFill(['is_enabled' => false])->save();
+
+        $engine = app(AlertEngine::class);
+        $base = CarbonImmutable::parse('2026-09-05 17:00:00');
+
+        $engine->process($this->pos($tenant, $client, $vehicle, 0, $base, 700, attributes: ['alarm' => 'tow']));
+        $this->assertSame(0, Alert::query()->withoutGlobalScopes()->where('type', 'device_alarm')->count());
+
+        $engine->process($this->pos($tenant, $client, $vehicle, 0, $base->addMinute(), 701, attributes: ['alarm' => 'vibration']));
+        $this->assertSame(1, Alert::query()->withoutGlobalScopes()->where('type', 'device_alarm')->count());
+        $this->assertSame(
+            'vibration',
+            Alert::query()->withoutGlobalScopes()->where('type', 'device_alarm')->first()->meta['alarm_code'],
+        );
+    }
+
+    public function test_unknown_device_alarm_is_auto_catalogued(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create();
+        Equipment::factory()->assignedTo($vehicle)->create();
+
+        $engine = app(AlertEngine::class);
+        $base = CarbonImmutable::parse('2026-09-05 18:00:00');
+
+        $engine->process($this->pos($tenant, $client, $vehicle, 0, $base, 800, attributes: ['alarm' => 'buzzer']));
+
+        $config = AlertConfig::query()
+            ->withoutGlobalScopes()
+            ->where('vehicle_id', $vehicle->getKey())
+            ->where('alarm_code', 'buzzer')
+            ->first();
+
+        $this->assertNotNull($config);
+        $this->assertFalse((bool) $config->is_enabled);
+        $this->assertSame(0, Alert::query()->withoutGlobalScopes()->where('type', 'device_alarm')->count());
+
+        // Enquanto não configurado não notifica; ao habilitar, passa a disparar.
+        $config->forceFill(['is_enabled' => true])->save();
+
+        $engine->process($this->pos($tenant, $client, $vehicle, 0, $base->addMinute(), 801, attributes: []));
+        $engine->process($this->pos($tenant, $client, $vehicle, 0, $base->addMinutes(2), 802, attributes: ['alarm' => 'buzzer']));
+
+        $this->assertSame(1, Alert::query()->withoutGlobalScopes()->where('type', 'device_alarm')->count());
     }
 
     public function test_tenant_isolation_and_config_api(): void
@@ -383,12 +454,17 @@ class AlertEngineTest extends TestCase
     /**
      * @param  array<string, mixed>  $attributes
      */
-    private function enableVehicleAlert(Vehicle $vehicle, AlertType $type, array $attributes = []): AlertConfig
-    {
+    private function enableVehicleAlert(
+        Vehicle $vehicle,
+        AlertType $type,
+        array $attributes = [],
+        ?string $alarmCode = null,
+    ): AlertConfig {
         $config = AlertConfig::query()
             ->withoutGlobalScopes()
             ->where('vehicle_id', $vehicle->getKey())
             ->where('type', $type->value)
+            ->where('alarm_code', $alarmCode)
             ->firstOrFail();
 
         $config->forceFill(['is_enabled' => true, ...$attributes])->save();

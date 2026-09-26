@@ -3,6 +3,7 @@
 namespace App\Modules\Alert\Http\Resources;
 
 use App\Modules\Alert\Models\AlertConfig;
+use App\Modules\Alert\Support\TraccarAttributeReader;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -21,6 +22,10 @@ class AlertConfigResource extends JsonResource
             'name' => $this->name,
             'type' => $this->type?->value,
             'type_label' => $this->type?->label(),
+            'alarm_code' => $this->alarm_code,
+            'alarm_label' => $this->alarm_code
+                ? TraccarAttributeReader::deviceAlarmLabel($this->alarm_code)
+                : null,
             'is_enabled' => (bool) $this->is_enabled,
             'notify_in_app' => (bool) $this->notify_in_app,
             'notify_email' => (bool) $this->notify_email,

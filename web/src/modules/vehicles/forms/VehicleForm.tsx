@@ -186,7 +186,27 @@ export function VehicleForm({
       fipe_brand: values.fipe_brand || null,
       fipe_score: values.fipe_score ? Number(values.fipe_score) : null,
       is_active: values.is_active,
-      ...(canConfigureAlerts ? { alert_configs: values.alert_configs } : {}),
+      ...(canConfigureAlerts
+        ? {
+            alert_configs: values.alert_configs.map(
+              ({
+                type,
+                alarm_code,
+                is_enabled,
+                notify_in_app,
+                notify_push,
+                notify_email,
+              }) => ({
+                type,
+                alarm_code,
+                is_enabled,
+                notify_in_app,
+                notify_push,
+                notify_email,
+              }),
+            ),
+          }
+        : {}),
     }
 
     try {

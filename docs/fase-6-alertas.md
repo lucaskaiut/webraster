@@ -10,13 +10,16 @@ Cada `AlertConfig` é definida por veículo (`vehicle_id` preenchido, `client_id
 
 | Campo | Efeito |
 |-------|--------|
+| `type` | Tipo do alarme (`speed`, `sos`, `device_alarm`, ...) |
+| `alarm_code` | Código do protocolo quando `type = device_alarm` (ex.: `powercut`, `tow`) |
 | `is_enabled` | Liga/desliga o alarme naquele veículo |
 | `notify_in_app` | Notificação no app |
 | `notify_push` | Push (Expo) |
 | `notify_email` | Envio por e-mail |
 | `settings` | Parâmetros do tipo (limite de velocidade, minutos offline, bateria) |
 
-- O padrão de um veículo novo habilita **SOS, jamming, alarme do dispositivo e offline**; os demais começam desligados.
+- Cada alarme do dispositivo tem linha própria por veículo (`alarm_code`), com canais independentes. Códigos novos enviados pelo protocolo são catalogados automaticamente (desabilitados) e passam a aparecer no formulário.
+- O padrão de um veículo novo habilita **SOS, jamming e offline** e os alarmes de dispositivo críticos (**alimentação cortada, violação, remoção e acidente**); os demais começam desligados.
 - Configurações por cliente não participam do motor: são apenas um silenciador. Se o cliente desligar um alerta no portal, ele deixa de receber notificações — o operador continua sendo notificado e o alerta continua no histórico.
 - A configuração é enviada junto do cadastro do veículo (`POST/PUT /vehicles`, campo `alert_configs`) e exige a permissão `alert-config.update`.
 
@@ -24,9 +27,10 @@ Cada `AlertConfig` é definida por veículo (`vehicle_id` preenchido, `client_id
 
 ```text
 GPS → persistPosition → GeofenceDetection → AlertEngine
-  → matchingForVehicle(type) → Speed / Ignition / SOS / Battery / Jamming
+  → matchingForVehicle(type) / deviceAlarmConfig(code)
+  → Speed / Ignition / SOS / Battery / Jamming / DeviceAlarm
   → OfflineAlertService.markOnline
-  → Alert + UserNotification (+ e-mail opcional)
+  → Alert + UserNotification (+ push/e-mail opcionais)
 
 Schedule everyMinute → CheckOfflineDevicesJob → DEVICE_OFFLINE
 ```

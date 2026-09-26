@@ -2,9 +2,11 @@
 
 namespace App\Modules\Alert\Services;
 
+use App\Modules\Alert\Enums\AlertSeverity;
 use App\Modules\Alert\Enums\AlertType;
 use App\Modules\Alert\Models\AlertConfig;
 use App\Modules\Alert\Models\AlertState;
+use App\Modules\Alert\Support\TraccarAttributeReader;
 use App\Modules\Client\Models\Client;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Tenant\Support\Facades\TenantContext;
@@ -100,7 +102,8 @@ class AlertConfigService
 
     /**
      * Garante uma configuração por veículo para cada tipo configurável.
-     * Os alertas críticos começam habilitados; os demais, desabilitados.
+     * Os alarmes do dispositivo viram uma configuração por código (os críticos
+     * começam habilitados); os demais tipos seguem o padrão do sistema.
      */
     public function ensureVehicleDefaults(Vehicle|int $vehicle, ?int $tenantId = null): void
     {
@@ -120,29 +123,125 @@ class AlertConfigService
             ->withoutGlobalScopes()
             ->where('tenant_id', $tenantId)
             ->where('vehicle_id', $vehicleId)
-            ->pluck('type')
-            ->map(fn ($type) => $type instanceof AlertType ? $type->value : (string) $type)
+            ->get(['type', 'alarm_code'])
+            ->map(fn (AlertConfig $config) => $this->configKey($config->type, $config->alarm_code))
             ->all();
 
         foreach (AlertType::configurable() as $type) {
-            if (in_array($type->value, $existing, true)) {
+            if ($type === AlertType::DEVICE_ALARM) {
                 continue;
             }
 
-            $config = new AlertConfig;
-            $config->forceFill([
-                'tenant_id' => $tenantId,
-                'client_id' => null,
-                'vehicle_id' => $vehicleId,
-                'name' => $type->label(),
-                'type' => $type,
+            if (in_array($this->configKey($type, null), $existing, true)) {
+                continue;
+            }
+
+            $this->createVehicleConfig($tenantId, $vehicleId, $type, null, [
                 'is_enabled' => in_array($type, self::defaultEnabledTypes(), true),
-                'notify_in_app' => true,
                 'notify_email' => in_array($type, self::defaultEmailTypes(), true),
-                'notify_push' => true,
-                'settings' => self::defaultSettings($type),
-            ])->save();
+            ]);
         }
+
+        foreach (TraccarAttributeReader::configurableDeviceAlarms() as $alarm) {
+            if (in_array($this->configKey(AlertType::DEVICE_ALARM, $alarm['code']), $existing, true)) {
+                continue;
+            }
+
+            $critical = $alarm['severity'] === AlertSeverity::CRITICAL->value;
+
+            $this->createVehicleConfig($tenantId, $vehicleId, AlertType::DEVICE_ALARM, $alarm['code'], [
+                'name' => $alarm['label'],
+                'is_enabled' => $critical,
+                'notify_email' => $critical,
+            ]);
+        }
+    }
+
+    /**
+     * @param  array{name?: string, is_enabled?: bool, notify_email?: bool}  $overrides
+     */
+    private function createVehicleConfig(
+        int $tenantId,
+        int $vehicleId,
+        AlertType $type,
+        ?string $alarmCode,
+        array $overrides = [],
+    ): AlertConfig {
+        $config = new AlertConfig;
+        $config->forceFill([
+            'tenant_id' => $tenantId,
+            'client_id' => null,
+            'vehicle_id' => $vehicleId,
+            'alarm_code' => $alarmCode,
+            'name' => $overrides['name'] ?? $type->label(),
+            'type' => $type,
+            'is_enabled' => $overrides['is_enabled'] ?? true,
+            'notify_in_app' => true,
+            'notify_email' => $overrides['notify_email'] ?? false,
+            'notify_push' => true,
+            'settings' => self::defaultSettings($type),
+        ])->save();
+
+        return $config;
+    }
+
+    private function configKey(AlertType $type, ?string $alarmCode): string
+    {
+        return $type->value.'|'.($alarmCode ?? '');
+    }
+
+    /**
+     * Configuração do alarme do dispositivo para o veículo. Se ainda não
+     * existir, cataloga na hora uma linha desabilitada para o operador.
+     */
+    public function deviceAlarmConfig(Vehicle $vehicle, string $alarmCode): AlertConfig
+    {
+        $code = strtolower(trim($alarmCode));
+
+        $config = AlertConfig::query()
+            ->withoutGlobalScopes()
+            ->where('tenant_id', $vehicle->tenant_id)
+            ->where('vehicle_id', $vehicle->getKey())
+            ->where('type', AlertType::DEVICE_ALARM->value)
+            ->where('alarm_code', $code)
+            ->orderBy('id')
+            ->first();
+
+        if ($config !== null) {
+            return $config;
+        }
+
+        return $this->catalogDeviceAlarmConfig($vehicle, $code);
+    }
+
+    public function catalogDeviceAlarmConfig(Vehicle $vehicle, string $alarmCode): AlertConfig
+    {
+        $code = strtolower(trim($alarmCode));
+
+        $catalog = null;
+
+        foreach (TraccarAttributeReader::configurableDeviceAlarms() as $alarm) {
+            if ($alarm['code'] === $code) {
+                $catalog = $alarm;
+
+                break;
+            }
+        }
+
+        $severity = $catalog['severity'] ?? TraccarAttributeReader::deviceAlarmSeverity($code)->value;
+        $critical = $severity === AlertSeverity::CRITICAL->value;
+
+        return $this->createVehicleConfig(
+            (int) $vehicle->tenant_id,
+            (int) $vehicle->getKey(),
+            AlertType::DEVICE_ALARM,
+            $code,
+            [
+                'name' => $catalog['label'] ?? TraccarAttributeReader::deviceAlarmLabel($code),
+                'is_enabled' => $critical,
+                'notify_email' => $critical,
+            ],
+        );
     }
 
     /**
@@ -163,9 +262,8 @@ class AlertConfigService
             ->withoutGlobalScopes()
             ->where('tenant_id', $vehicle->tenant_id)
             ->where('vehicle_id', $vehicle->getKey())
-            ->whereIn('type', array_map(fn (AlertType $type) => $type->value, AlertType::configurable()))
             ->get()
-            ->keyBy(fn (AlertConfig $config) => $config->type->value);
+            ->keyBy(fn (AlertConfig $config) => $this->configKey($config->type, $config->alarm_code));
 
         foreach ($configs as $item) {
             if (! is_array($item) || empty($item['type'])) {
@@ -180,7 +278,15 @@ class AlertConfigService
                 continue;
             }
 
-            $config = $existing->get($type->value);
+            $alarmCode = isset($item['alarm_code']) && $item['alarm_code'] !== ''
+                ? strtolower(trim((string) $item['alarm_code']))
+                : null;
+
+            $config = $existing->get($this->configKey($type, $alarmCode));
+
+            if ($config === null && $type === AlertType::DEVICE_ALARM && $alarmCode !== null) {
+                $config = $this->catalogDeviceAlarmConfig($vehicle, $alarmCode);
+            }
 
             if ($config === null) {
                 continue;
@@ -401,11 +507,16 @@ class AlertConfigService
             is_array($data['settings'] ?? null) ? $data['settings'] : [],
         );
 
+        $alarmCode = isset($data['alarm_code']) && $data['alarm_code'] !== ''
+            ? strtolower(trim((string) $data['alarm_code']))
+            : null;
+
         $config = new AlertConfig;
         $config->forceFill([
             'tenant_id' => $tenantId,
             'client_id' => $clientId,
             'vehicle_id' => $vehicleId,
+            'alarm_code' => $alarmCode,
             'name' => $data['name'] ?? $type->label(),
             'type' => $type,
             'is_enabled' => $data['is_enabled'] ?? true,
@@ -455,6 +566,12 @@ class AlertConfigService
             $config->type = $data['type'] instanceof AlertType
                 ? $data['type']
                 : AlertType::from((string) $data['type']);
+        }
+
+        if (array_key_exists('alarm_code', $data)) {
+            $config->alarm_code = $data['alarm_code'] !== null && $data['alarm_code'] !== ''
+                ? strtolower(trim((string) $data['alarm_code']))
+                : null;
         }
 
         $config->save();

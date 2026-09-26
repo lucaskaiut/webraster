@@ -67,6 +67,7 @@ class StoreVehicleRequest extends FormRequest
             'alert_configs.*.notify_in_app' => ['sometimes', 'boolean'],
             'alert_configs.*.notify_push' => ['sometimes', 'boolean'],
             'alert_configs.*.notify_email' => ['sometimes', 'boolean'],
+            'alert_configs.*.alarm_code' => ['sometimes', 'nullable', 'string', 'max:40'],
         ];
     }
 

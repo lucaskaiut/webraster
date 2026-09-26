@@ -29,6 +29,7 @@ class UpdateAlertConfigRequest extends FormRequest
             ))],
             'client_id' => ['sometimes', 'nullable', 'integer', Rule::exists('clients', 'id')->whereNull('deleted_at')],
             'vehicle_id' => ['sometimes', 'nullable', 'integer', Rule::exists('vehicles', 'id')->whereNull('deleted_at')],
+            'alarm_code' => ['sometimes', 'nullable', 'string', 'max:40'],
             'is_enabled' => ['sometimes', 'boolean'],
             'notify_in_app' => ['sometimes', 'boolean'],
             'notify_email' => ['sometimes', 'boolean'],

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { VEHICLE_ALERT_TYPE_VALUES } from '@/modules/alerts/lib/alert-types'
+import { ALERT_TYPE_VALUES } from '@/modules/alerts/lib/alert-types'
 
 export const transmissionOptions = [
   { value: 'manual', label: 'Manual' },
@@ -8,7 +8,9 @@ export const transmissionOptions = [
 ] as const
 
 export const vehicleAlertConfigSchema = z.object({
-  type: z.enum(VEHICLE_ALERT_TYPE_VALUES),
+  type: z.enum(ALERT_TYPE_VALUES),
+  alarm_code: z.string().nullable(),
+  label: z.string(),
   is_enabled: z.boolean(),
   notify_in_app: z.boolean(),
   notify_push: z.boolean(),
