@@ -31,6 +31,17 @@ final class TraccarAttributeReader
         'poweron' => 'poweroff',
     ];
 
+    /**
+     * Códigos suprimidos quando o "parceiro" chega na mesma mensagem.
+     * Alguns protocolos enviam `powerCut,tampering` juntos no corte de
+     * energia; nesse caso só a alimentação cortada deve ser notificada.
+     *
+     * @var array<string, list<string>>
+     */
+    private const PAIRED_ALARM_SUPPRESSIONS = [
+        'tampering' => ['powercut'],
+    ];
+
     /** @var array<string, string> */
     private const LABELS = [
         'general' => 'Alarme geral',
@@ -146,7 +157,7 @@ final class TraccarAttributeReader
             $codes[] = 'jamming';
         }
 
-        return array_values(array_unique($codes));
+        return self::suppressPairedAlarms(array_values(array_unique($codes)));
     }
 
     /**
@@ -164,10 +175,10 @@ final class TraccarAttributeReader
             return [];
         }
 
-        return array_values(array_filter(
+        return self::suppressPairedAlarms(array_values(array_filter(
             self::parseAlarmCodes($attributes['alarm'] ?? null),
             fn (string $alarm) => ! self::isRestoredAlarm($alarm) && ! self::isExcludedDeviceAlarm($alarm),
-        ));
+        )));
     }
 
     /**
@@ -504,6 +515,36 @@ final class TraccarAttributeReader
         }
 
         return strtolower(trim((string) $value));
+    }
+
+    /**
+     * Remove alarmes que só fazem sentido quando vêm sozinhos.
+     *
+     * @param  list<string>  $alarms
+     * @return list<string>
+     */
+    private static function suppressPairedAlarms(array $alarms): array
+    {
+        foreach (self::PAIRED_ALARM_SUPPRESSIONS as $suppressed => $required) {
+            $hasAll = true;
+
+            foreach ($required as $code) {
+                if (! in_array($code, $alarms, true)) {
+                    $hasAll = false;
+
+                    break;
+                }
+            }
+
+            if ($hasAll) {
+                $alarms = array_values(array_filter(
+                    $alarms,
+                    fn (string $alarm) => $alarm !== $suppressed,
+                ));
+            }
+        }
+
+        return $alarms;
     }
 
     private static function isExcludedDeviceAlarm(string $alarm): bool

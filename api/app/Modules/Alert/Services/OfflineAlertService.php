@@ -4,7 +4,6 @@ namespace App\Modules\Alert\Services;
 
 use App\Modules\Alert\Enums\AlertType;
 use App\Modules\Alert\Models\Alert;
-use App\Modules\Alert\Models\AlertConfig;
 use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Tracking\Models\GpsPosition;
 use App\Modules\Vehicle\Models\Vehicle;
@@ -125,6 +124,10 @@ class OfflineAlertService
     }
 
     /**
+     * Uma nova posição encerra todas as ramificações de offline do veículo.
+     * O ONLINE é disparado uma única vez, pois podem existir estados antigos
+     * ativos (configurações anteriores) para o mesmo veículo.
+     *
      * @return Collection<int, Alert>
      */
     public function markOnline(Vehicle $vehicle, GpsPosition $position): Collection
@@ -136,6 +139,9 @@ class OfflineAlertService
             return $alerts;
         }
 
+        $config = $this->configs->matchingForVehicle($vehicle, AlertType::OFFLINE, false)->first();
+        $notified = false;
+
         foreach ($activeStates as $state) {
             // Posição anterior (ou igual) ao início do offline é reprocessamento
             // e não caracteriza reconexão do dispositivo.
@@ -144,40 +150,26 @@ class OfflineAlertService
                 continue;
             }
 
-            $config = null;
+            if (! $notified && $config !== null) {
+                $notified = true;
 
-            if ((int) $state->alert_config_id > 0) {
-                $config = AlertConfig::query()
-                    ->withoutGlobalScopes()
-                    ->find($state->alert_config_id);
+                $alert = $this->dispatcher->dispatch($config, AlertType::ONLINE, $vehicle, [
+                    'gps_position_id' => $position->getKey(),
+                    'equipment_id' => $position->equipment_id,
+                    'title' => 'Dispositivo online',
+                    'description' => sprintf('Veículo %s voltou a comunicar.', $vehicle->plate),
+                    'latitude' => $position->latitude,
+                    'longitude' => $position->longitude,
+                    'occurred_at' => $position->recorded_at,
+                    'meta' => ['recovered' => true, 'alert_config_id' => $config->uuid],
+                ]);
+
+                if ($alert) {
+                    $alerts->push($alert);
+                }
             }
-
-            if ($config === null) {
-                $config = $this->configs->matchingForVehicle($vehicle, AlertType::OFFLINE, false)->first();
-            }
-
-            if ($config === null) {
-                $this->states->deactivate($state, $position);
-
-                continue;
-            }
-
-            $alert = $this->dispatcher->dispatch($config, AlertType::ONLINE, $vehicle, [
-                'gps_position_id' => $position->getKey(),
-                'equipment_id' => $position->equipment_id,
-                'title' => 'Dispositivo online',
-                'description' => sprintf('Veículo %s voltou a comunicar.', $vehicle->plate),
-                'latitude' => $position->latitude,
-                'longitude' => $position->longitude,
-                'occurred_at' => $position->recorded_at,
-                'meta' => ['recovered' => true, 'alert_config_id' => $config->uuid],
-            ]);
 
             $this->states->deactivate($state, $position);
-
-            if ($alert) {
-                $alerts->push($alert);
-            }
         }
 
         return $alerts;

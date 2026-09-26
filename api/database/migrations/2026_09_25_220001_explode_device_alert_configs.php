@@ -11,11 +11,9 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Explode os alarmes do dispositivo: cada código do protocolo passa a ter a
  * própria linha em `alert_configs` (campo `alarm_code`), permitindo ao
- * operador habilitar/desabilitar e escolher canais individualmente. Cria
- * também o canal `notify_monitoring`, que notifica os usuários do tenant
- * (In-app passa a notificar apenas os usuários do cliente). O alarme genérico
- * por veículo deixa de existir; códigos novos são catalogados automaticamente
- * quando aparecem.
+ * operador habilitar/desabilitar e escolher canais individualmente. O alarme
+ * genérico por veículo deixa de existir; códigos novos são catalogados
+ * automaticamente quando aparecem.
  */
 return new class extends Migration
 {
@@ -23,7 +21,6 @@ return new class extends Migration
     {
         Schema::table('alert_configs', function (Blueprint $table): void {
             $table->string('alarm_code', 40)->nullable()->after('type');
-            $table->boolean('notify_monitoring')->default(true)->after('notify_in_app');
             $table->index(
                 ['tenant_id', 'vehicle_id', 'type', 'alarm_code'],
                 'alert_configs_vehicle_alarm_code_index',
@@ -59,7 +56,6 @@ return new class extends Migration
         Schema::table('alert_configs', function (Blueprint $table): void {
             $table->dropIndex('alert_configs_vehicle_alarm_code_index');
             $table->dropColumn('alarm_code');
-            $table->dropColumn('notify_monitoring');
         });
     }
 };

@@ -5,9 +5,11 @@ namespace Tests\Feature\Alert;
 use App\Modules\Alert\Enums\AlertType;
 use App\Modules\Alert\Models\Alert;
 use App\Modules\Alert\Models\AlertConfig;
+use App\Modules\Alert\Models\AlertState;
 use App\Modules\Alert\Models\UserNotification;
 use App\Modules\Alert\Services\AlertConfigService;
 use App\Modules\Alert\Services\AlertEngine;
+use App\Modules\Alert\Services\AlertStateStore;
 use App\Modules\Alert\Services\NotificationService;
 use App\Modules\Alert\Services\OfflineAlertService;
 use App\Modules\Alert\Support\TraccarAttributeReader;
@@ -418,6 +420,52 @@ class AlertEngineTest extends TestCase
         $this->assertSame(1, Alert::query()->withoutGlobalScopes()->where('type', 'device_alarm')->count());
     }
 
+    public function test_power_cut_with_tampering_suppresses_tampering_alert(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create();
+        Equipment::factory()->assignedTo($vehicle)->create();
+
+        app(AlertEngine::class)->process($this->pos(
+            $tenant,
+            $client,
+            $vehicle,
+            0,
+            CarbonImmutable::parse('2026-09-05 20:00:00'),
+            910,
+            attributes: ['alarm' => 'powerCut,tampering'],
+        ));
+
+        $alerts = Alert::query()->withoutGlobalScopes()->where('type', 'device_alarm')->get();
+
+        $this->assertCount(1, $alerts);
+        $this->assertSame('powercut', $alerts->first()->meta['alarm_code']);
+    }
+
+    public function test_tampering_alone_still_creates_alert(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create();
+        Equipment::factory()->assignedTo($vehicle)->create();
+
+        app(AlertEngine::class)->process($this->pos(
+            $tenant,
+            $client,
+            $vehicle,
+            0,
+            CarbonImmutable::parse('2026-09-05 20:05:00'),
+            911,
+            attributes: ['alarm' => 'tampering'],
+        ));
+
+        $alerts = Alert::query()->withoutGlobalScopes()->where('type', 'device_alarm')->get();
+
+        $this->assertCount(1, $alerts);
+        $this->assertSame('tampering', $alerts->first()->meta['alarm_code']);
+    }
+
     public function test_tenant_isolation_and_config_api(): void
     {
         [, $tenantA] = $this->createOperationalChild();
@@ -559,6 +607,50 @@ class AlertEngineTest extends TestCase
 
         $this->assertSame(0, $service->paginate((int) $operator->getKey())->total());
         $this->assertSame(0, $service->paginate((int) $clientUser->getKey())->total());
+    }
+
+    public function test_reconnect_dispatches_single_online_with_legacy_states(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create();
+        Equipment::factory()->assignedTo($vehicle)->create();
+
+        $vehicleConfig = $this->enableVehicleAlert($vehicle, AlertType::OFFLINE);
+        $legacyConfig = app(AlertConfigService::class)->create([
+            'type' => AlertType::OFFLINE,
+            'client_id' => $client->getKey(),
+            'is_enabled' => true,
+        ]);
+
+        $store = app(AlertStateStore::class);
+        $position = $this->pos($tenant, $client, $vehicle, 10, CarbonImmutable::parse('2026-09-05 08:00:00'), 990);
+        $startedAt = CarbonImmutable::parse('2026-09-05 07:00:00');
+
+        foreach ([$vehicleConfig->getKey(), $legacyConfig->getKey()] as $configId) {
+            $state = $store->get(
+                (int) $tenant->getKey(),
+                (int) $vehicle->getKey(),
+                AlertType::OFFLINE,
+                (int) $configId,
+            );
+            $store->activate($state, $position, [], $startedAt);
+        }
+
+        $fresh = $this->pos($tenant, $client, $vehicle, 10, CarbonImmutable::parse('2026-09-05 08:10:00'), 991);
+        $online = app(OfflineAlertService::class)->markOnline($vehicle, $fresh);
+
+        $this->assertCount(1, $online);
+        $this->assertSame(AlertType::ONLINE, $online->first()->type);
+        $this->assertSame(
+            0,
+            AlertState::query()
+                ->withoutGlobalScopes()
+                ->where('vehicle_id', $vehicle->getKey())
+                ->where('type', AlertType::OFFLINE->value)
+                ->where('is_active', true)
+                ->count(),
+        );
     }
 
     /**

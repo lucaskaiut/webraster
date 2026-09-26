@@ -20,6 +20,7 @@ Cada `AlertConfig` é definida por veículo (`vehicle_id` preenchido, `client_id
 | `settings` | Parâmetros do tipo (limite de velocidade, minutos offline, bateria) |
 
 - Cada alarme do dispositivo tem linha própria por veículo (`alarm_code`), com canais independentes. Códigos novos enviados pelo protocolo são catalogados automaticamente (desabilitados) e passam a aparecer no formulário.
+- Quando o protocolo envia `powerCut,tampering` na mesma mensagem, a violação é suprimida e somente "Alimentação cortada" é alertada. Se `tampering` vier sozinho, ele alerta normalmente.
 - O padrão de um veículo novo habilita **SOS, jamming e offline** e os alarmes de dispositivo críticos (**alimentação cortada, violação, remoção e acidente**); os demais começam desligados.
 - **In-app** notifica apenas os usuários do cliente e **Monitoramento** apenas os operadores. Push e e-mail notificam ambos, respeitando o silenciamento do cliente.
 - Configurações por cliente não participam do motor: são apenas um silenciador. Se o cliente desligar um alerta no portal, ele deixa de receber notificações — o operador continua sendo notificado e o alerta continua no histórico.

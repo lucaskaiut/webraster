@@ -83,6 +83,27 @@ class AlertSupportTest extends TestCase
     }
 
     #[Test]
+    public function suppresses_tampering_when_power_cut_arrives_together(): void
+    {
+        $this->assertSame(
+            ['powercut'],
+            TraccarAttributeReader::extractDeviceAlarms(['alarm' => 'powerCut,tampering']),
+        );
+        $this->assertSame(
+            ['powercut'],
+            TraccarAttributeReader::activeAlarms(['alarm' => 'powerCut,tampering']),
+        );
+        $this->assertSame(
+            ['tampering'],
+            TraccarAttributeReader::extractDeviceAlarms(['alarm' => 'tampering']),
+        );
+        $this->assertSame(
+            ['tampering'],
+            TraccarAttributeReader::activeAlarms(['alarm' => 'tampering']),
+        );
+    }
+
+    #[Test]
     public function reads_telemetry_attributes(): void
     {
         $attributes = [
