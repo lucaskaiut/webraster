@@ -101,6 +101,40 @@ class FinanceModuleTest extends TestCase
             ->assertJsonPath('data.status', 'pending');
     }
 
+    public function test_generates_billing_five_days_before_due_date(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $plan = FinancePlan::factory()->forTenant($tenant)->create();
+
+        $dueSoon = now()->addDays(5)->toDateString();
+        $dueLater = now()->addDays(6)->toDateString();
+
+        $subscription = FinanceSubscription::factory()
+            ->forClient(Client::factory()->for($tenant)->create(), $plan)
+            ->create([
+                'status' => SubscriptionStatus::ACTIVE,
+                'next_billing_at' => $dueSoon,
+            ]);
+
+        $notYetDue = FinanceSubscription::factory()
+            ->forClient(Client::factory()->for($tenant)->create(), $plan)
+            ->create([
+                'status' => SubscriptionStatus::ACTIVE,
+                'next_billing_at' => $dueLater,
+            ]);
+
+        $this->artisan('finance:generate-billings')->assertSuccessful();
+
+        $this->assertDatabaseHas('finance_billings', [
+            'subscription_id' => $subscription->getKey(),
+            'due_at' => $dueSoon,
+        ]);
+
+        $this->assertDatabaseMissing('finance_billings', [
+            'subscription_id' => $notYetDue->getKey(),
+        ]);
+    }
+
     public function test_tenant_isolation_for_plans(): void
     {
         [, $tenantA] = $this->createOperationalChild();

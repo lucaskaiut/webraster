@@ -316,7 +316,8 @@ class FinanceSubscriptionService
      */
     public function dueForBilling(?CarbonImmutable $on = null)
     {
-        $date = ($on ?? CarbonImmutable::today())->toDateString();
+        $leadDays = max(0, (int) config('finance.days_before_due', 0));
+        $date = ($on ?? CarbonImmutable::today())->addDays($leadDays)->toDateString();
 
         return FinanceSubscription::query()
             ->with(['client', 'plan'])

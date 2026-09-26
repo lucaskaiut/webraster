@@ -16,7 +16,7 @@ class GenerateBillingsCommand extends Command
 {
     protected $signature = 'finance:generate-billings';
 
-    protected $description = 'Gera cobranças para assinaturas financeiras com next_billing_at vencido';
+    protected $description = 'Gera cobranças para assinaturas financeiras dentro da janela de antecedência de next_billing_at';
 
     public function handle(
         FinanceBillingService $billings,

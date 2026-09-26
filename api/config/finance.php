@@ -23,4 +23,15 @@ return [
         'asaas',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Antecedência da cobrança
+    |--------------------------------------------------------------------------
+    |
+    | Quantos dias antes de next_billing_at a cobrança é gerada.
+    |
+    */
+
+    'days_before_due' => (int) env('FINANCE_DAYS_BEFORE_DUE', 5),
+
 ];
