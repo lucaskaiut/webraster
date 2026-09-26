@@ -19,6 +19,7 @@ export interface AlertConfigPayload {
   vehicle_id?: string | null
   is_enabled?: boolean
   notify_in_app?: boolean
+  notify_monitoring?: boolean
   notify_email?: boolean
   notify_push?: boolean
   settings?: AlertConfig['settings']

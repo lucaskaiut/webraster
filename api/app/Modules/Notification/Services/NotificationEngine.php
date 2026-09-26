@@ -39,7 +39,9 @@ class NotificationEngine
                 'data' => $message->data,
             ])->save();
 
-            $this->recordDelivery($notification, $user, NotificationChannel::IN_APP);
+            if ($message->inApp) {
+                $this->recordDelivery($notification, $user, NotificationChannel::IN_APP);
+            }
 
             if ($message->push) {
                 SendPushNotificationJob::dispatch($notification->getKey());

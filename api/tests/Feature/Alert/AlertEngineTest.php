@@ -8,6 +8,7 @@ use App\Modules\Alert\Models\AlertConfig;
 use App\Modules\Alert\Models\UserNotification;
 use App\Modules\Alert\Services\AlertConfigService;
 use App\Modules\Alert\Services\AlertEngine;
+use App\Modules\Alert\Services\NotificationService;
 use App\Modules\Alert\Services\OfflineAlertService;
 use App\Modules\Alert\Support\TraccarAttributeReader;
 use App\Modules\Client\Models\Client;
@@ -185,6 +186,9 @@ class AlertEngineTest extends TestCase
         foreach (['tow', 'door', 'vibration', 'lowbattery'] as $code) {
             $this->assertFalse((bool) $configs['device_alarm|'.$code]->is_enabled, "Esperado {$code} desabilitado");
         }
+
+        $this->assertTrue((bool) $configs['sos|']->notify_in_app);
+        $this->assertTrue((bool) $configs['sos|']->notify_monitoring);
     }
 
     public function test_client_scoped_config_does_not_override_vehicle_config(): void
@@ -449,6 +453,126 @@ class AlertEngineTest extends TestCase
             'settings' => ['speed_limit_kmh' => 90],
             'notify_email' => true,
         ])->assertOk()->assertJsonPath('data.settings.speed_limit_kmh', 90);
+    }
+
+    public function test_in_app_notifies_only_clients_and_monitoring_only_operators(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $operator = $this->createAdmin($tenant);
+
+        // Veículo A: In-app ligado (cliente), Monitoramento desligado.
+        $clientA = Client::factory()->for($tenant)->create();
+        $vehicleA = Vehicle::factory()->forClient($clientA)->create();
+        Equipment::factory()->assignedTo($vehicleA)->create();
+        $clientUserA = $this->createClient($tenant, ['client_id' => $clientA->getKey()]);
+        $this->configureSos($vehicleA, [
+            'notify_in_app' => true,
+            'notify_monitoring' => false,
+            'notify_push' => false,
+            'notify_email' => false,
+        ]);
+
+        app(AlertEngine::class)->process($this->pos(
+            $tenant,
+            $clientA,
+            $vehicleA,
+            10,
+            CarbonImmutable::parse('2026-09-05 19:00:00'),
+            900,
+            attributes: ['sos' => true],
+        ));
+
+        $alertA = Alert::query()->withoutGlobalScopes()
+            ->where('type', 'sos')->where('vehicle_id', $vehicleA->getKey())->firstOrFail();
+        $notifiedA = UserNotification::query()->withoutGlobalScopes()
+            ->where('alert_id', $alertA->getKey())->pluck('user_id');
+
+        $this->assertTrue($notifiedA->contains($clientUserA->getKey()));
+        $this->assertFalse($notifiedA->contains($operator->getKey()));
+
+        // Veículo B: Monitoramento ligado (operador), In-app desligado.
+        $clientB = Client::factory()->for($tenant)->create();
+        $vehicleB = Vehicle::factory()->forClient($clientB)->create();
+        Equipment::factory()->assignedTo($vehicleB)->create();
+        $clientUserB = $this->createClient($tenant, ['client_id' => $clientB->getKey()]);
+        $this->configureSos($vehicleB, [
+            'notify_in_app' => false,
+            'notify_monitoring' => true,
+            'notify_push' => false,
+            'notify_email' => false,
+        ]);
+
+        app(AlertEngine::class)->process($this->pos(
+            $tenant,
+            $clientB,
+            $vehicleB,
+            10,
+            CarbonImmutable::parse('2026-09-05 19:05:00'),
+            901,
+            attributes: ['sos' => true],
+        ));
+
+        $alertB = Alert::query()->withoutGlobalScopes()
+            ->where('type', 'sos')->where('vehicle_id', $vehicleB->getKey())->firstOrFail();
+        $notifiedB = UserNotification::query()->withoutGlobalScopes()
+            ->where('alert_id', $alertB->getKey())->pluck('user_id');
+
+        $this->assertTrue($notifiedB->contains($operator->getKey()));
+        $this->assertFalse($notifiedB->contains($clientUserB->getKey()));
+    }
+
+    public function test_push_only_notification_stays_out_of_inbox(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create();
+        Equipment::factory()->assignedTo($vehicle)->create();
+
+        $operator = $this->createAdmin($tenant);
+        $clientUser = $this->createClient($tenant, ['client_id' => $client->getKey()]);
+
+        $this->configureSos($vehicle, [
+            'notify_in_app' => false,
+            'notify_monitoring' => false,
+            'notify_push' => true,
+            'notify_email' => false,
+        ]);
+
+        app(AlertEngine::class)->process($this->pos(
+            $tenant,
+            $client,
+            $vehicle,
+            10,
+            CarbonImmutable::parse('2026-09-05 19:10:00'),
+            902,
+            attributes: ['sos' => true],
+        ));
+
+        $alert = Alert::query()->withoutGlobalScopes()->where('type', 'sos')->firstOrFail();
+
+        $this->assertSame(
+            2,
+            UserNotification::query()->withoutGlobalScopes()->where('alert_id', $alert->getKey())->count(),
+        );
+
+        $service = app(NotificationService::class);
+
+        $this->assertSame(0, $service->paginate((int) $operator->getKey())->total());
+        $this->assertSame(0, $service->paginate((int) $clientUser->getKey())->total());
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function configureSos(Vehicle $vehicle, array $attributes): void
+    {
+        AlertConfig::query()
+            ->withoutGlobalScopes()
+            ->where('vehicle_id', $vehicle->getKey())
+            ->where('type', AlertType::SOS->value)
+            ->firstOrFail()
+            ->forceFill($attributes)
+            ->save();
     }
 
     /**

@@ -32,6 +32,7 @@ class StoreAlertConfigRequest extends FormRequest
             'alarm_code' => ['sometimes', 'nullable', 'string', 'max:40'],
             'is_enabled' => ['sometimes', 'boolean'],
             'notify_in_app' => ['sometimes', 'boolean'],
+            'notify_monitoring' => ['sometimes', 'boolean'],
             'notify_email' => ['sometimes', 'boolean'],
             'notify_push' => ['sometimes', 'boolean'],
             'settings' => ['sometimes', 'array'],

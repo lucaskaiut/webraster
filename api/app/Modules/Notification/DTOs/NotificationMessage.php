@@ -18,5 +18,6 @@ readonly class NotificationMessage
         public ?int $createdBy = null,
         public ?int $alertId = null,
         public bool $push = true,
+        public bool $inApp = true,
     ) {}
 }

@@ -13,6 +13,7 @@ export const vehicleAlertConfigSchema = z.object({
   label: z.string(),
   is_enabled: z.boolean(),
   notify_in_app: z.boolean(),
+  notify_monitoring: z.boolean(),
   notify_push: z.boolean(),
   notify_email: z.boolean(),
 })

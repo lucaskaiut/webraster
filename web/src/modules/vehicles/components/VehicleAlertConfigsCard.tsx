@@ -30,13 +30,16 @@ function ChannelSwitch({
 
 function AlertMatrixHeader() {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_repeat(4,64px)] items-center gap-2 px-4 pb-1">
+    <div className="grid grid-cols-[minmax(0,1fr)_repeat(5,64px)] items-center gap-2 px-4 pb-1">
       <span className="text-xs font-medium tracking-wide text-muted uppercase">Alarme</span>
       <span className="text-center text-xs font-medium tracking-wide text-muted uppercase">
         Habilitado
       </span>
       <span className="text-center text-xs font-medium tracking-wide text-muted uppercase">
         In-app
+      </span>
+      <span className="text-center text-xs font-medium tracking-wide text-muted uppercase">
+        Monitor.
       </span>
       <span className="text-center text-xs font-medium tracking-wide text-muted uppercase">
         Push
@@ -62,7 +65,7 @@ function VehicleAlertRow({
   const enabled = Boolean(watch(`${base}.is_enabled` as AlertFieldPath))
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_repeat(4,64px)] items-center gap-2 rounded-xl bg-surface-2 px-4 py-3">
+    <div className="grid grid-cols-[minmax(0,1fr)_repeat(5,64px)] items-center gap-2 rounded-xl bg-surface-2 px-4 py-3">
       <div className="min-w-0">
         <p className="text-sm font-semibold text-foreground">{label}</p>
         <p className="mt-0.5 text-[13px] text-muted">{description}</p>
@@ -76,7 +79,14 @@ function VehicleAlertRow({
       <div className="flex justify-center">
         <ChannelSwitch
           name={`${base}.notify_in_app` as AlertFieldPath}
-          label={`${label}: notificação in-app`}
+          label={`${label}: notificação in-app (cliente)`}
+          disabled={!enabled}
+        />
+      </div>
+      <div className="flex justify-center">
+        <ChannelSwitch
+          name={`${base}.notify_monitoring` as AlertFieldPath}
+          label={`${label}: monitoramento (operador)`}
           disabled={!enabled}
         />
       </div>
@@ -109,11 +119,11 @@ export function VehicleAlertConfigsCard() {
     <Card id="veiculo-alertas" className="scroll-mt-24">
       <CardHeader
         title="Alertas"
-        description="Habilite os alarmes deste veículo e escolha os canais de cada um. O cliente pode silenciar alertas no portal."
+        description="Habilite os alarmes deste veículo e escolha os canais de cada um. In-app notifica o cliente; Monitoramento notifica o operador; Push e e-mail notificam ambos."
       />
       <CardContent className="space-y-6">
         <div className="overflow-x-auto">
-          <div className="min-w-[640px] space-y-2">
+          <div className="min-w-[720px] space-y-2">
             <AlertMatrixHeader />
             {generalFields.map((field, index) => (
               <VehicleAlertRow
@@ -138,7 +148,7 @@ export function VehicleAlertConfigsCard() {
           </div>
 
           <div className="overflow-x-auto">
-            <div className="min-w-[640px] space-y-2">
+            <div className="min-w-[720px] space-y-2">
               <AlertMatrixHeader />
               {deviceFields.map((field, offset) => {
                 const index = VEHICLE_ALERT_TYPES.length + offset

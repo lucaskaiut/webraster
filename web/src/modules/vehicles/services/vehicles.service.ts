@@ -18,6 +18,7 @@ export interface VehicleAlertConfigPayload {
   alarm_code?: string | null
   is_enabled: boolean
   notify_in_app: boolean
+  notify_monitoring: boolean
   notify_push: boolean
   notify_email: boolean
 }

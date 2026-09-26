@@ -91,6 +91,7 @@ class AlertConfigService
                 'type' => $type,
                 'is_enabled' => true,
                 'notify_in_app' => true,
+                'notify_monitoring' => true,
                 'notify_email' => $type === AlertType::SOS
                     || $type === AlertType::JAMMING
                     || $type === AlertType::DEVICE_ALARM,
@@ -177,6 +178,7 @@ class AlertConfigService
             'type' => $type,
             'is_enabled' => $overrides['is_enabled'] ?? true,
             'notify_in_app' => true,
+            'notify_monitoring' => true,
             'notify_email' => $overrides['notify_email'] ?? false,
             'notify_push' => true,
             'settings' => self::defaultSettings($type),
@@ -299,6 +301,9 @@ class AlertConfigService
                 'notify_in_app' => array_key_exists('notify_in_app', $item)
                     ? (bool) $item['notify_in_app']
                     : $config->notify_in_app,
+                'notify_monitoring' => array_key_exists('notify_monitoring', $item)
+                    ? (bool) $item['notify_monitoring']
+                    : $config->notify_monitoring,
                 'notify_push' => array_key_exists('notify_push', $item)
                     ? (bool) $item['notify_push']
                     : $config->notify_push,
@@ -402,6 +407,7 @@ class AlertConfigService
                 'type' => $type,
                 'is_enabled' => true,
                 'notify_in_app' => true,
+                'notify_monitoring' => true,
                 'notify_email' => true,
                 'notify_push' => true,
                 'settings' => self::defaultSettings($type),
@@ -521,6 +527,7 @@ class AlertConfigService
             'type' => $type,
             'is_enabled' => $data['is_enabled'] ?? true,
             'notify_in_app' => $data['notify_in_app'] ?? true,
+            'notify_monitoring' => $data['notify_monitoring'] ?? true,
             'notify_email' => $data['notify_email'] ?? false,
             'notify_push' => $data['notify_push'] ?? true,
             'settings' => $settings,
@@ -557,6 +564,7 @@ class AlertConfigService
             'name' => $data['name'] ?? $config->name,
             'is_enabled' => $data['is_enabled'] ?? $config->is_enabled,
             'notify_in_app' => $data['notify_in_app'] ?? $config->notify_in_app,
+            'notify_monitoring' => $data['notify_monitoring'] ?? $config->notify_monitoring,
             'notify_email' => $data['notify_email'] ?? $config->notify_email,
             'notify_push' => $data['notify_push'] ?? $config->notify_push,
             'settings' => $settings,

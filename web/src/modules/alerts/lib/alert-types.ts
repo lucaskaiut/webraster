@@ -112,6 +112,7 @@ export interface VehicleAlertConfigValue {
   label: string
   is_enabled: boolean
   notify_in_app: boolean
+  notify_monitoring: boolean
   notify_push: boolean
   notify_email: boolean
 }
@@ -130,6 +131,7 @@ function generalValue(
     label: option.label,
     is_enabled: config?.is_enabled ?? DEFAULT_ENABLED_GENERAL.includes(option.type),
     notify_in_app: config?.notify_in_app ?? true,
+    notify_monitoring: config?.notify_monitoring ?? true,
     notify_push: config?.notify_push ?? true,
     notify_email: config?.notify_email ?? DEFAULT_EMAIL_GENERAL.includes(option.type),
   }
@@ -142,6 +144,7 @@ function deviceValue(code: string, label: string, config?: AlertConfig): Vehicle
     label: config?.alarm_label ?? label,
     is_enabled: config?.is_enabled ?? DEFAULT_ENABLED_DEVICE.includes(code),
     notify_in_app: config?.notify_in_app ?? true,
+    notify_monitoring: config?.notify_monitoring ?? true,
     notify_push: config?.notify_push ?? true,
     notify_email: config?.notify_email ?? DEFAULT_ENABLED_DEVICE.includes(code),
   }

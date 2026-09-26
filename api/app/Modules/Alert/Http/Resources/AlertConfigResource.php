@@ -28,6 +28,7 @@ class AlertConfigResource extends JsonResource
                 : null,
             'is_enabled' => (bool) $this->is_enabled,
             'notify_in_app' => (bool) $this->notify_in_app,
+            'notify_monitoring' => (bool) $this->notify_monitoring,
             'notify_email' => (bool) $this->notify_email,
             'notify_push' => (bool) $this->notify_push,
             'settings' => $this->settingsWithDefaults(),

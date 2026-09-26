@@ -194,6 +194,7 @@ export function VehicleForm({
                 alarm_code,
                 is_enabled,
                 notify_in_app,
+                notify_monitoring,
                 notify_push,
                 notify_email,
               }) => ({
@@ -201,6 +202,7 @@ export function VehicleForm({
                 alarm_code,
                 is_enabled,
                 notify_in_app,
+                notify_monitoring,
                 notify_push,
                 notify_email,
               }),

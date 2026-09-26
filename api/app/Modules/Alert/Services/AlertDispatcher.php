@@ -59,17 +59,8 @@ class AlertDispatcher
             'occurred_at' => $payload['occurred_at'] ?? now(),
         ])->save();
 
-        $shouldNotify = $config->is_enabled
-            && ($config->notify_in_app || $config->notify_push || $config->notify_email);
-
-        $recipients = $shouldNotify ? $this->recipientsFor($alert, $vehicle) : collect();
-
-        if ($config->is_enabled && ($config->notify_in_app || $config->notify_push)) {
-            $this->notify($alert, $vehicle, (bool) $config->notify_push, $recipients);
-        }
-
-        if ($config->is_enabled && $config->notify_email) {
-            $this->notifyEmail($alert, $vehicle, $recipients);
+        if ($config->is_enabled) {
+            $this->dispatchNotifications($alert, $vehicle, $config);
         }
 
         Log::info('alert.created', [
@@ -83,13 +74,13 @@ class AlertDispatcher
     }
 
     /**
-     * Usuários do tenant e do cliente do veículo. Quando o cliente silenciou
-     * o alerta no portal, os usuários do cliente saem da lista — o operador
-     * continua recebendo normalmente.
-     *
-     * @return Collection<int, User>
+     * Separa os destinatários por audiência:
+     * - operadores do tenant (client_id nulo) recebem pelo Monitoramento;
+     * - usuários do cliente recebem pelo In-app.
+     * Push notifica as duas audiências; e-mail também. Quando o cliente
+     * silenciou o alerta no portal, os usuários do cliente saem da lista.
      */
-    private function recipientsFor(Alert $alert, Vehicle $vehicle): Collection
+    private function dispatchNotifications(Alert $alert, Vehicle $vehicle, AlertConfig $config): void
     {
         $recipients = $this->recipients->forVehicle($vehicle);
 
@@ -99,14 +90,34 @@ class AlertDispatcher
                 ->values();
         }
 
-        return $recipients;
+        $staff = $recipients->filter(fn (User $user) => $user->client_id === null)->values();
+        $clients = $recipients->filter(fn (User $user) => $user->client_id !== null)->values();
+
+        $push = (bool) $config->notify_push;
+
+        if ($staff->isNotEmpty() && ($config->notify_monitoring || $push)) {
+            $this->notify($alert, $vehicle, $push, $staff, (bool) $config->notify_monitoring);
+        }
+
+        if ($clients->isNotEmpty() && ($config->notify_in_app || $push)) {
+            $this->notify($alert, $vehicle, $push, $clients, (bool) $config->notify_in_app);
+        }
+
+        if ($config->notify_email && $recipients->isNotEmpty()) {
+            $this->notifyEmail($alert, $vehicle, $recipients);
+        }
     }
 
     /**
      * @param  Collection<int, User>  $recipients
      */
-    private function notify(Alert $alert, Vehicle $vehicle, bool $push, Collection $recipients): void
-    {
+    private function notify(
+        Alert $alert,
+        Vehicle $vehicle,
+        bool $push,
+        Collection $recipients,
+        bool $inApp,
+    ): void {
         $this->engine->send($recipients, new NotificationMessage(
             type: $alert->type->value,
             title: $alert->title,
@@ -122,6 +133,7 @@ class AlertDispatcher
             source: NotificationSource::ALERT,
             alertId: (int) $alert->getKey(),
             push: $push,
+            inApp: $inApp,
         ));
     }
 

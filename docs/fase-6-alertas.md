@@ -13,13 +13,15 @@ Cada `AlertConfig` é definida por veículo (`vehicle_id` preenchido, `client_id
 | `type` | Tipo do alarme (`speed`, `sos`, `device_alarm`, ...) |
 | `alarm_code` | Código do protocolo quando `type = device_alarm` (ex.: `powercut`, `tow`) |
 | `is_enabled` | Liga/desliga o alarme naquele veículo |
-| `notify_in_app` | Notificação no app |
-| `notify_push` | Push (Expo) |
-| `notify_email` | Envio por e-mail |
+| `notify_in_app` | Notificação no app para os usuários do **cliente** |
+| `notify_monitoring` | Notificação no app para os **operadores do tenant** |
+| `notify_push` | Push (Expo), para operador e cliente |
+| `notify_email` | Envio por e-mail, para operador e cliente |
 | `settings` | Parâmetros do tipo (limite de velocidade, minutos offline, bateria) |
 
 - Cada alarme do dispositivo tem linha própria por veículo (`alarm_code`), com canais independentes. Códigos novos enviados pelo protocolo são catalogados automaticamente (desabilitados) e passam a aparecer no formulário.
 - O padrão de um veículo novo habilita **SOS, jamming e offline** e os alarmes de dispositivo críticos (**alimentação cortada, violação, remoção e acidente**); os demais começam desligados.
+- **In-app** notifica apenas os usuários do cliente e **Monitoramento** apenas os operadores. Push e e-mail notificam ambos, respeitando o silenciamento do cliente.
 - Configurações por cliente não participam do motor: são apenas um silenciador. Se o cliente desligar um alerta no portal, ele deixa de receber notificações — o operador continua sendo notificado e o alerta continua no histórico.
 - A configuração é enviada junto do cadastro do veículo (`POST/PUT /vehicles`, campo `alert_configs`) e exige a permissão `alert-config.update`.
 
