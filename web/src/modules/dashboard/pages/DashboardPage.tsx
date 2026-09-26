@@ -23,6 +23,7 @@ import { cn } from '@/shared/utils/cn'
 import { formatRelative, toLocalIsoDate } from '@/shared/utils/format'
 import type { Alert, AlertDashboardStats, AlertSeverity, AlertStatus } from '@/shared/types/models'
 import {
+  ALERTS_POLL_INTERVAL_MS,
   useAcknowledgeAlert,
   useAlertDashboardQuery,
   useAlertsQuery,
@@ -249,7 +250,7 @@ export default function DashboardPage() {
       sort: 'desc',
       ...SEGMENT_PARAMS[segment],
     },
-    { enabled: showAlerts, refetchInterval: 30_000 },
+    { enabled: showAlerts, refetchInterval: ALERTS_POLL_INTERVAL_MS },
   )
 
   const acknowledge = useAcknowledgeAlert()
