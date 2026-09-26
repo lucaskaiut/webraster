@@ -2,19 +2,23 @@
 
 ## Resumo
 
-Motor de alertas integrado ao `TrackingService::persistPosition`, com regras configuráveis por **veículo**, **cliente** ou **toda a frota**, notificações in-app + e-mail, job de offline e UI (histórico, cadastro de regras, sino, dashboard, mapa).
+Motor de alertas integrado ao `TrackingService::persistPosition`, com regras configuradas **por veículo** pelo operador no cadastro do veículo, notificações in-app + push + e-mail, job de offline e UI (histórico, sino, dashboard, mapa).
 
 ## Escopo das regras
 
-Cada `AlertConfig` define:
+Cada `AlertConfig` é definida por veículo (`vehicle_id` preenchido, `client_id` nulo):
 
-| Escopo | Campos | Dispara para |
-|--------|--------|--------------|
-| Todos | `client_id` e `vehicle_id` nulos | Todos os veículos do tenant |
-| Cliente | só `client_id` | Veículos daquele cliente |
-| Veículo | só `vehicle_id` | Aquele veículo |
+| Campo | Efeito |
+|-------|--------|
+| `is_enabled` | Liga/desliga o alarme naquele veículo |
+| `notify_in_app` | Notificação no app |
+| `notify_push` | Push (Expo) |
+| `notify_email` | Envio por e-mail |
+| `settings` | Parâmetros do tipo (limite de velocidade, minutos offline, bateria) |
 
-Não é permitido preencher cliente e veículo ao mesmo tempo.
+- O padrão de um veículo novo habilita **SOS, jamming, alarme do dispositivo e offline**; os demais começam desligados.
+- Configurações por cliente não participam do motor: são apenas um silenciador. Se o cliente desligar um alerta no portal, ele deixa de receber notificações — o operador continua sendo notificado e o alerta continua no histórico.
+- A configuração é enviada junto do cadastro do veículo (`POST/PUT /vehicles`, campo `alert_configs`) e exige a permissão `alert-config.update`.
 
 ## Fluxo
 
@@ -43,7 +47,9 @@ Velocidade: Traccar em **nós**; limite configurado em **km/h**.
 ## API
 
 - `GET /alerts`, `/alerts/map`, `/alerts/dashboard`, `POST .../acknowledge|resolve`
-- `GET/POST /alert-configs`, `PUT/DELETE /alert-configs/{id}`
+- `POST/PUT /vehicles` com `alert_configs` (operador define alarmes e canais por veículo)
+- `GET/POST /alert-configs`, `PUT/DELETE /alert-configs/{id}` (API administrativa)
+- `GET/PUT /alert-configs/portal[/{type}]` (cliente silencia/volta a receber)
 - `GET /notifications`, `/notifications/unread-count`, `POST .../read`
 
 ## Testes

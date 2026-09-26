@@ -333,6 +333,7 @@ export interface Vehicle {
   client?: Client
   equipment?: Equipment | null
   images?: VehicleImage[]
+  alert_configs?: AlertConfig[]
   plate: string
   chassis: string | null
   renavam: string | null

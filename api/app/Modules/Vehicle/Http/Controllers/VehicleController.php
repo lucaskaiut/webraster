@@ -2,6 +2,7 @@
 
 namespace App\Modules\Vehicle\Http\Controllers;
 
+use App\Modules\ACL\Enums\Permission;
 use App\Modules\Client\Models\Client;
 use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Shared\Http\Controllers\ApiController;
@@ -51,12 +52,13 @@ class VehicleController extends ApiController
     {
         $this->authorize('view', $vehicle);
 
-        return $this->success(VehicleResource::make($vehicle->load(['client', 'equipment', 'images'])));
+        return $this->success(VehicleResource::make($vehicle->load(['client', 'equipment', 'images', 'alertConfigs'])));
     }
 
     public function store(StoreVehicleRequest $request): JsonResponse
     {
         $this->authorize('create', Vehicle::class);
+        $this->authorizeAlertConfigs($request);
 
         $vehicle = $this->service->create($request->validated());
 
@@ -66,6 +68,7 @@ class VehicleController extends ApiController
     public function update(UpdateVehicleRequest $request, Vehicle $vehicle): JsonResponse
     {
         $this->authorize('update', $vehicle);
+        $this->authorizeAlertConfigs($request);
 
         $vehicle = $this->service->update($vehicle, $request->validated());
 
@@ -177,5 +180,17 @@ class VehicleController extends ApiController
         $events = $this->assignments->historyForVehicle($vehicle);
 
         return $this->success(EquipmentAssignmentEventResource::collection($events));
+    }
+
+    private function authorizeAlertConfigs(Request $request): void
+    {
+        if (! $request->has('alert_configs')) {
+            return;
+        }
+
+        abort_unless(
+            $request->user()?->hasPermission(Permission::ALERT_CONFIG_UPDATE) ?? false,
+            403,
+        );
     }
 }

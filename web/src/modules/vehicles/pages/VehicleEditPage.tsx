@@ -20,6 +20,7 @@ import { Can } from '@/app/guards/PermissionGuard'
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import { formatDateTime } from '@/shared/utils/format'
+import { vehicleAlertConfigsFromApi } from '@/modules/alerts/lib/alert-types'
 import { equipmentsService } from '@/modules/equipments/services/equipments.service'
 import { VehicleCommandsPanel } from '@/modules/tracking/components/VehicleCommandsPanel'
 import { VehicleForm } from '../forms/VehicleForm'
@@ -204,6 +205,7 @@ export default function VehicleEditPage() {
                 fipe_brand: vehicle.fipe_brand ?? '',
                 fipe_score: vehicle.fipe_score ? String(vehicle.fipe_score) : '',
                 is_active: vehicle.is_active,
+                alert_configs: vehicleAlertConfigsFromApi(vehicle.alert_configs),
               }}
               crlvFileUrl={vehicle.crlv_file_url}
               submitting={updateVehicle.isPending}

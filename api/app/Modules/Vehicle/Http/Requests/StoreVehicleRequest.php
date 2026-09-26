@@ -2,6 +2,7 @@
 
 namespace App\Modules\Vehicle\Http\Requests;
 
+use App\Modules\Alert\Enums\AlertType;
 use App\Modules\Client\Models\Client;
 use App\Modules\Tenant\Support\Facades\TenantContext;
 use App\Modules\Vehicle\Enums\VehicleTransmission;
@@ -55,6 +56,17 @@ class StoreVehicleRequest extends FormRequest
             'fipe_brand' => ['nullable', 'string', 'max:100'],
             'fipe_score' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['sometimes', 'boolean'],
+            'alert_configs' => ['sometimes', 'array'],
+            'alert_configs.*.type' => [
+                'required',
+                'string',
+                'distinct',
+                Rule::in(array_map(fn (AlertType $type) => $type->value, AlertType::configurable())),
+            ],
+            'alert_configs.*.is_enabled' => ['sometimes', 'boolean'],
+            'alert_configs.*.notify_in_app' => ['sometimes', 'boolean'],
+            'alert_configs.*.notify_push' => ['sometimes', 'boolean'],
+            'alert_configs.*.notify_email' => ['sometimes', 'boolean'],
         ];
     }
 

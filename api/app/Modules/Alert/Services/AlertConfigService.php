@@ -34,6 +34,35 @@ class AlertConfigService
         };
     }
 
+    /**
+     * Alertas habilitados por padrão em um veículo novo.
+     *
+     * @return list<AlertType>
+     */
+    public static function defaultEnabledTypes(): array
+    {
+        return [
+            AlertType::SOS,
+            AlertType::JAMMING,
+            AlertType::DEVICE_ALARM,
+            AlertType::OFFLINE,
+        ];
+    }
+
+    /**
+     * Alertas que enviam e-mail por padrão em um veículo novo.
+     *
+     * @return list<AlertType>
+     */
+    public static function defaultEmailTypes(): array
+    {
+        return [
+            AlertType::SOS,
+            AlertType::JAMMING,
+            AlertType::DEVICE_ALARM,
+        ];
+    }
+
     public function ensureDefaults(Tenant|int $tenant): void
     {
         $tenantId = $tenant instanceof Tenant ? $tenant->getKey() : $tenant;
@@ -70,6 +99,111 @@ class AlertConfigService
     }
 
     /**
+     * Garante uma configuração por veículo para cada tipo configurável.
+     * Os alertas críticos começam habilitados; os demais, desabilitados.
+     */
+    public function ensureVehicleDefaults(Vehicle|int $vehicle, ?int $tenantId = null): void
+    {
+        $vehicleId = $vehicle instanceof Vehicle ? $vehicle->getKey() : $vehicle;
+
+        if ($tenantId === null) {
+            $tenantId = $vehicle instanceof Vehicle
+                ? (int) $vehicle->tenant_id
+                : (int) Vehicle::query()->withoutGlobalScopes()->whereKey($vehicleId)->value('tenant_id');
+        }
+
+        if ($tenantId === 0 || $vehicleId === 0) {
+            return;
+        }
+
+        $existing = AlertConfig::query()
+            ->withoutGlobalScopes()
+            ->where('tenant_id', $tenantId)
+            ->where('vehicle_id', $vehicleId)
+            ->pluck('type')
+            ->map(fn ($type) => $type instanceof AlertType ? $type->value : (string) $type)
+            ->all();
+
+        foreach (AlertType::configurable() as $type) {
+            if (in_array($type->value, $existing, true)) {
+                continue;
+            }
+
+            $config = new AlertConfig;
+            $config->forceFill([
+                'tenant_id' => $tenantId,
+                'client_id' => null,
+                'vehicle_id' => $vehicleId,
+                'name' => $type->label(),
+                'type' => $type,
+                'is_enabled' => in_array($type, self::defaultEnabledTypes(), true),
+                'notify_in_app' => true,
+                'notify_email' => in_array($type, self::defaultEmailTypes(), true),
+                'notify_push' => true,
+                'settings' => self::defaultSettings($type),
+            ])->save();
+        }
+    }
+
+    /**
+     * Aplica os valores informados pelo operador no cadastro do veículo,
+     * criando as configurações padrão que ainda não existirem.
+     *
+     * @param  array<int, array<string, mixed>>  $configs
+     */
+    public function syncForVehicle(Vehicle $vehicle, array $configs): void
+    {
+        $this->ensureVehicleDefaults($vehicle);
+
+        if ($configs === []) {
+            return;
+        }
+
+        $existing = AlertConfig::query()
+            ->withoutGlobalScopes()
+            ->where('tenant_id', $vehicle->tenant_id)
+            ->where('vehicle_id', $vehicle->getKey())
+            ->whereIn('type', array_map(fn (AlertType $type) => $type->value, AlertType::configurable()))
+            ->get()
+            ->keyBy(fn (AlertConfig $config) => $config->type->value);
+
+        foreach ($configs as $item) {
+            if (! is_array($item) || empty($item['type'])) {
+                continue;
+            }
+
+            $type = $item['type'] instanceof AlertType
+                ? $item['type']
+                : AlertType::tryFrom((string) $item['type']);
+
+            if ($type === null || ! in_array($type, AlertType::configurable(), true)) {
+                continue;
+            }
+
+            $config = $existing->get($type->value);
+
+            if ($config === null) {
+                continue;
+            }
+
+            $config->forceFill([
+                'is_enabled' => array_key_exists('is_enabled', $item)
+                    ? (bool) $item['is_enabled']
+                    : $config->is_enabled,
+                'notify_in_app' => array_key_exists('notify_in_app', $item)
+                    ? (bool) $item['notify_in_app']
+                    : $config->notify_in_app,
+                'notify_push' => array_key_exists('notify_push', $item)
+                    ? (bool) $item['notify_push']
+                    : $config->notify_push,
+                'notify_email' => array_key_exists('notify_email', $item)
+                    ? (bool) $item['notify_email']
+                    : $config->notify_email,
+            ])->save();
+        }
+    }
+
+    /**
      * @return Collection<int, AlertConfig>
      */
     public function listForCurrentTenant(): Collection
@@ -81,34 +215,50 @@ class AlertConfigService
     }
 
     /**
-     * Configurações habilitadas do tipo que se aplicam ao veículo
-     * (veículo específico, cliente do veículo, ou global).
+     * Configurações do tipo definidas no cadastro do veículo (escopo por veículo).
+     * A configuração por cliente não participa do motor: ela apenas silencia
+     * as notificações do próprio cliente quando desligada.
      *
      * @return Collection<int, AlertConfig>
      */
     public function matchingForVehicle(Vehicle $vehicle, AlertType $type, bool $enabledOnly = true): Collection
     {
-        if ($vehicle->client_id === null) {
-            return collect();
-        }
-
         $query = AlertConfig::query()
             ->withoutGlobalScopes()
             ->where('tenant_id', $vehicle->tenant_id)
-            ->where('client_id', $vehicle->client_id)
-            ->whereNull('vehicle_id')
+            ->where('vehicle_id', $vehicle->getKey())
             ->where('type', $type->value);
 
         if ($enabledOnly) {
             $query->where('is_enabled', true);
         }
 
-        return $query->get();
+        return $query->orderBy('id')->get();
     }
 
     /**
-     * Garante uma configuração (desligada) por cliente para cada tipo
-     * configurável. É o ponto de partida do cliente no portal.
+     * O cliente desligou este alerta no portal? Nesse caso ele deixa de
+     * receber notificações, mas o alarme continua valendo para o operador.
+     */
+    public function isClientSilenced(Vehicle $vehicle, AlertType $type): bool
+    {
+        if ($vehicle->client_id === null || ! in_array($type, AlertType::clientConfigurable(), true)) {
+            return false;
+        }
+
+        return AlertConfig::query()
+            ->withoutGlobalScopes()
+            ->where('tenant_id', $vehicle->tenant_id)
+            ->where('client_id', $vehicle->client_id)
+            ->whereNull('vehicle_id')
+            ->where('type', $type->value)
+            ->where('is_enabled', false)
+            ->exists();
+    }
+
+    /**
+     * Garante uma configuração por cliente para cada tipo configurável.
+     * O cliente começa recebendo e pode silenciar cada alerta no portal.
      */
     public function ensureClientDefaults(Client|int $client, ?int $tenantId = null): void
     {
@@ -144,7 +294,7 @@ class AlertConfigService
                 'vehicle_id' => null,
                 'name' => $type->label(),
                 'type' => $type,
-                'is_enabled' => false,
+                'is_enabled' => true,
                 'notify_in_app' => true,
                 'notify_email' => true,
                 'notify_push' => true,
@@ -193,12 +343,9 @@ class AlertConfigService
             ->where('type', $type->value)
             ->firstOrFail();
 
-        $config->forceFill([
-            'is_enabled' => $enabled,
-            'notify_in_app' => $enabled ? true : $config->notify_in_app,
-            'notify_email' => $enabled ? true : $config->notify_email,
-            'notify_push' => $enabled ? true : $config->notify_push,
-        ])->save();
+        // O portal do cliente só silencia/volta a receber: os canais são
+        // definidos pelo operador no cadastro de cada veículo.
+        $config->forceFill(['is_enabled' => $enabled])->save();
 
         return $config;
     }
@@ -264,6 +411,7 @@ class AlertConfigService
             'is_enabled' => $data['is_enabled'] ?? true,
             'notify_in_app' => $data['notify_in_app'] ?? true,
             'notify_email' => $data['notify_email'] ?? false,
+            'notify_push' => $data['notify_push'] ?? true,
             'settings' => $settings,
         ])->save();
 
@@ -299,6 +447,7 @@ class AlertConfigService
             'is_enabled' => $data['is_enabled'] ?? $config->is_enabled,
             'notify_in_app' => $data['notify_in_app'] ?? $config->notify_in_app,
             'notify_email' => $data['notify_email'] ?? $config->notify_email,
+            'notify_push' => $data['notify_push'] ?? $config->notify_push,
             'settings' => $settings,
         ]);
 

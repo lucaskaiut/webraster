@@ -55,6 +55,84 @@ class VehicleCrudTest extends TestCase
         ]);
     }
 
+    public function test_store_and_update_vehicle_alert_configs(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->postJson('/api/vehicles', [
+            'client_id' => $client->uuid,
+            'plate' => 'ALR1T23',
+            'alert_configs' => [
+                [
+                    'type' => 'speed',
+                    'is_enabled' => true,
+                    'notify_in_app' => true,
+                    'notify_push' => false,
+                    'notify_email' => true,
+                ],
+                [
+                    'type' => 'sos',
+                    'is_enabled' => false,
+                    'notify_in_app' => true,
+                    'notify_push' => true,
+                    'notify_email' => false,
+                ],
+            ],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.plate', 'ALR1T23');
+
+        $vehicle = Vehicle::query()->where('plate', 'ALR1T23')->firstOrFail();
+
+        $this->assertDatabaseHas('alert_configs', [
+            'vehicle_id' => $vehicle->getKey(),
+            'type' => 'speed',
+            'is_enabled' => true,
+            'notify_push' => false,
+            'notify_email' => true,
+        ]);
+
+        $this->assertDatabaseHas('alert_configs', [
+            'vehicle_id' => $vehicle->getKey(),
+            'type' => 'sos',
+            'is_enabled' => false,
+        ]);
+
+        // Tipos não enviados mantêm o padrão do veículo.
+        $this->assertDatabaseHas('alert_configs', [
+            'vehicle_id' => $vehicle->getKey(),
+            'type' => 'jamming',
+            'is_enabled' => true,
+        ]);
+        $this->assertDatabaseHas('alert_configs', [
+            'vehicle_id' => $vehicle->getKey(),
+            'type' => 'battery',
+            'is_enabled' => false,
+        ]);
+
+        $this->putJson("/api/vehicles/{$vehicle->uuid}", [
+            'alert_configs' => [
+                [
+                    'type' => 'battery',
+                    'is_enabled' => true,
+                    'notify_in_app' => false,
+                    'notify_push' => true,
+                    'notify_email' => false,
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertDatabaseHas('alert_configs', [
+            'vehicle_id' => $vehicle->getKey(),
+            'type' => 'battery',
+            'is_enabled' => true,
+            'notify_in_app' => false,
+        ]);
+    }
+
     public function test_store_rejects_unknown_vehicle_type(): void
     {
         [, $tenant] = $this->createOperationalChild();

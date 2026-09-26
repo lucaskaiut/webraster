@@ -14,7 +14,7 @@ class AlertConfigPortalTest extends TestCase
     use InteractsWithTenants;
     use RefreshDatabase;
 
-    public function test_client_sees_all_configurable_alerts_disabled_by_default(): void
+    public function test_client_sees_all_configurable_alerts_enabled_by_default(): void
     {
         [, $tenant] = $this->createOperationalChild();
         $client = Client::factory()->for($tenant)->create();
@@ -24,7 +24,7 @@ class AlertConfigPortalTest extends TestCase
 
         $response = $this->getJson('/api/alert-configs/portal')
             ->assertOk()
-            ->assertJsonPath('data.0.is_enabled', false);
+            ->assertJsonPath('data.0.is_enabled', true);
 
         $this->assertSame(
             array_map(fn (AlertType $type) => $type->value, AlertType::clientConfigurable()),
@@ -32,7 +32,7 @@ class AlertConfigPortalTest extends TestCase
         );
     }
 
-    public function test_client_toggles_own_alert_and_all_channels_are_enabled(): void
+    public function test_client_can_silence_and_resume_alert_without_changing_channels(): void
     {
         [, $tenant] = $this->createOperationalChild();
         $client = Client::factory()->for($tenant)->create();
@@ -40,9 +40,22 @@ class AlertConfigPortalTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $this->putJson('/api/alert-configs/portal/ignition_on', ['is_enabled' => true])
+        $this->putJson('/api/alert-configs/portal/ignition_on', ['is_enabled' => false])
             ->assertOk()
             ->assertJsonPath('data.type', 'ignition_on')
+            ->assertJsonPath('data.is_enabled', false);
+
+        $this->assertDatabaseHas('alert_configs', [
+            'client_id' => $client->getKey(),
+            'type' => 'ignition_on',
+            'is_enabled' => false,
+            'notify_in_app' => true,
+            'notify_push' => true,
+            'notify_email' => true,
+        ]);
+
+        $this->putJson('/api/alert-configs/portal/ignition_on', ['is_enabled' => true])
+            ->assertOk()
             ->assertJsonPath('data.is_enabled', true);
 
         $this->assertDatabaseHas('alert_configs', [
@@ -52,16 +65,6 @@ class AlertConfigPortalTest extends TestCase
             'notify_in_app' => true,
             'notify_push' => true,
             'notify_email' => true,
-        ]);
-
-        $this->putJson('/api/alert-configs/portal/ignition_on', ['is_enabled' => false])
-            ->assertOk()
-            ->assertJsonPath('data.is_enabled', false);
-
-        $this->assertDatabaseHas('alert_configs', [
-            'client_id' => $client->getKey(),
-            'type' => 'ignition_on',
-            'is_enabled' => false,
         ]);
     }
 
@@ -116,18 +119,18 @@ class AlertConfigPortalTest extends TestCase
         $userA = $this->createClient($tenant, ['client_id' => $clientA->getKey()]);
 
         Sanctum::actingAs($userA);
-        $this->putJson('/api/alert-configs/portal/battery', ['is_enabled' => true])->assertOk();
+        $this->putJson('/api/alert-configs/portal/battery', ['is_enabled' => false])->assertOk();
 
         $this->assertDatabaseHas('alert_configs', [
             'client_id' => $clientA->getKey(),
             'type' => 'battery',
-            'is_enabled' => true,
+            'is_enabled' => false,
         ]);
 
         $this->assertDatabaseHas('alert_configs', [
             'client_id' => $clientB->getKey(),
             'type' => 'battery',
-            'is_enabled' => false,
+            'is_enabled' => true,
         ]);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Modules\Vehicle\Models;
 
+use App\Modules\Alert\Models\AlertConfig;
 use App\Modules\Client\Models\Concerns\BelongsToClient;
 use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Shared\Models\Concerns\HasUuid;
@@ -71,6 +72,11 @@ class Vehicle extends Model
     public function equipment(): HasOne
     {
         return $this->hasOne(Equipment::class);
+    }
+
+    public function alertConfigs(): HasMany
+    {
+        return $this->hasMany(AlertConfig::class)->orderBy('id');
     }
 
     public function images(): HasMany

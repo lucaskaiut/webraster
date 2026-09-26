@@ -12,8 +12,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * Configuração de alertas pelo cliente final no portal: apenas liga/desliga
- * cada alerta do subconjunto simples, sempre no escopo do próprio cliente.
+ * Preferências de recebimento do cliente final no portal: liga/desliga cada
+ * alerta do subconjunto simples no escopo do próprio cliente. Desligar
+ * silencia o cliente; os canais e o alarme em si são definidos pelo operador
+ * no cadastro de cada veículo.
  */
 class AlertConfigPortalController extends ApiController
 {

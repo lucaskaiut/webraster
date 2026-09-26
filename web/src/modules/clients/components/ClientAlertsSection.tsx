@@ -3,7 +3,7 @@ import { Badge, Card, CardContent, CardHeader, EmptyState, Skeleton } from '@/sh
 import { useClientAlertConfigsQuery } from '@/modules/alerts/hooks/useAlerts'
 
 /**
- * Visão do tenant: quais alertas o cliente ativou no portal (somente leitura).
+ * Visão do tenant: quais alertas o cliente silenciou no portal (somente leitura).
  */
 export function ClientAlertsSection({ clientId }: { clientId?: string }) {
   const query = useClientAlertConfigsQuery(clientId)
@@ -12,7 +12,7 @@ export function ClientAlertsSection({ clientId }: { clientId?: string }) {
     <Card>
       <CardHeader
         title="Alertas"
-        description="Alertas que o cliente ativou no portal. A edição é feita pelo próprio cliente."
+        description="Preferências do cliente no portal. Alertas silenciados não notificam o cliente; a configuração por veículo é feita no cadastro do veículo."
       />
       <CardContent className="space-y-4">
         {query.isPending && (
@@ -41,7 +41,7 @@ export function ClientAlertsSection({ clientId }: { clientId?: string }) {
               <p className="mt-0.5 text-[13px] text-muted">{option.description}</p>
             </div>
             <Badge variant={option.is_enabled ? 'success' : 'neutral'}>
-              {option.is_enabled ? 'Ativo' : 'Inativo'}
+              {option.is_enabled ? 'Recebendo' : 'Silenciado'}
             </Badge>
           </div>
         ))}

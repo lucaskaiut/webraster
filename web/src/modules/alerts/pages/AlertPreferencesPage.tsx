@@ -27,7 +27,7 @@ export default function AlertPreferencesPage() {
     <Page>
       <PageHeader
         title="Meus alertas"
-        description="Escolha quais alertas você quer receber sobre os seus veículos."
+        description="Silencie alertas que você não quer receber. Quais alertas cada veículo dispara é definido pelo operador no cadastro do veículo."
         breadcrumb={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Meus alertas' }]}
       />
 

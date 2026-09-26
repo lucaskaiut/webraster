@@ -1,10 +1,19 @@
 import { z } from 'zod'
+import { VEHICLE_ALERT_TYPE_VALUES } from '@/modules/alerts/lib/alert-types'
 
 export const transmissionOptions = [
   { value: 'manual', label: 'Manual' },
   { value: 'automatic', label: 'Automático' },
   { value: 'automated', label: 'Automatizado' },
 ] as const
+
+export const vehicleAlertConfigSchema = z.object({
+  type: z.enum(VEHICLE_ALERT_TYPE_VALUES),
+  is_enabled: z.boolean(),
+  notify_in_app: z.boolean(),
+  notify_push: z.boolean(),
+  notify_email: z.boolean(),
+})
 
 export const vehicleSchema = z.object({
   client_id: z.string().min(1, 'Selecione o cliente'),
@@ -33,6 +42,7 @@ export const vehicleSchema = z.object({
   fipe_brand: z.string(),
   fipe_score: z.string(),
   is_active: z.boolean(),
+  alert_configs: z.array(vehicleAlertConfigSchema),
 })
 
 export type VehicleFormValues = z.infer<typeof vehicleSchema>

@@ -7,6 +7,8 @@ import type {
   VehicleTransmission,
 } from '@/shared/types/models'
 
+import type { VehicleAlertConfigValue } from '@/modules/alerts/lib/alert-types'
+
 export interface VehicleListParams extends ListParams {
   client_id?: string
 }
@@ -38,6 +40,7 @@ export interface VehiclePayload {
   fipe_brand?: string | null
   fipe_score?: number | null
   is_active?: boolean
+  alert_configs?: VehicleAlertConfigValue[]
 }
 
 export interface AssignmentPayload {

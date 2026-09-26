@@ -5,6 +5,7 @@ namespace Tests\Feature\Alert;
 use App\Modules\Alert\Enums\AlertType;
 use App\Modules\Alert\Models\Alert;
 use App\Modules\Alert\Models\AlertConfig;
+use App\Modules\Alert\Models\UserNotification;
 use App\Modules\Alert\Services\AlertConfigService;
 use App\Modules\Alert\Services\AlertEngine;
 use App\Modules\Alert\Services\OfflineAlertService;
@@ -33,7 +34,7 @@ class AlertEngineTest extends TestCase
             'speed_min_duration_seconds' => 30,
         ]);
         Equipment::factory()->assignedTo($vehicle)->create();
-        $this->enableClientAlert($client, AlertType::SPEED);
+        $this->enableVehicleAlert($vehicle, AlertType::SPEED);
 
         $engine = app(AlertEngine::class);
         $base = CarbonImmutable::parse('2026-09-05 10:00:00');
@@ -82,7 +83,7 @@ class AlertEngineTest extends TestCase
             AlertType::BATTERY,
             AlertType::JAMMING,
         ] as $type) {
-            $this->enableClientAlert($client, $type);
+            $this->enableVehicleAlert($vehicle, $type);
         }
 
         $engine = app(AlertEngine::class);
@@ -122,9 +123,9 @@ class AlertEngineTest extends TestCase
         $vehicle = Vehicle::factory()->forClient($client)->create();
         Equipment::factory()->assignedTo($vehicle)->create();
 
-        $this->enableClientAlert($client, AlertType::OFFLINE)
-            ->forceFill(['settings' => ['offline_minutes' => 5]])
-            ->save();
+        $this->enableVehicleAlert($vehicle, AlertType::OFFLINE, [
+            'settings' => ['offline_minutes' => 5],
+        ]);
 
         $old = CarbonImmutable::parse('2026-09-05 08:00:00');
         $this->pos($tenant, $client, $vehicle, 10, $old, 100);
@@ -149,20 +150,43 @@ class AlertEngineTest extends TestCase
         $this->assertSame(AlertType::ONLINE, $online->first()->type);
     }
 
-    public function test_legacy_vehicle_scoped_config_is_ignored(): void
+    public function test_vehicle_defaults_enable_only_critical_alerts(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create();
+
+        $configs = AlertConfig::query()
+            ->withoutGlobalScopes()
+            ->where('vehicle_id', $vehicle->getKey())
+            ->pluck('is_enabled', 'type');
+
+        $this->assertCount(count(AlertType::configurable()), $configs);
+
+        foreach ([AlertType::SOS, AlertType::JAMMING, AlertType::DEVICE_ALARM, AlertType::OFFLINE] as $type) {
+            $this->assertTrue((bool) $configs[$type->value], "Esperado {$type->value} habilitado");
+        }
+
+        foreach ([AlertType::SPEED, AlertType::IGNITION_ON, AlertType::IGNITION_OFF, AlertType::BATTERY] as $type) {
+            $this->assertFalse((bool) $configs[$type->value], "Esperado {$type->value} desabilitado");
+        }
+    }
+
+    public function test_client_scoped_config_does_not_override_vehicle_config(): void
     {
         [, $tenant] = $this->createOperationalChild();
         $client = Client::factory()->for($tenant)->create();
         $vehicle = Vehicle::factory()->forClient($client)->create();
         Equipment::factory()->assignedTo($vehicle)->create();
 
-        app(AlertConfigService::class)->create([
-            'type' => AlertType::SOS,
-            'vehicle_id' => $vehicle->getKey(),
-            'is_enabled' => true,
-            'notify_in_app' => true,
-            'notify_email' => false,
-        ]);
+        $config = AlertConfig::query()
+            ->withoutGlobalScopes()
+            ->where('vehicle_id', $vehicle->getKey())
+            ->where('type', AlertType::SOS->value)
+            ->firstOrFail();
+        $config->forceFill(['is_enabled' => false])->save();
+
+        app(AlertConfigService::class)->setClientEnabled($client, AlertType::SOS, true);
 
         $engine = app(AlertEngine::class);
         $engine->process($this->pos(
@@ -178,12 +202,19 @@ class AlertEngineTest extends TestCase
         $this->assertSame(0, Alert::query()->withoutGlobalScopes()->where('type', 'sos')->count());
     }
 
-    public function test_client_config_disabled_by_default_does_not_fire(): void
+    public function test_vehicle_config_disabled_does_not_fire(): void
     {
         [, $tenant] = $this->createOperationalChild();
         $client = Client::factory()->for($tenant)->create();
         $vehicle = Vehicle::factory()->forClient($client)->create();
         Equipment::factory()->assignedTo($vehicle)->create();
+
+        $config = AlertConfig::query()
+            ->withoutGlobalScopes()
+            ->where('vehicle_id', $vehicle->getKey())
+            ->where('type', AlertType::SOS->value)
+            ->firstOrFail();
+        $config->forceFill(['is_enabled' => false])->save();
 
         $engine = app(AlertEngine::class);
 
@@ -200,7 +231,7 @@ class AlertEngineTest extends TestCase
         $this->assertSame(0, Alert::query()->withoutGlobalScopes()->where('type', 'sos')->count());
     }
 
-    public function test_client_scoped_config_applies_to_client_vehicles_only(): void
+    public function test_vehicle_scoped_config_applies_only_to_its_vehicle(): void
     {
         [, $tenant] = $this->createOperationalChild();
         $clientA = Client::factory()->for($tenant)->create();
@@ -210,7 +241,7 @@ class AlertEngineTest extends TestCase
         Equipment::factory()->assignedTo($vehicleA)->create();
         Equipment::factory()->assignedTo($vehicleB)->create();
 
-        $this->enableClientAlert($clientA, AlertType::IGNITION_ON);
+        $this->enableVehicleAlert($vehicleA, AlertType::IGNITION_ON);
 
         $engine = app(AlertEngine::class);
         $base = CarbonImmutable::parse('2026-09-05 13:00:00');
@@ -222,6 +253,39 @@ class AlertEngineTest extends TestCase
         $engine->process($this->pos($tenant, $clientA, $vehicleA, 10, $base->addMinutes(2), 302, ignition: false));
         $engine->process($this->pos($tenant, $clientA, $vehicleA, 10, $base->addMinutes(3), 303, ignition: true));
         $this->assertSame(1, Alert::query()->withoutGlobalScopes()->where('type', 'ignition_on')->count());
+    }
+
+    public function test_client_can_silence_alert_without_affecting_operators(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create();
+        Equipment::factory()->assignedTo($vehicle)->create();
+
+        $operator = $this->createAdmin($tenant);
+        $clientUser = $this->createClient($tenant, ['client_id' => $client->getKey()]);
+
+        app(AlertConfigService::class)->setClientEnabled($client, AlertType::SOS, false);
+
+        app(AlertEngine::class)->process($this->pos(
+            $tenant,
+            $client,
+            $vehicle,
+            10,
+            CarbonImmutable::parse('2026-09-05 16:00:00'),
+            600,
+            attributes: ['sos' => true],
+        ));
+
+        $alert = Alert::query()->withoutGlobalScopes()->where('type', 'sos')->firstOrFail();
+
+        $notified = UserNotification::query()
+            ->withoutGlobalScopes()
+            ->where('alert_id', $alert->getKey())
+            ->pluck('user_id');
+
+        $this->assertTrue($notified->contains($operator->getKey()));
+        $this->assertFalse($notified->contains($clientUser->getKey()));
     }
 
     public function test_can_create_scoped_alert_config_via_api(): void
@@ -258,7 +322,7 @@ class AlertEngineTest extends TestCase
         $client = Client::factory()->for($tenant)->create();
         $vehicle = Vehicle::factory()->forClient($client)->create();
         Equipment::factory()->assignedTo($vehicle)->create();
-        $this->enableClientAlert($client, AlertType::DEVICE_ALARM);
+        $this->enableVehicleAlert($vehicle, AlertType::DEVICE_ALARM);
 
         $engine = app(AlertEngine::class);
         $base = CarbonImmutable::parse('2026-09-05 14:00:00');
@@ -316,9 +380,20 @@ class AlertEngineTest extends TestCase
         ])->assertOk()->assertJsonPath('data.settings.speed_limit_kmh', 90);
     }
 
-    private function enableClientAlert(Client $client, AlertType $type): AlertConfig
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function enableVehicleAlert(Vehicle $vehicle, AlertType $type, array $attributes = []): AlertConfig
     {
-        return app(AlertConfigService::class)->setClientEnabled($client, $type, true);
+        $config = AlertConfig::query()
+            ->withoutGlobalScopes()
+            ->where('vehicle_id', $vehicle->getKey())
+            ->where('type', $type->value)
+            ->firstOrFail();
+
+        $config->forceFill(['is_enabled' => true, ...$attributes])->save();
+
+        return $config;
     }
 
     /**

@@ -2,9 +2,11 @@
 
 namespace App\Modules\Vehicle\Services;
 
+use App\Modules\Alert\Services\AlertConfigService;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class VehicleService
@@ -34,7 +36,15 @@ class VehicleService
      */
     public function create(array $data): Vehicle
     {
-        return Vehicle::query()->create($this->payload($data))->load(['client', 'equipment']);
+        return DB::transaction(function () use ($data): Vehicle {
+            $vehicle = Vehicle::query()->create($this->payload($data));
+
+            if (isset($data['alert_configs']) && is_array($data['alert_configs'])) {
+                app(AlertConfigService::class)->syncForVehicle($vehicle, $data['alert_configs']);
+            }
+
+            return $vehicle->load(['client', 'equipment', 'alertConfigs']);
+        });
     }
 
     /**
@@ -42,10 +52,16 @@ class VehicleService
      */
     public function update(Vehicle $vehicle, array $data): Vehicle
     {
-        $vehicle->fill($this->payload($data));
-        $vehicle->save();
+        return DB::transaction(function () use ($vehicle, $data): Vehicle {
+            $vehicle->fill($this->payload($data));
+            $vehicle->save();
 
-        return $vehicle->refresh()->load(['client', 'equipment']);
+            if (isset($data['alert_configs']) && is_array($data['alert_configs'])) {
+                app(AlertConfigService::class)->syncForVehicle($vehicle, $data['alert_configs']);
+            }
+
+            return $vehicle->refresh()->load(['client', 'equipment', 'alertConfigs']);
+        });
     }
 
     public function delete(Vehicle $vehicle): void

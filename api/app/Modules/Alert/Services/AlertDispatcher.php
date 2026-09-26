@@ -12,7 +12,9 @@ use App\Modules\Notification\DTOs\NotificationMessage;
 use App\Modules\Notification\Enums\NotificationSource;
 use App\Modules\Notification\Services\NotificationEngine;
 use App\Modules\Notification\Services\NotificationRecipientResolver;
+use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Models\Vehicle;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
 class AlertDispatcher
@@ -20,6 +22,7 @@ class AlertDispatcher
     public function __construct(
         private readonly NotificationEngine $engine,
         private readonly NotificationRecipientResolver $recipients,
+        private readonly AlertConfigService $configs,
     ) {}
 
     /**
@@ -56,12 +59,17 @@ class AlertDispatcher
             'occurred_at' => $payload['occurred_at'] ?? now(),
         ])->save();
 
+        $shouldNotify = $config->is_enabled
+            && ($config->notify_in_app || $config->notify_push || $config->notify_email);
+
+        $recipients = $shouldNotify ? $this->recipientsFor($alert, $vehicle) : collect();
+
         if ($config->is_enabled && ($config->notify_in_app || $config->notify_push)) {
-            $this->notify($alert, $vehicle, (bool) $config->notify_push);
+            $this->notify($alert, $vehicle, (bool) $config->notify_push, $recipients);
         }
 
         if ($config->is_enabled && $config->notify_email) {
-            $this->notifyEmail($alert, $vehicle);
+            $this->notifyEmail($alert, $vehicle, $recipients);
         }
 
         Log::info('alert.created', [
@@ -74,9 +82,32 @@ class AlertDispatcher
         return $alert;
     }
 
-    private function notify(Alert $alert, Vehicle $vehicle, bool $push): void
+    /**
+     * Usuários do tenant e do cliente do veículo. Quando o cliente silenciou
+     * o alerta no portal, os usuários do cliente saem da lista — o operador
+     * continua recebendo normalmente.
+     *
+     * @return Collection<int, User>
+     */
+    private function recipientsFor(Alert $alert, Vehicle $vehicle): Collection
     {
-        $this->engine->send($this->recipients->forVehicle($vehicle), new NotificationMessage(
+        $recipients = $this->recipients->forVehicle($vehicle);
+
+        if ($this->configs->isClientSilenced($vehicle, $alert->type)) {
+            $recipients = $recipients
+                ->reject(fn (User $user) => $user->client_id !== null)
+                ->values();
+        }
+
+        return $recipients;
+    }
+
+    /**
+     * @param  Collection<int, User>  $recipients
+     */
+    private function notify(Alert $alert, Vehicle $vehicle, bool $push, Collection $recipients): void
+    {
+        $this->engine->send($recipients, new NotificationMessage(
             type: $alert->type->value,
             title: $alert->title,
             body: $alert->description,
@@ -94,9 +125,12 @@ class AlertDispatcher
         ));
     }
 
-    private function notifyEmail(Alert $alert, Vehicle $vehicle): void
+    /**
+     * @param  Collection<int, User>  $recipients
+     */
+    private function notifyEmail(Alert $alert, Vehicle $vehicle, Collection $recipients): void
     {
-        foreach ($this->recipients->forVehicle($vehicle) as $user) {
+        foreach ($recipients as $user) {
             try {
                 $user->notify(new AlertMailNotification($alert, $vehicle));
             } catch (\Throwable $exception) {

@@ -2,6 +2,7 @@
 
 namespace App\Modules\Vehicle\Http\Resources;
 
+use App\Modules\Alert\Http\Resources\AlertConfigResource;
 use App\Modules\Client\Http\Resources\ClientResource;
 use App\Modules\Equipment\Http\Resources\EquipmentResource;
 use App\Modules\Vehicle\Models\Vehicle;
@@ -24,6 +25,7 @@ class VehicleResource extends JsonResource
             'client' => ClientResource::make($this->whenLoaded('client')),
             'equipment' => EquipmentResource::make($this->whenLoaded('equipment')),
             'images' => VehicleImageResource::collection($this->whenLoaded('images')),
+            'alert_configs' => AlertConfigResource::collection($this->whenLoaded('alertConfigs')),
             'plate' => $this->plate,
             'chassis' => $this->chassis,
             'renavam' => $this->renavam,

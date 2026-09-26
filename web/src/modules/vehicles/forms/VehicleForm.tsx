@@ -15,9 +15,13 @@ import {
   TextField,
 } from '@/shared/design-system'
 import { isApiError } from '@/shared/api/errors'
+import { Permission } from '@/shared/constants/permissions'
+import { usePermissions } from '@/shared/hooks/usePermissions'
 import { applyApiErrorsToForm } from '@/shared/utils/forms'
+import { defaultVehicleAlertConfigs } from '@/modules/alerts/lib/alert-types'
 import { clientsService } from '@/modules/clients/services/clients.service'
 import type { VehiclePayload } from '../services/vehicles.service'
+import { VehicleAlertConfigsCard } from '../components/VehicleAlertConfigsCard'
 import { usePlateLookup } from '../hooks/usePlateLookup'
 import { fillVehicleFromLookup } from '../utils/plate-lookup'
 import {
@@ -35,14 +39,21 @@ interface VehicleFormProps {
   onSubmit: (payload: VehiclePayload) => Promise<unknown>
 }
 
-const SECTIONS = [
+interface FormSection {
+  id: string
+  label: string
+}
+
+const SECTIONS: FormSection[] = [
   { id: 'veiculo-identificacao', label: 'Identificação' },
   { id: 'veiculo-dados', label: 'Dados do veículo' },
   { id: 'veiculo-rastreamento', label: 'Rastreamento' },
   { id: 'veiculo-consumo', label: 'Consumo e tanque' },
   { id: 'veiculo-fipe', label: 'Tabela FIPE' },
   { id: 'veiculo-documentos', label: 'Documentos' },
-] as const
+]
+
+const ALERT_SECTION: FormSection = { id: 'veiculo-alertas', label: 'Alertas' }
 
 async function loadClientOptions(search: string) {
   const response = await clientsService.list({ search: search || undefined, per_page: 20 })
@@ -63,7 +74,7 @@ async function resolveClientLabel(value: string) {
   }
 }
 
-function VehicleFormNav() {
+function VehicleFormNav({ sections }: { sections: FormSection[] }) {
   const handleClick = (event: MouseEvent<HTMLAnchorElement>, id: string) => {
     event.preventDefault()
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -72,7 +83,7 @@ function VehicleFormNav() {
   return (
     <nav aria-label="Seções do formulário" className="hidden lg:block">
       <ul className="sticky top-20 space-y-1">
-        {SECTIONS.map((section) => (
+        {sections.map((section) => (
           <li key={section.id}>
             <a
               href={`#${section.id}`}
@@ -95,6 +106,12 @@ export function VehicleForm({
   crlvFileUrl,
   onSubmit,
 }: VehicleFormProps) {
+  const { can } = usePermissions()
+  const canConfigureAlerts = can(Permission.ALERT_CONFIG_UPDATE)
+  const sections = canConfigureAlerts
+    ? [...SECTIONS.slice(0, 3), ALERT_SECTION, ...SECTIONS.slice(3)]
+    : SECTIONS
+
   const form = useForm<VehicleFormValues>({
     resolver: zodResolver(vehicleSchema),
     defaultValues: {
@@ -124,6 +141,7 @@ export function VehicleForm({
       fipe_brand: '',
       fipe_score: '',
       is_active: true,
+      alert_configs: defaultVehicleAlertConfigs(),
       ...defaultValues,
     },
   })
@@ -168,6 +186,7 @@ export function VehicleForm({
       fipe_brand: values.fipe_brand || null,
       fipe_score: values.fipe_score ? Number(values.fipe_score) : null,
       is_active: values.is_active,
+      ...(canConfigureAlerts ? { alert_configs: values.alert_configs } : {}),
     }
 
     try {
@@ -181,7 +200,7 @@ export function VehicleForm({
 
   return (
     <div className="grid gap-6 lg:grid-cols-[200px_minmax(0,1fr)]">
-      <VehicleFormNav />
+      <VehicleFormNav sections={sections} />
 
       <Form form={form} onSubmit={handleSubmit} className="space-y-5">
         <Card id="veiculo-identificacao" className="scroll-mt-24">
@@ -295,6 +314,8 @@ export function VehicleForm({
             />
           </CardContent>
         </Card>
+
+        {canConfigureAlerts && <VehicleAlertConfigsCard />}
 
         <Card id="veiculo-consumo" className="scroll-mt-24">
           <CardHeader

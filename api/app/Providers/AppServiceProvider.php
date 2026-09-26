@@ -87,9 +87,14 @@ class AppServiceProvider extends ServiceProvider
         $this->configurePolicies();
         $this->configureRouteBindings();
 
-        // Cada cliente começa com seus alertas criados (desligados) para o portal.
+        // Cada cliente começa com seus alertas criados (portal) e cada veículo
+        // começa com a configuração de alertas do operador (críticos ligados).
         Client::created(function (Client $client): void {
             app(AlertConfigService::class)->ensureClientDefaults($client);
+        });
+
+        Vehicle::created(function (Vehicle $vehicle): void {
+            app(AlertConfigService::class)->ensureVehicleDefaults($vehicle);
         });
     }
 
