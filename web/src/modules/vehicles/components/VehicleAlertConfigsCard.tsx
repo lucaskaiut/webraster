@@ -37,7 +37,7 @@ function VehicleAlertRow({ option, index }: { option: VehicleAlertTypeOption; in
   const enabled = Boolean(watch(`${base}.is_enabled` as AlertFieldPath))
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_repeat(3,64px)] items-center gap-2 rounded-xl bg-surface-2 px-4 py-3">
+    <div className="grid grid-cols-[minmax(0,1fr)_repeat(4,64px)] items-center gap-2 rounded-xl bg-surface-2 px-4 py-3">
       <div className="min-w-0">
         <p className="text-sm font-semibold text-foreground">{option.label}</p>
         <p className="mt-0.5 text-[13px] text-muted">{option.description}</p>
@@ -82,10 +82,13 @@ export function VehicleAlertConfigsCard() {
       />
       <CardContent>
         <div className="overflow-x-auto">
-          <div className="min-w-[600px] space-y-2">
-            <div className="grid grid-cols-[minmax(0,1fr)_repeat(3,64px)] items-center gap-2 px-4 pb-1">
+          <div className="min-w-[640px] space-y-2">
+            <div className="grid grid-cols-[minmax(0,1fr)_repeat(4,64px)] items-center gap-2 px-4 pb-1">
               <span className="text-xs font-medium tracking-wide text-muted uppercase">
                 Alarme
+              </span>
+              <span className="text-center text-xs font-medium tracking-wide text-muted uppercase">
+                Habilitado
               </span>
               <span className="text-center text-xs font-medium tracking-wide text-muted uppercase">
                 In-app
