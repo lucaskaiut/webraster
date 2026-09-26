@@ -3,11 +3,13 @@ import { queryKeys } from '@/shared/constants/query-keys'
 import { toast } from '@/shared/stores/toast.store'
 import { alertsService, type AlertConfigPayload, type AlertListParams } from '../services/alerts.service'
 
-export function useAlertsQuery(params: AlertListParams) {
+export function useAlertsQuery(params: AlertListParams, options?: { enabled?: boolean; refetchInterval?: number }) {
   return useQuery({
     queryKey: queryKeys.alerts.list(params),
     queryFn: () => alertsService.list(params),
     placeholderData: keepPreviousData,
+    enabled: options?.enabled ?? true,
+    refetchInterval: options?.refetchInterval,
   })
 }
 

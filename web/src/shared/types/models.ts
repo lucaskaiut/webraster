@@ -698,9 +698,22 @@ export interface AlertConfig {
   updated_at: string | null
 }
 
+export interface AlertDashboardVehicle {
+  vehicle_id: string | null
+  plate: string | null
+  brand: string | null
+  model: string | null
+  total: number
+}
+
 export interface AlertDashboardStats {
   totals: { today: number; week: number; month: number }
+  open_total: number
+  critical_open_total: number
   by_type: Record<string, number>
+  by_severity: Record<string, number>
+  by_day: Record<string, number>
+  top_vehicles: AlertDashboardVehicle[]
   critical_open: Alert[]
 }
 

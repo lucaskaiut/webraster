@@ -2,9 +2,11 @@
 
 namespace App\Modules\Alert\Services;
 
+use App\Modules\Alert\Enums\AlertSeverity;
 use App\Modules\Alert\Enums\AlertStatus;
 use App\Modules\Alert\Models\Alert;
 use App\Modules\User\Models\User;
+use App\Modules\Vehicle\Models\Vehicle;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -86,16 +88,55 @@ class AlertService
         $week = Alert::query()->where('occurred_at', '>=', $now->startOfWeek())->count();
         $month = Alert::query()->where('occurred_at', '>=', $now->startOfMonth())->count();
 
+        $open = Alert::query()->where('status', AlertStatus::OPEN->value);
+        $openTotal = (clone $open)->count();
+        $criticalOpenTotal = (clone $open)->where('severity', AlertSeverity::CRITICAL->value)->count();
+
         $byType = Alert::query()
             ->select('type', DB::raw('count(*) as total'))
             ->where('occurred_at', '>=', $now->startOfMonth())
             ->groupBy('type')
-            ->pluck('total', 'type');
+            ->pluck('total', 'type')
+            ->map(fn ($total) => (int) $total);
+
+        $bySeverity = (clone $open)
+            ->select('severity', DB::raw('count(*) as total'))
+            ->groupBy('severity')
+            ->pluck('total', 'severity')
+            ->map(fn ($total) => (int) $total);
+
+        $byDay = Alert::query()
+            ->select(DB::raw('DATE(occurred_at) as day'), DB::raw('count(*) as total'))
+            ->where('occurred_at', '>=', $now->subDays(6)->startOfDay())
+            ->groupBy('day')
+            ->pluck('total', 'day')
+            ->map(fn ($total) => (int) $total);
+
+        $topVehicles = Alert::query()
+            ->select('vehicle_id', DB::raw('count(*) as total'))
+            ->whereIn('status', [AlertStatus::OPEN->value, AlertStatus::ACKNOWLEDGED->value])
+            ->whereNotNull('vehicle_id')
+            ->groupBy('vehicle_id')
+            ->orderByDesc('total')
+            ->limit(5)
+            ->get()
+            ->map(function ($row): array {
+                $vehicle = Vehicle::query()->withoutGlobalScopes()->find($row->vehicle_id);
+
+                return [
+                    'vehicle_id' => $vehicle?->uuid,
+                    'plate' => $vehicle?->plate,
+                    'brand' => $vehicle?->brand,
+                    'model' => $vehicle?->model,
+                    'total' => (int) $row->total,
+                ];
+            })
+            ->values();
 
         $criticalOpen = Alert::query()
             ->with(['vehicle'])
             ->where('status', AlertStatus::OPEN->value)
-            ->whereIn('type', ['sos', 'jamming', 'offline'])
+            ->where('severity', AlertSeverity::CRITICAL->value)
             ->orderByDesc('occurred_at')
             ->limit(20)
             ->get();
@@ -106,7 +147,12 @@ class AlertService
                 'week' => $week,
                 'month' => $month,
             ],
+            'open_total' => $openTotal,
+            'critical_open_total' => $criticalOpenTotal,
             'by_type' => $byType,
+            'by_severity' => $bySeverity,
+            'by_day' => $byDay,
+            'top_vehicles' => $topVehicles,
             'critical_open' => $criticalOpen,
         ];
     }

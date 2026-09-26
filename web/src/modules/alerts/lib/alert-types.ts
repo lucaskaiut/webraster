@@ -67,6 +67,31 @@ export interface DeviceAlarmTypeOption {
   severity: AlertSeverity
 }
 
+export const ALERT_TYPE_LABELS: Record<string, string> = {
+  speed: 'Excesso de velocidade',
+  ignition_on: 'Ignição ligada',
+  ignition_off: 'Ignição desligada',
+  sos: 'SOS',
+  offline: 'Dispositivo offline',
+  online: 'Dispositivo online',
+  battery: 'Bateria baixa',
+  jamming: 'Jamming',
+  device_alarm: 'Alarme do dispositivo',
+}
+
+export const ALERT_SEVERITY_LABELS: Record<string, string> = {
+  low: 'Baixa',
+  medium: 'Média',
+  high: 'Alta',
+  critical: 'Crítica',
+}
+
+export const ALERT_STATUS_LABELS: Record<string, string> = {
+  open: 'Aberto',
+  acknowledged: 'Reconhecido',
+  resolved: 'Resolvido',
+}
+
 /**
  * Espelho de TraccarAttributeReader::configurableDeviceAlarms().
  * Novos códigos enviados pelo rastreador são catalogados automaticamente e
