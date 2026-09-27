@@ -9,6 +9,7 @@ use App\Modules\Vehicle\Enums\VehicleTransmission;
 use App\Modules\Vehicle\Enums\VehicleType;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreVehicleRequest extends FormRequest
 {
@@ -60,7 +61,6 @@ class StoreVehicleRequest extends FormRequest
             'alert_configs.*.type' => [
                 'required',
                 'string',
-                'distinct',
                 Rule::in(array_map(fn (AlertType $type) => $type->value, AlertType::configurable())),
             ],
             'alert_configs.*.is_enabled' => ['sometimes', 'boolean'],
@@ -70,6 +70,42 @@ class StoreVehicleRequest extends FormRequest
             'alert_configs.*.notify_email' => ['sometimes', 'boolean'],
             'alert_configs.*.alarm_code' => ['sometimes', 'nullable', 'string', 'max:40'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $configs = $this->input('alert_configs');
+
+            if (! is_array($configs)) {
+                return;
+            }
+
+            $seen = [];
+
+            foreach ($configs as $index => $config) {
+                if (! is_array($config) || ! is_string($config['type'] ?? null)) {
+                    continue;
+                }
+
+                $key = $config['type'] === AlertType::DEVICE_ALARM->value
+                    ? $config['type'].'|'.strtolower(trim((string) ($config['alarm_code'] ?? '')))
+                    : $config['type'];
+
+                $attribute = "alert_configs.{$index}.type";
+
+                if (isset($seen[$key])) {
+                    $validator->errors()->add(
+                        $attribute,
+                        __('validation.distinct', ['attribute' => $attribute]),
+                    );
+
+                    continue;
+                }
+
+                $seen[$key] = true;
+            }
+        });
     }
 
     protected function prepareForValidation(): void

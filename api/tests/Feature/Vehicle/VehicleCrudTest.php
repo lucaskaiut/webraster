@@ -148,6 +148,92 @@ class VehicleCrudTest extends TestCase
         ]);
     }
 
+    public function test_store_accepts_multiple_device_alarm_configs(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $configs = [
+            [
+                'type' => 'speed',
+                'is_enabled' => true,
+                'notify_in_app' => true,
+                'notify_push' => true,
+                'notify_email' => false,
+            ],
+        ];
+
+        foreach (['accident', 'powercut', 'removing', 'tampering'] as $code) {
+            $configs[] = [
+                'type' => 'device_alarm',
+                'alarm_code' => $code,
+                'is_enabled' => true,
+                'notify_in_app' => true,
+                'notify_push' => true,
+                'notify_email' => true,
+            ];
+        }
+
+        $this->postJson('/api/vehicles', [
+            'client_id' => $client->uuid,
+            'plate' => 'DEV1C23',
+            'alert_configs' => $configs,
+        ])->assertCreated();
+
+        $vehicle = Vehicle::query()->where('plate', 'DEV1C23')->firstOrFail();
+
+        foreach (['accident', 'powercut', 'removing', 'tampering'] as $code) {
+            $this->assertDatabaseHas('alert_configs', [
+                'vehicle_id' => $vehicle->getKey(),
+                'type' => 'device_alarm',
+                'alarm_code' => $code,
+                'is_enabled' => true,
+                'notify_email' => true,
+            ]);
+        }
+    }
+
+    public function test_store_rejects_duplicate_alert_configs(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->postJson('/api/vehicles', [
+            'client_id' => $client->uuid,
+            'plate' => 'DUP1C23',
+            'alert_configs' => [
+                ['type' => 'speed'],
+                ['type' => 'speed'],
+                ['type' => 'device_alarm', 'alarm_code' => 'tow'],
+                ['type' => 'device_alarm', 'alarm_code' => 'TOW'],
+            ],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['alert_configs.1.type', 'alert_configs.3.type']);
+    }
+
+    public function test_update_rejects_duplicate_alert_configs(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create(['plate' => 'UPD1C23']);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/vehicles/{$vehicle->uuid}", [
+            'alert_configs' => [
+                ['type' => 'device_alarm', 'alarm_code' => 'tow'],
+                ['type' => 'device_alarm', 'alarm_code' => 'TOW'],
+            ],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['alert_configs.1.type']);
+    }
+
     public function test_store_rejects_unknown_vehicle_type(): void
     {
         [, $tenant] = $this->createOperationalChild();
