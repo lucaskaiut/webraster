@@ -53,6 +53,7 @@ services:
       DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
     volumes:
       - ./api:/var/www/html
+      - ./docker/php/worker-start.sh:/usr/local/bin/worker-start.sh:ro
     depends_on:
       api:
         condition: service_healthy

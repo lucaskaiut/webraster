@@ -8,6 +8,14 @@ use App\Modules\Alert\Http\Controllers\NotificationController;
 use App\Modules\ApiToken\Http\Controllers\ApiTokenController;
 use App\Modules\Assistant\Http\Controllers\ChatController;
 use App\Modules\Assistant\Http\Controllers\ConversationController;
+use App\Modules\Chat\Http\Controllers\ChatConversationController;
+use App\Modules\Chat\Http\Controllers\ChatMessageController;
+use App\Modules\Chat\Http\Controllers\EvolutionWebhookController;
+use App\Modules\Chat\Http\Controllers\MessagingConnectionController;
+use App\Modules\Crm\Http\Controllers\CrmAiConfigurationController;
+use App\Modules\Crm\Http\Controllers\LeadController;
+use App\Modules\Crm\Http\Controllers\PipelineController;
+use App\Modules\Crm\Http\Controllers\PipelineStageController;
 use App\Modules\Audit\Http\Controllers\AuditLogController;
 use App\Modules\Auth\Http\Controllers\AuthController;
 use App\Modules\Billing\Http\Controllers\InvoiceController;
@@ -72,6 +80,9 @@ Route::get('payment-methods', [PaymentMethodController::class, 'index']);
 Route::post('webhooks/payments/{gateway}/{tenantUuid}', PaymentWebhookController::class)->middleware('throttle:api');
 
 Route::post('webhooks/traccar', TraccarWebhookController::class);
+
+Route::post('webhooks/messaging/evolution/{webhookConnection}', EvolutionWebhookController::class)
+    ->middleware('throttle:api');
 
 /*
  * Pagamento e regularização ficam acessíveis mesmo com assinatura PAST_DUE/SUSPENDED.
@@ -314,4 +325,36 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::match(['put', 'patch'], 'assistant/conversations/{conversation}', [ConversationController::class, 'update'])->middleware('permission:assistant.view');
     Route::delete('assistant/conversations/{conversation}', [ConversationController::class, 'destroy'])->middleware('permission:assistant.view');
     Route::post('assistant/conversations/{conversation}/messages', [ChatController::class, 'send'])->middleware('permission:assistant.view');
+
+    Route::get('crm/pipelines', [PipelineController::class, 'index'])->middleware('permission:crm-pipeline.view');
+    Route::post('crm/pipelines', [PipelineController::class, 'store'])->middleware('permission:crm-pipeline.manage');
+    Route::match(['put', 'patch'], 'crm/pipelines/{pipeline}', [PipelineController::class, 'update'])->middleware('permission:crm-pipeline.manage');
+    Route::post('crm/pipelines/{pipeline}/stages', [PipelineStageController::class, 'store'])->middleware('permission:crm-pipeline.manage');
+    Route::match(['put', 'patch'], 'crm/pipelines/{pipeline}/stages/{pipelineStage}', [PipelineStageController::class, 'update'])->middleware('permission:crm-pipeline.manage');
+    Route::post('crm/pipelines/{pipeline}/stages/reorder', [PipelineStageController::class, 'reorder'])->middleware('permission:crm-pipeline.manage');
+
+    Route::get('crm/leads', [LeadController::class, 'index'])->middleware('permission:crm-lead.view');
+    Route::get('crm/leads/kanban', [LeadController::class, 'kanban'])->middleware('permission:crm-lead.view');
+    Route::get('crm/leads/{lead}', [LeadController::class, 'show'])->middleware('permission:crm-lead.view');
+    Route::match(['put', 'patch'], 'crm/leads/{lead}', [LeadController::class, 'update'])->middleware('permission:crm-lead.update');
+    Route::patch('crm/leads/{lead}/stage', [LeadController::class, 'moveStage'])->middleware('permission:crm-lead.update');
+
+    Route::get('crm/conversations', [ChatConversationController::class, 'index'])->middleware('permission:crm-conversation.view');
+    Route::get('crm/conversations/{chatConversation}', [ChatConversationController::class, 'show'])->middleware('permission:crm-conversation.view');
+    Route::get('crm/conversations/{chatConversation}/messages', [ChatConversationController::class, 'messages'])->middleware('permission:crm-conversation.view');
+    Route::post('crm/conversations/{chatConversation}/messages', [ChatMessageController::class, 'store'])->middleware('permission:crm-conversation.reply');
+    Route::post('crm/conversations/{chatConversation}/read', [ChatConversationController::class, 'markRead'])->middleware('permission:crm-conversation.view');
+    Route::patch('crm/conversations/{chatConversation}/ai-mode', [ChatConversationController::class, 'aiMode'])->middleware('permission:crm-conversation.reply');
+
+    Route::get('crm/messaging/providers', [MessagingConnectionController::class, 'providers'])->middleware('permission:crm-gateway.manage');
+    Route::get('crm/messaging/connections', [MessagingConnectionController::class, 'index'])->middleware('permission:crm-gateway.manage');
+    Route::post('crm/messaging/connections', [MessagingConnectionController::class, 'store'])->middleware('permission:crm-gateway.manage');
+    Route::post('crm/messaging/evolution/bootstrap', [MessagingConnectionController::class, 'evolutionBootstrap'])->middleware('permission:crm-gateway.manage');
+    Route::post('crm/messaging/connections/{messagingConnection}/evolution/connect', [MessagingConnectionController::class, 'evolutionConnect'])->middleware('permission:crm-gateway.manage');
+    Route::get('crm/messaging/connections/{messagingConnection}/evolution/state', [MessagingConnectionController::class, 'evolutionState'])->middleware('permission:crm-gateway.manage');
+    Route::match(['put', 'patch'], 'crm/messaging/connections/{messagingConnection}', [MessagingConnectionController::class, 'update'])->middleware('permission:crm-gateway.manage');
+
+    Route::get('crm/ai/configuration', [CrmAiConfigurationController::class, 'show'])->middleware('permission:crm-ai.view');
+    Route::match(['put', 'patch'], 'crm/ai/configuration', [CrmAiConfigurationController::class, 'update'])->middleware('permission:crm-ai.manage');
+    Route::match(['put', 'patch'], 'crm/ai/stages/{pipelineStage}', [CrmAiConfigurationController::class, 'updateStage'])->middleware('permission:crm-ai.manage');
 });

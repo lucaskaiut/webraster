@@ -224,6 +224,16 @@ export const queryKeys = {
     history: (id: string) => ['service-orders', 'history', id] as const,
   },
 
+  crm: {
+    all: ['crm'] as const,
+    pipelines: () => ['crm', 'pipelines'] as const,
+    conversations: (params?: { search?: string; filter?: string }) => ['crm', 'conversations', params ?? {}] as const,
+    messages: (conversationId: string) => ['crm', 'messages', conversationId] as const,
+    kanban: (pipelineId: string) => ['crm', 'kanban', pipelineId] as const,
+    leads: (params?: { pipeline_id?: string; search?: string }) => ['crm', 'leads', params ?? {}] as const,
+    lead: (leadId: string) => ['crm', 'lead', leadId] as const,
+  },
+
   finance: {
     all: ['finance'] as const,
     plans: {

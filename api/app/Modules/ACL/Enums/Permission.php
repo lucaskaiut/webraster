@@ -127,6 +127,20 @@ enum Permission: string
     case FINANCE_REPORT_READ = 'finance-report.read';
     case FINANCE_PORTAL_VIEW = 'finance-portal.view';
 
+    case CRM_PIPELINE_VIEW = 'crm-pipeline.view';
+    case CRM_PIPELINE_MANAGE = 'crm-pipeline.manage';
+
+    case CRM_LEAD_VIEW = 'crm-lead.view';
+    case CRM_LEAD_UPDATE = 'crm-lead.update';
+
+    case CRM_CONVERSATION_VIEW = 'crm-conversation.view';
+    case CRM_CONVERSATION_REPLY = 'crm-conversation.reply';
+
+    case CRM_GATEWAY_MANAGE = 'crm-gateway.manage';
+
+    case CRM_AI_VIEW = 'crm-ai.view';
+    case CRM_AI_MANAGE = 'crm-ai.manage';
+
     /**
      * @return list<string>
      */

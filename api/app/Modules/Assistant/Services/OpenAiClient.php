@@ -146,6 +146,80 @@ final class OpenAiClient
     }
 
     /**
+     * @param  array{endpoint: string, api_key: string, model: string, temperature: float, max_tokens: ?int}  $config
+     * @param  list<array<string, mixed>>  $messages
+     * @param  list<array<string, mixed>>  $tools
+     * @return array{content: ?string, tool_calls: list<array{id: string, name: string, arguments: array<string, mixed>}>, finish_reason: ?string, reasoning_content: ?string}
+     */
+    public function completeChat(array $config, array $messages, array $tools = []): array
+    {
+        $payload = [
+            'model' => $config['model'],
+            'messages' => $messages,
+            'temperature' => $config['temperature'],
+        ];
+
+        if ($config['max_tokens'] !== null) {
+            $payload['max_tokens'] = $config['max_tokens'];
+        }
+
+        if ($tools !== []) {
+            $payload['tools'] = $tools;
+        }
+
+        $response = $this->request($config, '/chat/completions', $payload, withStream: false);
+
+        if ($response->failed()) {
+            throw new RuntimeException($this->describeError($response));
+        }
+
+        $choice = $response->json('choices.0');
+
+        if (! is_array($choice)) {
+            throw new RuntimeException('Resposta inválida do provedor de IA.');
+        }
+
+        $message = $choice['message'] ?? [];
+        $content = is_array($message) ? ($message['content'] ?? null) : null;
+        $toolCalls = [];
+
+        foreach (is_array($message) ? ($message['tool_calls'] ?? []) : [] as $call) {
+            if (! is_array($call)) {
+                continue;
+            }
+
+            $fn = $call['function'] ?? null;
+
+            if (! is_array($fn) || ! isset($fn['name'])) {
+                continue;
+            }
+
+            $toolCalls[] = [
+                'id' => (string) ($call['id'] ?? ('call_'.bin2hex(random_bytes(4)))),
+                'name' => (string) $fn['name'],
+                'arguments' => $this->decodeArguments((string) ($fn['arguments'] ?? '')),
+            ];
+        }
+
+        $reasoningContent = null;
+
+        if (is_array($message)) {
+            if (array_key_exists('reasoning_content', $message) && is_string($message['reasoning_content'])) {
+                $reasoningContent = $message['reasoning_content'];
+            } elseif (array_key_exists('reasoning', $message) && is_string($message['reasoning'])) {
+                $reasoningContent = $message['reasoning'];
+            }
+        }
+
+        return [
+            'content' => is_string($content) ? $content : null,
+            'tool_calls' => $toolCalls,
+            'finish_reason' => is_string($choice['finish_reason'] ?? null) ? $choice['finish_reason'] : null,
+            'reasoning_content' => $reasoningContent,
+        ];
+    }
+
+    /**
      * @param  array{endpoint: string, api_key: string, model: string}  $config
      * @return array{ok: bool, status: string, message: string}
      */

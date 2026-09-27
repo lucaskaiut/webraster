@@ -34,5 +34,7 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="EVOLUTION_API_BASE_URL" value="https://evolution.example.com"/>
+        <env name="EVOLUTION_API_KEY" value="test-evolution-key"/>
     </php>
 </phpunit>

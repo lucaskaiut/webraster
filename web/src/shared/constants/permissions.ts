@@ -121,6 +121,16 @@ export const Permission = {
   FINANCE_DASHBOARD_READ: 'finance-dashboard.read',
   FINANCE_REPORT_READ: 'finance-report.read',
   FINANCE_PORTAL_VIEW: 'finance-portal.view',
+
+  CRM_PIPELINE_VIEW: 'crm-pipeline.view',
+  CRM_PIPELINE_MANAGE: 'crm-pipeline.manage',
+  CRM_LEAD_VIEW: 'crm-lead.view',
+  CRM_LEAD_UPDATE: 'crm-lead.update',
+  CRM_CONVERSATION_VIEW: 'crm-conversation.view',
+  CRM_CONVERSATION_REPLY: 'crm-conversation.reply',
+  CRM_GATEWAY_MANAGE: 'crm-gateway.manage',
+  CRM_AI_VIEW: 'crm-ai.view',
+  CRM_AI_MANAGE: 'crm-ai.manage',
 } as const
 
 export type Permission = (typeof Permission)[keyof typeof Permission]

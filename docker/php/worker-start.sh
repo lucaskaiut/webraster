@@ -37,5 +37,7 @@ until php -r '
 done
 log "MySQL disponível. Iniciando scheduler + queue worker..."
 
+CHAT_QUEUE="$(env_get CHAT_QUEUE chat)"
+
 php artisan schedule:work &
-exec php artisan queue:work --sleep=3 --tries=3 --max-time=3600
+exec php artisan queue:work --queue="${CHAT_QUEUE},default" --sleep=3 --tries=3 --max-time=3600

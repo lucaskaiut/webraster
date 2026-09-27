@@ -13,6 +13,17 @@ use App\Modules\ApiToken\Models\ApiToken;
 use App\Modules\ApiToken\Policies\ApiTokenPolicy;
 use App\Modules\Assistant\Models\Conversation;
 use App\Modules\Assistant\Policies\ConversationPolicy;
+use App\Modules\Chat\Models\Conversation as ChatConversation;
+use App\Modules\Chat\Models\MessagingConnection;
+use App\Modules\Chat\Policies\ChatConversationPolicy;
+use App\Modules\Chat\Policies\MessagingConnectionPolicy;
+use App\Modules\Crm\Models\AiConfiguration;
+use App\Modules\Crm\Models\Lead;
+use App\Modules\Crm\Models\Pipeline;
+use App\Modules\Crm\Models\PipelineStage;
+use App\Modules\Crm\Policies\AiConfigurationPolicy;
+use App\Modules\Crm\Policies\LeadPolicy;
+use App\Modules\Crm\Policies\PipelinePolicy;
 use App\Modules\Billing\Models\Invoice;
 use App\Modules\Billing\Models\Plan;
 use App\Modules\Billing\Models\Subscription;
@@ -104,6 +115,30 @@ class AppServiceProvider extends ServiceProvider
         Route::bind('device', function (string $value) {
             return Equipment::query()->where('uuid', $value)->firstOrFail();
         });
+
+        Route::bind('chatConversation', function (string $value) {
+            return ChatConversation::query()->where('uuid', $value)->firstOrFail();
+        });
+
+        Route::bind('messagingConnection', function (string $value) {
+            return MessagingConnection::query()->where('uuid', $value)->firstOrFail();
+        });
+
+        Route::bind('webhookConnection', function (string $value) {
+            return MessagingConnection::withoutTenancy()->where('uuid', $value)->firstOrFail();
+        });
+
+        Route::bind('pipeline', function (string $value) {
+            return Pipeline::query()->where('uuid', $value)->firstOrFail();
+        });
+
+        Route::bind('lead', function (string $value) {
+            return Lead::query()->where('uuid', $value)->firstOrFail();
+        });
+
+        Route::bind('pipelineStage', function (string $value) {
+            return PipelineStage::query()->where('uuid', $value)->firstOrFail();
+        });
     }
 
     private function configureRateLimiting(): void
@@ -149,5 +184,10 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(TenantPaymentGatewayConfig::class, TenantPaymentGatewayConfigPolicy::class);
         Gate::policy(FinanceDashboard::class, FinanceDashboardPolicy::class);
         Gate::policy(FinanceReport::class, FinanceReportPolicy::class);
+        Gate::policy(MessagingConnection::class, MessagingConnectionPolicy::class);
+        Gate::policy(ChatConversation::class, ChatConversationPolicy::class);
+        Gate::policy(Pipeline::class, PipelinePolicy::class);
+        Gate::policy(Lead::class, LeadPolicy::class);
+        Gate::policy(AiConfiguration::class, AiConfigurationPolicy::class);
     }
 }

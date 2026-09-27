@@ -78,6 +78,11 @@ const ServiceOrderDetailPage = lazy(() => import('@/modules/service-orders/pages
 const ServiceOrdersKanbanPage = lazy(() => import('@/modules/service-orders/pages/ServiceOrdersKanbanPage'))
 const ServiceOrdersCalendarPage = lazy(() => import('@/modules/service-orders/pages/ServiceOrdersCalendarPage'))
 const ReportsPage = lazy(() => import('@/modules/reports/pages/ReportsPage'))
+const CrmInboxPage = lazy(() => import('@/modules/crm/pages/CrmInboxPage'))
+const CrmKanbanPage = lazy(() => import('@/modules/crm/pages/CrmKanbanPage'))
+const CrmLeadsPage = lazy(() => import('@/modules/crm/pages/CrmLeadsPage'))
+const CrmSettingsPage = lazy(() => import('@/modules/crm/pages/CrmSettingsPage'))
+const CrmPipelineStagesPage = lazy(() => import('@/modules/crm/pages/CrmPipelineStagesPage'))
 
 const FinanceDashboardPage = lazy(() => import('@/modules/finance/pages/FinanceDashboardPage'))
 const FinancePlansListPage = lazy(() => import('@/modules/finance/pages/FinancePlansListPage'))
@@ -570,6 +575,46 @@ export const router = createBrowserRouter([
             element: (
               <PermissionGuard permission={Permission.SERVICE_ORDER_READ} requiresChildTenant>
                 <ServiceOrdersKanbanPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/crm/inbox',
+            element: (
+              <PermissionGuard permission={Permission.CRM_CONVERSATION_VIEW} requiresChildTenant>
+                <CrmInboxPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/crm/kanban',
+            element: (
+              <PermissionGuard permission={Permission.CRM_LEAD_VIEW} requiresChildTenant>
+                <CrmKanbanPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/crm/pipelines',
+            element: (
+              <PermissionGuard permission={Permission.CRM_PIPELINE_VIEW} requiresChildTenant>
+                <CrmPipelineStagesPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/crm/leads',
+            element: (
+              <PermissionGuard permission={Permission.CRM_LEAD_VIEW} requiresChildTenant>
+                <CrmLeadsPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/crm/settings',
+            element: (
+              <PermissionGuard permission={Permission.CRM_GATEWAY_MANAGE} requiresChildTenant>
+                <CrmSettingsPage />
               </PermissionGuard>
             ),
           },

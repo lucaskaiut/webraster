@@ -3,7 +3,15 @@ import { cn } from '@/shared/utils/cn'
 import { Breadcrumb, type BreadcrumbItem } from './Breadcrumb'
 
 export function Page({ className, ...props }: ComponentProps<'div'>) {
-  return <div className={cn('flex flex-col gap-6 pb-12', className)} {...props} />
+  return (
+    <div
+      className={cn(
+        'flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain pb-6',
+        className,
+      )}
+      {...props}
+    />
+  )
 }
 
 export function PageHeader({
@@ -32,7 +40,7 @@ export function PageHeader({
 }
 
 export function PageContent({ className, ...props }: ComponentProps<'div'>) {
-  return <div className={cn('flex flex-col gap-5', className)} {...props} />
+  return <div className={cn('flex min-h-0 flex-col gap-5', className)} {...props} />
 }
 
 export function Container({ className, ...props }: ComponentProps<'div'>) {

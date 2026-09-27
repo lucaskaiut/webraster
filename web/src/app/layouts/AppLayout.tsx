@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
-import { Outlet, useLocation } from 'react-router'
-import { Building2, BellRing, Car, ClipboardList, Contact, Cpu, CreditCard, FileBarChart, FileText, Hexagon, History, IdCard, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, Package, Receipt, Repeat, ScrollText, Search, Send, Settings, ShieldCheck, Users, Wallet, Wrench } from 'lucide-react'
+import { Outlet } from 'react-router'
+import { Building2, BellRing, Car, ClipboardList, Columns3, Contact, Cpu, CreditCard, FileBarChart, FileText, Hexagon, History, IdCard, Kanban, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, MessageCircle, Package, Receipt, Repeat, ScrollText, Search, Send, Settings, ShieldCheck, Users, Wallet, Wrench } from 'lucide-react'
 import { AppLogo } from '@/shared/brand/AppLogo'
 import { useActiveTenant } from '@/shared/brand/useActiveTenant'
 import { TenantSelector } from '@/modules/auth/components/TenantSelector'
@@ -88,6 +88,14 @@ function SidebarNavigation({
   const showAlertsGroup = showAlerts || showNotificationSend
   const showOpsGroup = showServiceOrders
 
+  const showCrmInbox = isOperatingTenant && can(Permission.CRM_CONVERSATION_VIEW)
+  const showCrmKanban = isOperatingTenant && can(Permission.CRM_LEAD_VIEW)
+  const showCrmLeads = isOperatingTenant && can(Permission.CRM_LEAD_VIEW)
+  const showCrmPipelines = isOperatingTenant && can(Permission.CRM_PIPELINE_VIEW)
+  const showCrmSettings = isOperatingTenant && can(Permission.CRM_GATEWAY_MANAGE)
+  const showCrmGroup =
+    showCrmInbox || showCrmKanban || showCrmLeads || showCrmPipelines || showCrmSettings
+
   const showFinanceDashboard = isOperatingTenant && can(Permission.FINANCE_DASHBOARD_READ)
   const showFinancePlans = isOperatingTenant && can(Permission.FINANCE_PLAN_READ)
   const showFinanceBillings = isOperatingTenant && can(Permission.FINANCE_BILLING_READ)
@@ -129,6 +137,26 @@ function SidebarNavigation({
               label="Ordens de serviço"
               onNavigate={onNavigate}
             />
+          )}
+        </SidebarGroup>
+      )}
+
+      {showCrmGroup && (
+        <SidebarGroup label="CRM">
+          {showCrmInbox && (
+            <SidebarItem to="/crm/inbox" icon={MessageCircle} label="Conversas" onNavigate={onNavigate} />
+          )}
+          {showCrmKanban && (
+            <SidebarItem to="/crm/kanban" icon={Kanban} label="Kanban" onNavigate={onNavigate} />
+          )}
+          {showCrmPipelines && (
+            <SidebarItem to="/crm/pipelines" icon={Columns3} label="Etapas" onNavigate={onNavigate} />
+          )}
+          {showCrmLeads && (
+            <SidebarItem to="/crm/leads" icon={Contact} label="Leads" onNavigate={onNavigate} />
+          )}
+          {showCrmSettings && (
+            <SidebarItem to="/crm/settings" icon={Settings} label="Configurações" onNavigate={onNavigate} />
           )}
         </SidebarGroup>
       )}
@@ -360,14 +388,11 @@ function UserMenu() {
 }
 
 export function AppLayout() {
-  const location = useLocation()
   const sidebarOpen = useUiStore((state) => state.sidebarOpen)
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed)
   const closeSidebar = useUiStore((state) => state.closeSidebar)
   const openSidebar = useUiStore((state) => state.openSidebar)
   const toggleSidebarCollapsed = useUiStore((state) => state.toggleSidebarCollapsed)
-  const isMonitoring = location.pathname === '/monitoring'
-
   return (
     <div className="flex h-dvh overflow-hidden">
       <div className="z-20 hidden shrink-0 shadow-card lg:block">
@@ -390,7 +415,7 @@ export function AppLayout() {
         <SidebarNavigation onNavigate={closeSidebar} />
       </div>
 
-      <div className={cn('flex min-w-0 flex-1 flex-col', isMonitoring ? 'overflow-hidden' : 'overflow-y-auto')}>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <Topbar>
           <button
             type="button"
@@ -416,10 +441,12 @@ export function AppLayout() {
           </div>
         </Topbar>
 
-        <main className={cn('flex-1', isMonitoring && 'flex min-h-0 flex-col overflow-hidden')}>
-          <Container className={cn('pt-2', isMonitoring && 'flex min-h-0 flex-1 flex-col px-3 pb-3 lg:px-4')}>
+        <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <Container className="flex min-h-0 flex-1 flex-col overflow-hidden pt-2 pb-3">
             <Suspense fallback={<Loading />}>
-              <Outlet />
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <Outlet />
+              </div>
             </Suspense>
           </Container>
         </main>

@@ -31,15 +31,15 @@ function List({ items }: { items: string[] }) {
 
 export default function PrivacyPolicyPage() {
   return (
-    <div className="min-h-dvh bg-background">
-      <header className="bg-surface px-5 py-5 shadow-card">
+    <div className="flex h-dvh flex-col overflow-hidden bg-background">
+      <header className="shrink-0 bg-surface px-5 py-5 shadow-card">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-4">
           <AppLogo size="sm" />
           <ThemeToggle />
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-5 py-8">
+      <main className="mx-auto min-h-0 w-full max-w-3xl flex-1 overflow-y-auto overscroll-contain px-5 py-8">
         <h1 className="text-2xl font-bold text-foreground">Política de Privacidade</h1>
         <p className="mt-2 text-xs text-subtle">
           Aplicativo: {APP_NAME} (Android/iOS) e painel web · Última atualização: {UPDATED_AT}
