@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Schema;
  * Canal `notify_monitoring`: notificação no app para os operadores do tenant
  * (o In-app passa a notificar apenas os usuários do cliente). Fica como
  * migration separada porque a `220001` já havia rodado em produção sem ela.
+ * O timestamp é anterior às migrations de dados (`200001`+) porque os seeds
+ * usam o `AlertConfigService`, que já grava a coluna.
  */
 return new class extends Migration
 {
