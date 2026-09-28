@@ -30,6 +30,7 @@ class Tenant extends Model
         'phone',
         'logo_path',
         'favicon_path',
+        'signature_path',
     ];
 
     public function parent(): BelongsTo
@@ -80,6 +81,11 @@ class Tenant extends Model
     public function faviconUrl(): ?string
     {
         return $this->favicon_path ? asset("storage/{$this->favicon_path}") : null;
+    }
+
+    public function signatureUrl(): ?string
+    {
+        return $this->signature_path ? asset("storage/{$this->signature_path}") : null;
     }
 
     protected static function newFactory(): TenantFactory

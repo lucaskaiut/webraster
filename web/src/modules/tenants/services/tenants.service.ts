@@ -32,6 +32,7 @@ export interface UpdateTenantPayload {
   phone?: string | null
   logo_path?: string | null
   favicon_path?: string | null
+  signature_path?: string | null
 }
 
 export const tenantsService = {

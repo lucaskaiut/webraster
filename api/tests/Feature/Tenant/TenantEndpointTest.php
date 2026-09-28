@@ -60,7 +60,7 @@ class TenantEndpointTest extends TestCase
         $this->assertDatabaseMissing('tenants', ['id' => $tenantB->getKey(), 'name' => 'Atualizado']);
     }
 
-    public function test_update_persists_logo_and_favicon(): void
+    public function test_update_persists_logo_favicon_and_signature(): void
     {
         $tenant = $this->createTenantWithRoles();
 
@@ -69,25 +69,35 @@ class TenantEndpointTest extends TestCase
         $this->putJson('/api/tenant', [
             'logo_path' => 'uploads/logo.png',
             'favicon_path' => 'uploads/favicon.ico',
+            'signature_path' => 'uploads/assinatura.png',
         ])
             ->assertOk()
             ->assertJsonPath('data.logo_path', 'uploads/logo.png')
             ->assertJsonPath('data.logo_url', asset('storage/uploads/logo.png'))
             ->assertJsonPath('data.favicon_path', 'uploads/favicon.ico')
-            ->assertJsonPath('data.favicon_url', asset('storage/uploads/favicon.ico'));
+            ->assertJsonPath('data.favicon_url', asset('storage/uploads/favicon.ico'))
+            ->assertJsonPath('data.signature_path', 'uploads/assinatura.png')
+            ->assertJsonPath('data.signature_url', asset('storage/uploads/assinatura.png'));
 
         $this->assertDatabaseHas('tenants', [
             'id' => $tenant->getKey(),
             'logo_path' => 'uploads/logo.png',
             'favicon_path' => 'uploads/favicon.ico',
+            'signature_path' => 'uploads/assinatura.png',
         ]);
 
-        $this->putJson('/api/tenant', ['logo_path' => null, 'favicon_path' => null])
+        $this->putJson('/api/tenant', [
+            'logo_path' => null,
+            'favicon_path' => null,
+            'signature_path' => null,
+        ])
             ->assertOk()
             ->assertJsonPath('data.logo_path', null)
             ->assertJsonPath('data.logo_url', null)
             ->assertJsonPath('data.favicon_path', null)
-            ->assertJsonPath('data.favicon_url', null);
+            ->assertJsonPath('data.favicon_url', null)
+            ->assertJsonPath('data.signature_path', null)
+            ->assertJsonPath('data.signature_url', null);
     }
 
     public function test_update_validates_document(): void

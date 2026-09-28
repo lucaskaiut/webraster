@@ -137,6 +137,12 @@ export function useUpsertClientContract(clientId: string) {
   })
 }
 
+export function useDownloadClientContractPdf(clientId: string) {
+  return useMutation({
+    mutationFn: () => clientsService.downloadContractPdf(clientId),
+  })
+}
+
 export function useUpdateClientContractSignature(clientId: string) {
   const queryClient = useQueryClient()
 

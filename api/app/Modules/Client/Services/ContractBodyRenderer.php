@@ -9,11 +9,50 @@ use App\Modules\Contract\Models\Contract;
 
 class ContractBodyRenderer
 {
+    public const SIGNATURE_TOKEN = '{{ASSINATURA_CLIENTE}}';
+
+    public const COMPANY_SIGNATURE_TOKEN = '{{ASSINATURA_EMPRESA}}';
+
+    public const LOGO_TOKEN = '{{LOGO_EMPRESA}}';
+
     public function render(Contract $contract, Client $client, ?ClientOrder $order): string
     {
         $values = $this->substitutionValues($client, $order);
 
         return str_replace(array_keys($values), array_values($values), $contract->body);
+    }
+
+    public function renderLogo(string $body, ?string $logoUrl): string
+    {
+        $replacement = $logoUrl !== null ? $this->imageTag($logoUrl, 'Logo da empresa', 180) : '';
+
+        return str_replace(self::LOGO_TOKEN, $replacement, $body);
+    }
+
+    public function renderCompanySignature(string $body, ?string $signatureUrl): string
+    {
+        $replacement = $signatureUrl !== null ? $this->imageTag($signatureUrl, 'Assinatura do responsável', 160) : '';
+
+        return str_replace(self::COMPANY_SIGNATURE_TOKEN, $replacement, $body);
+    }
+
+    public function renderSignature(string $body, ?string $signatureUrl): string
+    {
+        return str_replace(self::SIGNATURE_TOKEN, $this->signatureReplacement($signatureUrl), $body);
+    }
+
+    private function signatureReplacement(?string $signatureUrl): string
+    {
+        if ($signatureUrl === null) {
+            return '<em>Assinatura pendente</em>';
+        }
+
+        return $this->imageTag($signatureUrl, 'Assinatura do cliente', 160);
+    }
+
+    private function imageTag(string $url, string $alt, int $maxWidth): string
+    {
+        return '<img src="'.$this->escape($url).'" alt="'.$this->escape($alt).'" style="max-width:'.$maxWidth.'px;height:auto;" />';
     }
 
     /**

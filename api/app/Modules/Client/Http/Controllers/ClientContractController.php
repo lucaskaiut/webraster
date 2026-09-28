@@ -8,14 +8,19 @@ use App\Modules\Client\Http\Requests\UpdateClientContractSignatureRequest;
 use App\Modules\Client\Http\Requests\UpsertClientContractRequest;
 use App\Modules\Client\Http\Resources\ClientContractResource;
 use App\Modules\Client\Models\Client;
+use App\Modules\Client\Services\ClientContractPdfService;
 use App\Modules\Client\Services\ClientContractService;
 use App\Modules\Shared\Http\Controllers\ApiController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ClientContractController extends ApiController
 {
-    public function __construct(private readonly ClientContractService $contracts) {}
+    public function __construct(
+        private readonly ClientContractService $contracts,
+        private readonly ClientContractPdfService $pdfs,
+    ) {}
 
     public function show(Client $client): JsonResponse
     {
@@ -24,6 +29,17 @@ class ClientContractController extends ApiController
         $contract = $this->contracts->currentForClient($client);
 
         return $this->success($contract ? ClientContractResource::make($contract) : null);
+    }
+
+    public function pdf(Client $client): StreamedResponse
+    {
+        $this->authorize('view', $client);
+
+        $contract = $this->contracts->currentForClient($client);
+
+        abort_if($contract === null, 404, 'Nenhum contrato vinculado a este cliente.');
+
+        return $this->pdfs->download($contract, 'contrato.pdf');
     }
 
     public function upsert(UpsertClientContractRequest $request, Client $client): JsonResponse

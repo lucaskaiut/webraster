@@ -76,6 +76,292 @@ class ClientContractTest extends TestCase
         $this->assertStringContainsString('ABC1D23', $response->json('data.body'));
     }
 
+    public function test_logo_variable_is_replaced_with_tenant_logo(): void
+    {
+        [, $tenant] = $this->createOperationalChild(childAttributes: ['logo_path' => 'logos/empresa.png']);
+        $client = Client::factory()->for($tenant)->create();
+        $contract = Contract::factory()->forTenant($tenant)->create([
+            'body' => '<p>{{LOGO_EMPRESA}}</p><p>Contrato de {{NOME_CLIENTE}}.</p>',
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $response = $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $contract->uuid,
+            'valid_until' => '2027-01-01',
+        ])->assertOk();
+
+        $body = $response->json('data.body');
+
+        $this->assertStringNotContainsString('{{LOGO_EMPRESA}}', $body);
+        $this->assertStringContainsString('<img ', $body);
+        $this->assertStringContainsString(asset('storage/logos/empresa.png'), $body);
+    }
+
+    public function test_logo_variable_is_removed_when_tenant_has_no_logo(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $contract = Contract::factory()->forTenant($tenant)->create([
+            'body' => '<p>{{LOGO_EMPRESA}}</p><p>Contrato de {{NOME_CLIENTE}}.</p>',
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $response = $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $contract->uuid,
+            'valid_until' => '2027-01-01',
+        ])->assertOk();
+
+        $body = $response->json('data.body');
+
+        $this->assertStringNotContainsString('{{LOGO_EMPRESA}}', $body);
+        $this->assertStringNotContainsString('<img ', $body);
+    }
+
+    public function test_company_signature_variable_is_replaced_with_tenant_signature(): void
+    {
+        [, $tenant] = $this->createOperationalChild(childAttributes: ['signature_path' => 'uploads/assinatura.png']);
+        $client = Client::factory()->for($tenant)->create();
+        $contract = Contract::factory()->forTenant($tenant)->create([
+            'body' => '<p>Responsável:</p><p>{{ASSINATURA_EMPRESA}}</p>',
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $response = $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $contract->uuid,
+            'valid_until' => '2027-01-01',
+        ])->assertOk();
+
+        $body = $response->json('data.body');
+
+        $this->assertStringNotContainsString('{{ASSINATURA_EMPRESA}}', $body);
+        $this->assertStringContainsString('<img ', $body);
+        $this->assertStringContainsString(asset('storage/uploads/assinatura.png'), $body);
+    }
+
+    public function test_company_signature_variable_is_removed_when_tenant_has_no_signature(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $contract = Contract::factory()->forTenant($tenant)->create([
+            'body' => '<p>Responsável:</p><p>{{ASSINATURA_EMPRESA}}</p>',
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $response = $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $contract->uuid,
+            'valid_until' => '2027-01-01',
+        ])->assertOk();
+
+        $body = $response->json('data.body');
+
+        $this->assertStringNotContainsString('{{ASSINATURA_EMPRESA}}', $body);
+        $this->assertStringNotContainsString('<img ', $body);
+    }
+
+    public function test_signature_variable_is_replaced_by_uploaded_signature(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $contract = Contract::factory()->forTenant($tenant)->create([
+            'body' => '<p>Assinatura do cliente:</p><p>{{ASSINATURA_CLIENTE}}</p>',
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $contract->uuid,
+            'valid_until' => '2027-01-01',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.body', '<p>Assinatura do cliente:</p><p><em>Assinatura pendente</em></p>');
+
+        Storage::fake('public');
+
+        Sanctum::actingAs($this->createClient($tenant, ['client_id' => $client->getKey()]));
+
+        $response = $this->post(
+            "/api/clients/{$client->uuid}/contract/signature",
+            [
+                'image' => UploadedFile::fake()->image('assinatura.png'),
+                'contract_id' => $contract->uuid,
+                'signer_name' => 'Maria da Silva',
+                'signer_cpf' => '529.982.247-25',
+                'signer_birth_date' => '1990-05-20',
+            ],
+            ['Accept' => 'application/json'],
+        );
+
+        $response->assertOk();
+
+        $body = $response->json('data.body');
+
+        $this->assertStringNotContainsString('{{ASSINATURA_CLIENTE}}', $body);
+        $this->assertStringNotContainsString('Assinatura pendente', $body);
+        $this->assertStringContainsString('<img ', $body);
+        $this->assertStringContainsString($response->json('data.signature_url'), $body);
+    }
+
+    public function test_signature_variable_goes_back_to_placeholder_when_signature_is_cleared(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $contract = Contract::factory()->forTenant($tenant)->create([
+            'body' => '<p>{{ASSINATURA_CLIENTE}}</p>',
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $contract->uuid,
+            'valid_until' => '2027-01-01',
+        ])->assertOk();
+
+        Storage::fake('public');
+
+        Sanctum::actingAs($this->createClient($tenant, ['client_id' => $client->getKey()]));
+
+        $this->post(
+            "/api/clients/{$client->uuid}/contract/signature",
+            [
+                'image' => UploadedFile::fake()->image('assinatura.png'),
+                'contract_id' => $contract->uuid,
+                'signer_name' => 'Maria da Silva',
+                'signer_cpf' => '529.982.247-25',
+                'signer_birth_date' => '1990-05-20',
+            ],
+            ['Accept' => 'application/json'],
+        )->assertOk();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}/contract/signature", [
+            'signature_status' => 'pending',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.signature_url', null)
+            ->assertJsonPath('data.body', '<p><em>Assinatura pendente</em></p>');
+    }
+
+    public function test_export_contract_pdf_requires_assigned_contract(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->get("/api/clients/{$client->uuid}/contract/pdf")->assertNotFound();
+    }
+
+    public function test_export_contract_pdf_includes_signature_image(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $contract = Contract::factory()->forTenant($tenant)->create([
+            'body' => '<p>Contrato de {{NOME_CLIENTE}}.</p><p>{{ASSINATURA_CLIENTE}}</p>',
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $contract->uuid,
+            'valid_until' => '2027-01-01',
+        ])->assertOk();
+
+        $unsigned = $this->get("/api/clients/{$client->uuid}/contract/pdf");
+
+        $unsigned->assertOk()->assertHeader('Content-Type', 'application/pdf');
+
+        $this->assertStringStartsWith('%PDF-', $unsigned->streamedContent());
+        $this->assertStringNotContainsString('/Subtype /Image', $unsigned->streamedContent());
+
+        Storage::fake('public');
+
+        Sanctum::actingAs($this->createClient($tenant, ['client_id' => $client->getKey()]));
+
+        $this->post(
+            "/api/clients/{$client->uuid}/contract/signature",
+            [
+                'image' => UploadedFile::fake()->image('assinatura.png'),
+                'contract_id' => $contract->uuid,
+                'signer_name' => 'Maria da Silva',
+                'signer_cpf' => '529.982.247-25',
+                'signer_birth_date' => '1990-05-20',
+            ],
+            ['Accept' => 'application/json'],
+        )->assertOk();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $response = $this->get("/api/clients/{$client->uuid}/contract/pdf");
+
+        $response->assertOk()->assertHeader('Content-Type', 'application/pdf');
+
+        $pdf = $response->streamedContent();
+
+        $this->assertStringStartsWith('%PDF-', $pdf);
+        $this->assertStringContainsString('/Subtype /Image', $pdf);
+    }
+
+    public function test_export_contract_pdf_includes_tenant_logo(): void
+    {
+        [, $tenant] = $this->createOperationalChild(childAttributes: ['logo_path' => 'logos/empresa.png']);
+        $client = Client::factory()->for($tenant)->create();
+        $contract = Contract::factory()->forTenant($tenant)->create([
+            'body' => '<p>{{LOGO_EMPRESA}}</p><p>Contrato de {{NOME_CLIENTE}}.</p>',
+        ]);
+
+        Storage::fake('public');
+        Storage::disk('public')->put('logos/empresa.png', UploadedFile::fake()->image('logo.png')->getContent());
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $contract->uuid,
+            'valid_until' => '2027-01-01',
+        ])->assertOk();
+
+        $response = $this->get("/api/clients/{$client->uuid}/contract/pdf");
+
+        $response->assertOk()->assertHeader('Content-Type', 'application/pdf');
+
+        $pdf = $response->streamedContent();
+
+        $this->assertStringStartsWith('%PDF-', $pdf);
+        $this->assertStringContainsString('/Subtype /Image', $pdf);
+    }
+
+    public function test_export_contract_pdf_includes_tenant_signature(): void
+    {
+        [, $tenant] = $this->createOperationalChild(childAttributes: ['signature_path' => 'uploads/assinatura.png']);
+        $client = Client::factory()->for($tenant)->create();
+        $contract = Contract::factory()->forTenant($tenant)->create([
+            'body' => '<p>Responsável:</p><p>{{ASSINATURA_EMPRESA}}</p><p>Contrato de {{NOME_CLIENTE}}.</p>',
+        ]);
+
+        Storage::fake('public');
+        Storage::disk('public')->put('uploads/assinatura.png', UploadedFile::fake()->image('assinatura.png')->getContent());
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $contract->uuid,
+            'valid_until' => '2027-01-01',
+        ])->assertOk();
+
+        $response = $this->get("/api/clients/{$client->uuid}/contract/pdf");
+
+        $response->assertOk()->assertHeader('Content-Type', 'application/pdf');
+
+        $pdf = $response->streamedContent();
+
+        $this->assertStringStartsWith('%PDF-', $pdf);
+        $this->assertStringContainsString('/Subtype /Image', $pdf);
+    }
+
     public function test_update_signature_status(): void
     {
         [, $tenant] = $this->createOperationalChild();
@@ -401,7 +687,9 @@ class ClientContractTest extends TestCase
         [, $tenant] = $this->createOperationalChild();
         $client = Client::factory()->for($tenant)->create();
         $contract = Contract::factory()->forTenant($tenant)->create();
-        $another = Contract::factory()->forTenant($tenant)->create();
+        $another = Contract::factory()->forTenant($tenant)->create([
+            'body' => '<p>{{ASSINATURA_CLIENTE}}</p>',
+        ]);
 
         Sanctum::actingAs($this->createAdmin($tenant));
 
@@ -439,7 +727,8 @@ class ClientContractTest extends TestCase
             ->assertJsonPath('data.signature_url', null)
             ->assertJsonPath('data.signer_name', null)
             ->assertJsonPath('data.signer_cpf', null)
-            ->assertJsonPath('data.signer_birth_date', null);
+            ->assertJsonPath('data.signer_birth_date', null)
+            ->assertJsonPath('data.body', '<p><em>Assinatura pendente</em></p>');
     }
 
     public function test_client_user_reads_own_contract_through_portal(): void

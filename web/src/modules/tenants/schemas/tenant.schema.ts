@@ -24,6 +24,7 @@ export const updateChildTenantSchema = z.object({
 export const tenantSettingsSchema = tenantFields.extend({
   logo_path: z.string().nullable(),
   favicon_path: z.string().nullable(),
+  signature_path: z.string().nullable(),
 })
 
 /** @deprecated use createChildTenantSchema */

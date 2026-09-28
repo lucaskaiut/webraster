@@ -16,6 +16,7 @@ import { applyApiErrorsToForm } from '@/shared/utils/forms'
 import { onlyDigits } from '@/shared/utils/document'
 import { maskCpfCnpj, maskPhone } from '@/shared/utils/mask'
 import type { Tenant } from '@/shared/types/models'
+import { SignatureField } from '../components/SignatureField'
 import type { UpdateTenantPayload } from '../services/tenants.service'
 import {
   tenantSettingsSchema,
@@ -38,6 +39,7 @@ export function TenantSettingsForm({ tenant, submitting, onSubmit }: TenantSetti
       phone: maskPhone(tenant.phone ?? ''),
       logo_path: tenant.logo_path,
       favicon_path: tenant.favicon_path,
+      signature_path: tenant.signature_path,
     },
   })
 
@@ -49,6 +51,7 @@ export function TenantSettingsForm({ tenant, submitting, onSubmit }: TenantSetti
       phone: onlyDigits(values.phone),
       logo_path: values.logo_path,
       favicon_path: values.favicon_path,
+      signature_path: values.signature_path,
     }
 
     try {
@@ -106,6 +109,13 @@ export function TenantSettingsForm({ tenant, submitting, onSubmit }: TenantSetti
                 accept=".ico,image/png,image/x-icon"
               />
             </div>
+          </Section>
+
+          <Section
+            title="Assinatura do responsável"
+            description="Assinatura aplicada automaticamente nos contratos que usam a variável {{ASSINATURA_EMPRESA}}."
+          >
+            <SignatureField initialUrl={tenant.signature_url} />
           </Section>
 
           <div className="flex justify-end">

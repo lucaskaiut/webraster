@@ -1,4 +1,5 @@
 import { http } from '@/shared/api/http'
+import { downloadBlob } from '@/shared/utils/report-export'
 import type { ApiResponse, ListParams, PaginatedResponse } from '@/shared/types/api'
 import type { Client, ClientContract, ClientOrder, ContractSignatureStatus, User } from '@/shared/types/models'
 
@@ -130,5 +131,13 @@ export const clientsService = {
     )
 
     return response.data.data
+  },
+
+  async downloadContractPdf(clientId: string): Promise<void> {
+    const response = await http.get<Blob>(`/clients/${clientId}/contract/pdf`, {
+      responseType: 'blob',
+    })
+
+    downloadBlob(response.data, 'contrato.pdf')
   },
 }

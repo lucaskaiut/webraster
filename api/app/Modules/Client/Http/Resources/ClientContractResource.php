@@ -25,11 +25,11 @@ class ClientContractResource extends JsonResource
             'signature_status_label' => $this->signature_status?->label(),
             'signed_at' => $this->signed_at?->toIso8601String(),
             'signature_path' => $this->signature_path,
-            'signature_url' => $this->signature_path ? asset("storage/{$this->signature_path}") : null,
+            'signature_url' => $this->signatureUrl(),
             'signer_name' => $this->signer_name,
             'signer_cpf' => $this->signer_cpf,
             'signer_birth_date' => $this->signer_birth_date?->toDateString(),
-            'body' => $this->body,
+            'body' => $this->renderedBody(),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

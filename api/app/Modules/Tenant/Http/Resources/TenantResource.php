@@ -27,6 +27,8 @@ class TenantResource extends JsonResource
             'logo_url' => $this->logoUrl(),
             'favicon_path' => $this->favicon_path,
             'favicon_url' => $this->faviconUrl(),
+            'signature_path' => $this->signature_path,
+            'signature_url' => $this->signatureUrl(),
             'traccar_server_ip' => config('traccar.server_ip'),
             'traccar_server_dns' => config('traccar.server_dns'),
             'is_umbrella' => $this->isUmbrella(),

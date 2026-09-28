@@ -3,6 +3,7 @@
 namespace App\Modules\Client\Models;
 
 use App\Modules\Client\Enums\ContractSignatureStatus;
+use App\Modules\Client\Services\ContractBodyRenderer;
 use App\Modules\Contract\Models\Contract;
 use App\Modules\Shared\Models\Concerns\HasUuid;
 use App\Modules\Tenant\Models\Concerns\BelongsToTenant;
@@ -47,5 +48,30 @@ class ClientContract extends Model
     public function contract(): BelongsTo
     {
         return $this->belongsTo(Contract::class);
+    }
+
+    public function signatureUrl(): ?string
+    {
+        return $this->signature_path ? asset("storage/{$this->signature_path}") : null;
+    }
+
+    public function tenantLogoUrl(): ?string
+    {
+        return $this->tenant?->logoUrl();
+    }
+
+    public function tenantSignatureUrl(): ?string
+    {
+        return $this->tenant?->signatureUrl();
+    }
+
+    public function renderedBody(): string
+    {
+        $renderer = app(ContractBodyRenderer::class);
+
+        $body = $renderer->renderLogo((string) $this->body, $this->tenantLogoUrl());
+        $body = $renderer->renderCompanySignature($body, $this->tenantSignatureUrl());
+
+        return $renderer->renderSignature($body, $this->signatureUrl());
     }
 }

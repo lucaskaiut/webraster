@@ -3,12 +3,15 @@ import { formatCurrency } from '@/shared/utils/format'
 import { maskPhone } from '@/shared/utils/mask'
 
 export type ContractVariableKey =
+  | 'LOGO_EMPRESA'
   | 'NOME_CLIENTE'
   | 'DOCUMENTO_CLIENTE'
   | 'EMAIL_CLIENTE'
   | 'TELEFONE_CLIENTE'
   | 'ENDERECO_CLIENTE'
   | 'TABELA_PEDIDO'
+  | 'ASSINATURA_EMPRESA'
+  | 'ASSINATURA_CLIENTE'
 
 export interface ContractVariableDefinition {
   key: ContractVariableKey
@@ -18,6 +21,12 @@ export interface ContractVariableDefinition {
 }
 
 export const CONTRACT_VARIABLES: ContractVariableDefinition[] = [
+  {
+    key: 'LOGO_EMPRESA',
+    token: '{{LOGO_EMPRESA}}',
+    label: 'Logo da empresa',
+    description: 'Logo cadastrada nas configurações da empresa',
+  },
   {
     key: 'NOME_CLIENTE',
     token: '{{NOME_CLIENTE}}',
@@ -54,15 +63,30 @@ export const CONTRACT_VARIABLES: ContractVariableDefinition[] = [
     label: 'Tabela do pedido',
     description: 'Itens e serviços do pedido do cliente',
   },
+  {
+    key: 'ASSINATURA_EMPRESA',
+    token: '{{ASSINATURA_EMPRESA}}',
+    label: 'Assinatura do responsável',
+    description: 'Assinatura do responsável cadastrada nas configurações da empresa',
+  },
+  {
+    key: 'ASSINATURA_CLIENTE',
+    token: '{{ASSINATURA_CLIENTE}}',
+    label: 'Assinatura do cliente',
+    description: 'Imagem da assinatura feita pelo cliente no aplicativo',
+  },
 ]
 
 export interface ContractSubstitutionValues {
+  LOGO_EMPRESA: string
   NOME_CLIENTE: string
   DOCUMENTO_CLIENTE: string
   EMAIL_CLIENTE: string
   TELEFONE_CLIENTE: string
   ENDERECO_CLIENTE: string
   TABELA_PEDIDO: string
+  ASSINATURA_EMPRESA: string
+  ASSINATURA_CLIENTE: string
 }
 
 export interface ContractOrderLine {
@@ -163,6 +187,7 @@ export function getFictionalContractValues(): ContractSubstitutionValues {
   ]
 
   return {
+    LOGO_EMPRESA: '<em>Logo da empresa</em>',
     NOME_CLIENTE: 'Transportadora Silva Ltda',
     DOCUMENTO_CLIENTE: formatDocument(document),
     EMAIL_CLIENTE: 'contato@transportadorasilva.example',
@@ -177,6 +202,8 @@ export function getFictionalContractValues(): ContractSubstitutionValues {
       zip: '80010000',
     }),
     TABELA_PEDIDO: buildOrderItemsTableHtml(items),
+    ASSINATURA_EMPRESA: '<em>Assinatura do responsável</em>',
+    ASSINATURA_CLIENTE: '<em>Assinatura pendente</em>',
   }
 }
 

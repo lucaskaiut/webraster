@@ -139,6 +139,7 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::match(['put', 'patch'], 'clients/{client}/order', [ClientOrderController::class, 'upsert'])->middleware('permission:finance-subscription.create');
 
     Route::get('clients/{client}/contract', [ClientContractController::class, 'show'])->middleware('permission:client.read');
+    Route::get('clients/{client}/contract/pdf', [ClientContractController::class, 'pdf'])->middleware('permission:client.read');
     Route::match(['put', 'patch'], 'clients/{client}/contract', [ClientContractController::class, 'upsert'])->middleware('permission:client.update');
     Route::match(['put', 'patch'], 'clients/{client}/contract/signature', [ClientContractController::class, 'updateSignature'])->middleware('permission:client.update');
     Route::post('clients/{client}/contract/signature', [ClientContractController::class, 'sign'])->middleware('permission:contract.sign');

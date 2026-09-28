@@ -30,6 +30,8 @@ export interface Tenant {
   logo_url: string | null
   favicon_path: string | null
   favicon_url: string | null
+  signature_path: string | null
+  signature_url: string | null
   traccar_server_ip: string | null
   traccar_server_dns: string | null
   is_umbrella?: boolean

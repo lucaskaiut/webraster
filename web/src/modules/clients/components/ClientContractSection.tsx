@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
-import { Eye, FileText, PenLine } from 'lucide-react'
+import { Eye, FileDown, FileText, PenLine } from 'lucide-react'
 import {
   Badge,
   Button,
@@ -27,6 +27,7 @@ import type { ClientContract, ContractSignatureStatus } from '@/shared/types/mod
 import { signatureStatusBadgeVariant, signatureStatusLabel } from '../lib/labels'
 import {
   useClientContractQuery,
+  useDownloadClientContractPdf,
   useUpdateClientContractSignature,
   useUpsertClientContract,
 } from '../hooks/useClients'
@@ -52,6 +53,7 @@ export function ClientContractSection({ clientId }: { clientId: string }) {
   const contractQuery = useClientContractQuery(clientId)
   const upsert = useUpsertClientContract(clientId)
   const updateSignature = useUpdateClientContractSignature(clientId)
+  const downloadPdf = useDownloadClientContractPdf(clientId)
 
   const contracts = contractsQuery.data?.data ?? []
   const current = contractQuery.data
@@ -91,8 +93,10 @@ export function ClientContractSection({ clientId }: { clientId: string }) {
       current={current}
       submitting={upsert.isPending}
       signatureUpdating={updateSignature.isPending}
+      downloadingPdf={downloadPdf.isPending}
       onSubmit={(values) => upsert.mutateAsync(values)}
       onChangeSignature={(status) => updateSignature.mutateAsync({ signature_status: status })}
+      onDownloadPdf={() => downloadPdf.mutateAsync()}
     />
   )
 }
@@ -102,15 +106,19 @@ function ClientContractForm({
   current,
   submitting,
   signatureUpdating,
+  downloadingPdf,
   onSubmit,
   onChangeSignature,
+  onDownloadPdf,
 }: {
   contracts: Array<{ id: string; name: string }>
   current: ClientContract | null | undefined
   submitting: boolean
   signatureUpdating: boolean
+  downloadingPdf: boolean
   onSubmit: (values: ClientContractFormValues) => Promise<unknown>
   onChangeSignature: (status: ContractSignatureStatus) => Promise<unknown>
+  onDownloadPdf: () => Promise<unknown>
 }) {
   const [previewOpen, setPreviewOpen] = useState(false)
   const { can } = usePermissions()
@@ -220,10 +228,23 @@ function ClientContractForm({
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex flex-wrap items-center gap-2">
                   {current && (
-                    <Button type="button" variant="secondary" onClick={() => setPreviewOpen(true)}>
-                      <Eye className="size-4" />
-                      Ver texto gerado
-                    </Button>
+                    <>
+                      <Button type="button" variant="secondary" onClick={() => setPreviewOpen(true)}>
+                        <Eye className="size-4" />
+                        Ver texto gerado
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        loading={downloadingPdf}
+                        onClick={() => {
+                          void onDownloadPdf().catch(() => undefined)
+                        }}
+                      >
+                        <FileDown className="size-4" />
+                        Baixar PDF
+                      </Button>
+                    </>
                   )}
                   {current?.signature_url && (
                     <a

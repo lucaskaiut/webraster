@@ -31,6 +31,7 @@ class UpdateTenantRequest extends FormRequest
             'phone' => ['sometimes', 'nullable', 'string', 'max:20'],
             'logo_path' => ['sometimes', 'nullable', 'string', 'max:255'],
             'favicon_path' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'signature_path' => ['sometimes', 'nullable', 'string', 'max:255'],
         ];
     }
 
