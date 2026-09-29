@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useActiveTenant } from './useActiveTenant'
+import { useSessionStore } from '@/shared/stores/session.store'
+import { useTenantBrandingStore } from '@/shared/stores/tenant-branding.store'
 import { cn } from '@/shared/utils/cn'
 
 export const DEFAULT_LOGO = '/logo.png'
@@ -20,7 +22,12 @@ export function AppLogo({
   alt?: string
 }) {
   const tenant = useActiveTenant()
-  const tenantLogo = tenant?.logo_url ?? null
+  const status = useSessionStore((state) => state.status)
+  const cachedBranding = useTenantBrandingStore((state) => state.branding)
+
+  // Sem sessão autenticada, reutiliza a marca do último tenant (cache local).
+  const cachedLogo = status === 'authenticated' ? null : (cachedBranding?.logo_url ?? null)
+  const tenantLogo = tenant?.logo_url ?? cachedLogo
   const [src, setSrc] = useState(tenantLogo ?? DEFAULT_LOGO)
 
   useEffect(() => {

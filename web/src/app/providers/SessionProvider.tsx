@@ -3,17 +3,24 @@ import { useQuery } from '@tanstack/react-query'
 import { sessionQueryOptions } from '@/modules/auth/services/auth.service'
 import { applyFavicon } from '@/shared/brand/favicon'
 import { useSessionStore } from '@/shared/stores/session.store'
+import {
+  getTenantBranding,
+  useTenantBrandingStore,
+  type TenantBranding,
+} from '@/shared/stores/tenant-branding.store'
 import { useTenantContextStore } from '@/shared/stores/tenant.store'
 
 /**
  * Carrega a sessão atual (/auth/me) na inicialização e mantém o
  * estado global de sessão sincronizado com o cache do TanStack Query.
- * Para masters, garante um tenant filho válido selecionado.
+ * Para masters, garante um tenant filho válido selecionado. Também
+ * persiste a identidade visual do tenant ativo para uso sem sessão.
  */
 export function SessionProvider({ children }: { children: ReactNode }) {
   const { data, isSuccess, isError } = useQuery(sessionQueryOptions)
   const setSession = useSessionStore((state) => state.setSession)
   const setGuest = useSessionStore((state) => state.setGuest)
+  const setBranding = useTenantBrandingStore((state) => state.setBranding)
   const selectedTenantId = useTenantContextStore((state) => state.selectedTenantId)
   const setSelectedTenantId = useTenantContextStore((state) => state.setSelectedTenantId)
   const clearSelectedTenantId = useTenantContextStore((state) => state.clearSelectedTenantId)
@@ -31,7 +38,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isSuccess || !data) {
-      applyFavicon(null)
+      applyFavicon(getTenantBranding()?.favicon_url)
       return
     }
 
@@ -39,8 +46,26 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       ? (data.available_tenants.find((tenant) => tenant.id === selectedTenantId) ?? data.tenant)
       : data.tenant
 
-    applyFavicon(activeTenant?.favicon_url)
-  }, [isSuccess, data, selectedTenantId])
+    const branding: TenantBranding = {
+      id: activeTenant.id,
+      name: activeTenant.name,
+      logo_url: activeTenant.logo_url ?? null,
+      favicon_url: activeTenant.favicon_url ?? null,
+    }
+
+    const current = getTenantBranding()
+
+    if (
+      current?.id !== branding.id ||
+      current.name !== branding.name ||
+      current.logo_url !== branding.logo_url ||
+      current.favicon_url !== branding.favicon_url
+    ) {
+      setBranding(branding)
+    }
+
+    applyFavicon(branding.favicon_url)
+  }, [isSuccess, data, selectedTenantId, setBranding])
 
   useEffect(() => {
     if (!isSuccess || !data) return
