@@ -25,6 +25,7 @@ export function useUpdateTenant() {
       queryClient.setQueryData(queryKeys.tenants.current(), tenant)
       queryClient.invalidateQueries({ queryKey: queryKeys.session })
       queryClient.invalidateQueries({ queryKey: queryKeys.tenants.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.alerts.vehicleDefaultsAll })
       toast.success('Configurações salvas', 'Os dados da empresa foram atualizados.')
     },
   })

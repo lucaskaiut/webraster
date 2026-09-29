@@ -142,13 +142,28 @@ export interface VehicleAlertConfigValue {
   notify_email: boolean
 }
 
+/**
+ * Subconjunto aceito vindo da API: configuração completa do veículo
+ * (`AlertConfig`) ou apenas os padrões configurados pela empresa.
+ */
+export interface AlertConfigLike {
+  type: AlertConfig['type']
+  alarm_code?: string | null
+  alarm_label?: string | null
+  is_enabled?: boolean
+  notify_in_app?: boolean
+  notify_monitoring?: boolean
+  notify_push?: boolean
+  notify_email?: boolean
+}
+
 const DEFAULT_ENABLED_GENERAL: VehicleAlertType[] = ['sos', 'jamming', 'offline']
 const DEFAULT_EMAIL_GENERAL: VehicleAlertType[] = ['sos', 'jamming']
 const DEFAULT_ENABLED_DEVICE = ['accident', 'powercut', 'removing', 'tampering']
 
 function generalValue(
   option: VehicleAlertTypeOption,
-  config?: AlertConfig,
+  config?: AlertConfigLike,
 ): VehicleAlertConfigValue {
   return {
     type: option.type,
@@ -162,7 +177,7 @@ function generalValue(
   }
 }
 
-function deviceValue(code: string, label: string, config?: AlertConfig): VehicleAlertConfigValue {
+function deviceValue(code: string, label: string, config?: AlertConfigLike): VehicleAlertConfigValue {
   return {
     type: 'device_alarm',
     alarm_code: code,
@@ -184,9 +199,9 @@ export function defaultVehicleAlertConfigs(): VehicleAlertConfigValue[] {
 }
 
 export function vehicleAlertConfigsFromApi(
-  configs?: AlertConfig[] | null,
+  configs?: AlertConfigLike[] | null,
 ): VehicleAlertConfigValue[] {
-  const byType = new Map<string, AlertConfig>()
+  const byType = new Map<string, AlertConfigLike>()
 
   for (const config of configs ?? []) {
     byType.set(config.alarm_code ? `device_alarm|${config.alarm_code}` : `${config.type}|`, config)

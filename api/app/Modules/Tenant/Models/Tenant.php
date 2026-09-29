@@ -31,7 +31,15 @@ class Tenant extends Model
         'logo_path',
         'favicon_path',
         'signature_path',
+        'vehicle_alert_defaults',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'vehicle_alert_defaults' => 'array',
+        ];
+    }
 
     public function parent(): BelongsTo
     {

@@ -1,6 +1,7 @@
 import { http } from '@/shared/api/http'
 import type { ApiResponse, ListParams, PaginatedResponse } from '@/shared/types/api'
 import type { Alert, AlertConfig, AlertDashboardStats, ClientAlertConfigOption } from '@/shared/types/models'
+import type { VehicleAlertConfigValue } from '../lib/alert-types'
 
 export interface AlertListParams extends ListParams {
   vehicle_id?: string
@@ -58,6 +59,15 @@ export const alertsService = {
 
   async configs(): Promise<AlertConfig[]> {
     const response = await http.get<ApiResponse<AlertConfig[]>>('/alert-configs')
+    return response.data.data
+  },
+
+  /**
+   * Estado inicial dos alertas ao cadastrar um veículo no tenant ativo
+   * (padrões da empresa com fallback no padrão do sistema).
+   */
+  async vehicleDefaults(): Promise<VehicleAlertConfigValue[]> {
+    const response = await http.get<ApiResponse<VehicleAlertConfigValue[]>>('/alert-configs/defaults')
     return response.data.data
   },
 

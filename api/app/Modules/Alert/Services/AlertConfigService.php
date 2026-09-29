@@ -37,7 +37,8 @@ class AlertConfigService
     }
 
     /**
-     * Alertas habilitados por padrão em um veículo novo.
+     * Alertas habilitados por padrão em um veículo novo quando a empresa
+     * não configurou os padrões de alerta.
      *
      * @return list<AlertType>
      */
@@ -52,7 +53,8 @@ class AlertConfigService
     }
 
     /**
-     * Alertas que enviam e-mail por padrão em um veículo novo.
+     * Alertas que enviam e-mail por padrão em um veículo novo quando a
+     * empresa não configurou os padrões de alerta.
      *
      * @return list<AlertType>
      */
@@ -102,9 +104,26 @@ class AlertConfigService
     }
 
     /**
+     * Padrões de alerta configurados pela empresa. Servem apenas para definir
+     * o estado inicial de um veículo — o motor de alertas continua lendo
+     * exclusivamente a configuração do próprio veículo.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function tenantVehicleDefaults(Tenant|int $tenant): array
+    {
+        $tenantId = $tenant instanceof Tenant ? $tenant->getKey() : $tenant;
+
+        $defaults = Tenant::query()->whereKey($tenantId)->value('vehicle_alert_defaults');
+
+        return is_array($defaults) ? array_values($defaults) : [];
+    }
+
+    /**
      * Garante uma configuração por veículo para cada tipo configurável.
      * Os alarmes do dispositivo viram uma configuração por código (os críticos
-     * começam habilitados); os demais tipos seguem o padrão do sistema.
+     * começam habilitados); os demais tipos seguem o padrão definido pela
+     * empresa ou, quando ela não configurou, o padrão do sistema.
      */
     public function ensureVehicleDefaults(Vehicle|int $vehicle, ?int $tenantId = null): void
     {
@@ -119,6 +138,8 @@ class AlertConfigService
         if ($tenantId === 0 || $vehicleId === 0) {
             return;
         }
+
+        $defaults = $this->tenantVehicleDefaults($tenantId);
 
         $existing = AlertConfig::query()
             ->withoutGlobalScopes()
@@ -137,10 +158,13 @@ class AlertConfigService
                 continue;
             }
 
-            $this->createVehicleConfig($tenantId, $vehicleId, $type, null, [
-                'is_enabled' => in_array($type, self::defaultEnabledTypes(), true),
-                'notify_email' => in_array($type, self::defaultEmailTypes(), true),
-            ]);
+            $this->createVehicleConfig(
+                $tenantId,
+                $vehicleId,
+                $type,
+                null,
+                $this->generalOverrides($defaults, $type),
+            );
         }
 
         foreach (TraccarAttributeReader::configurableDeviceAlarms() as $alarm) {
@@ -148,18 +172,112 @@ class AlertConfigService
                 continue;
             }
 
-            $critical = $alarm['severity'] === AlertSeverity::CRITICAL->value;
-
             $this->createVehicleConfig($tenantId, $vehicleId, AlertType::DEVICE_ALARM, $alarm['code'], [
                 'name' => $alarm['label'],
-                'is_enabled' => $critical,
-                'notify_email' => $critical,
+                ...$this->deviceOverrides($defaults, $alarm['code'], $alarm['severity']),
             ]);
         }
     }
 
     /**
-     * @param  array{name?: string, is_enabled?: bool, notify_email?: bool}  $overrides
+     * Estado inicial de um veículo novo: padrões definidos pela empresa com
+     * fallback no padrão do sistema. Não persiste nada e não é consultado
+     * pelo motor de alertas — serve apenas para preencher o cadastro.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function vehicleDefaultsForNewVehicle(int $tenantId): array
+    {
+        $defaults = $this->tenantVehicleDefaults($tenantId);
+        $result = [];
+
+        foreach (AlertType::configurable() as $type) {
+            if ($type === AlertType::DEVICE_ALARM) {
+                continue;
+            }
+
+            $result[] = [
+                'type' => $type->value,
+                'alarm_code' => null,
+                'label' => $type->label(),
+                ...$this->generalOverrides($defaults, $type),
+            ];
+        }
+
+        foreach (TraccarAttributeReader::configurableDeviceAlarms() as $alarm) {
+            $result[] = [
+                'type' => AlertType::DEVICE_ALARM->value,
+                'alarm_code' => $alarm['code'],
+                'label' => $alarm['label'],
+                ...$this->deviceOverrides($defaults, $alarm['code'], $alarm['severity']),
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $defaults
+     * @return array{is_enabled: bool, notify_in_app: bool, notify_monitoring: bool, notify_push: bool, notify_email: bool}
+     */
+    private function generalOverrides(array $defaults, AlertType $type): array
+    {
+        $entry = $this->defaultEntry($defaults, $type);
+
+        return [
+            'is_enabled' => $entry['is_enabled'] ?? in_array($type, self::defaultEnabledTypes(), true),
+            'notify_in_app' => $entry['notify_in_app'] ?? true,
+            'notify_monitoring' => $entry['notify_monitoring'] ?? true,
+            'notify_push' => $entry['notify_push'] ?? true,
+            'notify_email' => $entry['notify_email'] ?? in_array($type, self::defaultEmailTypes(), true),
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $defaults
+     * @return array{is_enabled: bool, notify_in_app: bool, notify_monitoring: bool, notify_push: bool, notify_email: bool}
+     */
+    private function deviceOverrides(array $defaults, string $alarmCode, string $severity): array
+    {
+        $entry = $this->defaultEntry($defaults, AlertType::DEVICE_ALARM, $alarmCode);
+        $critical = $severity === AlertSeverity::CRITICAL->value;
+
+        return [
+            'is_enabled' => $entry['is_enabled'] ?? $critical,
+            'notify_in_app' => $entry['notify_in_app'] ?? true,
+            'notify_monitoring' => $entry['notify_monitoring'] ?? true,
+            'notify_push' => $entry['notify_push'] ?? true,
+            'notify_email' => $entry['notify_email'] ?? $critical,
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $defaults
+     * @return array<string, mixed>|null
+     */
+    private function defaultEntry(array $defaults, AlertType $type, ?string $alarmCode = null): ?array
+    {
+        $code = $alarmCode !== null && $alarmCode !== '' ? strtolower(trim($alarmCode)) : null;
+
+        foreach ($defaults as $entry) {
+            if (! is_array($entry) || ($entry['type'] ?? null) !== $type->value) {
+                continue;
+            }
+
+            $entryCode = isset($entry['alarm_code']) && $entry['alarm_code'] !== ''
+                ? strtolower(trim((string) $entry['alarm_code']))
+                : null;
+
+            if ($entryCode === $code) {
+                return $entry;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array{name?: string, is_enabled?: bool, notify_in_app?: bool, notify_monitoring?: bool, notify_push?: bool, notify_email?: bool}  $overrides
      */
     private function createVehicleConfig(
         int $tenantId,
@@ -177,10 +295,10 @@ class AlertConfigService
             'name' => $overrides['name'] ?? $type->label(),
             'type' => $type,
             'is_enabled' => $overrides['is_enabled'] ?? true,
-            'notify_in_app' => true,
-            'notify_monitoring' => true,
+            'notify_in_app' => $overrides['notify_in_app'] ?? true,
+            'notify_monitoring' => $overrides['notify_monitoring'] ?? true,
             'notify_email' => $overrides['notify_email'] ?? false,
-            'notify_push' => true,
+            'notify_push' => $overrides['notify_push'] ?? true,
             'settings' => self::defaultSettings($type),
         ])->save();
 
@@ -231,7 +349,8 @@ class AlertConfigService
         }
 
         $severity = $catalog['severity'] ?? TraccarAttributeReader::deviceAlarmSeverity($code)->value;
-        $critical = $severity === AlertSeverity::CRITICAL->value;
+
+        $defaults = $this->tenantVehicleDefaults((int) $vehicle->tenant_id);
 
         return $this->createVehicleConfig(
             (int) $vehicle->tenant_id,
@@ -240,8 +359,7 @@ class AlertConfigService
             $code,
             [
                 'name' => $catalog['label'] ?? TraccarAttributeReader::deviceAlarmLabel($code),
-                'is_enabled' => $critical,
-                'notify_email' => $critical,
+                ...$this->deviceOverrides($defaults, $code, $severity),
             ],
         );
     }

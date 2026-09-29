@@ -20,6 +20,16 @@ export interface User {
   updated_at: string | null
 }
 
+export interface TenantVehicleAlertDefault {
+  type: AlertType
+  alarm_code: string | null
+  is_enabled: boolean
+  notify_in_app: boolean
+  notify_monitoring: boolean
+  notify_push: boolean
+  notify_email: boolean
+}
+
 export interface Tenant {
   id: string
   name: string
@@ -32,6 +42,7 @@ export interface Tenant {
   favicon_url: string | null
   signature_path: string | null
   signature_url: string | null
+  vehicle_alert_defaults?: TenantVehicleAlertDefault[] | null
   traccar_server_ip: string | null
   traccar_server_dns: string | null
   is_umbrella?: boolean

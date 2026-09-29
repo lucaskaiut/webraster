@@ -38,7 +38,7 @@ export default function TenantSettingsPage() {
     <Page>
       <PageHeader
         title="Configurações"
-        description="Atualize os dados e a identidade visual da empresa ativa."
+        description="Atualize os dados, a identidade visual e os alertas padrão da empresa ativa."
         breadcrumb={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Configurações' }]}
       />
 

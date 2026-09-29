@@ -11,6 +11,7 @@ use App\Modules\Alert\Services\AlertConfigService;
 use App\Modules\Client\Models\Client;
 use App\Modules\Client\Support\ClientAuthorization;
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\Tenant\Support\Facades\TenantContext;
 use App\Modules\Tenant\Support\TenantAuthorization;
 use Illuminate\Http\JsonResponse;
 
@@ -23,6 +24,21 @@ class AlertConfigController extends ApiController
         $this->authorize('viewAny', AlertConfig::class);
 
         return $this->success(AlertConfigResource::collection($this->service->listForCurrentTenant()));
+    }
+
+    /**
+     * Estado inicial dos alertas ao cadastrar um veículo no tenant ativo
+     * (padrões da empresa com fallback no padrão do sistema).
+     */
+    public function defaults(): JsonResponse
+    {
+        $tenantId = TenantContext::tenantId();
+
+        if ($tenantId === null) {
+            return $this->success([]);
+        }
+
+        return $this->success($this->service->vehicleDefaultsForNewVehicle($tenantId));
     }
 
     /**

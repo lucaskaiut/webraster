@@ -16,6 +16,8 @@ import { applyApiErrorsToForm } from '@/shared/utils/forms'
 import { onlyDigits } from '@/shared/utils/document'
 import { maskCpfCnpj, maskPhone } from '@/shared/utils/mask'
 import type { Tenant } from '@/shared/types/models'
+import { AlertConfigsMatrix } from '@/modules/alerts/components/AlertConfigsMatrix'
+import { vehicleAlertConfigsFromApi } from '@/modules/alerts/lib/alert-types'
 import { SignatureField } from '../components/SignatureField'
 import type { UpdateTenantPayload } from '../services/tenants.service'
 import {
@@ -40,6 +42,7 @@ export function TenantSettingsForm({ tenant, submitting, onSubmit }: TenantSetti
       logo_path: tenant.logo_path,
       favicon_path: tenant.favicon_path,
       signature_path: tenant.signature_path,
+      vehicle_alert_defaults: vehicleAlertConfigsFromApi(tenant.vehicle_alert_defaults),
     },
   })
 
@@ -52,6 +55,25 @@ export function TenantSettingsForm({ tenant, submitting, onSubmit }: TenantSetti
       logo_path: values.logo_path,
       favicon_path: values.favicon_path,
       signature_path: values.signature_path,
+      vehicle_alert_defaults: values.vehicle_alert_defaults.map(
+        ({
+          type,
+          alarm_code,
+          is_enabled,
+          notify_in_app,
+          notify_monitoring,
+          notify_push,
+          notify_email,
+        }) => ({
+          type,
+          alarm_code,
+          is_enabled,
+          notify_in_app,
+          notify_monitoring,
+          notify_push,
+          notify_email,
+        }),
+      ),
     }
 
     try {
@@ -116,6 +138,16 @@ export function TenantSettingsForm({ tenant, submitting, onSubmit }: TenantSetti
             description="Assinatura aplicada automaticamente nos contratos que usam a variável {{ASSINATURA_EMPRESA}}."
           >
             <SignatureField initialUrl={tenant.signature_url} />
+          </Section>
+
+          <Section
+            title="Alertas padrão"
+            description="Define o estado inicial dos alertas — inclusive os canais — ao cadastrar um veículo. Depois do cadastro, cada veículo tem a própria configuração, que é a única usada no envio dos alertas."
+          >
+            <AlertConfigsMatrix
+              name="vehicle_alert_defaults"
+              deviceHint="Alarmes enviados pelo rastreador. Alarmes novos, que ainda não estiverem nesta lista, seguem o padrão do sistema."
+            />
           </Section>
 
           <div className="flex justify-end">

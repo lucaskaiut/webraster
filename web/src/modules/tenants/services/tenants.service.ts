@@ -1,6 +1,6 @@
 import { http } from '@/shared/api/http'
 import type { ApiResponse, ListParams, PaginatedResponse } from '@/shared/types/api'
-import type { Tenant, User } from '@/shared/types/models'
+import type { Tenant, TenantVehicleAlertDefault, User } from '@/shared/types/models'
 
 export interface CreateChildTenantPayload {
   tenant: {
@@ -33,6 +33,7 @@ export interface UpdateTenantPayload {
   logo_path?: string | null
   favicon_path?: string | null
   signature_path?: string | null
+  vehicle_alert_defaults?: TenantVehicleAlertDefault[]
 }
 
 export const tenantsService = {

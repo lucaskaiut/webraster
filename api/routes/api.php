@@ -277,6 +277,7 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::get('alert-configs/client/{client}', [AlertConfigController::class, 'clientConfigs'])->middleware('permission:alert-config.read');
 
     Route::get('alert-configs', [AlertConfigController::class, 'index'])->middleware('permission:alert-config.read');
+    Route::get('alert-configs/defaults', [AlertConfigController::class, 'defaults']);
     Route::post('alert-configs', [AlertConfigController::class, 'store'])->middleware('permission:alert-config.update');
     Route::match(['put', 'patch'], 'alert-configs/{alertConfig}', [AlertConfigController::class, 'update'])->middleware('permission:alert-config.update');
     Route::delete('alert-configs/{alertConfig}', [AlertConfigController::class, 'destroy'])->middleware('permission:alert-config.update');

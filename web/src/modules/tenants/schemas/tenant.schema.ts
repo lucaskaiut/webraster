@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { isValidCpfOrCnpj } from '@/shared/utils/document'
+import { vehicleAlertConfigSchema } from '@/modules/vehicles/schemas/vehicle.schema'
 
 const tenantFields = z.object({
   name: z.string().min(1, 'Informe o nome'),
@@ -25,6 +26,7 @@ export const tenantSettingsSchema = tenantFields.extend({
   logo_path: z.string().nullable(),
   favicon_path: z.string().nullable(),
   signature_path: z.string().nullable(),
+  vehicle_alert_defaults: z.array(vehicleAlertConfigSchema),
 })
 
 /** @deprecated use createChildTenantSchema */

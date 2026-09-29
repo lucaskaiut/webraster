@@ -1,4 +1,4 @@
-import type { MouseEvent } from 'react'
+import { useEffect, type MouseEvent } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -11,14 +11,20 @@ import {
   Form,
   SearchSelectField,
   SelectField,
+  Skeleton,
   SwitchField,
   TextField,
 } from '@/shared/design-system'
 import { isApiError } from '@/shared/api/errors'
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
+import { useActiveTenant } from '@/shared/brand/useActiveTenant'
 import { applyApiErrorsToForm } from '@/shared/utils/forms'
-import { defaultVehicleAlertConfigs } from '@/modules/alerts/lib/alert-types'
+import {
+  defaultVehicleAlertConfigs,
+  type VehicleAlertConfigValue,
+} from '@/modules/alerts/lib/alert-types'
+import { useVehicleAlertDefaultsQuery } from '@/modules/alerts/hooks/useAlerts'
 import { clientsService } from '@/modules/clients/services/clients.service'
 import type { VehiclePayload } from '../services/vehicles.service'
 import { VehicleAlertConfigsCard } from '../components/VehicleAlertConfigsCard'
@@ -37,6 +43,16 @@ interface VehicleFormProps {
   submitting: boolean
   crlvFileUrl?: string | null
   onSubmit: (payload: VehiclePayload) => Promise<unknown>
+  /** Fixa o cliente no contexto (oculta o seletor) — ex.: cadastro dentro do cliente. */
+  fixedClientId?: string
+  /** Exibe a navegação lateral entre seções (padrão: true). */
+  showNav?: boolean
+  /** Exibe o link "Cancelar" (padrão: true). */
+  showCancel?: boolean
+  /** Rótulo do botão de envio. */
+  submitLabel?: string
+  /** Reseta o formulário após um envio bem-sucedido. */
+  resetOnSuccess?: boolean
 }
 
 interface FormSection {
@@ -99,13 +115,67 @@ function VehicleFormNav({ sections }: { sections: FormSection[] }) {
   )
 }
 
-export function VehicleForm({
+function VehicleFormSkeleton({ showNav }: { showNav: boolean }) {
+  const content = (
+    <Card>
+      <CardContent className="space-y-5">
+        <Skeleton className="h-4 w-40" />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Skeleton className="h-10" />
+          <Skeleton className="h-10" />
+          <Skeleton className="h-10 sm:col-span-2" />
+          <Skeleton className="h-10 sm:col-span-2" />
+        </div>
+      </CardContent>
+    </Card>
+  )
+
+  if (!showNav) return content
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[200px_minmax(0,1fr)]">
+      <div className="hidden lg:block" />
+      {content}
+    </div>
+  )
+}
+
+/**
+ * Resolve os padrões de alerta da empresa ativa antes de montar o formulário,
+ * para que o cadastro de um veículo novo já comece com o estado configurado.
+ */
+export function VehicleForm(props: VehicleFormProps) {
+  const { can } = usePermissions()
+  const activeTenant = useActiveTenant()
+  const needsTenantDefaults =
+    props.mode === 'create' &&
+    can(Permission.ALERT_CONFIG_UPDATE) &&
+    props.defaultValues?.alert_configs === undefined
+
+  const defaultsQuery = useVehicleAlertDefaultsQuery(activeTenant?.id, needsTenantDefaults)
+
+  // `isFetching` evita travar no skeleton quando a query está desabilitada
+  // (ex.: sem tenant ativo), caso em que o status também fica pendente.
+  if (needsTenantDefaults && defaultsQuery.isPending && defaultsQuery.isFetching) {
+    return <VehicleFormSkeleton showNav={props.showNav ?? true} />
+  }
+
+  return <VehicleFormFields {...props} tenantAlertConfigs={defaultsQuery.data} />
+}
+
+function VehicleFormFields({
   mode,
   defaultValues,
   submitting,
   crlvFileUrl,
   onSubmit,
-}: VehicleFormProps) {
+  fixedClientId,
+  showNav = true,
+  showCancel = true,
+  submitLabel,
+  resetOnSuccess = false,
+  tenantAlertConfigs,
+}: VehicleFormProps & { tenantAlertConfigs?: VehicleAlertConfigValue[] }) {
   const { can } = usePermissions()
   const canConfigureAlerts = can(Permission.ALERT_CONFIG_UPDATE)
   const sections = canConfigureAlerts
@@ -115,7 +185,7 @@ export function VehicleForm({
   const form = useForm<VehicleFormValues>({
     resolver: zodResolver(vehicleSchema),
     defaultValues: {
-      client_id: '',
+      client_id: fixedClientId ?? '',
       plate: '',
       chassis: '',
       renavam: '',
@@ -141,10 +211,25 @@ export function VehicleForm({
       fipe_brand: '',
       fipe_score: '',
       is_active: true,
-      alert_configs: defaultVehicleAlertConfigs(),
       ...defaultValues,
+      alert_configs:
+        defaultValues?.alert_configs ?? tenantAlertConfigs ?? defaultVehicleAlertConfigs(),
+      ...(fixedClientId ? { client_id: fixedClientId } : {}),
     },
   })
+
+  // Sincroniza os padrões de alerta da empresa quando a consulta é atualizada
+  // (ex.: logo após salvar as configurações), sem descartar ajustes já feitos
+  // pelo operador no veículo.
+  useEffect(() => {
+    if (!tenantAlertConfigs) return
+    if (form.getFieldState('alert_configs').isDirty) return
+
+    form.reset(
+      { ...form.getValues(), alert_configs: tenantAlertConfigs },
+      { keepDefaultValues: false },
+    )
+  }, [tenantAlertConfigs, form])
 
   const {
     hint: plateHint,
@@ -213,6 +298,7 @@ export function VehicleForm({
 
     try {
       await onSubmit(payload)
+      if (resetOnSuccess) form.reset()
     } catch (error) {
       if (isApiError(error) && error.status === 422) {
         applyApiErrorsToForm(form, error)
@@ -221,26 +307,32 @@ export function VehicleForm({
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[200px_minmax(0,1fr)]">
-      <VehicleFormNav sections={sections} />
+    <div className={showNav ? 'grid gap-6 lg:grid-cols-[200px_minmax(0,1fr)]' : undefined}>
+      {showNav && <VehicleFormNav sections={sections} />}
 
       <Form form={form} onSubmit={handleSubmit} className="space-y-5">
         <Card id="veiculo-identificacao" className="scroll-mt-24">
           <CardHeader
             title="Identificação"
-            description="Vincule o cliente e informe os dados de identificação do veículo."
+            description={
+              fixedClientId
+                ? 'Informe os dados de identificação do veículo.'
+                : 'Vincule o cliente e informe os dados de identificação do veículo.'
+            }
           />
           <CardContent className="grid gap-5 sm:grid-cols-2">
-            <SearchSelectField
-              name="client_id"
-              label="Cliente"
-              required
-              className="sm:col-span-2"
-              placeholder="Buscar cliente..."
-              emptyMessage="Nenhum cliente encontrado"
-              loadOptions={loadClientOptions}
-              resolveLabel={resolveClientLabel}
-            />
+            {!fixedClientId && (
+              <SearchSelectField
+                name="client_id"
+                label="Cliente"
+                required
+                className="sm:col-span-2"
+                placeholder="Buscar cliente..."
+                emptyMessage="Nenhum cliente encontrado"
+                loadOptions={loadClientOptions}
+                resolveLabel={resolveClientLabel}
+              />
+            )}
             <TextField
               name="plate"
               label="Placa"
@@ -402,11 +494,13 @@ export function VehicleForm({
         </Card>
 
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <ButtonLink to="/vehicles" variant="secondary">
-            Cancelar
-          </ButtonLink>
+          {showCancel && (
+            <ButtonLink to="/vehicles" variant="secondary">
+              Cancelar
+            </ButtonLink>
+          )}
           <Button type="submit" loading={submitting}>
-            {mode === 'create' ? 'Criar veículo' : 'Salvar alterações'}
+            {submitLabel ?? (mode === 'create' ? 'Criar veículo' : 'Salvar alterações')}
           </Button>
         </div>
       </Form>

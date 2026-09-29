@@ -130,6 +130,19 @@ export function useAlertConfigsQuery() {
   })
 }
 
+/**
+ * Padrões de alerta para um veículo novo no tenant ativo.
+ * A chave inclui o tenant para não reaproveitar cache ao trocar de empresa.
+ */
+export function useVehicleAlertDefaultsQuery(tenantId: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.alerts.vehicleDefaults(tenantId ?? ''),
+    queryFn: () => alertsService.vehicleDefaults(),
+    enabled: enabled && Boolean(tenantId),
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
 export function useAcknowledgeAlert() {
   const queryClient = useQueryClient()
   return useMutation({
