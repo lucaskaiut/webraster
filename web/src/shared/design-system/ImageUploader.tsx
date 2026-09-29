@@ -1,5 +1,8 @@
+import { useRef } from 'react'
 import { Code, ImagePlus, Trash2 } from 'lucide-react'
-import { http } from '@/shared/api/http'
+import { apiErrorMessage, isApiError } from '@/shared/api/errors'
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL, uploadFile } from '@/shared/api/uploads'
+import { toast } from '@/shared/stores/toast.store'
 import { Button } from './Button'
 import { Field } from './Field'
 import { cn } from '@/shared/utils/cn'
@@ -35,21 +38,29 @@ export function ImageUploader({
   uploadUrl = '/uploads',
   accept = 'image/*',
 }: ImageUploaderProps) {
-  const upload = async (file: File) => {
-    const formData = new FormData()
-    formData.append('file', file)
+  const inputRef = useRef<HTMLInputElement>(null)
 
-    const response = await http.post<{ data: { url: string; path: string } }>(uploadUrl, formData)
-    const { url, path } = response.data.data
-
-    onChange({ url, path, alt: value?.alt ?? '' })
-  }
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
+    event.target.value = ''
     if (!file) return
 
-    upload(file).catch((err) => console.error('Upload failed', err))
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast.error('Arquivo muito grande', `O limite para envio é de ${MAX_UPLOAD_LABEL}.`)
+      return
+    }
+
+    try {
+      const { url, path } = await uploadFile(file, uploadUrl)
+      onChange({ url, path, alt: value?.alt ?? '' })
+    } catch (uploadError) {
+      toast.error(
+        'Falha ao enviar imagem',
+        isApiError(uploadError)
+          ? apiErrorMessage(uploadError)
+          : 'Não foi possível enviar a imagem. Tente novamente.',
+      )
+    }
   }
 
   const remove = () => onChange(null)
@@ -77,24 +88,36 @@ export function ImageUploader({
           </div>
         </div>
       ) : (
-        <label
-          className={cn(
-            'flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-surface-3 p-10 transition-colors hover:border-primary/50',
-          )}
-        >
-          {uploadUrl ? (
-            <>
-              <ImagePlus className="size-9 text-subtle" aria-hidden="true" />
-              <span className="text-sm text-muted">Clique para selecionar uma imagem</span>
-            </>
-          ) : (
-            <>
-              <Code className="size-9 text-subtle" aria-hidden="true" />
-              <span className="text-sm text-muted">Cole a URL da imagem no campo abaixo</span>
-            </>
-          )}
-          <input type="file" accept={accept} className="sr-only" onChange={handleFileChange} />
-        </label>
+        <>
+          <input
+            ref={inputRef}
+            type="file"
+            accept={accept}
+            className="hidden"
+            onChange={handleFileChange}
+          />
+          <button
+            type="button"
+            disabled={!uploadUrl}
+            onClick={() => inputRef.current?.click()}
+            className={cn(
+              'flex w-full cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-surface-3 p-10 transition-colors hover:border-primary/50',
+              !uploadUrl && 'cursor-default',
+            )}
+          >
+            {uploadUrl ? (
+              <>
+                <ImagePlus className="size-9 text-subtle" aria-hidden="true" />
+                <span className="text-sm text-muted">Clique para selecionar uma imagem</span>
+              </>
+            ) : (
+              <>
+                <Code className="size-9 text-subtle" aria-hidden="true" />
+                <span className="text-sm text-muted">Cole a URL da imagem no campo abaixo</span>
+              </>
+            )}
+          </button>
+        </>
       )}
     </Field>
   )

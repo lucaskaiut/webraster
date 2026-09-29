@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { FileText, Loader2, Trash2, Upload } from 'lucide-react'
 import {
   Controller,
@@ -9,7 +9,9 @@ import {
   type SubmitHandler,
   type UseFormReturn,
 } from 'react-hook-form'
-import { http } from '@/shared/api/http'
+import { apiErrorMessage, isApiError } from '@/shared/api/errors'
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL, uploadFile } from '@/shared/api/uploads'
+import { toast } from '@/shared/stores/toast.store'
 import { cn } from '@/shared/utils/cn'
 import { Field } from './Field'
 import { Button } from './Button'
@@ -170,6 +172,7 @@ export function FileField({
 }: BaseFieldProps & { accept?: string; currentUrl?: string | null }) {
   const { control } = useFormContext()
   const error = useFieldError(name)
+  const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [uploaded, setUploaded] = useState<{ name: string; url: string } | null>(null)
   const fieldValue = useWatch({ control, name })
@@ -188,22 +191,28 @@ export function FileField({
 
         const handleChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
           const file = event.target.files?.[0]
+          event.target.value = ''
           if (!file) return
+
+          if (file.size > MAX_UPLOAD_BYTES) {
+            toast.error('Arquivo muito grande', `O limite para envio é de ${MAX_UPLOAD_LABEL}.`)
+            return
+          }
 
           setUploading(true)
           try {
-            const formData = new FormData()
-            formData.append('file', file)
-            const response = await http.post<{ data: { url: string; path: string } }>(
-              '/uploads',
-              formData,
-            )
-            const { url, path } = response.data.data
+            const { url, path } = await uploadFile(file)
             setUploaded({ name: file.name, url })
             field.onChange(path)
+          } catch (uploadError) {
+            toast.error(
+              'Falha ao enviar arquivo',
+              isApiError(uploadError)
+                ? apiErrorMessage(uploadError)
+                : 'Não foi possível enviar o arquivo. Tente novamente.',
+            )
           } finally {
             setUploading(false)
-            event.target.value = ''
           }
         }
 
@@ -252,22 +261,33 @@ export function FileField({
                 </Button>
               </div>
             ) : (
-              <label
-                className={cn(
-                  'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-surface-3 p-8 transition-colors hover:border-primary/50',
-                  uploading && 'pointer-events-none opacity-60',
-                )}
-              >
-                {uploading ? (
-                  <Loader2 className="size-7 animate-spin text-subtle" aria-hidden="true" />
-                ) : (
-                  <Upload className="size-7 text-subtle" aria-hidden="true" />
-                )}
-                <span className="text-sm text-muted">
-                  {uploading ? 'Enviando...' : 'Clique para enviar o CRLV-e (PDF ou imagem)'}
-                </span>
-                <input type="file" accept={accept} className="sr-only" onChange={handleChange} />
-              </label>
+              <>
+                <input
+                  ref={inputRef}
+                  type="file"
+                  accept={accept}
+                  className="hidden"
+                  onChange={handleChange}
+                />
+                <button
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => inputRef.current?.click()}
+                  className={cn(
+                    'flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-surface-3 p-8 transition-colors hover:border-primary/50',
+                    'disabled:cursor-default disabled:opacity-60',
+                  )}
+                >
+                  {uploading ? (
+                    <Loader2 className="size-7 animate-spin text-subtle" aria-hidden="true" />
+                  ) : (
+                    <Upload className="size-7 text-subtle" aria-hidden="true" />
+                  )}
+                  <span className="text-sm text-muted">
+                    {uploading ? 'Enviando...' : 'Clique para enviar o CRLV-e (PDF ou imagem)'}
+                  </span>
+                </button>
+              </>
             )}
           </Field>
         )
