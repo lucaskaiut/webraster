@@ -1,3 +1,4 @@
+import { AppLogo } from '@/shared/brand/AppLogo'
 import { Card, CardContent } from '@/shared/design-system'
 import { Link } from 'react-router'
 import { CheckoutStepper } from '../components/checkout/CheckoutStepper'
@@ -16,6 +17,7 @@ export default function RegisterPage() {
     <div className="w-full max-w-5xl">
       <Card>
         <CardContent className="p-6 sm:p-8">
+          <AppLogo size="lg" className="mb-8" />
           <CheckoutStepper current={step} />
 
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1.65fr)_minmax(16rem,1fr)]">

@@ -1,6 +1,7 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Link, useSearchParams } from 'react-router'
+import { AppLogo } from '@/shared/brand/AppLogo'
 import { Alert, Button, Card, CardContent, Form, TextField } from '@/shared/design-system'
 import { isApiError } from '@/shared/api/errors'
 import { applyApiErrorsToForm } from '@/shared/utils/forms'
@@ -40,6 +41,7 @@ export default function ResetPasswordPage() {
     <Card className="w-full max-w-sm">
       <CardContent className="p-6 sm:p-8">
         <div className="mb-6">
+          <AppLogo size="lg" className="mb-5" />
           <h1 className="text-lg font-semibold text-foreground">Redefinir senha</h1>
           <p className="mt-1 text-sm text-muted">Escolha uma nova senha para a sua conta.</p>
         </div>

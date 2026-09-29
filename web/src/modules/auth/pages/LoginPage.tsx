@@ -1,6 +1,7 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Link } from 'react-router'
+import { AppLogo } from '@/shared/brand/AppLogo'
 import { Alert, Button, Card, CardContent, Form, TextField } from '@/shared/design-system'
 import { isApiError } from '@/shared/api/errors'
 import { applyApiErrorsToForm } from '@/shared/utils/forms'
@@ -26,9 +27,12 @@ export default function LoginPage() {
   }
 
   return (
-    <Card className="w-full max-w-sm">
+    <Card className="w-full max-w-sm shadow-elevated">
       <CardContent className="p-6 sm:p-8">
         <div className="mb-6">
+          <div className="mb-5 flex justify-center">
+            <AppLogo size="lg" />
+          </div>
           <h1 className="text-lg font-semibold text-foreground">Entrar</h1>
           <p className="mt-1 text-sm text-muted">Acesse o painel da sua organização.</p>
         </div>
@@ -54,7 +58,10 @@ export default function LoginPage() {
             autoComplete="current-password"
             required
           />
-          <div className="-mt-2 mb-1 flex justify-end">
+          <Button type="submit" className="w-full" loading={login.isPending}>
+            Entrar
+          </Button>
+          <div className="text-center">
             <Link
               to="/auth/forgot-password"
               className="text-sm font-medium text-primary hover:text-primary-hover"
@@ -62,17 +69,7 @@ export default function LoginPage() {
               Esqueci minha senha
             </Link>
           </div>
-          <Button type="submit" className="w-full" loading={login.isPending}>
-            Entrar
-          </Button>
         </Form>
-
-        <p className="mt-6 text-center text-sm text-muted">
-          Ainda não tem uma conta?{' '}
-          <Link to="/auth/register" className="font-medium text-primary hover:text-primary-hover">
-            Criar conta
-          </Link>
-        </p>
       </CardContent>
     </Card>
   )

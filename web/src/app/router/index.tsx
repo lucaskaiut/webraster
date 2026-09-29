@@ -11,7 +11,6 @@ import { NotFoundPage } from './NotFoundPage'
 
 const PrivacyPolicyPage = lazy(() => import('@/modules/legal/pages/PrivacyPolicyPage'))
 const LoginPage = lazy(() => import('@/modules/auth/pages/LoginPage'))
-const RegisterPage = lazy(() => import('@/modules/auth/pages/RegisterPage'))
 const ForgotPasswordPage = lazy(() => import('@/modules/auth/pages/ForgotPasswordPage'))
 const ResetPasswordPage = lazy(() => import('@/modules/auth/pages/ResetPasswordPage'))
 const PaymentPendingPage = lazy(() => import('@/modules/auth/pages/PaymentPendingPage'))
@@ -122,7 +121,6 @@ export const router = createBrowserRouter([
         element: <AuthLayout />,
         children: [
           { path: '/auth/login', element: <LoginPage /> },
-          { path: '/auth/register', element: <RegisterPage /> },
           { path: '/auth/forgot-password', element: <ForgotPasswordPage /> },
           { path: '/auth/reset-password', element: <ResetPasswordPage /> },
         ],
