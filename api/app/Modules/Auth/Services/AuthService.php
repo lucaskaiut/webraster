@@ -16,6 +16,7 @@ use App\Modules\Billing\Services\BillingService;
 use App\Modules\Billing\Services\PlanService;
 use App\Modules\Billing\Services\SubscriptionService;
 use App\Modules\Billing\Support\PaymentGatewayResolver;
+use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Tenant\Services\MasterTenantAccessService;
 use App\Modules\Tenant\Services\TenantService;
 use App\Modules\Tenant\Support\CurrentTenant;
@@ -28,6 +29,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\PersonalAccessToken;
 
@@ -105,7 +107,7 @@ class AuthService
         return new RegisterResult(
             user: $user->load('roles.permissions'),
             tenant: $tenant,
-            token: $this->authenticate($user),
+            token: $this->authenticate($user, $tenant),
             invoice: $invoice,
             requiresPayment: $invoice !== null && $invoice->isOpen(),
             isTrial: $plan?->hasTrial() ?? false,
@@ -118,13 +120,13 @@ class AuthService
     /**
      * @throws ValidationException
      */
-    public function login(string $email, string $password): AuthenticatedUser
-    {
-        $user = User::query()
-            ->withoutTenancy()
-            ->withoutClientScope()
-            ->where('email', $email)
-            ->first();
+    public function login(
+        string $email,
+        string $password,
+        ?string $tenantIdentifier = null,
+    ): AuthenticatedUser {
+        $tenant = $this->findTenantByIdentifier($tenantIdentifier);
+        $user = $this->findUserForLogin($email, $tenant);
 
         if ($user === null || ! Hash::check($password, $user->password)) {
             throw ValidationException::withMessages([
@@ -132,7 +134,7 @@ class AuthService
             ]);
         }
 
-        $tenant = $user->tenant;
+        $tenant ??= $user->tenant;
         $availableTenants = $this->masterAccess->availableTenants($user);
 
         $this->context->set($tenant);
@@ -144,9 +146,62 @@ class AuthService
         return new AuthenticatedUser(
             user: $user->load('roles.permissions'),
             tenant: $tenant,
-            token: $this->authenticate($user),
+            token: $this->authenticate($user, $tenant),
             availableTenants: $availableTenants,
         );
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    private function findTenantByIdentifier(?string $identifier): ?Tenant
+    {
+        if (blank($identifier)) {
+            return null;
+        }
+
+        $tenant = Tenant::query()
+            ->where('identifier', Str::lower(trim($identifier)))
+            ->first();
+
+        if ($tenant === null) {
+            throw ValidationException::withMessages([
+                'tenant_identifier' => ['Nenhuma empresa encontrada para o identificador informado.'],
+            ]);
+        }
+
+        return $tenant;
+    }
+
+    /**
+     * Busca o usuário pelo e-mail dentro do tenant informado. Sem identificador,
+     * mantém o comportamento global anterior. Usuários master podem entrar em
+     * tenants aos quais têm acesso (ex.: empresas filhas).
+     */
+    private function findUserForLogin(string $email, ?Tenant $tenant): ?User
+    {
+        $query = User::query()
+            ->withoutTenancy()
+            ->withoutClientScope()
+            ->where('email', $email);
+
+        if ($tenant === null) {
+            return $query->first();
+        }
+
+        $user = (clone $query)->where('tenant_id', $tenant->getKey())->first();
+
+        if ($user !== null) {
+            return $user;
+        }
+
+        $candidate = $query->first();
+
+        if ($candidate !== null && $candidate->is_master && $this->masterAccess->canAccess($candidate, $tenant)) {
+            return $candidate;
+        }
+
+        return null;
     }
 
     public function logout(User $user): void
@@ -202,7 +257,7 @@ class AuthService
     }
 
     /**
-     * @return Collection<int, \App\Modules\Tenant\Models\Tenant>
+     * @return Collection<int, Tenant>
      */
     public function availableTenantsFor(User $user): Collection
     {
@@ -243,9 +298,10 @@ class AuthService
 
     /**
      * Autentica via sessão (SPA stateful, cookie HttpOnly) quando disponível;
-     * caso contrário emite um personal access token (clientes de API).
+     * caso contrário emite um personal access token (clientes de API) que
+     * guarda o tenant selecionado no login.
      */
-    private function authenticate(User $user): ?string
+    private function authenticate(User $user, ?Tenant $tenant = null): ?string
     {
         $request = request();
 
@@ -256,6 +312,12 @@ class AuthService
             return null;
         }
 
-        return $user->createToken(self::TOKEN_NAME)->plainTextToken;
+        $newToken = $user->createToken(self::TOKEN_NAME);
+
+        if ($tenant !== null) {
+            $newToken->accessToken->forceFill(['tenant_id' => $tenant->getKey()])->save();
+        }
+
+        return $newToken->plainTextToken;
     }
 }

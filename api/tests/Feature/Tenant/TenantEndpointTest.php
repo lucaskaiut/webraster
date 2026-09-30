@@ -100,6 +100,93 @@ class TenantEndpointTest extends TestCase
             ->assertJsonPath('data.signature_url', null);
     }
 
+    public function test_update_persists_app_settings(): void
+    {
+        $tenant = $this->createTenantWithRoles();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson('/api/tenant', [
+            'app_name' => 'Rastreio Fácil',
+            'app_icon_path' => 'uploads/app-icon.png',
+            'app_logo_path' => 'uploads/app-logo.png',
+            'app_primary_color' => '#5B5CE2',
+            'app_secondary_color' => '#0EA5E9',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.app_name', 'Rastreio Fácil')
+            ->assertJsonPath('data.app_icon_path', 'uploads/app-icon.png')
+            ->assertJsonPath('data.app_icon_url', asset('storage/uploads/app-icon.png'))
+            ->assertJsonPath('data.app_logo_path', 'uploads/app-logo.png')
+            ->assertJsonPath('data.app_logo_url', asset('storage/uploads/app-logo.png'))
+            ->assertJsonPath('data.app_primary_color', '#5B5CE2')
+            ->assertJsonPath('data.app_secondary_color', '#0EA5E9');
+
+        $this->assertDatabaseHas('tenants', [
+            'id' => $tenant->getKey(),
+            'app_name' => 'Rastreio Fácil',
+            'app_primary_color' => '#5B5CE2',
+            'app_secondary_color' => '#0EA5E9',
+        ]);
+
+        $this->putJson('/api/tenant', [
+            'app_name' => null,
+            'app_icon_path' => null,
+            'app_logo_path' => null,
+            'app_primary_color' => null,
+            'app_secondary_color' => null,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.app_name', null)
+            ->assertJsonPath('data.app_icon_url', null)
+            ->assertJsonPath('data.app_logo_url', null)
+            ->assertJsonPath('data.app_primary_color', null)
+            ->assertJsonPath('data.app_secondary_color', null);
+    }
+
+    public function test_update_validates_app_colors(): void
+    {
+        $tenant = $this->createTenantWithRoles();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson('/api/tenant', ['app_primary_color' => 'azul'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['app_primary_color']);
+
+        $this->putJson('/api/tenant', ['app_secondary_color' => '123456'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['app_secondary_color']);
+    }
+
+    public function test_update_can_change_identifier(): void
+    {
+        $tenant = $this->createTenantWithRoles();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson('/api/tenant', ['identifier' => 'Novo-Identificador'])
+            ->assertOk()
+            ->assertJsonPath('data.identifier', 'novo-identificador');
+
+        $this->assertDatabaseHas('tenants', [
+            'id' => $tenant->getKey(),
+            'identifier' => 'novo-identificador',
+        ]);
+    }
+
+    public function test_update_rejects_identifier_already_in_use(): void
+    {
+        $tenant = $this->createTenantWithRoles();
+        $this->createTenantWithRoles(['identifier' => 'em-uso']);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson('/api/tenant', ['identifier' => 'em-uso'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['identifier']);
+    }
+
     public function test_update_validates_document(): void
     {
         $tenant = $this->createTenantWithRoles();

@@ -53,6 +53,7 @@ class AuthController extends ApiController
         $result = $this->service->login(
             $request->validated('email'),
             $request->validated('password'),
+            $request->validated('tenant_identifier'),
         );
 
         return $this->success($this->authPayload($result), 'Login realizado com sucesso.');

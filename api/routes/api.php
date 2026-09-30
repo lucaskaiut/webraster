@@ -49,6 +49,8 @@ use App\Modules\Report\Http\Controllers\ReportController;
 use App\Modules\Service\Http\Controllers\ServiceController;
 use App\Modules\ServiceOrder\Http\Controllers\ServiceOrderController;
 use App\Modules\Shared\Http\Controllers\FileUploadController;
+use App\Modules\Tenant\Http\Controllers\BuildTenantController;
+use App\Modules\Tenant\Http\Controllers\PublicTenantController;
 use App\Modules\Tenant\Http\Controllers\TenantController;
 use App\Modules\Tracking\Http\Controllers\TraccarWebhookController;
 use App\Modules\Tracking\Http\Controllers\TrackingController;
@@ -76,6 +78,9 @@ Route::get('billing/plans/catalog', [PlanController::class, 'catalog']);
 Route::get('plans/public', [PlanController::class, 'catalog']);
 Route::get('billing/gateways', [SubscriptionController::class, 'gateways']);
 Route::get('payment-methods', [PaymentMethodController::class, 'index']);
+
+Route::get('public/tenants/{identifier}', PublicTenantController::class)->middleware('throttle:api');
+Route::get('build/tenants', BuildTenantController::class)->middleware('build.token');
 
 Route::post('webhooks/payments/{gateway}/{tenantUuid}', PaymentWebhookController::class)->middleware('throttle:api');
 

@@ -33,6 +33,7 @@ export interface TenantVehicleAlertDefault {
 export interface Tenant {
   id: string
   name: string
+  identifier: string
   document: string
   email: string
   phone: string | null
@@ -42,6 +43,13 @@ export interface Tenant {
   favicon_url: string | null
   signature_path: string | null
   signature_url: string | null
+  app_name: string | null
+  app_icon_path: string | null
+  app_icon_url: string | null
+  app_logo_path: string | null
+  app_logo_url: string | null
+  app_primary_color: string | null
+  app_secondary_color: string | null
   vehicle_alert_defaults?: TenantVehicleAlertDefault[] | null
   traccar_server_ip: string | null
   traccar_server_dns: string | null

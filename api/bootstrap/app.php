@@ -8,6 +8,7 @@ use App\Modules\Client\Http\Middleware\ResolveClientScope;
 use App\Modules\Shared\Http\ApiError;
 use App\Modules\Tenant\Exceptions\TenantAccessForbidden;
 use App\Modules\Tenant\Exceptions\TenantCouldNotBeResolved;
+use App\Modules\Tenant\Http\Middleware\EnsureBuildToken;
 use App\Modules\Tenant\Http\Middleware\EnsureChildTenant;
 use App\Modules\Tenant\Http\Middleware\ResolveTenant;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -49,6 +50,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'auth.multi' => MultiAuthenticate::class,
             'subscription.active' => EnsureActiveSubscription::class,
             'tenant.child' => EnsureChildTenant::class,
+            'build.token' => EnsureBuildToken::class,
         ]);
 
         $middleware->prependToPriorityList(

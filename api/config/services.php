@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'build' => [
+        'token' => env('BUILD_TOKEN'),
+    ],
+
 ];

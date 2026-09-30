@@ -27,12 +27,18 @@ export interface UpdateChildTenantPayload {
 
 export interface UpdateTenantPayload {
   name?: string
+  identifier?: string
   document?: string
   email?: string
   phone?: string | null
   logo_path?: string | null
   favicon_path?: string | null
   signature_path?: string | null
+  app_name?: string | null
+  app_icon_path?: string | null
+  app_logo_path?: string | null
+  app_primary_color?: string | null
+  app_secondary_color?: string | null
   vehicle_alert_defaults?: TenantVehicleAlertDefault[]
 }
 

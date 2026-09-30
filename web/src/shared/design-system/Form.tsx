@@ -21,6 +21,7 @@ import { Textarea, type TextareaProps } from './Textarea'
 import { Select, type SelectProps } from './Select'
 import { SearchSelect, type SearchSelectOption } from './SearchSelect'
 import { Checkbox } from './Checkbox'
+import { ColorPicker } from './ColorPicker'
 import { Switch } from './Switch'
 import { RadioGroup, type RadioOption } from './RadioGroup'
 
@@ -340,6 +341,42 @@ export function SearchSelectField({
           emptyMessage={emptyMessage}
           disabled={disabled}
           className={className}
+        />
+      )}
+    />
+  )
+}
+
+export function ColorField({
+  name,
+  label,
+  hint,
+  required,
+  className,
+  fallback,
+  disabled,
+}: BaseFieldProps & { fallback?: string; disabled?: boolean }) {
+  const { control } = useFormContext()
+  const error = useFieldError(name)
+
+  return (
+    <Controller
+      control={control}
+      name={name}
+      render={({ field }) => (
+        <ColorPicker
+          id={name}
+          name={name}
+          label={label}
+          hint={hint}
+          error={error}
+          required={required}
+          className={className}
+          fallback={fallback}
+          disabled={disabled}
+          value={(field.value as string | null) ?? null}
+          onChange={field.onChange}
+          onBlur={field.onBlur}
         />
       )}
     />

@@ -6,6 +6,7 @@ use App\Modules\Alert\Enums\AlertType;
 use App\Modules\Shared\Rules\CpfOrCnpj;
 use App\Modules\Tenant\Support\Facades\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class UpdateTenantRequest extends FormRequest
@@ -29,6 +30,10 @@ class UpdateTenantRequest extends FormRequest
 
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'identifier' => [
+                'sometimes', 'required', 'string', 'max:60', 'alpha_dash',
+                Rule::unique('tenants', 'identifier')->ignore($tenantId),
+            ],
             'document' => ['sometimes', 'required', 'string', new CpfOrCnpj],
             'email' => [
                 'sometimes', 'required', 'string', 'email', 'max:255',
@@ -38,6 +43,11 @@ class UpdateTenantRequest extends FormRequest
             'logo_path' => ['sometimes', 'nullable', 'string', 'max:255'],
             'favicon_path' => ['sometimes', 'nullable', 'string', 'max:255'],
             'signature_path' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'app_name' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'app_icon_path' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'app_logo_path' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'app_primary_color' => ['sometimes', 'nullable', 'string', 'max:9', 'regex:/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/'],
+            'app_secondary_color' => ['sometimes', 'nullable', 'string', 'max:9', 'regex:/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/'],
             'vehicle_alert_defaults' => ['sometimes', 'nullable', 'array'],
             'vehicle_alert_defaults.*.type' => ['required', 'string', Rule::in($configurableTypes)],
             'vehicle_alert_defaults.*.alarm_code' => ['nullable', 'string', 'max:40'],
@@ -51,6 +61,12 @@ class UpdateTenantRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        if ($this->has('identifier')) {
+            $this->merge([
+                'identifier' => Str::lower(trim((string) $this->input('identifier'))),
+            ]);
+        }
+
         if ($this->has('document')) {
             $this->merge([
                 'document' => (string) preg_replace('/\D+/', '', (string) $this->input('document')),
