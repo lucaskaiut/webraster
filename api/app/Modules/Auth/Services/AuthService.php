@@ -221,6 +221,26 @@ class AuthService
         }
     }
 
+    /**
+     * @throws ValidationException
+     */
+    public function changePassword(User $user, string $currentPassword, string $newPassword): void
+    {
+        if (! Hash::check($currentPassword, $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['A senha atual está incorreta.'],
+            ]);
+        }
+
+        $user->forceFill([
+            'password' => $newPassword,
+        ])->save();
+
+        $user->tokens()->delete();
+
+        event(new PasswordReset($user));
+    }
+
     public function sendPasswordResetLink(string $email): void
     {
         Password::broker()->sendResetLink(['email' => $email]);

@@ -7,6 +7,7 @@ use App\Modules\Auth\DTOs\AuthenticatedUser;
 use App\Modules\Auth\DTOs\NewTenantData;
 use App\Modules\Auth\DTOs\NewUserData;
 use App\Modules\Auth\DTOs\RegisterResult;
+use App\Modules\Auth\Http\Requests\ChangePasswordRequest;
 use App\Modules\Auth\Http\Requests\ForgotPasswordRequest;
 use App\Modules\Auth\Http\Requests\LoginRequest;
 use App\Modules\Auth\Http\Requests\RegisterRequest;
@@ -64,6 +65,17 @@ class AuthController extends ApiController
         $this->service->logout($request->user());
 
         return $this->success(null, 'Logout realizado com sucesso.');
+    }
+
+    public function changePassword(ChangePasswordRequest $request): JsonResponse
+    {
+        $this->service->changePassword(
+            $request->user(),
+            $request->validated('current_password'),
+            $request->validated('password'),
+        );
+
+        return $this->success(null, 'Senha alterada com sucesso.');
     }
 
     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse

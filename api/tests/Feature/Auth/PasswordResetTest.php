@@ -79,6 +79,53 @@ class PasswordResetTest extends TestCase
         ])->assertOk();
     }
 
+    public function test_change_password_updates_password_and_revokes_tokens(): void
+    {
+        $tenant = $this->createTenantWithRoles();
+        $this->createAdmin($tenant, ['email' => 'admin@empresa.com']);
+
+        $token = $this->postJson('/api/auth/login', [
+            'email' => 'admin@empresa.com',
+            'password' => 'password',
+        ])->json('data.token');
+
+        $headers = ['Authorization' => "Bearer {$token}"];
+
+        $this->postJson('/api/auth/change-password', [
+            'current_password' => 'password',
+            'password' => 'nova-senha-segura',
+            'password_confirmation' => 'nova-senha-segura',
+        ], $headers)
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseCount('personal_access_tokens', 0);
+
+        $this->postJson('/api/auth/login', [
+            'email' => 'admin@empresa.com',
+            'password' => 'nova-senha-segura',
+        ])->assertOk();
+    }
+
+    public function test_change_password_rejects_wrong_current_password(): void
+    {
+        $tenant = $this->createTenantWithRoles();
+        $this->createAdmin($tenant, ['email' => 'admin@empresa.com']);
+
+        $token = $this->postJson('/api/auth/login', [
+            'email' => 'admin@empresa.com',
+            'password' => 'password',
+        ])->json('data.token');
+
+        $this->postJson('/api/auth/change-password', [
+            'current_password' => 'senha-errada',
+            'password' => 'nova-senha-segura',
+            'password_confirmation' => 'nova-senha-segura',
+        ], ['Authorization' => "Bearer {$token}"])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['current_password']);
+    }
+
     public function test_reset_password_fails_with_invalid_token(): void
     {
         $tenant = $this->createTenantWithRoles();

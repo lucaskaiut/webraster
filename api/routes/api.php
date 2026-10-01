@@ -69,6 +69,7 @@ Route::prefix('auth')->group(function (): void {
 
     Route::middleware(['auth:sanctum', 'tenant', 'client.scope'])->group(function (): void {
         Route::post('logout', [AuthController::class, 'logout']);
+        Route::post('change-password', [AuthController::class, 'changePassword'])->middleware('throttle:auth');
         Route::get('me', [AuthController::class, 'me']);
         Route::post('select-tenant', [AuthController::class, 'selectTenant']);
     });
