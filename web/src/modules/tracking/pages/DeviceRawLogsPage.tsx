@@ -138,8 +138,7 @@ export default function DeviceRawLogsPage() {
   return (
       <Page>
         <PageHeader
-          title="Log bruto do dispositivo"
-          description="Tramas brutas de todos os protocolos (texto ou hex), via Traccar — tail a cada 2 segundos."
+          title="Log do dispositivo"
           breadcrumb={[
             { label: 'Monitoramento', to: '/monitoring' },
             { label: 'Log do dispositivo' },
