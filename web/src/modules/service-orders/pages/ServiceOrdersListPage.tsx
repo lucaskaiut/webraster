@@ -192,7 +192,7 @@ export default function ServiceOrdersListPage() {
           </div>
         }
       />
-      <PageContent>
+      <PageContent variant="table">
         <FilterBar>
           <SearchInput
             placeholder="Buscar por número ou descrição..."
@@ -226,7 +226,7 @@ export default function ServiceOrdersListPage() {
           />
         </FilterBar>
 
-        <DataTable
+        <DataTable fillHeight
           caption="Lista de ordens de serviço"
           columns={columns}
           rows={query.data?.data ?? []}

@@ -105,7 +105,7 @@ export default function FinancePortalBillingsPage() {
         description="Cobranças em aberto e aguardando pagamento."
         breadcrumb={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Minhas faturas' }]}
       />
-      <PageContent>
+      <PageContent variant="table">
         <FilterBar>
           <Select
             aria-label="Status"
@@ -132,7 +132,7 @@ export default function FinancePortalBillingsPage() {
           />
         </FilterBar>
 
-        <DataTable
+        <DataTable fillHeight
           caption="Minhas faturas"
           columns={columns}
           rows={rows}

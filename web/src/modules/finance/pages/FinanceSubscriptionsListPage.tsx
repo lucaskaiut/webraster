@@ -157,7 +157,7 @@ export default function FinanceSubscriptionsListPage() {
           { label: 'Assinaturas' },
         ]}
       />
-      <PageContent>
+      <PageContent variant="table">
         <FilterBar>
           <SearchInput
             placeholder="Buscar por cliente..."
@@ -177,7 +177,7 @@ export default function FinanceSubscriptionsListPage() {
           />
         </FilterBar>
 
-        <DataTable
+        <DataTable fillHeight
           caption="Lista de assinaturas"
           columns={columns}
           rows={query.data?.data ?? []}

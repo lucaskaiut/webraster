@@ -3,7 +3,13 @@ import { Button, ConfirmDialog, Spinner, Textarea } from '@/shared/design-system
 import { useDeviceCommandsQuery, useSendDeviceCommand } from '../hooks/useDeviceCommands'
 import { commandLabel, isCriticalCommand } from '../lib/command-labels'
 
-export function VehicleCommandsPanel({ deviceId }: { deviceId: string }) {
+export function VehicleCommandsPanel({
+  deviceId,
+  allowCustom = true,
+}: {
+  deviceId: string
+  allowCustom?: boolean
+}) {
   const query = useDeviceCommandsQuery(deviceId)
   const send = useSendDeviceCommand(deviceId)
   const [customData, setCustomData] = useState('')
@@ -76,7 +82,7 @@ export function VehicleCommandsPanel({ deviceId }: { deviceId: string }) {
         ))}
       </div>
 
-      {customAvailable && (
+      {allowCustom && customAvailable && (
         <div className="space-y-2">
           <label className="block text-[13px] font-medium text-foreground" htmlFor="custom-command">
             {commandLabel('custom')}

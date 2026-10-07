@@ -5,7 +5,12 @@ import { inputClasses } from './Input'
 
 export function FilterBar({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn('flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between', className)}>
+    <div
+      className={cn(
+        'flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between',
+        className,
+      )}
+    >
       {children}
     </div>
   )

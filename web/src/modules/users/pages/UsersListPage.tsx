@@ -166,7 +166,7 @@ export default function UsersListPage() {
         }
       />
 
-      <PageContent>
+      <PageContent variant="table">
         <FilterBar>
           <SearchInput
             placeholder="Buscar por nome ou e-mail..."
@@ -176,7 +176,7 @@ export default function UsersListPage() {
           />
         </FilterBar>
 
-        <DataTable
+        <DataTable fillHeight
           caption="Lista de usuários"
           columns={columns}
           rows={query.data?.data ?? []}

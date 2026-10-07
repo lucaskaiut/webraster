@@ -111,8 +111,8 @@ export default function RolesListPage() {
         }
       />
 
-      <PageContent>
-        <DataTable
+      <PageContent variant="table">
+        <DataTable fillHeight
           caption="Lista de perfis de acesso"
           columns={columns}
           rows={query.data?.data ?? []}

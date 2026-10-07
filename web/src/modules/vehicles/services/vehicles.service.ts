@@ -51,6 +51,8 @@ export interface VehiclePayload {
   fipe_score?: number | null
   is_active?: boolean
   alert_configs?: VehicleAlertConfigPayload[]
+  equipment_id?: string | null
+  equipment_notes?: string | null
 }
 
 export interface AssignmentPayload {

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { BellRing } from 'lucide-react'
 import {
@@ -11,9 +11,12 @@ import {
   PageContent,
   PageHeader,
   Pagination,
+  SearchSelect,
   Select,
   type Column,
 } from '@/shared/design-system'
+import type { SearchSelectOption } from '@/shared/design-system/SearchSelect'
+import { vehiclesService } from '@/modules/vehicles/services/vehicles.service'
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import type { Alert } from '@/shared/types/models'
@@ -21,6 +24,28 @@ import { SpeedAlertDetailModal } from '../components/SpeedAlertDetailModal'
 import { useAcknowledgeAlert, useAlertsQuery, useResolveAlert } from '../hooks/useAlerts'
 
 const PER_PAGE = 15
+
+async function loadVehicleOptions(search: string) {
+  const response = await vehiclesService.list({ search: search || undefined, per_page: 20 })
+
+  return response.data.map((vehicle) => ({
+    value: vehicle.id,
+    label: `${vehicle.plate}${vehicle.model ? ` · ${vehicle.model}` : ''}`,
+  }))
+}
+
+async function resolveVehicleLabel(value: string) {
+  try {
+    const vehicle = await vehiclesService.get(value)
+
+    return {
+      value: vehicle.id,
+      label: `${vehicle.plate}${vehicle.model ? ` · ${vehicle.model}` : ''}`,
+    }
+  } catch {
+    return null
+  }
+}
 
 const TYPE_OPTIONS = [
   { value: '', label: 'Todos os tipos' },
@@ -42,6 +67,14 @@ export default function AlertsListPage() {
   const type = searchParams.get('type') ?? ''
   const status = searchParams.get('status') ?? ''
   const severity = searchParams.get('severity') ?? ''
+  const vehicleId = searchParams.get('vehicle_id') ?? ''
+  const vehicleLabelParam = searchParams.get('vehicle_label') ?? ''
+
+  const vehicleDefaultOption = useMemo<SearchSelectOption | null>(() => {
+    if (!vehicleId || !vehicleLabelParam) return null
+
+    return { value: vehicleId, label: vehicleLabelParam }
+  }, [vehicleId, vehicleLabelParam])
   const { can } = usePermissions()
   const acknowledge = useAcknowledgeAlert()
   const resolve = useResolveAlert()
@@ -49,6 +82,7 @@ export default function AlertsListPage() {
   const query = useAlertsQuery({
     page,
     per_page: PER_PAGE,
+    vehicle_id: vehicleId || undefined,
     type: type || undefined,
     status: status || undefined,
     severity: severity || undefined,
@@ -58,6 +92,25 @@ export default function AlertsListPage() {
     setSearchParams(
       (params) => {
         value ? params.set(key, value) : params.delete(key)
+        params.delete('page')
+        return params
+      },
+      { replace: true },
+    )
+  }
+
+  const setVehicleFilter = (value: string, option?: SearchSelectOption) => {
+    setSearchParams(
+      (params) => {
+        if (value) {
+          params.set('vehicle_id', value)
+          if (option?.label) {
+            params.set('vehicle_label', option.label)
+          }
+        } else {
+          params.delete('vehicle_id')
+          params.delete('vehicle_label')
+        }
         params.delete('page')
         return params
       },
@@ -176,11 +229,25 @@ export default function AlertsListPage() {
     <Page>
       <PageHeader
         title="Alertas"
-        description="Histórico de alertas gerados pelo rastreamento."
+        description={
+          vehicleId
+            ? `Alertas do veículo ${vehicleLabelParam || vehicleId}.`
+            : 'Histórico de alertas gerados pelo rastreamento.'
+        }
         breadcrumb={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Alertas' }]}
       />
-      <PageContent>
+      <PageContent variant="table">
         <FilterBar>
+          <SearchSelect
+            label="Veículo"
+            className="w-full sm:max-w-xs"
+            placeholder="Todos os veículos"
+            value={vehicleId}
+            defaultOption={vehicleDefaultOption}
+            onChange={(value, option) => setVehicleFilter(value, option)}
+            loadOptions={loadVehicleOptions}
+            resolveLabel={resolveVehicleLabel}
+          />
           <Select
             aria-label="Filtrar por tipo"
             className="w-52"
@@ -215,7 +282,7 @@ export default function AlertsListPage() {
           />
         </FilterBar>
 
-        <DataTable
+        <DataTable fillHeight
           caption="Lista de alertas"
           columns={columns}
           rows={query.data?.data ?? []}

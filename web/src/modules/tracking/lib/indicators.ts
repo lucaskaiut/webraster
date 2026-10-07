@@ -9,8 +9,8 @@ export type SignalLevel = 'strong' | 'medium' | 'weak' | 'none' | 'unknown'
 export type VoltageLevel = 'normal' | 'low' | 'critical'
 
 export const POSITION_DELAY_MINUTES = 15
-export const VOLTAGE_NORMAL_MIN = 12.5
-export const VOLTAGE_LOW_MIN = 11.5
+/** Abaixo deste valor (V) o indicador de tensão entra em alerta. */
+export const VOLTAGE_ALERT_BELOW = 8
 export const BATTERY_GOOD_MIN = 70
 export const BATTERY_LOW_MIN = 30
 
@@ -154,8 +154,7 @@ export function formatSignal(signal: number | null | undefined): string {
 }
 
 export function voltageLevel(voltage: number): VoltageLevel {
-  if (voltage >= VOLTAGE_NORMAL_MIN) return 'normal'
-  if (voltage >= VOLTAGE_LOW_MIN) return 'low'
+  if (voltage >= VOLTAGE_ALERT_BELOW) return 'normal'
 
   return 'critical'
 }

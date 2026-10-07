@@ -130,6 +130,19 @@ class AlertSupportTest extends TestCase
     }
 
     #[Test]
+    public function suppresses_low_power_alarm_when_voltage_is_at_least_8_volts(): void
+    {
+        $attributes = ['alarm' => 'lowPower', 'adc1' => 12.3];
+
+        $this->assertSame([], TraccarAttributeReader::activeAlarms($attributes));
+        $this->assertSame([], TraccarAttributeReader::extractDeviceAlarms($attributes));
+        $this->assertSame(
+            ['lowpower'],
+            TraccarAttributeReader::activeAlarms(['alarm' => 'lowPower', 'adc1' => 7.5]),
+        );
+    }
+
+    #[Test]
     public function infers_external_power_from_voltage(): void
     {
         $this->assertTrue(TraccarAttributeReader::externalPower(['adc1' => 12.63]));

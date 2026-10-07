@@ -276,6 +276,7 @@ export interface Driver {
   id: string
   client_id: string
   client?: Client
+  vehicle_id?: string | null
   name: string
   document: string | null
   phone: string | null

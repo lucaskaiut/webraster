@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
-import { Car, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Car, Plus } from 'lucide-react'
 import {
   Badge,
-  Button,
   ButtonLink,
   ConfirmDialog,
   DataTable,
@@ -24,6 +23,7 @@ import type { TrackingLiveVehicle, Vehicle } from '@/shared/types/models'
 import { formatDateTimeWithSeconds } from '@/shared/utils/format'
 import { useTrackingLiveQuery } from '@/modules/tracking/hooks/useTracking'
 import { VehicleStatusIndicators } from '@/modules/tracking/components/VehicleStatusIndicators'
+import { VehicleListRowActions } from '../components/VehicleListRowActions'
 import { useDeleteVehicle, useVehiclesQuery } from '../hooks/useVehicles'
 
 const PER_PAGE = 10
@@ -93,8 +93,15 @@ export default function VehiclesListPage() {
     deleteVehicle.mutate(vehicleToDelete.id, { onSettled: () => setVehicleToDelete(null) })
   }
 
-  const canMutate = can(Permission.VEHICLE_UPDATE) || can(Permission.VEHICLE_DELETE)
   const canViewEquipmentDetails = can(Permission.EQUIPMENT_DETAILS_READ)
+  const showActionsColumn =
+    can(Permission.VEHICLE_UPDATE) ||
+    can(Permission.VEHICLE_DELETE) ||
+    can(Permission.TRACKING_READ) ||
+    can(Permission.REPORT_VIEW) ||
+    can(Permission.DRIVER_CREATE) ||
+    can(Permission.DEVICE_COMMANDS_SEND) ||
+    can(Permission.ALERT_READ)
 
   const columns: Array<Column<Vehicle>> = [
     {
@@ -179,35 +186,27 @@ export default function VehiclesListPage() {
           } satisfies Column<Vehicle>,
         ]
       : []),
-    ...(canMutate
+    ...(showActionsColumn
       ? [
           {
             key: 'actions',
-            header: <span className="sr-only">Ações</span>,
-            className: 'w-24 text-right',
+            header: 'Ações',
+            className: 'w-20 text-right',
             render: (vehicle: Vehicle) => (
-              <div className="flex items-center justify-end gap-1">
-                {can(Permission.VEHICLE_UPDATE) && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => navigate(`/vehicles/${vehicle.id}/edit`)}
-                    aria-label={`Editar ${vehicle.plate}`}
-                  >
-                    <Pencil className="size-4" />
-                  </Button>
-                )}
-                {can(Permission.VEHICLE_DELETE) && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setVehicleToDelete(vehicle)}
-                    aria-label={`Excluir ${vehicle.plate}`}
-                    className="text-danger hover:bg-danger-soft hover:text-danger"
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                )}
+              <div className="flex justify-end">
+                <VehicleListRowActions
+                  vehicle={vehicle}
+                  onEdit={
+                    can(Permission.VEHICLE_UPDATE)
+                      ? () => navigate(`/vehicles/${vehicle.id}/edit`)
+                      : undefined
+                  }
+                  onDelete={
+                    can(Permission.VEHICLE_DELETE)
+                      ? () => setVehicleToDelete(vehicle)
+                      : undefined
+                  }
+                />
               </div>
             ),
           } satisfies Column<Vehicle>,
@@ -231,7 +230,7 @@ export default function VehiclesListPage() {
         }
       />
 
-      <PageContent>
+      <PageContent variant="table">
         <FilterBar>
           <SearchInput
             placeholder="Buscar por placa, chassi, marca, modelo ou cliente..."
@@ -244,7 +243,7 @@ export default function VehiclesListPage() {
           />
         </FilterBar>
 
-        <DataTable
+        <DataTable fillHeight
           caption="Lista de veículos"
           columns={columns}
           rows={query.data?.data ?? []}

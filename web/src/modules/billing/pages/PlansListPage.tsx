@@ -118,8 +118,8 @@ export default function PlansListPage() {
         }
       />
 
-      <PageContent>
-        <DataTable
+      <PageContent variant="table">
+        <DataTable fillHeight
           columns={columns}
           rows={query.data ?? []}
           rowKey={(plan) => plan.id}

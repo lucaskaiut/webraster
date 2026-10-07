@@ -152,7 +152,7 @@ export default function PoisListPage() {
           </Can>
         }
       />
-      <PageContent>
+      <PageContent variant="table">
         <FilterBar>
           <SearchInput
             placeholder="Buscar POI..."
@@ -178,7 +178,7 @@ export default function PoisListPage() {
           />
         </FilterBar>
 
-        <DataTable
+        <DataTable fillHeight
           caption="Lista de POIs"
           columns={columns}
           rows={query.data?.data ?? []}

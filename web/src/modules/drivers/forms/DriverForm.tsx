@@ -25,6 +25,10 @@ interface DriverFormProps {
   defaultValues?: Partial<DriverFormValues>
   submitting: boolean
   onSubmit: (payload: DriverPayload) => Promise<unknown>
+  fixedClientId?: string
+  fixedVehicleId?: string
+  showCancel?: boolean
+  submitLabel?: string
 }
 
 async function loadClientOptions(search: string) {
@@ -46,11 +50,20 @@ async function resolveClientLabel(value: string) {
   }
 }
 
-export function DriverForm({ mode, defaultValues, submitting, onSubmit }: DriverFormProps) {
+export function DriverForm({
+  mode,
+  defaultValues,
+  submitting,
+  onSubmit,
+  fixedClientId,
+  fixedVehicleId,
+  showCancel = true,
+  submitLabel,
+}: DriverFormProps) {
   const form = useForm<DriverFormValues>({
     resolver: zodResolver(driverSchema),
     defaultValues: {
-      client_id: '',
+      client_id: fixedClientId ?? '',
       name: '',
       email: '',
       cnh_number: '',
@@ -60,12 +73,14 @@ export function DriverForm({ mode, defaultValues, submitting, onSubmit }: Driver
       ...defaultValues,
       document: maskCpf(defaultValues?.document ?? ''),
       phone: maskPhone(defaultValues?.phone ?? ''),
+      ...(fixedClientId ? { client_id: fixedClientId } : {}),
     },
   })
 
   const handleSubmit = async (values: DriverFormValues) => {
     const payload: DriverPayload = {
-      client_id: values.client_id,
+      client_id: fixedClientId ?? values.client_id,
+      ...(fixedVehicleId ? { vehicle_id: fixedVehicleId } : {}),
       name: values.name,
       document: values.document ? onlyDigits(values.document) : null,
       phone: values.phone ? onlyDigits(values.phone) : null,
@@ -91,16 +106,18 @@ export function DriverForm({ mode, defaultValues, submitting, onSubmit }: Driver
         <Form form={form} onSubmit={handleSubmit} className="space-y-8">
           <Section title="Vínculo e identificação">
             <div className="grid gap-4 sm:grid-cols-2">
-              <SearchSelectField
-                name="client_id"
-                label="Cliente"
-                required
-                className="sm:col-span-2"
-                placeholder="Buscar cliente..."
-                emptyMessage="Nenhum cliente encontrado"
-                loadOptions={loadClientOptions}
-                resolveLabel={resolveClientLabel}
-              />
+              {!fixedClientId && (
+                <SearchSelectField
+                  name="client_id"
+                  label="Cliente"
+                  required
+                  className="sm:col-span-2"
+                  placeholder="Buscar cliente..."
+                  emptyMessage="Nenhum cliente encontrado"
+                  loadOptions={loadClientOptions}
+                  resolveLabel={resolveClientLabel}
+                />
+              )}
               <TextField name="name" label="Nome" required className="sm:col-span-2" />
               <TextField
                 name="document"
@@ -135,11 +152,13 @@ export function DriverForm({ mode, defaultValues, submitting, onSubmit }: Driver
           </Section>
 
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <ButtonLink to="/drivers" variant="secondary">
-              Cancelar
-            </ButtonLink>
+            {showCancel && (
+              <ButtonLink to="/drivers" variant="secondary">
+                Cancelar
+              </ButtonLink>
+            )}
             <Button type="submit" loading={submitting}>
-              {mode === 'create' ? 'Criar motorista' : 'Salvar alterações'}
+              {submitLabel ?? (mode === 'create' ? 'Criar motorista' : 'Salvar alterações')}
             </Button>
           </div>
         </Form>

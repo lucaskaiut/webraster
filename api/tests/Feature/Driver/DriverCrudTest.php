@@ -5,6 +5,7 @@ namespace Tests\Feature\Driver;
 use App\Modules\Client\Models\Client;
 use App\Modules\Driver\Models\Driver;
 use App\Modules\Shared\Support\Document;
+use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\InteractsWithTenants;
@@ -39,6 +40,29 @@ class DriverCrudTest extends TestCase
             'tenant_id' => $tenant->getKey(),
             'client_id' => $client->getKey(),
             'name' => 'João Motorista',
+        ]);
+    }
+
+    public function test_store_can_link_driver_to_vehicle(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create(['plate' => 'DRV1A23']);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->postJson('/api/drivers', [
+            'client_id' => $client->uuid,
+            'vehicle_id' => $vehicle->uuid,
+            'name' => 'Maria Condutora',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.vehicle_id', $vehicle->uuid);
+
+        $this->assertDatabaseHas('drivers', [
+            'client_id' => $client->getKey(),
+            'vehicle_id' => $vehicle->getKey(),
+            'name' => 'Maria Condutora',
         ]);
     }
 

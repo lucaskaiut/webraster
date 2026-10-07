@@ -136,7 +136,7 @@ export default function FinanceBillingsListPage() {
           { label: 'Cobranças' },
         ]}
       />
-      <PageContent>
+      <PageContent variant="table">
         <FilterBar>
           <SearchInput
             placeholder="Buscar cobranças..."
@@ -156,7 +156,7 @@ export default function FinanceBillingsListPage() {
           />
         </FilterBar>
 
-        <DataTable
+        <DataTable fillHeight
           caption="Lista de cobranças"
           columns={columns}
           rows={query.data?.data ?? []}

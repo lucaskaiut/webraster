@@ -127,7 +127,7 @@ export default function TenantsListPage() {
         actions={showCreateButton ? createButton : undefined}
       />
 
-      <PageContent>
+      <PageContent variant="table">
         <FilterBar>
           <SearchInput
             placeholder="Buscar por nome, domínio ou e-mail..."
@@ -140,7 +140,7 @@ export default function TenantsListPage() {
           />
         </FilterBar>
 
-        <DataTable
+        <DataTable fillHeight
           caption="Lista de empresas"
           columns={columns}
           rows={query.data?.data ?? []}

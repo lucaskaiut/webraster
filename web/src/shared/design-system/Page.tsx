@@ -5,10 +5,7 @@ import { Breadcrumb, type BreadcrumbItem } from './Breadcrumb'
 export function Page({ className, ...props }: ComponentProps<'div'>) {
   return (
     <div
-      className={cn(
-        'flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain pb-6',
-        className,
-      )}
+      className={cn('flex min-h-0 flex-1 flex-col gap-6 overflow-hidden pb-6', className)}
       {...props}
     />
   )
@@ -26,7 +23,7 @@ export function PageHeader({
   actions?: ReactNode
 }) {
   return (
-    <header className="flex flex-col gap-3">
+    <header className="flex shrink-0 flex-col gap-3">
       {breadcrumb && <Breadcrumb items={breadcrumb} />}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
@@ -39,8 +36,23 @@ export function PageHeader({
   )
 }
 
-export function PageContent({ className, ...props }: ComponentProps<'div'>) {
-  return <div className={cn('flex min-h-0 flex-col gap-5', className)} {...props} />
+export function PageContent({
+  className,
+  variant = 'default',
+  ...props
+}: ComponentProps<'div'> & { variant?: 'default' | 'table' }) {
+  return (
+    <div
+      className={cn(
+        'flex min-h-0 flex-col gap-5',
+        variant === 'default' && 'flex-1 overflow-y-auto overscroll-contain',
+        variant === 'table' &&
+          'flex-1 overflow-hidden [&_[data-slot=data-table-root][data-fill-height=true]]:min-h-0 [&_[data-slot=data-table-root][data-fill-height=true]]:flex-1',
+        className,
+      )}
+      {...props}
+    />
+  )
 }
 
 export function Container({ className, ...props }: ComponentProps<'div'>) {

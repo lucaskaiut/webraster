@@ -17,7 +17,7 @@ export function Pagination({
   return (
     <nav
       aria-label="Paginação"
-      className={cn('flex flex-wrap items-center justify-between gap-3', className)}
+      className={cn('flex shrink-0 flex-wrap items-center justify-between gap-3', className)}
     >
       <p className="text-[13px] text-muted">
         Exibindo <span className="font-medium text-foreground">{meta.from ?? 0}</span>–

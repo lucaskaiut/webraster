@@ -153,7 +153,7 @@ export default function GeofencesListPage() {
           </Can>
         }
       />
-      <PageContent>
+      <PageContent variant="table">
         <FilterBar>
           <SearchInput
             placeholder="Buscar geocerca..."
@@ -166,7 +166,7 @@ export default function GeofencesListPage() {
           />
         </FilterBar>
 
-        <DataTable
+        <DataTable fillHeight
           caption="Lista de geocercas"
           columns={columns}
           rows={query.data?.data ?? []}

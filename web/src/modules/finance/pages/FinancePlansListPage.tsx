@@ -142,7 +142,7 @@ export default function FinancePlansListPage() {
           </Can>
         }
       />
-      <PageContent>
+      <PageContent variant="table">
         <FilterBar>
           <SearchInput
             placeholder="Buscar planos..."
@@ -166,7 +166,7 @@ export default function FinancePlansListPage() {
           />
         </FilterBar>
 
-        <DataTable
+        <DataTable fillHeight
           caption="Lista de planos financeiros"
           columns={columns}
           rows={query.data?.data ?? []}

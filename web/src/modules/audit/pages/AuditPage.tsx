@@ -69,7 +69,7 @@ export default function AuditPage() {
         breadcrumb={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Auditoria' }]}
       />
 
-      <PageContent>
+      <PageContent variant="table">
         <div className="flex gap-2">
           <Select
             aria-label="Filtrar por evento"
@@ -83,7 +83,7 @@ export default function AuditPage() {
           />
         </div>
 
-        <DataTable
+        <DataTable fillHeight
           caption="Registros de auditoria"
           columns={columns}
           rows={query.data?.data ?? []}

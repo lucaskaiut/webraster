@@ -126,7 +126,7 @@ export default function NotificationHistoryPage() {
         breadcrumb={[{ label: 'Notificações', to: '/notifications/sent' }, { label: 'Histórico' }]}
       />
 
-      <PageContent>
+      <PageContent variant="table">
         <div className="flex flex-wrap gap-2">
           <Select
             aria-label="Filtrar por origem"
@@ -178,7 +178,7 @@ export default function NotificationHistoryPage() {
           />
         </div>
 
-        <DataTable
+        <DataTable fillHeight
           caption="Histórico de notificações"
           columns={columns}
           rows={query.data?.data ?? []}

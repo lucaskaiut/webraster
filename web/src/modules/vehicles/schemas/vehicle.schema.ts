@@ -46,6 +46,8 @@ export const vehicleSchema = z.object({
   fipe_score: z.string(),
   is_active: z.boolean(),
   alert_configs: z.array(vehicleAlertConfigSchema),
+  equipment_id: z.string(),
+  equipment_notes: z.string(),
 })
 
 export type VehicleFormValues = z.infer<typeof vehicleSchema>

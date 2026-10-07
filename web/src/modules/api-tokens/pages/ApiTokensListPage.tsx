@@ -123,8 +123,8 @@ export default function ApiTokensListPage() {
         }
       />
 
-      <PageContent>
-        <DataTable
+      <PageContent variant="table">
+        <DataTable fillHeight
           caption="Lista de tokens de API"
           columns={columns}
           rows={query.data ?? []}

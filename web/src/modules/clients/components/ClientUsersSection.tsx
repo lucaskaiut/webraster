@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Contact, Plus, Trash2 } from 'lucide-react'
 import {
+  Badge,
   Button,
   Card,
   CardContent,
@@ -72,9 +73,21 @@ export function ClientUsersSection({ clientId }: { clientId: string }) {
       ),
     },
     {
-      key: 'phone',
-      header: 'Telefone',
-      render: (user) => <span className="text-muted">{user.phone ?? '—'}</span>,
+      key: 'roles',
+      header: 'Perfil',
+      render: (user) => (
+        <div className="flex flex-wrap gap-1">
+          {user.roles?.length ? (
+            user.roles.map((role) => (
+              <Badge key={role.id} variant="neutral">
+                {role.name}
+              </Badge>
+            ))
+          ) : (
+            <span className="text-muted">—</span>
+          )}
+        </div>
+      ),
     },
     {
       key: 'actions',

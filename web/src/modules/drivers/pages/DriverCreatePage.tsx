@@ -1,11 +1,15 @@
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import { Page, PageContent, PageHeader } from '@/shared/design-system'
 import { DriverForm } from '../forms/DriverForm'
 import { useCreateDriver } from '../hooks/useDrivers'
 
 export default function DriverCreatePage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const createDriver = useCreateDriver()
+
+  const fixedClientId = searchParams.get('client_id') ?? undefined
+  const fixedVehicleId = searchParams.get('vehicle_id') ?? undefined
 
   return (
     <Page>
@@ -22,6 +26,8 @@ export default function DriverCreatePage() {
       <PageContent>
         <DriverForm
           mode="create"
+          fixedClientId={fixedClientId}
+          fixedVehicleId={fixedVehicleId}
           submitting={createDriver.isPending}
           onSubmit={async (payload) => {
             await createDriver.mutateAsync(payload)

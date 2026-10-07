@@ -60,9 +60,26 @@ class VehicleController extends ApiController
         $this->authorize('create', Vehicle::class);
         $this->authorizeAlertConfigs($request);
 
-        $vehicle = $this->service->create($request->validated());
+        $data = $request->validated();
+        $equipmentId = $data['equipment_id'] ?? null;
+        $equipmentNotes = $data['equipment_notes'] ?? null;
+        unset($data['equipment_id'], $data['equipment_notes']);
 
-        return $this->created(VehicleResource::make($vehicle), 'Veículo criado com sucesso.');
+        $vehicle = $this->service->create($data);
+
+        if ($equipmentId !== null) {
+            $equipment = Equipment::query()->findOrFail((int) $equipmentId);
+            $this->assignments->install(
+                $vehicle->load('equipment'),
+                $equipment,
+                is_string($equipmentNotes) ? $equipmentNotes : null,
+            );
+        }
+
+        return $this->created(
+            VehicleResource::make($vehicle->fresh()->load(['client', 'equipment', 'alertConfigs'])),
+            'Veículo criado com sucesso.',
+        );
     }
 
     public function update(UpdateVehicleRequest $request, Vehicle $vehicle): JsonResponse

@@ -36,6 +36,7 @@ import {
   type VehicleFormValues,
 } from '../schemas/vehicle.schema'
 import { DEFAULT_VEHICLE_TYPE, vehicleTypeOptions } from '../lib/vehicle-types'
+import { loadAvailableEquipments } from '../lib/load-available-equipments'
 
 interface VehicleFormProps {
   mode: 'create' | 'edit'
@@ -178,9 +179,9 @@ function VehicleFormFields({
 }: VehicleFormProps & { tenantAlertConfigs?: VehicleAlertConfigValue[] }) {
   const { can } = usePermissions()
   const canConfigureAlerts = can(Permission.ALERT_CONFIG_UPDATE)
-  const sections = canConfigureAlerts
-    ? [...SECTIONS.slice(0, 3), ALERT_SECTION, ...SECTIONS.slice(3)]
-    : SECTIONS
+  const canAssignEquipment = mode === 'create' && can(Permission.VEHICLE_CREATE)
+  const canViewEquipmentDetails = can(Permission.EQUIPMENT_DETAILS_READ)
+  const sections = canConfigureAlerts ? [...SECTIONS, ALERT_SECTION] : SECTIONS
 
   const form = useForm<VehicleFormValues>({
     resolver: zodResolver(vehicleSchema),
@@ -211,6 +212,8 @@ function VehicleFormFields({
       fipe_brand: '',
       fipe_score: '',
       is_active: true,
+      equipment_id: '',
+      equipment_notes: '',
       ...defaultValues,
       alert_configs:
         defaultValues?.alert_configs ?? tenantAlertConfigs ?? defaultVehicleAlertConfigs(),
@@ -294,11 +297,31 @@ function VehicleFormFields({
             ),
           }
         : {}),
+      ...(mode === 'create' && values.equipment_id
+        ? {
+            equipment_id: values.equipment_id,
+            equipment_notes: values.equipment_notes || null,
+          }
+        : {}),
     }
 
     try {
       await onSubmit(payload)
-      if (resetOnSuccess) form.reset()
+      if (resetOnSuccess) {
+        form.reset({
+          ...form.getValues(),
+          plate: '',
+          chassis: '',
+          renavam: '',
+          brand: '',
+          model: '',
+          color: '',
+          year: '',
+          equipment_id: '',
+          equipment_notes: '',
+          ...(fixedClientId ? { client_id: fixedClientId } : { client_id: '' }),
+        })
+      }
     } catch (error) {
       if (isApiError(error) && error.status === 422) {
         applyApiErrorsToForm(form, error)
@@ -385,7 +408,11 @@ function VehicleFormFields({
         <Card id="veiculo-rastreamento" className="scroll-mt-24">
           <CardHeader
             title="Rastreamento"
-            description="Parâmetros usados para detectar excessos de velocidade."
+            description={
+              canAssignEquipment
+                ? 'Parâmetros de velocidade e, opcionalmente, o rastreador instalado no veículo.'
+                : 'Parâmetros usados para detectar excessos de velocidade.'
+            }
           />
           <CardContent className="grid gap-5 sm:grid-cols-2">
             <TextField
@@ -426,10 +453,28 @@ function VehicleFormFields({
               min={0}
               suffix="km"
             />
+            {canAssignEquipment && (
+              <>
+                <SearchSelectField
+                  name="equipment_id"
+                  label="Equipamento"
+                  className="sm:col-span-2"
+                  placeholder={
+                    canViewEquipmentDetails ? 'Buscar por IMEI...' : 'Buscar equipamento...'
+                  }
+                  emptyMessage="Nenhum equipamento disponível"
+                  loadOptions={loadAvailableEquipments}
+                  hint="Opcional. Liste apenas rastreadores sem veículo vinculado."
+                />
+                <TextField
+                  name="equipment_notes"
+                  label="Observações da instalação"
+                  className="sm:col-span-2"
+                />
+              </>
+            )}
           </CardContent>
         </Card>
-
-        {canConfigureAlerts && <VehicleAlertConfigsCard />}
 
         <Card id="veiculo-consumo" className="scroll-mt-24">
           <CardHeader
@@ -492,6 +537,8 @@ function VehicleFormFields({
             />
           </CardContent>
         </Card>
+
+        {canConfigureAlerts && <VehicleAlertConfigsCard />}
 
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           {showCancel && (

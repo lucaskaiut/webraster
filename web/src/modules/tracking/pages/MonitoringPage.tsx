@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router'
+import { useTopbarSlot } from '@/app/layouts/topbar-slot'
 import { useTrackingLiveQuery } from '../hooks/useTracking'
 import { useTrackingRealtime } from '../hooks/useTrackingRealtime'
 import type { GpsPosition } from '@/shared/types/models'
@@ -15,6 +17,7 @@ import { usePermissions } from '@/shared/hooks/usePermissions'
 import { Permission } from '@/shared/constants/permissions'
 
 export default function MonitoringPage() {
+  const [searchParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<FleetFilter>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -60,6 +63,18 @@ export default function MonitoringPage() {
     const timer = window.setInterval(() => setNow(Date.now()), 5000)
     return () => window.clearInterval(timer)
   }, [])
+
+  useEffect(() => {
+    const vehicleId = searchParams.get('vehicle')
+    const onlyParam = searchParams.get('only')
+
+    if (!vehicleId) return
+
+    setSelectedId(vehicleId)
+    setOnlySelected(onlyParam === '1')
+    setFleetOpen(false)
+    setFitRequest((current) => ({ id: (current?.id ?? 0) + 1, target: 'vehicle' }))
+  }, [searchParams])
 
   useEffect(() => {
     if (!playing || route.length < 2) return
@@ -127,15 +142,27 @@ export default function MonitoringPage() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [selected, handleClose])
 
-  return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
+  const refreshFleet = useCallback(() => {
+    void liveQuery.refetch()
+  }, [liveQuery])
+
+  const topbarContent = useMemo(
+    () => (
       <MonitoringHeader
+        variant="topbar"
         updating={liveQuery.isFetching}
         updatedAt={liveQuery.dataUpdatedAt || null}
-        onRefresh={() => void liveQuery.refetch()}
+        onRefresh={refreshFleet}
         error={liveQuery.isError ? 'tracking' : null}
       />
+    ),
+    [liveQuery.isFetching, liveQuery.dataUpdatedAt, liveQuery.isError, refreshFleet],
+  )
 
+  useTopbarSlot(topbarContent)
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="relative min-h-0 flex-1">
         <TrackingMap
           vehicles={onlySelected && selected ? [selected] : vehicles}

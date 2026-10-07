@@ -165,7 +165,7 @@ export default function DriversListPage() {
         }
       />
 
-      <PageContent>
+      <PageContent variant="table">
         <FilterBar>
           <SearchInput
             placeholder="Buscar por nome, CPF ou e-mail..."
@@ -175,7 +175,7 @@ export default function DriversListPage() {
           />
         </FilterBar>
 
-        <DataTable
+        <DataTable fillHeight
           caption="Lista de motoristas"
           columns={columns}
           rows={query.data?.data ?? []}

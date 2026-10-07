@@ -130,8 +130,8 @@ export default function WebhooksListPage() {
         }
       />
 
-      <PageContent>
-        <DataTable
+      <PageContent variant="table">
+        <DataTable fillHeight
           caption="Lista de webhooks"
           columns={columns}
           rows={query.data ?? []}

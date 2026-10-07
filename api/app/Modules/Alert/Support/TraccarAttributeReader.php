@@ -14,6 +14,9 @@ final class TraccarAttributeReader
     /** Tensão mínima (V) para considerar alimentação externa conectada. */
     private const EXTERNAL_POWER_MIN_VOLTAGE = 10.0;
 
+    /** Só exibe/alerta `lowpower` quando a tensão medida está abaixo deste valor (V). */
+    private const LOW_POWER_VOLTAGE_THRESHOLD = 8.0;
+
     /** Alarmes tratados por regras dedicadas (SOS, jamming, velocidade). */
     private const EXCLUDED_DEVICE_ALARMS = [
         'sos',
@@ -157,7 +160,10 @@ final class TraccarAttributeReader
             $codes[] = 'jamming';
         }
 
-        return self::suppressPairedAlarms(array_values(array_unique($codes)));
+        return self::applyVoltageGates(
+            self::suppressPairedAlarms(array_values(array_unique($codes))),
+            $attributes,
+        );
     }
 
     /**
@@ -175,10 +181,13 @@ final class TraccarAttributeReader
             return [];
         }
 
-        return self::suppressPairedAlarms(array_values(array_filter(
-            self::parseAlarmCodes($attributes['alarm'] ?? null),
-            fn (string $alarm) => ! self::isRestoredAlarm($alarm) && ! self::isExcludedDeviceAlarm($alarm),
-        )));
+        return self::applyVoltageGates(
+            self::suppressPairedAlarms(array_values(array_filter(
+                self::parseAlarmCodes($attributes['alarm'] ?? null),
+                fn (string $alarm) => ! self::isRestoredAlarm($alarm) && ! self::isExcludedDeviceAlarm($alarm),
+            ))),
+            $attributes,
+        );
     }
 
     /**
@@ -542,6 +551,30 @@ final class TraccarAttributeReader
                     fn (string $alarm) => $alarm !== $suppressed,
                 ));
             }
+        }
+
+        return $alarms;
+    }
+
+    /**
+     * Rastreadores EasyTrack etc. podem marcar lowPower no status com 12V na bateria do veículo.
+     *
+     * @param  list<string>  $alarms
+     * @param  array<string, mixed>|null  $attributes
+     * @return list<string>
+     */
+    private static function applyVoltageGates(array $alarms, ?array $attributes): array
+    {
+        if (! in_array('lowpower', $alarms, true)) {
+            return $alarms;
+        }
+
+        $voltage = self::voltage($attributes);
+        if ($voltage !== null && $voltage >= self::LOW_POWER_VOLTAGE_THRESHOLD) {
+            return array_values(array_filter(
+                $alarms,
+                fn (string $alarm) => $alarm !== 'lowpower',
+            ));
         }
 
         return $alarms;

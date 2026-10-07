@@ -267,7 +267,7 @@ export default function EquipmentsListPage() {
         }
       />
 
-      <PageContent>
+      <PageContent variant="table">
         <FilterBar>
           <SearchInput
             placeholder={
@@ -324,7 +324,7 @@ export default function EquipmentsListPage() {
           />
         </FilterBar>
 
-        <DataTable
+        <DataTable fillHeight
           caption="Lista de equipamentos"
           columns={columns}
           rows={query.data?.data ?? []}

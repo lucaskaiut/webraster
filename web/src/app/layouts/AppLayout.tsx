@@ -26,6 +26,7 @@ import {
   Topbar,
 } from '@/shared/design-system'
 import { cn } from '@/shared/utils/cn'
+import { TopbarSlotProvider, useTopbarSlotContent } from './topbar-slot'
 
 function Brand({ collapsed = false }: { collapsed?: boolean }) {
   const activeTenant = useActiveTenant()
@@ -387,12 +388,14 @@ function UserMenu() {
   )
 }
 
-export function AppLayout() {
+function AppLayoutShell() {
   const sidebarOpen = useUiStore((state) => state.sidebarOpen)
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed)
   const closeSidebar = useUiStore((state) => state.closeSidebar)
   const openSidebar = useUiStore((state) => state.openSidebar)
   const toggleSidebarCollapsed = useUiStore((state) => state.toggleSidebarCollapsed)
+  const topbarSlot = useTopbarSlotContent()
+
   return (
     <div className="flex h-dvh overflow-hidden">
       <div className="z-20 hidden shrink-0 shadow-card lg:block">
@@ -433,7 +436,12 @@ export function AppLayout() {
           >
             <Menu className="size-5" />
           </button>
-          <div className="ml-auto flex items-center gap-1.5">
+          {topbarSlot ? (
+            <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">{topbarSlot}</div>
+          ) : (
+            <div className="flex-1" aria-hidden="true" />
+          )}
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
             <NotificationBell />
             <TenantSelector />
             <ThemeToggle />
@@ -456,5 +464,13 @@ export function AppLayout() {
       {can(Permission.ASSISTANT_VIEW) && <AssistantWidget />}
       */}
     </div>
+  )
+}
+
+export function AppLayout() {
+  return (
+    <TopbarSlotProvider>
+      <AppLayoutShell />
+    </TopbarSlotProvider>
   )
 }

@@ -7,7 +7,9 @@ use App\Modules\Shared\Models\Concerns\HasUuid;
 use App\Modules\Tenant\Models\Concerns\BelongsToTenant;
 use Database\Factories\DriverFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Driver extends Model
@@ -21,6 +23,7 @@ class Driver extends Model
 
     protected $fillable = [
         'client_id',
+        'vehicle_id',
         'name',
         'document',
         'phone',
@@ -37,6 +40,11 @@ class Driver extends Model
             'cnh_expires_at' => 'date',
             'is_active' => 'boolean',
         ];
+    }
+
+    public function vehicle(): BelongsTo
+    {
+        return $this->belongsTo(Vehicle::class);
     }
 
     protected static function newFactory(): DriverFactory

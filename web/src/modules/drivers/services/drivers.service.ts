@@ -8,6 +8,7 @@ export interface DriverListParams extends ListParams {
 
 export interface DriverPayload {
   client_id: string
+  vehicle_id?: string | null
   name: string
   document?: string | null
   phone?: string | null

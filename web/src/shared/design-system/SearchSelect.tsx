@@ -23,6 +23,8 @@ interface SearchSelectProps {
   emptyMessage?: string
   disabled?: boolean
   className?: string
+  /** Rótulo conhecido (ex.: vindo da URL) enquanto resolveLabel carrega ou como fallback. */
+  defaultOption?: SearchSelectOption | null
 }
 
 export function SearchSelect({
@@ -38,6 +40,7 @@ export function SearchSelect({
   emptyMessage = 'Nenhum resultado encontrado',
   disabled = false,
   className,
+  defaultOption = null,
 }: SearchSelectProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const loadOptionsRef = useRef(loadOptions)
@@ -63,6 +66,12 @@ export function SearchSelect({
       return
     }
 
+    if (defaultOption?.value === value) {
+      resolvedValueRef.current = value
+      setSelected(defaultOption)
+      return
+    }
+
     if (resolvedValueRef.current === value) return
 
     resolvedValueRef.current = value
@@ -81,7 +90,7 @@ export function SearchSelect({
     return () => {
       cancelled = true
     }
-  }, [value, resolveLabel])
+  }, [value, resolveLabel, defaultOption])
 
   // Busca com debounce enquanto o dropdown está aberto.
   useEffect(() => {

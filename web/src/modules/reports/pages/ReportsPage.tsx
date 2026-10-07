@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { FileBarChart, MapPin, Route as RouteIcon, Timer } from 'lucide-react'
 import {
   Alert,
@@ -32,6 +33,7 @@ import {
   rangeToApiBounds,
   summarizeRoute,
 } from '@/modules/tracking/lib/tracking'
+import type { SearchSelectOption } from '@/shared/design-system/SearchSelect'
 import {
   useCommandsReportQuery,
   useEventsReportQuery,
@@ -188,11 +190,64 @@ const STOP_COLUMNS: Array<Column<StopReportRow>> = [
 ]
 
 export default function ReportsPage() {
-  const [type, setType] = useState<ReportType>('commands')
+  const [searchParams] = useSearchParams()
+  const [type, setType] = useState<ReportType>(() => {
+    const param = searchParams.get('type')
+
+    return param === 'positions' ||
+      param === 'stops' ||
+      param === 'routes' ||
+      param === 'trips' ||
+      param === 'events' ||
+      param === 'commands'
+      ? param
+      : 'commands'
+  })
   const [from, setFrom] = useState(() => resolvePresetRange('today').from)
   const [to, setTo] = useState(() => resolvePresetRange('today').to)
-  const [clientId, setClientId] = useState('')
-  const [vehicleId, setVehicleId] = useState('')
+  const [clientId, setClientId] = useState(() => searchParams.get('client_id') ?? '')
+  const [vehicleId, setVehicleId] = useState(() => searchParams.get('vehicle_id') ?? '')
+  const [clientDefaultOption, setClientDefaultOption] = useState<SearchSelectOption | null>(() => {
+    const id = searchParams.get('client_id')
+    const label = searchParams.get('client_label')
+
+    return id && label ? { value: id, label } : null
+  })
+  const [vehicleDefaultOption, setVehicleDefaultOption] = useState<SearchSelectOption | null>(() => {
+    const id = searchParams.get('vehicle_id')
+    const label = searchParams.get('vehicle_label')
+
+    return id && label ? { value: id, label } : null
+  })
+
+  useEffect(() => {
+    const paramType = searchParams.get('type')
+    const paramVehicle = searchParams.get('vehicle_id')
+    const paramClient = searchParams.get('client_id')
+    const paramClientLabel = searchParams.get('client_label')
+    const paramVehicleLabel = searchParams.get('vehicle_label')
+
+    if (
+      paramType === 'positions' ||
+      paramType === 'stops' ||
+      paramType === 'routes' ||
+      paramType === 'trips' ||
+      paramType === 'events' ||
+      paramType === 'commands'
+    ) {
+      setType(paramType)
+    }
+
+    if (paramVehicle) setVehicleId(paramVehicle)
+    if (paramClient) setClientId(paramClient)
+
+    setClientDefaultOption(
+      paramClient && paramClientLabel ? { value: paramClient, label: paramClientLabel } : null,
+    )
+    setVehicleDefaultOption(
+      paramVehicle && paramVehicleLabel ? { value: paramVehicle, label: paramVehicleLabel } : null,
+    )
+  }, [searchParams])
 
   const user = useSessionStore((state) => state.user)
   const isClientUser = Boolean(user?.client_id)
@@ -330,9 +385,12 @@ export default function ReportsPage() {
                     label="Cliente"
                     placeholder="Todos os clientes"
                     value={clientId}
+                    defaultOption={clientDefaultOption}
                     onChange={(value) => {
                       setClientId(value)
                       setVehicleId('')
+                      setClientDefaultOption(null)
+                      setVehicleDefaultOption(null)
                     }}
                     loadOptions={loadClientOptions}
                     resolveLabel={resolveClientLabel}
@@ -344,7 +402,11 @@ export default function ReportsPage() {
                     required={vehicleRequired}
                     placeholder={vehicleRequired ? 'Selecione um veículo' : 'Todos os veículos'}
                     value={vehicleId}
-                    onChange={setVehicleId}
+                    defaultOption={vehicleDefaultOption}
+                    onChange={(value) => {
+                      setVehicleId(value)
+                      setVehicleDefaultOption(null)
+                    }}
                     loadOptions={makeLoadVehicleOptions(isClientUser ? user?.client_id ?? '' : clientId)}
                     resolveLabel={resolveVehicleLabel}
                   />

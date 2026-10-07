@@ -78,7 +78,7 @@ export default function GeofenceEventsPage() {
           { label: 'Eventos' },
         ]}
       />
-      <PageContent>
+      <PageContent variant="table">
         <div className="flex gap-2">
           <Select
             aria-label="Filtrar por tipo"
@@ -102,7 +102,7 @@ export default function GeofenceEventsPage() {
           />
         </div>
 
-        <DataTable
+        <DataTable fillHeight
           caption="Eventos de geocerca"
           columns={columns}
           rows={query.data?.data ?? []}

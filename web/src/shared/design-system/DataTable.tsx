@@ -19,6 +19,9 @@ export interface DataTableProps<T> {
   emptyState?: ReactNode
   caption?: string
   onRowClick?: (row: T) => void
+  /** Preenche a altura disponível no layout de listagem e rola o corpo da tabela. */
+  fillHeight?: boolean
+  className?: string
 }
 
 export function DataTable<T>({
@@ -30,16 +33,27 @@ export function DataTable<T>({
   emptyState,
   caption,
   onRowClick,
+  fillHeight = false,
+  className,
 }: DataTableProps<T>) {
   const showEmpty = !loading && rows.length === 0
 
   return (
-    <Card className="overflow-hidden">
-      <div className="overflow-x-auto">
+    <Card
+      data-slot="data-table-root"
+      {...(fillHeight ? { 'data-fill-height': 'true' as const } : {})}
+      className={cn('overflow-hidden', fillHeight && 'flex min-h-0 flex-col', className)}
+    >
+      <div
+        className={cn(
+          'overflow-x-auto',
+          fillHeight && 'min-h-0 flex-1 overflow-y-auto overscroll-contain',
+        )}
+      >
         <table className="min-w-full text-sm">
           {caption && <caption className="sr-only">{caption}</caption>}
-          <thead>
-            <tr className="bg-surface-2/60 text-left text-xs tracking-wide text-muted uppercase">
+          <thead className={cn(fillHeight && 'sticky top-0 z-10')}>
+            <tr className="bg-surface-2/95 text-left text-xs tracking-wide text-muted uppercase backdrop-blur-sm">
               {columns.map((column) => (
                 <th key={column.key} scope="col" className={cn('px-5 py-3 font-medium', column.className)}>
                   {column.header}

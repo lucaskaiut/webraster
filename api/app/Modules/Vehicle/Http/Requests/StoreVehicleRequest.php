@@ -4,6 +4,7 @@ namespace App\Modules\Vehicle\Http\Requests;
 
 use App\Modules\Alert\Enums\AlertType;
 use App\Modules\Client\Models\Client;
+use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Tenant\Support\Facades\TenantContext;
 use App\Modules\Vehicle\Enums\VehicleTransmission;
 use App\Modules\Vehicle\Enums\VehicleType;
@@ -69,6 +70,8 @@ class StoreVehicleRequest extends FormRequest
             'alert_configs.*.notify_push' => ['sometimes', 'boolean'],
             'alert_configs.*.notify_email' => ['sometimes', 'boolean'],
             'alert_configs.*.alarm_code' => ['sometimes', 'nullable', 'string', 'max:40'],
+            'equipment_id' => ['nullable', 'integer', Rule::exists('equipments', 'id')->whereNull('deleted_at')],
+            'equipment_notes' => ['nullable', 'string', 'max:5000'],
         ];
     }
 
@@ -123,6 +126,11 @@ class StoreVehicleRequest extends FormRequest
         if ($this->filled('client_id') && ! is_numeric($this->input('client_id'))) {
             $client = Client::query()->where('uuid', $this->input('client_id'))->first();
             $input['client_id'] = $client?->getKey();
+        }
+
+        if ($this->filled('equipment_id') && ! is_numeric($this->input('equipment_id'))) {
+            $equipment = Equipment::query()->where('uuid', $this->input('equipment_id'))->first();
+            $input['equipment_id'] = $equipment?->getKey();
         }
 
         if ($input !== []) {

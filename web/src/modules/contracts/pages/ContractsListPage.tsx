@@ -154,7 +154,7 @@ export default function ContractsListPage() {
         }
       />
 
-      <PageContent>
+      <PageContent variant="table">
         <FilterBar>
           <SearchInput
             placeholder="Buscar por nome..."
@@ -164,7 +164,7 @@ export default function ContractsListPage() {
           />
         </FilterBar>
 
-        <DataTable
+        <DataTable fillHeight
           caption="Lista de contratos"
           columns={columns}
           rows={query.data?.data ?? []}

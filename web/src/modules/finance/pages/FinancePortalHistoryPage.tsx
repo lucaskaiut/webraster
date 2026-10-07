@@ -104,7 +104,7 @@ export default function FinancePortalHistoryPage() {
         description="Faturas pagas ou canceladas."
         breadcrumb={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Histórico' }]}
       />
-      <PageContent>
+      <PageContent variant="table">
         <FilterBar>
           <Select
             aria-label="Status"
@@ -128,7 +128,7 @@ export default function FinancePortalHistoryPage() {
           />
         </FilterBar>
 
-        <DataTable
+        <DataTable fillHeight
           caption="Histórico de faturas"
           columns={columns}
           rows={query.data?.data ?? []}

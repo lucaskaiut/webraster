@@ -21,6 +21,12 @@ class DriverResource extends JsonResource
             'id' => $this->uuid,
             'client_id' => $this->client?->uuid,
             'client' => ClientResource::make($this->whenLoaded('client')),
+            'vehicle_id' => $this->when(
+                $this->vehicle_id !== null,
+                fn () => $this->relationLoaded('vehicle')
+                    ? $this->vehicle?->uuid
+                    : $this->vehicle()->value('uuid'),
+            ),
             'name' => $this->name,
             'document' => $this->document,
             'phone' => $this->phone,

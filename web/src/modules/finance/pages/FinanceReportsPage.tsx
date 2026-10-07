@@ -119,7 +119,7 @@ export default function FinanceReportsPage() {
           { label: 'Relatórios' },
         ]}
       />
-      <PageContent>
+      <PageContent variant="table">
         <FilterBar>
           <Select
             aria-label="Tipo de relatório"
@@ -172,7 +172,7 @@ export default function FinanceReportsPage() {
           />
         </FilterBar>
 
-        <DataTable
+        <DataTable fillHeight
           caption="Relatório financeiro"
           columns={columns}
           rows={rows}

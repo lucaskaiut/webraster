@@ -4,6 +4,7 @@ namespace App\Modules\Driver\Http\Requests;
 
 use App\Modules\Client\Models\Client;
 use App\Modules\Shared\Rules\Cpf;
+use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -21,6 +22,7 @@ class StoreDriverRequest extends FormRequest
     {
         return [
             'client_id' => ['required', 'integer', Rule::exists('clients', 'id')->whereNull('deleted_at')],
+            'vehicle_id' => ['nullable', 'integer', Rule::exists('vehicles', 'id')->whereNull('deleted_at')],
             'name' => ['required', 'string', 'max:255'],
             'document' => ['nullable', 'string', new Cpf],
             'phone' => ['nullable', 'string', 'max:20'],
@@ -43,6 +45,11 @@ class StoreDriverRequest extends FormRequest
         if ($this->filled('client_id') && ! is_numeric($this->input('client_id'))) {
             $client = Client::query()->where('uuid', $this->input('client_id'))->first();
             $input['client_id'] = $client?->getKey();
+        }
+
+        if ($this->filled('vehicle_id') && ! is_numeric($this->input('vehicle_id'))) {
+            $vehicle = Vehicle::query()->where('uuid', $this->input('vehicle_id'))->first();
+            $input['vehicle_id'] = $vehicle?->getKey();
         }
 
         if ($input !== []) {

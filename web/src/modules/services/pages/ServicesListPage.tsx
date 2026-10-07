@@ -135,7 +135,7 @@ export default function ServicesListPage() {
         }
       />
 
-      <PageContent>
+      <PageContent variant="table">
         <FilterBar>
           <SearchInput
             placeholder="Buscar por nome..."
@@ -145,7 +145,7 @@ export default function ServicesListPage() {
           />
         </FilterBar>
 
-        <DataTable
+        <DataTable fillHeight
           caption="Lista de serviços"
           columns={columns}
           rows={query.data?.data ?? []}

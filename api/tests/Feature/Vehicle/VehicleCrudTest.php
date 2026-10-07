@@ -331,6 +331,30 @@ class VehicleCrudTest extends TestCase
             ->assertJsonPath('data.plate', 'ABC1234');
     }
 
+    public function test_store_can_install_equipment_on_create(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $equipment = Equipment::factory()->forTenant($tenant)->create(['imei' => '333333333333333']);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->postJson('/api/vehicles', [
+            'client_id' => $client->uuid,
+            'plate' => 'EQP1D23',
+            'equipment_id' => $equipment->uuid,
+            'equipment_notes' => 'Instalação no cadastro',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.plate', 'EQP1D23')
+            ->assertJsonPath('data.equipment.id', $equipment->uuid);
+
+        $this->assertDatabaseHas('equipments', [
+            'id' => $equipment->getKey(),
+            'vehicle_id' => Vehicle::query()->where('plate', 'EQP1D23')->value('id'),
+        ]);
+    }
+
     public function test_install_remove_and_swap_equipment_with_history(): void
     {
         [, $tenant] = $this->createOperationalChild();

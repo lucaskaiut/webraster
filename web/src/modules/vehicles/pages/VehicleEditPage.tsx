@@ -21,7 +21,7 @@ import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import { formatDateTime } from '@/shared/utils/format'
 import { vehicleAlertConfigsFromApi } from '@/modules/alerts/lib/alert-types'
-import { equipmentsService } from '@/modules/equipments/services/equipments.service'
+import { loadAvailableEquipments } from '../lib/load-available-equipments'
 import { VehicleCommandsPanel } from '@/modules/tracking/components/VehicleCommandsPanel'
 import { VehicleForm } from '../forms/VehicleForm'
 import { VehicleImagesCard } from '../components/VehicleImagesCard'
@@ -55,19 +55,6 @@ const eventLabel = {
   removal: 'Remoção',
   swap: 'Troca',
 } as const
-
-async function loadAvailableEquipments(search: string) {
-  const response = await equipmentsService.list({
-    search: search || undefined,
-    available: true,
-    per_page: 20,
-  })
-
-  return response.data.map((item) => ({
-    value: item.id,
-    label: [item.imei, item.model].filter(Boolean).join(' · ') || 'Equipamento',
-  }))
-}
 
 export default function VehicleEditPage() {
   const { id } = useParams<{ id: string }>()
