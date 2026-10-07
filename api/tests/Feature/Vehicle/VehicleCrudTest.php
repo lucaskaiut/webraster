@@ -268,6 +268,24 @@ class VehicleCrudTest extends TestCase
         $this->assertFalse($plates->contains('BBB2222'));
     }
 
+    public function test_index_can_search_by_client_name(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $clientA = Client::factory()->for($tenant)->create(['name' => 'Transportadora Horizonte']);
+        $clientB = Client::factory()->for($tenant)->create(['name' => 'Logística Sul']);
+
+        Vehicle::factory()->forClient($clientA)->create(['plate' => 'AAA1111']);
+        Vehicle::factory()->forClient($clientB)->create(['plate' => 'BBB2222']);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $response = $this->getJson('/api/vehicles?search='.urlencode('Horizonte'))->assertOk();
+        $plates = collect($response->json('data'))->pluck('plate');
+
+        $this->assertTrue($plates->contains('AAA1111'));
+        $this->assertFalse($plates->contains('BBB2222'));
+    }
+
     public function test_update_and_destroy_vehicle(): void
     {
         [, $tenant] = $this->createOperationalChild();

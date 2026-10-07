@@ -234,7 +234,7 @@ export default function VehiclesListPage() {
       <PageContent>
         <FilterBar>
           <SearchInput
-            placeholder="Buscar por placa, chassi, marca ou modelo..."
+            placeholder="Buscar por placa, chassi, marca, modelo ou cliente..."
             aria-label="Buscar veículos"
             value={search}
             onChange={(event) => {

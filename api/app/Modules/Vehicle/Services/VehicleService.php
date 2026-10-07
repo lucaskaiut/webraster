@@ -24,7 +24,14 @@ class VehicleService
                         ->orWhere('chassis', 'like', "%{$search}%")
                         ->orWhere('renavam', 'like', "%{$search}%")
                         ->orWhere('brand', 'like', "%{$search}%")
-                        ->orWhere('model', 'like', "%{$search}%");
+                        ->orWhere('model', 'like', "%{$search}%")
+                        ->orWhereHas('client', function ($builder) use ($search): void {
+                            $builder->where(function ($builder) use ($search): void {
+                                $builder->where('name', 'like', "%{$search}%")
+                                    ->orWhere('legal_name', 'like', "%{$search}%")
+                                    ->orWhere('trade_name', 'like', "%{$search}%");
+                            });
+                        });
                 });
             })
             ->orderBy('plate')
