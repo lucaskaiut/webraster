@@ -9,6 +9,7 @@ import {
   Monitor,
   Navigation,
   Pencil,
+  Terminal,
   View,
   X,
   type LucideIcon,
@@ -355,6 +356,22 @@ export function VehicleInfoPanel({
               <Info label="Cliente" value={vehicle.client?.name ?? 'Não informado'} />
               <Info label="Protocolo" value={position?.protocol ?? 'Não informado'} />
               <Info label="Alimentação Externa" value={externalPowerValue} />
+              {canViewEquipmentDetails && vehicle.equipment?.id ? (
+                <div className="col-span-3">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() =>
+                      navigate(
+                        `/monitoring/device-logs?equipment=${encodeURIComponent(vehicle.equipment!.id)}`,
+                      )
+                    }
+                  >
+                    <Terminal className="size-4" aria-hidden="true" />
+                    Log bruto do dispositivo
+                  </Button>
+                </div>
+              ) : null}
             </dl>
           )}
   

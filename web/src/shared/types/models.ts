@@ -545,6 +545,8 @@ export interface GpsPosition {
   voltage?: number | null
   blocked?: boolean | null
   alarms?: DeviceAlarm[]
+  /** Trama Easytrack bruta (somente debug, perfil com detalhes do equipamento). */
+  raw_frame?: string | null
 }
 
 export interface TrackingLiveVehicle {

@@ -87,7 +87,9 @@ export function DropdownItem({
       className={cn(
         'flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors',
         'disabled:cursor-not-allowed disabled:opacity-50',
-        danger ? 'text-danger hover:bg-danger-soft' : 'text-foreground hover:bg-surface-2',
+        danger
+          ? 'text-danger hover:bg-danger-soft'
+          : 'text-muted hover:bg-surface-2 hover:text-foreground',
       )}
     >
       {Icon && <Icon className="size-4 shrink-0" aria-hidden="true" />}

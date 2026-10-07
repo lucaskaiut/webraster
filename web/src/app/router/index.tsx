@@ -59,6 +59,7 @@ const EquipmentsListPage = lazy(() => import('@/modules/equipments/pages/Equipme
 const EquipmentCreatePage = lazy(() => import('@/modules/equipments/pages/EquipmentCreatePage'))
 const EquipmentEditPage = lazy(() => import('@/modules/equipments/pages/EquipmentEditPage'))
 const MonitoringPage = lazy(() => import('@/modules/tracking/pages/MonitoringPage'))
+const DeviceRawLogsPage = lazy(() => import('@/modules/tracking/pages/DeviceRawLogsPage'))
 const GeofencesListPage = lazy(() => import('@/modules/geofences/pages/GeofencesListPage'))
 const GeofenceCreatePage = lazy(() => import('@/modules/geofences/pages/GeofenceCreatePage'))
 const GeofenceEditPage = lazy(() => import('@/modules/geofences/pages/GeofenceEditPage'))
@@ -144,6 +145,14 @@ export const router = createBrowserRouter([
             element: (
               <PermissionGuard permission={Permission.TRACKING_READ} requiresChildTenant>
                 <MonitoringPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/monitoring/device-logs',
+            element: (
+              <PermissionGuard permission={Permission.EQUIPMENT_DETAILS_READ} requiresChildTenant>
+                <DeviceRawLogsPage />
               </PermissionGuard>
             ),
           },

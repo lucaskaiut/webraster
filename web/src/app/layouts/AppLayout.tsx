@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { Outlet } from 'react-router'
-import { Building2, BellRing, Car, ClipboardList, Columns3, Contact, Cpu, CreditCard, FileBarChart, FileText, Hexagon, History, IdCard, Kanban, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, MessageCircle, Package, Receipt, Repeat, ScrollText, Search, Send, Settings, ShieldCheck, Users, Wallet, Wrench } from 'lucide-react'
+import { Building2, BellRing, Car, ClipboardList, Columns3, Contact, Cpu, CreditCard, FileBarChart, FileText, Hexagon, History, IdCard, Kanban, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, MessageCircle, Package, Receipt, Repeat, ScrollText, Search, Send, Settings, ShieldCheck, Terminal, Users, Wallet, Wrench } from 'lucide-react'
 import { AppLogo } from '@/shared/brand/AppLogo'
 import { useActiveTenant } from '@/shared/brand/useActiveTenant'
 import { TenantSelector } from '@/modules/auth/components/TenantSelector'
@@ -76,6 +76,7 @@ function SidebarNavigation({
   const showVehicleDataConfig = isOperatingTenant && can(Permission.VEHICLE_DATA_CONFIG_READ)
   const showEquipments = isOperatingTenant && can(Permission.EQUIPMENT_READ)
   const showTracking = isOperatingTenant && can(Permission.TRACKING_READ)
+  const showDeviceRawLogs = showTracking && can(Permission.EQUIPMENT_DETAILS_READ)
   const showReports = isOperatingTenant && can(Permission.REPORT_VIEW)
   const showGeofences = isOperatingTenant && can(Permission.GEOFENCE_READ)
   const showPois = isOperatingTenant && can(Permission.POI_READ)
@@ -118,6 +119,14 @@ function SidebarNavigation({
         <SidebarItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" onNavigate={onNavigate} />
         {showTracking && (
           <SidebarItem to="/monitoring" icon={MapPinned} label="Monitoramento" onNavigate={onNavigate} />
+        )}
+        {showDeviceRawLogs && (
+          <SidebarItem
+            to="/monitoring/device-logs"
+            icon={Terminal}
+            label="Log do dispositivo"
+            onNavigate={onNavigate}
+          />
         )}
         {showReports && (
           <SidebarItem to="/reports" icon={FileBarChart} label="Relatórios" onNavigate={onNavigate} />

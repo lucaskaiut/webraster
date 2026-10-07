@@ -53,6 +53,7 @@ use App\Modules\Tenant\Http\Controllers\BuildTenantController;
 use App\Modules\Tenant\Http\Controllers\PublicTenantController;
 use App\Modules\Tenant\Http\Controllers\TenantController;
 use App\Modules\Tracking\Http\Controllers\TraccarWebhookController;
+use App\Modules\Tracking\Http\Controllers\EquipmentRawLogController;
 use App\Modules\Tracking\Http\Controllers\TrackingController;
 use App\Modules\User\Http\Controllers\UserController;
 use App\Modules\Vehicle\Http\Controllers\VehicleController;
@@ -192,6 +193,7 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::match(['put', 'patch'], 'equipments/{equipment}', [EquipmentController::class, 'update'])->middleware('permission:equipment.update');
     Route::delete('equipments/{equipment}', [EquipmentController::class, 'destroy'])->middleware('permission:equipment.delete');
     Route::get('equipments/{equipment}/assignment-history', [EquipmentController::class, 'assignmentHistory'])->middleware('permission:equipment.read');
+    Route::get('equipments/{equipment}/raw-logs', EquipmentRawLogController::class)->middleware('permission:equipment.details.read');
 
     Route::get('devices/{device}/commands', [DeviceCommandController::class, 'index'])->middleware('permission:device.commands.send');
     Route::get('devices/{device}/commands/history', [DeviceCommandController::class, 'history'])->middleware('permission:device.commands.send');

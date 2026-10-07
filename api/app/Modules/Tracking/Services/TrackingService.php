@@ -29,6 +29,7 @@ class TrackingService
         private readonly TraccarGateway $traccar,
         private readonly GeofenceDetectionService $geofenceDetection,
         private readonly AlertEngine $alertEngine,
+        private readonly EquipmentRawLogService $equipmentRawLogs,
     ) {}
 
     /**
@@ -368,6 +369,12 @@ class TrackingService
                 'valid' => $position->valid,
                 'attributes' => $position->attributes,
             ],
+        );
+
+        $this->equipmentRawLogs->appendFromPositionAttributes(
+            $equipment,
+            $position->attributes,
+            $position->recordedAt,
         );
 
         // Apenas posições novas alimentam geocercas, alertas e o tempo real.

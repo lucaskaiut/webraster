@@ -2,6 +2,7 @@
 
 namespace App\Modules\Tracking\Http\Resources;
 
+use App\Modules\ACL\Enums\Permission;
 use App\Modules\Alert\Support\TraccarAttributeReader;
 use App\Modules\Tracking\Models\GpsPosition;
 use Illuminate\Http\Request;
@@ -19,6 +20,7 @@ class GpsPositionResource extends JsonResource
     {
         /** @var array<string, mixed> $attributes */
         $attributes = is_array($this->attributes) ? $this->attributes : [];
+        $canViewRawFrame = (bool) $request->user()?->hasPermission(Permission::EQUIPMENT_DETAILS_READ);
 
         return [
             'id' => $this->uuid,
@@ -46,6 +48,9 @@ class GpsPositionResource extends JsonResource
             'voltage' => TraccarAttributeReader::voltage($attributes),
             'blocked' => TraccarAttributeReader::isBlocked($attributes),
             'alarms' => TraccarAttributeReader::formatAlarmsForApi($attributes),
+            'raw_frame' => $canViewRawFrame && isset($attributes['raw'])
+                ? (string) $attributes['raw']
+                : null,
         ];
     }
 }
