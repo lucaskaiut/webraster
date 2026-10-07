@@ -185,6 +185,7 @@ final class AsaasGateway implements PaymentGatewayInterface
             'province' => $client->neighborhood,
             'postalCode' => preg_replace('/\D+/', '', (string) $client->zip) ?: null,
             'externalReference' => $client->uuid,
+            'notificationDisabled' => true,
         ], static fn ($value) => $value !== null && $value !== '');
 
         $asaas = $this->client();

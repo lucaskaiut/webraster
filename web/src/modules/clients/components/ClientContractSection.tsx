@@ -13,7 +13,6 @@ import {
   Modal,
   Section,
   SelectField,
-  TextField,
   buttonClasses,
 } from '@/shared/design-system'
 import { isApiError } from '@/shared/api/errors'
@@ -34,7 +33,6 @@ import {
 
 const clientContractSchema = z.object({
   contract_id: z.string().min(1, 'Selecione o contrato'),
-  valid_until: z.string().min(1, 'Informe o prazo de validade'),
 })
 
 type ClientContractFormValues = z.infer<typeof clientContractSchema>
@@ -128,7 +126,6 @@ function ClientContractForm({
     resolver: formResolver<ClientContractFormValues>(clientContractSchema),
     defaultValues: {
       contract_id: current?.contract_id ?? '',
-      valid_until: current?.valid_until ?? '',
     },
   })
 
@@ -159,23 +156,15 @@ function ClientContractForm({
           <Form form={form} onSubmit={handleSubmit} className="space-y-8">
             <Section
               title="Contrato"
-              description="Selecione o contrato que o cliente irá assinar e informe o prazo de validade."
+              description="Selecione o contrato que o cliente irá assinar."
             >
-              <div className="grid gap-4 sm:grid-cols-2">
-                <SelectField
-                  name="contract_id"
-                  label="Contrato"
-                  placeholder="Selecione..."
-                  options={options}
-                  required
-                />
-                <TextField
-                  name="valid_until"
-                  label="Prazo de validade"
-                  type="date"
-                  required
-                />
-              </div>
+              <SelectField
+                name="contract_id"
+                label="Contrato"
+                placeholder="Selecione..."
+                options={options}
+                required
+              />
 
               {current && (
                 <div className="space-y-3 rounded-xl bg-surface-2 p-4">

@@ -43,7 +43,6 @@ export interface ClientOrderPayload {
 
 export interface ClientContractPayload {
   contract_id: string
-  valid_until: string
 }
 
 export interface ClientContractSignaturePayload {

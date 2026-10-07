@@ -60,11 +60,9 @@ class ClientContractTest extends TestCase
 
         $this->putJson("/api/clients/{$client->uuid}/contract", [
             'contract_id' => $contract->uuid,
-            'valid_until' => '2027-01-01',
         ])
             ->assertOk()
             ->assertJsonPath('data.contract_id', $contract->uuid)
-            ->assertJsonPath('data.valid_until', '2027-01-01')
             ->assertJsonPath('data.signature_status', 'pending')
             ->assertJsonPath('data.signature_status_label', 'Pendente')
             ->assertJsonPath('data.signed_at', null);
@@ -88,7 +86,6 @@ class ClientContractTest extends TestCase
 
         $response = $this->putJson("/api/clients/{$client->uuid}/contract", [
             'contract_id' => $contract->uuid,
-            'valid_until' => '2027-01-01',
         ])->assertOk();
 
         $body = $response->json('data.body');
@@ -110,7 +107,6 @@ class ClientContractTest extends TestCase
 
         $response = $this->putJson("/api/clients/{$client->uuid}/contract", [
             'contract_id' => $contract->uuid,
-            'valid_until' => '2027-01-01',
         ])->assertOk();
 
         $body = $response->json('data.body');
@@ -131,7 +127,6 @@ class ClientContractTest extends TestCase
 
         $response = $this->putJson("/api/clients/{$client->uuid}/contract", [
             'contract_id' => $contract->uuid,
-            'valid_until' => '2027-01-01',
         ])->assertOk();
 
         $body = $response->json('data.body');
@@ -153,7 +148,6 @@ class ClientContractTest extends TestCase
 
         $response = $this->putJson("/api/clients/{$client->uuid}/contract", [
             'contract_id' => $contract->uuid,
-            'valid_until' => '2027-01-01',
         ])->assertOk();
 
         $body = $response->json('data.body');
@@ -174,7 +168,6 @@ class ClientContractTest extends TestCase
 
         $this->putJson("/api/clients/{$client->uuid}/contract", [
             'contract_id' => $contract->uuid,
-            'valid_until' => '2027-01-01',
         ])
             ->assertOk()
             ->assertJsonPath('data.body', '<p>Assinatura do cliente:</p><p><em>Assinatura pendente</em></p>');
@@ -217,7 +210,6 @@ class ClientContractTest extends TestCase
 
         $this->putJson("/api/clients/{$client->uuid}/contract", [
             'contract_id' => $contract->uuid,
-            'valid_until' => '2027-01-01',
         ])->assertOk();
 
         Storage::fake('public');
@@ -268,7 +260,6 @@ class ClientContractTest extends TestCase
 
         $this->putJson("/api/clients/{$client->uuid}/contract", [
             'contract_id' => $contract->uuid,
-            'valid_until' => '2027-01-01',
         ])->assertOk();
 
         $unsigned = $this->get("/api/clients/{$client->uuid}/contract/pdf");
@@ -321,7 +312,6 @@ class ClientContractTest extends TestCase
 
         $this->putJson("/api/clients/{$client->uuid}/contract", [
             'contract_id' => $contract->uuid,
-            'valid_until' => '2027-01-01',
         ])->assertOk();
 
         $response = $this->get("/api/clients/{$client->uuid}/contract/pdf");
@@ -349,7 +339,6 @@ class ClientContractTest extends TestCase
 
         $this->putJson("/api/clients/{$client->uuid}/contract", [
             'contract_id' => $contract->uuid,
-            'valid_until' => '2027-01-01',
         ])->assertOk();
 
         $response = $this->get("/api/clients/{$client->uuid}/contract/pdf");
@@ -376,7 +365,6 @@ class ClientContractTest extends TestCase
 
         $this->putJson("/api/clients/{$client->uuid}/contract", [
             'contract_id' => $contract->uuid,
-            'valid_until' => '2027-01-01',
         ])->assertOk();
 
         $this->putJson("/api/clients/{$client->uuid}/contract/signature", [
@@ -413,7 +401,6 @@ class ClientContractTest extends TestCase
 
         $this->putJson("/api/clients/{$client->uuid}/contract", [
             'contract_id' => $contract->uuid,
-            'valid_until' => '2027-01-01',
         ])->assertOk();
 
         $this->putJson("/api/clients/{$client->uuid}/contract/signature", [
@@ -422,19 +409,17 @@ class ClientContractTest extends TestCase
 
         $this->putJson("/api/clients/{$client->uuid}/contract", [
             'contract_id' => $contract->uuid,
-            'valid_until' => '2027-06-01',
         ])->assertOk()->assertJsonPath('data.signature_status', 'signed');
 
         $this->putJson("/api/clients/{$client->uuid}/contract", [
             'contract_id' => $another->uuid,
-            'valid_until' => '2027-06-01',
         ])
             ->assertOk()
             ->assertJsonPath('data.signature_status', 'pending')
             ->assertJsonPath('data.signed_at', null);
     }
 
-    public function test_assign_validates_contract_and_future_validity(): void
+    public function test_assign_validates_contract(): void
     {
         [, $tenant] = $this->createOperationalChild();
         $client = Client::factory()->for($tenant)->create();
@@ -443,15 +428,13 @@ class ClientContractTest extends TestCase
 
         $this->putJson("/api/clients/{$client->uuid}/contract", [
             'contract_id' => 'inexistente',
-            'valid_until' => '2027-01-01',
         ])->assertUnprocessable()->assertJsonValidationErrors(['contract_id']);
 
         $contract = Contract::factory()->forTenant($tenant)->create();
 
         $this->putJson("/api/clients/{$client->uuid}/contract", [
             'contract_id' => $contract->uuid,
-            'valid_until' => '2020-01-01',
-        ])->assertUnprocessable()->assertJsonValidationErrors(['valid_until']);
+        ])->assertOk();
     }
 
     public function test_member_without_permission_cannot_assign_contract(): void
@@ -463,7 +446,6 @@ class ClientContractTest extends TestCase
 
         $this->putJson("/api/clients/{$client->uuid}/contract", [
             'contract_id' => 'x',
-            'valid_until' => '2027-01-01',
         ])->assertForbidden();
 
         $this->putJson("/api/clients/{$client->uuid}/contract/signature", [
@@ -481,7 +463,6 @@ class ClientContractTest extends TestCase
 
         $this->putJson("/api/clients/{$client->uuid}/contract", [
             'contract_id' => $contract->uuid,
-            'valid_until' => '2027-01-01',
         ])->assertOk();
 
         Storage::fake('public');
@@ -529,7 +510,6 @@ class ClientContractTest extends TestCase
 
         $this->putJson("/api/clients/{$client->uuid}/contract", [
             'contract_id' => $contract->uuid,
-            'valid_until' => '2027-01-01',
         ])->assertOk();
 
         Sanctum::actingAs($this->createClient($tenant, ['client_id' => $client->getKey()]));
@@ -582,7 +562,6 @@ class ClientContractTest extends TestCase
 
         $this->putJson("/api/clients/{$client->uuid}/contract", [
             'contract_id' => $contract->uuid,
-            'valid_until' => '2027-01-01',
         ])->assertOk();
 
         Sanctum::actingAs($this->createClient($tenant, ['client_id' => $client->getKey()]));
@@ -611,7 +590,6 @@ class ClientContractTest extends TestCase
 
         $this->putJson("/api/clients/{$otherClient->uuid}/contract", [
             'contract_id' => $contract->uuid,
-            'valid_until' => '2027-01-01',
         ])->assertOk();
 
         Sanctum::actingAs($this->createClient($tenant, ['client_id' => $client->getKey()]));
@@ -639,7 +617,6 @@ class ClientContractTest extends TestCase
 
         $this->putJson("/api/clients/{$client->uuid}/contract", [
             'contract_id' => $contract->uuid,
-            'valid_until' => '2027-01-01',
         ])->assertOk();
 
         Sanctum::actingAs($this->createClient($tenant, ['client_id' => $client->getKey()]));
@@ -664,7 +641,6 @@ class ClientContractTest extends TestCase
 
         $this->putJson("/api/clients/{$client->uuid}/contract", [
             'contract_id' => $contract->uuid,
-            'valid_until' => '2027-01-01',
         ])->assertOk();
 
         Sanctum::actingAs($this->createMember($tenant));
@@ -695,7 +671,6 @@ class ClientContractTest extends TestCase
 
         $this->putJson("/api/clients/{$client->uuid}/contract", [
             'contract_id' => $contract->uuid,
-            'valid_until' => '2027-01-01',
         ])->assertOk();
 
         Storage::fake('public');
@@ -718,7 +693,6 @@ class ClientContractTest extends TestCase
 
         $this->putJson("/api/clients/{$client->uuid}/contract", [
             'contract_id' => $another->uuid,
-            'valid_until' => '2027-06-01',
         ])
             ->assertOk()
             ->assertJsonPath('data.signature_status', 'pending')
@@ -741,7 +715,6 @@ class ClientContractTest extends TestCase
 
         $this->putJson("/api/clients/{$client->uuid}/contract", [
             'contract_id' => $contract->uuid,
-            'valid_until' => '2027-01-01',
         ])->assertOk();
 
         Sanctum::actingAs($this->createClient($tenant, ['client_id' => $client->getKey()]));

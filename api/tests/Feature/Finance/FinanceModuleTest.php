@@ -425,6 +425,9 @@ class FinanceModuleTest extends TestCase
 
         Http::assertSent(fn ($request) => str_contains($request->url(), '/payments')
             && $request['dueDate'] === $billing->due_at->toDateString());
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/customers')
+            && $request['notificationDisabled'] === true);
     }
 
     public function test_charge_uses_today_as_due_date_when_billing_is_overdue(): void

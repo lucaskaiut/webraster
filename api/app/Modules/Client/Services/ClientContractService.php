@@ -23,7 +23,7 @@ class ClientContractService
     }
 
     /**
-     * @param  array{contract_id: int, valid_until: ?string}  $data
+     * @param  array{contract_id: int}  $data
      */
     public function assign(Client $client, array $data): ClientContract
     {
@@ -51,7 +51,6 @@ class ClientContractService
 
             $clientContract->fill([
                 'contract_id' => $contract->getKey(),
-                'valid_until' => $data['valid_until'] ?? null,
                 'body' => $body,
             ]);
 

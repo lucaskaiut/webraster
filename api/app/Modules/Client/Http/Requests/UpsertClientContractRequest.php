@@ -26,7 +26,6 @@ class UpsertClientContractRequest extends FormRequest
                     fn ($query) => $query->where('tenant_id', TenantContext::tenantId())->whereNull('deleted_at'),
                 ),
             ],
-            'valid_until' => ['required', 'date', 'after_or_equal:today'],
         ];
     }
 
