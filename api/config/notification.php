@@ -27,5 +27,22 @@ return [
         'access_token' => env('EXPO_ACCESS_TOKEN'),
 
         'timeout' => (int) env('EXPO_PUSH_TIMEOUT', 15),
+
+        /*
+        | Catálogo de sons de notificação que o usuário escolhe por tipo de
+        | alerta (alert_sound_preferences). As chaves precisam espelhar o
+        | catálogo do app (src/constants/notification-sounds.ts):
+        |
+        | - file: nome do arquivo embarcado no iOS (payload `sound`).
+        | - channel: canal Android criado pelo app (payload `channelId`).
+        |   O canal precisa existir no aparelho antes do push, senão a
+        |   notificação não é exibida.
+        */
+        'sounds' => [
+            'default' => ['file' => 'default', 'channel' => 'default'],
+            'chime' => ['file' => 'chime.wav', 'channel' => 'alert_sound_chime'],
+            'alert' => ['file' => 'alert.wav', 'channel' => 'alert_sound_alert'],
+            'siren' => ['file' => 'siren.wav', 'channel' => 'alert_sound_siren'],
+        ],
     ],
 ];

@@ -4,6 +4,7 @@ use App\Modules\ACL\Http\Controllers\RoleController;
 use App\Modules\Alert\Http\Controllers\AlertConfigController;
 use App\Modules\Alert\Http\Controllers\AlertConfigPortalController;
 use App\Modules\Alert\Http\Controllers\AlertController;
+use App\Modules\Alert\Http\Controllers\AlertSoundPreferenceController;
 use App\Modules\Alert\Http\Controllers\NotificationController;
 use App\Modules\ApiToken\Http\Controllers\ApiTokenController;
 use App\Modules\Assistant\Http\Controllers\ChatController;
@@ -283,6 +284,9 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::get('alert-configs/portal', [AlertConfigPortalController::class, 'index']);
     Route::put('alert-configs/portal/{type}', [AlertConfigPortalController::class, 'update']);
     Route::get('alert-configs/client/{client}', [AlertConfigController::class, 'clientConfigs'])->middleware('permission:alert-config.read');
+
+    Route::get('alert-sound-preferences', [AlertSoundPreferenceController::class, 'index']);
+    Route::put('alert-sound-preferences/{type}', [AlertSoundPreferenceController::class, 'update']);
 
     Route::get('alert-configs', [AlertConfigController::class, 'index'])->middleware('permission:alert-config.read');
     Route::get('alert-configs/defaults', [AlertConfigController::class, 'defaults']);

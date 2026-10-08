@@ -16,18 +16,27 @@ class ExpoPushService
 {
     /**
      * Envia uma notificação para um token e devolve o id do ticket (recibo).
+     *
+     * `$sound` é a chave do catálogo (config('notification.push.sounds')):
+     * no iOS vira o arquivo do payload; no Android, o canal criado pelo app.
      */
-    public function send(DeviceToken $token, UserNotification $notification): ?string
-    {
+    public function send(
+        DeviceToken $token,
+        UserNotification $notification,
+        string $sound = 'default',
+    ): ?string {
         if (! config('notification.push.enabled')) {
             throw new RuntimeException('Push desabilitado (PUSH_ENABLED=false).');
         }
+
+        $soundPayload = $this->soundPayload($sound);
 
         $response = $this->request()->post(config('notification.push.url'), [
             'to' => $token->token,
             'title' => $notification->title,
             'body' => $notification->body ?? '',
-            'sound' => 'default',
+            'sound' => $soundPayload['file'],
+            'channelId' => $soundPayload['channel'],
             'priority' => 'high',
             'data' => array_merge($notification->data ?? [], [
                 'notification_id' => $notification->uuid,
@@ -94,5 +103,23 @@ class ExpoPushService
         }
 
         return $request;
+    }
+
+    /**
+     * @return array{file: string, channel: string}
+     */
+    private function soundPayload(string $sound): array
+    {
+        $sounds = config('notification.push.sounds');
+        $entry = is_array($sounds) ? ($sounds[$sound] ?? null) : null;
+
+        if (! is_array($entry)) {
+            return ['file' => 'default', 'channel' => 'default'];
+        }
+
+        return [
+            'file' => (string) ($entry['file'] ?? 'default'),
+            'channel' => (string) ($entry['channel'] ?? 'default'),
+        ];
     }
 }

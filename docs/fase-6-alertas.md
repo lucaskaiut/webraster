@@ -57,7 +57,21 @@ Velocidade: Traccar em **nós**; limite configurado em **km/h**.
 - `POST/PUT /vehicles` com `alert_configs` (operador define alarmes e canais por veículo)
 - `GET/POST /alert-configs`, `PUT/DELETE /alert-configs/{id}` (API administrativa)
 - `GET/PUT /alert-configs/portal[/{type}]` (cliente silencia/volta a receber)
+- `GET/PUT /alert-sound-preferences[/{type}]` (usuário escolhe o som de cada alerta no app)
 - `GET /notifications`, `/notifications/unread-count`, `POST .../read`
+
+## Som das notificações
+
+- Cada usuário escolhe, no app (**Mais → Sons das notificações**), o som de cada alerta
+  habilitado para ele. A preferência é por usuário e por tipo (`alert_sound_preferences`).
+- O catálogo de sons vive em `config/notification.php → push.sounds` e é espelhado no app
+  (`src/constants/notification-sounds.ts`): a API envia `sound` (iOS, arquivo embarcado) e
+  `channelId` (Android, canal criado pelo app) no push.
+- No Android o som pertence ao canal e não pode ser alterado depois de criado, por isso há
+  **um canal por som** (`alert_sound_*`); o app cria todos no registro do dispositivo.
+- Alertas silenciados no portal saem da lista de escolha (a preferência é mantida).
+- Novos arquivos de som entram no app via plugin `expo-notifications` (`sounds`) e exigem
+  novo build; rode `npm run sounds` para regenerar os WAVs de exemplo.
 
 ## Testes
 

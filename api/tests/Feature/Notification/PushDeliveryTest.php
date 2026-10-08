@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Notification;
 
+use App\Modules\Alert\Models\AlertSoundPreference;
 use App\Modules\Alert\Models\UserNotification;
+use App\Modules\Alert\Services\AlertSoundService;
 use App\Modules\Notification\DTOs\NotificationMessage;
 use App\Modules\Notification\Enums\NotificationDeliveryStatus;
 use App\Modules\Notification\Enums\NotificationSource;
@@ -70,7 +72,7 @@ class PushDeliveryTest extends TestCase
         $token = $this->deviceTokenFor($tenant->getKey(), $user->getKey(), 'ExponentPushToken[one]');
 
         (new SendPushNotificationJob($notification->getKey()))
-            ->handle(app(ExpoPushService::class));
+            ->handle(app(ExpoPushService::class), app(AlertSoundService::class));
 
         $this->assertDatabaseHas('notification_deliveries', [
             'user_notification_id' => $notification->getKey(),
@@ -83,10 +85,44 @@ class PushDeliveryTest extends TestCase
         Http::assertSent(function (Request $request) {
             return str_contains($request->url(), 'push/send')
                 && $request['to'] === 'ExponentPushToken[one]'
+                && $request['sound'] === 'default'
+                && $request['channelId'] === 'default'
                 && $request['data']['notification_id'] !== null;
         });
 
         $this->assertNotNull($token->fresh()->last_used_at);
+    }
+
+    public function test_push_uses_the_sound_chosen_by_the_user_for_the_alert_type(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $user = $this->createClient($tenant);
+
+        config(['notification.push.enabled' => true]);
+
+        Http::fake([
+            'exp.host/*' => Http::response(['data' => ['status' => 'ok', 'id' => 'ticket-2']], 200),
+        ]);
+
+        $preference = new AlertSoundPreference;
+        $preference->forceFill([
+            'tenant_id' => $tenant->getKey(),
+            'user_id' => $user->getKey(),
+            'type' => 'sos',
+            'sound' => 'siren',
+        ])->save();
+
+        $notification = $this->notificationFor($user, push: false, type: 'sos');
+        $this->deviceTokenFor($tenant->getKey(), $user->getKey(), 'ExponentPushToken[sound]');
+
+        (new SendPushNotificationJob($notification->getKey()))
+            ->handle(app(ExpoPushService::class), app(AlertSoundService::class));
+
+        Http::assertSent(function (Request $request) {
+            return str_contains($request->url(), 'push/send')
+                && $request['sound'] === 'siren.wav'
+                && $request['channelId'] === 'alert_sound_siren';
+        });
     }
 
     public function test_push_job_removes_token_when_device_not_registered(): void
@@ -110,7 +146,7 @@ class PushDeliveryTest extends TestCase
         $token = $this->deviceTokenFor($tenant->getKey(), $user->getKey(), 'ExponentPushToken[dead]');
 
         (new SendPushNotificationJob($notification->getKey()))
-            ->handle(app(ExpoPushService::class));
+            ->handle(app(ExpoPushService::class), app(AlertSoundService::class));
 
         $this->assertDatabaseHas('notification_deliveries', [
             'user_notification_id' => $notification->getKey(),
@@ -202,12 +238,12 @@ class PushDeliveryTest extends TestCase
         $this->assertDatabaseMissing('device_tokens', ['id' => $token->getKey()]);
     }
 
-    private function notificationFor($user, bool $push): UserNotification
+    private function notificationFor($user, bool $push, string $type = 'manual'): UserNotification
     {
         app(NotificationEngine::class)->send(
             collect([$user]),
             new NotificationMessage(
-                type: 'manual',
+                type: $type,
                 title: 'Push',
                 body: 'Corpo',
                 source: NotificationSource::MANUAL,

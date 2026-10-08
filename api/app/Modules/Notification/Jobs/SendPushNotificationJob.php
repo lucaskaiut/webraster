@@ -3,6 +3,7 @@
 namespace App\Modules\Notification\Jobs;
 
 use App\Modules\Alert\Models\UserNotification;
+use App\Modules\Alert\Services\AlertSoundService;
 use App\Modules\Notification\Enums\NotificationChannel;
 use App\Modules\Notification\Enums\NotificationDeliveryStatus;
 use App\Modules\Notification\Exceptions\ExpoPushException;
@@ -26,7 +27,7 @@ class SendPushNotificationJob implements ShouldQueue
 
     public function __construct(public readonly int $userNotificationId) {}
 
-    public function handle(ExpoPushService $push): void
+    public function handle(ExpoPushService $push, AlertSoundService $sounds): void
     {
         $notification = UserNotification::query()
             ->withoutGlobalScopes()
@@ -41,8 +42,10 @@ class SendPushNotificationJob implements ShouldQueue
             ->where('user_id', $notification->user_id)
             ->get();
 
+        $sound = $sounds->soundFor($notification);
+
         foreach ($tokens as $token) {
-            $this->sendToToken($push, $notification, $token);
+            $this->sendToToken($push, $notification, $token, $sound);
         }
     }
 
@@ -50,6 +53,7 @@ class SendPushNotificationJob implements ShouldQueue
         ExpoPushService $push,
         UserNotification $notification,
         DeviceToken $token,
+        string $sound,
     ): void {
         $delivery = new NotificationDelivery;
         $delivery->forceFill([
@@ -63,7 +67,7 @@ class SendPushNotificationJob implements ShouldQueue
         ])->save();
 
         try {
-            $ticketId = $push->send($token, $notification);
+            $ticketId = $push->send($token, $notification, $sound);
 
             $delivery->forceFill([
                 'provider_message_id' => $ticketId,
