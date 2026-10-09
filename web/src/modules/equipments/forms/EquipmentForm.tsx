@@ -19,20 +19,20 @@ import { usePermissions } from '@/shared/hooks/usePermissions'
 import { useSessionStore } from '@/shared/stores/session.store'
 import { applyApiErrorsToForm } from '@/shared/utils/forms'
 import type { EquipmentPayload } from '../services/equipments.service'
+import { EQUIPMENT_MODELS } from '../lib/equipment-models'
+import { searchEquipmentModels } from '../lib/model-search'
 import { equipmentSchema, type EquipmentFormValues } from '../schemas/equipment.schema'
 
-const EQUIPMENT_MODELS: SearchSelectOption[] = [{ value: 'E3+4G', label: 'E3+4G' }]
+const MODEL_RESULT_LIMIT = 100
 
 function loadModelOptions(search: string): Promise<SearchSelectOption[]> {
-  const term = search.trim().toLowerCase()
-
-  return Promise.resolve(
-    EQUIPMENT_MODELS.filter((option) => option.label.toLowerCase().includes(term)),
-  )
+  return Promise.resolve(searchEquipmentModels(search, MODEL_RESULT_LIMIT))
 }
 
 function resolveModelOption(value: string): Promise<SearchSelectOption | null> {
-  return Promise.resolve(EQUIPMENT_MODELS.find((option) => option.value === value) ?? null)
+  const option = EQUIPMENT_MODELS.find((item) => item.value === value)
+
+  return Promise.resolve(option ?? { value, label: value })
 }
 
 interface EquipmentFormProps {

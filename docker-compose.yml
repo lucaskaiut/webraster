@@ -68,8 +68,6 @@ services:
     working_dir: /var/www/html
     volumes:
       - ./api:/var/www/html
-    ports:
-      - "${REVERB_FORWARD_PORT:-8080}:8080"
     depends_on:
       api:
         condition: service_healthy

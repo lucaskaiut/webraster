@@ -6,6 +6,7 @@ import { Field } from './Field'
 export interface SearchSelectOption {
   value: string
   label: string
+  description?: string
   parent_id?: string | null
   type?: string
 }
@@ -256,7 +257,12 @@ export function SearchSelect({
                     index === highlight ? 'bg-surface-2' : 'text-foreground',
                   )}
                 >
-                  <span className="truncate">{option.label}</span>
+                  <span className="flex min-w-0 flex-1 items-center gap-2">
+                    <span className="truncate">{option.label}</span>
+                    {option.description && (
+                      <span className="ml-auto shrink-0 text-xs text-subtle">{option.description}</span>
+                    )}
+                  </span>
                   {option.value === value && <Check className="size-4 shrink-0 text-primary" aria-hidden="true" />}
                 </button>
               </li>
