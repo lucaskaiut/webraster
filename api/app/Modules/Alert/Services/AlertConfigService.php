@@ -47,6 +47,7 @@ class AlertConfigService
         return [
             AlertType::SOS,
             AlertType::JAMMING,
+            AlertType::GEOFENCE,
             AlertType::DEVICE_ALARM,
             AlertType::OFFLINE,
         ];

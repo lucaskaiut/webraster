@@ -8,6 +8,7 @@ export const VEHICLE_ALERT_TYPE_VALUES = [
   'offline',
   'battery',
   'jamming',
+  'geofence',
 ] as const
 
 export type VehicleAlertType = (typeof VEHICLE_ALERT_TYPE_VALUES)[number]
@@ -59,6 +60,11 @@ export const VEHICLE_ALERT_TYPES: VehicleAlertTypeOption[] = [
     label: 'Jamming',
     description: 'Avisa quando há tentativa de bloquear o sinal de GPS/GSM.',
   },
+  {
+    type: 'geofence',
+    label: 'Entrada e saída de cerca',
+    description: 'Avisa quando o veículo entra ou sai de uma geocerca.',
+  },
 ]
 
 export interface DeviceAlarmTypeOption {
@@ -76,6 +82,7 @@ export const ALERT_TYPE_LABELS: Record<string, string> = {
   online: 'Dispositivo online',
   battery: 'Bateria baixa',
   jamming: 'Jamming',
+  geofence: 'Entrada e saída de cerca',
   device_alarm: 'Alarme do dispositivo',
 }
 
@@ -157,7 +164,7 @@ export interface AlertConfigLike {
   notify_email?: boolean
 }
 
-const DEFAULT_ENABLED_GENERAL: VehicleAlertType[] = ['sos', 'jamming', 'offline']
+const DEFAULT_ENABLED_GENERAL: VehicleAlertType[] = ['sos', 'jamming', 'geofence', 'offline']
 const DEFAULT_EMAIL_GENERAL: VehicleAlertType[] = ['sos', 'jamming']
 const DEFAULT_ENABLED_DEVICE = ['accident', 'powercut', 'removing', 'tampering']
 

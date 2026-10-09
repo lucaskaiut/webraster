@@ -12,6 +12,7 @@ enum AlertType: string
     case ONLINE = 'online';
     case BATTERY = 'battery';
     case JAMMING = 'jamming';
+    case GEOFENCE = 'geofence';
     case DEVICE_ALARM = 'device_alarm';
 
     public function label(): string
@@ -25,6 +26,7 @@ enum AlertType: string
             self::ONLINE => 'Dispositivo online',
             self::BATTERY => 'Bateria baixa',
             self::JAMMING => 'Jamming',
+            self::GEOFENCE => 'Entrada e saída de cerca',
             self::DEVICE_ALARM => 'Alarme do dispositivo',
         };
     }
@@ -37,6 +39,7 @@ enum AlertType: string
             self::BATTERY => AlertSeverity::MEDIUM,
             self::OFFLINE, self::ONLINE => AlertSeverity::HIGH,
             self::SOS, self::JAMMING => AlertSeverity::CRITICAL,
+            self::GEOFENCE => AlertSeverity::MEDIUM,
             self::DEVICE_ALARM => AlertSeverity::HIGH,
         };
     }
@@ -54,6 +57,7 @@ enum AlertType: string
             self::OFFLINE,
             self::BATTERY,
             self::JAMMING,
+            self::GEOFENCE,
             self::DEVICE_ALARM,
         ];
     }
@@ -72,6 +76,7 @@ enum AlertType: string
             self::OFFLINE,
             self::BATTERY,
             self::DEVICE_ALARM,
+            self::GEOFENCE,
         ];
     }
 
@@ -86,6 +91,7 @@ enum AlertType: string
             self::ONLINE => 'Avisa quando o rastreador volta a comunicar.',
             self::BATTERY => 'Avisa quando a bateria do rastreador fica baixa.',
             self::JAMMING => 'Avisa quando há tentativa de bloquear o sinal de GPS/GSM.',
+            self::GEOFENCE => 'Avisa quando o veículo entra ou sai de uma geocerca.',
             self::DEVICE_ALARM => 'Avisa alarmes do rastreador, como energia cortada, reboque ou porta aberta.',
         };
     }

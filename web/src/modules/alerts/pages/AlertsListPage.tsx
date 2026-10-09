@@ -57,6 +57,7 @@ const TYPE_OPTIONS = [
   { value: 'online', label: 'Online' },
   { value: 'battery', label: 'Bateria' },
   { value: 'jamming', label: 'Jamming' },
+  { value: 'geofence', label: 'Entrada e saída de cerca' },
   { value: 'device_alarm', label: 'Alarme do dispositivo' },
 ]
 

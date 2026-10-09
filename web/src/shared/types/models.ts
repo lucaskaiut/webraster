@@ -651,6 +651,7 @@ export type AlertType =
   | 'online'
   | 'battery'
   | 'jamming'
+  | 'geofence'
   | 'device_alarm'
 
 export type AlertSeverity = 'low' | 'medium' | 'high' | 'critical'

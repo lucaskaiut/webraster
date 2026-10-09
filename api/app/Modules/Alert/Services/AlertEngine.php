@@ -5,6 +5,7 @@ namespace App\Modules\Alert\Services;
 use App\Modules\Alert\Services\Rules\AlertRule;
 use App\Modules\Alert\Services\Rules\BatteryAlertRule;
 use App\Modules\Alert\Services\Rules\DeviceAlarmAlertRule;
+use App\Modules\Alert\Services\Rules\GeofenceAlertRule;
 use App\Modules\Alert\Services\Rules\IgnitionAlertRule;
 use App\Modules\Alert\Services\Rules\JammingAlertRule;
 use App\Modules\Alert\Services\Rules\SosAlertRule;
@@ -26,8 +27,9 @@ class AlertEngine
         BatteryAlertRule $battery,
         JammingAlertRule $jamming,
         DeviceAlarmAlertRule $deviceAlarm,
+        GeofenceAlertRule $geofence,
     ) {
-        $this->rules = [$speed, $ignition, $sos, $battery, $jamming, $deviceAlarm];
+        $this->rules = [$speed, $ignition, $sos, $battery, $jamming, $deviceAlarm, $geofence];
     }
 
     /**

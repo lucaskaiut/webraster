@@ -172,7 +172,7 @@ class AlertEngineTest extends TestCase
         $this->assertCount($expected, $configs);
         $this->assertFalse($configs->has('device_alarm|'));
 
-        foreach ([AlertType::SOS, AlertType::JAMMING, AlertType::OFFLINE] as $type) {
+        foreach ([AlertType::SOS, AlertType::JAMMING, AlertType::GEOFENCE, AlertType::OFFLINE] as $type) {
             $this->assertTrue((bool) $configs[$type->value.'|']->is_enabled, "Esperado {$type->value} habilitado");
         }
 
