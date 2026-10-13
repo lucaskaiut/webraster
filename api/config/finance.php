@@ -32,6 +32,6 @@ return [
     |
     */
 
-    'days_before_due' => (int) env('FINANCE_DAYS_BEFORE_DUE', 5),
+    'days_before_due' => (int) env('FINANCE_DAYS_BEFORE_DUE', 30),
 
 ];

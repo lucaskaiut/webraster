@@ -31,6 +31,10 @@ Pedido (serviços × veículos) → Assinatura (snapshot do total) → Cobrança
                                                                                       (reativa dispositivos)
 ```
 
+Ao criar o pedido, as **duas primeiras cobranças** são geradas de imediato (vencimentos nos dois primeiros ciclos) e o ciclo seguinte fica agendado. As demais são geradas pelo `finance:generate-billings` **30 dias antes do vencimento** (`finance.days_before_due`, configurável por `FINANCE_DAYS_BEFORE_DUE`).
+
+No cadastro do cliente (aba Pedido), o botão **Gerar próxima cobrança** emite a fatura seguinte à última gerada para a assinatura e avança o ciclo. Quando não há faturas, usa `next_billing_at`.
+
 Inadimplência: após `block_after_days` com `block_on_overdue`, motor de suspensão + `DeviceSuspensionProvider` suspende equipamentos.
 
 ## API (operador)
@@ -40,6 +44,7 @@ Inadimplência: após `block_after_days` com `block_on_overdue`, motor de suspen
 | CRUD | `/finance/plans` |
 | list/show/PATCH | `/finance/subscriptions`, `/finance/subscriptions/{id}` |
 | POST assign / cancel / reactivate | `/finance/subscriptions/assign`, `.../cancel`, `.../reactivate` |
+| POST próxima cobrança | `/finance/subscriptions/{id}/next-billing` (a partir da última fatura) |
 | GET/PUT | `/clients/{clientId}/order` | pedido atual (itens + veículos + total) |
 | GET overview | `/finance/clients/{clientId}/overview` → `{ plan?, subscription?, open_billing?, billings[] }` |
 | list/show/generate/charge/cancel/mark-paid | `/finance/billings` |

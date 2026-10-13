@@ -6,7 +6,9 @@ use App\Modules\Client\Models\Client;
 use App\Modules\Finance\Http\Requests\AssignFinanceSubscriptionRequest;
 use App\Modules\Finance\Http\Requests\UpdateClientPlanRequest;
 use App\Modules\Finance\Http\Requests\UpdateFinanceSubscriptionRequest;
+use App\Modules\Finance\Http\Resources\FinanceBillingResource;
 use App\Modules\Finance\Http\Resources\FinanceSubscriptionResource;
+use App\Modules\Finance\Models\FinanceBilling;
 use App\Modules\Finance\Models\FinancePlan;
 use App\Modules\Finance\Models\FinanceSubscription;
 use App\Modules\Finance\Services\FinanceSubscriptionService;
@@ -112,5 +114,14 @@ class FinanceSubscriptionController extends ApiController
             FinanceSubscriptionResource::make($subscription),
             'Assinatura reativada. Dispositivos liberados mesmo com inadimplência em aberto.',
         );
+    }
+
+    public function nextBilling(FinanceSubscription $financeSubscription): JsonResponse
+    {
+        $this->authorize('create', FinanceBilling::class);
+
+        $billing = $this->service->generateNextBilling($financeSubscription);
+
+        return $this->created(FinanceBillingResource::make($billing), 'Próxima cobrança gerada.');
     }
 }

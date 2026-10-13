@@ -232,6 +232,7 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::match(['put', 'patch'], 'finance/subscriptions/{financeSubscription}', [FinanceSubscriptionController::class, 'update'])->middleware('permission:finance-subscription.update');
     Route::post('finance/subscriptions/{financeSubscription}/cancel', [FinanceSubscriptionController::class, 'cancel'])->middleware('permission:finance-subscription.update');
     Route::post('finance/subscriptions/{financeSubscription}/reactivate', [FinanceSubscriptionController::class, 'reactivate'])->middleware('permission:finance-subscription.update');
+    Route::post('finance/subscriptions/{financeSubscription}/next-billing', [FinanceSubscriptionController::class, 'nextBilling'])->middleware('permission:finance-billing.create');
     Route::patch('clients/{client}/plan', [FinanceSubscriptionController::class, 'updateClientPlan'])->middleware('permission:finance-subscription.create');
 
     Route::get('finance/clients/{client}/overview', FinanceClientOverviewController::class)->middleware('permission:finance-subscription.read');

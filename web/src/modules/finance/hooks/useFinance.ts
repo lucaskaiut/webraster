@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { queryKeys } from '@/shared/constants/query-keys'
 import { toast } from '@/shared/stores/toast.store'
 import { isApiError } from '@/shared/api/errors'
+import { formatDate } from '@/shared/utils/format'
 import {
   financeService,
   type AssignFinanceSubscriptionPayload,
@@ -127,6 +128,20 @@ export function useReactivateFinanceSubscription() {
     onSuccess: () => {
       invalidateFinance(queryClient)
       toast.success('Assinatura reativada e dispositivos liberados')
+    },
+    onError: (error) => {
+      if (isApiError(error)) toast.error(error.message)
+    },
+  })
+}
+
+export function useGenerateNextFinanceBilling() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (subscriptionId: string) => financeService.generateNextBilling(subscriptionId),
+    onSuccess: (billing) => {
+      invalidateFinance(queryClient)
+      toast.success('Cobrança gerada', `Vencimento em ${formatDate(billing.due_at)}.`)
     },
     onError: (error) => {
       if (isApiError(error)) toast.error(error.message)

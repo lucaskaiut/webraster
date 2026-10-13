@@ -4,6 +4,7 @@ namespace App\Modules\Client\Services;
 
 use App\Modules\Client\Models\Client;
 use App\Modules\Client\Models\ClientOrder;
+use App\Modules\Finance\Services\FinanceBillingService;
 use App\Modules\Finance\Services\FinanceSubscriptionService;
 use App\Modules\Service\Models\Service;
 use App\Modules\Shared\Subscription\Enums\BillingPeriodicity;
@@ -13,8 +14,14 @@ use Illuminate\Validation\ValidationException;
 
 class ClientOrderService
 {
+    /**
+     * Quantidade de cobranças geradas de imediato quando o pedido é criado.
+     */
+    private const INITIAL_BILLINGS = 2;
+
     public function __construct(
         private readonly FinanceSubscriptionService $subscriptions,
+        private readonly FinanceBillingService $billings,
     ) {}
 
     public function currentForClient(Client $client): ?ClientOrder
@@ -74,10 +81,17 @@ class ClientOrderService
                 $item->vehicles()->sync($itemData['vehicle_ids']);
             }
 
+            $isNewSubscription = $this->subscriptions->currentForClient($client) === null;
+
             $subscription = $this->subscriptions->assignFromOrder($client, $order->fresh(['items.service']), [
                 'due_day' => $dueDay,
                 'next_billing_at' => $data['next_billing_at'] ?? null,
             ]);
+
+            if ($isNewSubscription) {
+                $this->billings->generateInitialForSubscription($subscription, self::INITIAL_BILLINGS);
+                $this->subscriptions->advanceBillingDates($subscription, self::INITIAL_BILLINGS);
+            }
 
             $order->forceFill(['finance_subscription_id' => $subscription->getKey()])->save();
 

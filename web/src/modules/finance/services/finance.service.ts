@@ -162,6 +162,13 @@ export const financeService = {
     return response.data.data
   },
 
+  async generateNextBilling(subscriptionId: string): Promise<FinanceBilling> {
+    const response = await http.post<ApiResponse<FinanceBilling>>(
+      `/finance/subscriptions/${subscriptionId}/next-billing`,
+    )
+    return response.data.data
+  },
+
   async clientOverview(clientId: string): Promise<FinanceClientOverview> {
     const response = await http.get<ApiResponse<FinanceClientOverview>>(
       `/finance/clients/${clientId}/overview`,

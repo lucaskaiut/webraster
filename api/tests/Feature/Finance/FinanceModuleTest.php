@@ -101,13 +101,13 @@ class FinanceModuleTest extends TestCase
             ->assertJsonPath('data.status', 'pending');
     }
 
-    public function test_generates_billing_five_days_before_due_date(): void
+    public function test_generates_billing_thirty_days_before_due_date(): void
     {
         [, $tenant] = $this->createOperationalChild();
         $plan = FinancePlan::factory()->forTenant($tenant)->create();
 
-        $dueSoon = now()->addDays(5)->toDateString();
-        $dueLater = now()->addDays(6)->toDateString();
+        $dueSoon = now()->addDays(30)->toDateString();
+        $dueLater = now()->addDays(31)->toDateString();
 
         $subscription = FinanceSubscription::factory()
             ->forClient(Client::factory()->for($tenant)->create(), $plan)
@@ -125,14 +125,113 @@ class FinanceModuleTest extends TestCase
 
         $this->artisan('finance:generate-billings')->assertSuccessful();
 
-        $this->assertDatabaseHas('finance_billings', [
-            'subscription_id' => $subscription->getKey(),
-            'due_at' => $dueSoon,
+        $this->assertTrue(
+            $subscription->billings()->whereDate('due_at', $dueSoon)->exists(),
+        );
+
+        $this->assertFalse(
+            $notYetDue->billings()->exists(),
+        );
+    }
+
+    public function test_generates_next_billing_from_last_billing(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+
+        $lastDue = now()->addDays(10)->startOfDay();
+        $expectedDue = $lastDue->copy()->addMonthNoOverflow();
+
+        $subscription = FinanceSubscription::factory()->forClient($client)->create([
+            'status' => SubscriptionStatus::ACTIVE,
+            'plan_periodicity' => 'monthly',
+            'plan_price_cents' => 4990,
+            'next_billing_at' => $expectedDue->toDateString(),
         ]);
 
-        $this->assertDatabaseMissing('finance_billings', [
-            'subscription_id' => $notYetDue->getKey(),
+        FinanceBilling::factory()->forSubscription($subscription)->create([
+            'due_at' => $lastDue->toDateString(),
         ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->postJson("/api/finance/subscriptions/{$subscription->uuid}/next-billing")
+            ->assertCreated()
+            ->assertJsonPath('data.due_at', $expectedDue->toDateString())
+            ->assertJsonPath('data.amount_cents', 4990)
+            ->assertJsonPath('data.status', 'pending');
+
+        $subscription->refresh();
+
+        $this->assertSame($expectedDue->toDateString(), $subscription->last_billed_at?->toDateString());
+        $this->assertSame(
+            $expectedDue->copy()->addMonthNoOverflow()->toDateString(),
+            $subscription->next_billing_at?->toDateString(),
+        );
+        $this->assertSame(
+            2,
+            FinanceBilling::query()->where('subscription_id', $subscription->getKey())->count(),
+        );
+    }
+
+    public function test_generates_next_billing_from_next_billing_at_without_billings(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+
+        $due = now()->addDays(15)->toDateString();
+
+        $subscription = FinanceSubscription::factory()->forClient($client)->create([
+            'status' => SubscriptionStatus::ACTIVE,
+            'next_billing_at' => $due,
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->postJson("/api/finance/subscriptions/{$subscription->uuid}/next-billing")
+            ->assertCreated()
+            ->assertJsonPath('data.due_at', $due);
+    }
+
+    public function test_generates_next_billing_respecting_later_scheduled_date(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+
+        $lastDue = now()->addDays(5)->startOfDay();
+        $scheduled = $lastDue->copy()->addMonthNoOverflow()->addDays(7);
+
+        $subscription = FinanceSubscription::factory()->forClient($client)->create([
+            'status' => SubscriptionStatus::ACTIVE,
+            'plan_periodicity' => 'monthly',
+            'next_billing_at' => $scheduled->toDateString(),
+        ]);
+
+        FinanceBilling::factory()->forSubscription($subscription)->create([
+            'due_at' => $lastDue->toDateString(),
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->postJson("/api/finance/subscriptions/{$subscription->uuid}/next-billing")
+            ->assertCreated()
+            ->assertJsonPath('data.due_at', $scheduled->toDateString());
+    }
+
+    public function test_client_role_without_billing_create_permission_cannot_generate_next_billing(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+
+        $subscription = FinanceSubscription::factory()->forClient($client)->create([
+            'status' => SubscriptionStatus::ACTIVE,
+            'next_billing_at' => now()->addDays(15)->toDateString(),
+        ]);
+
+        Sanctum::actingAs($this->createClient($tenant));
+
+        $this->postJson("/api/finance/subscriptions/{$subscription->uuid}/next-billing")
+            ->assertForbidden();
     }
 
     public function test_tenant_isolation_for_plans(): void

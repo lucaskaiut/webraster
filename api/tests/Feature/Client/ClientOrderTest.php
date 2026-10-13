@@ -4,8 +4,10 @@ namespace Tests\Feature\Client;
 
 use App\Modules\Client\Models\Client;
 use App\Modules\Client\Models\ClientOrder;
+use App\Modules\Finance\Models\FinanceBilling;
 use App\Modules\Finance\Models\FinanceSubscription;
 use App\Modules\Service\Models\Service;
+use App\Modules\Shared\Subscription\Enums\BillingStatus;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -70,6 +72,48 @@ class ClientOrderTest extends TestCase
         $this->assertStringContainsString('rastreador', (string) $subscription->plan_name);
     }
 
+    public function test_upsert_generates_first_two_billings_on_creation(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $service = Service::factory()->forTenant($tenant)->create(['amount_cents' => 5000]);
+        $vehicle = Vehicle::factory()->forClient($client)->create();
+
+        $firstDue = now()->startOfMonth()->addMonthNoOverflow()->day(10);
+        $secondDue = $firstDue->copy()->addMonthNoOverflow();
+        $thirdDue = $secondDue->copy()->addMonthNoOverflow();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}/order", [
+            'due_day' => 10,
+            'periodicity' => 'monthly',
+            'next_billing_at' => $firstDue->toDateString(),
+            'items' => [
+                ['service_id' => $service->uuid, 'vehicle_ids' => [$vehicle->uuid]],
+            ],
+        ])->assertOk();
+
+        $subscription = FinanceSubscription::query()->where('client_id', $client->getKey())->firstOrFail();
+
+        $billings = FinanceBilling::query()
+            ->where('subscription_id', $subscription->getKey())
+            ->orderBy('due_at')
+            ->get();
+
+        $this->assertCount(2, $billings);
+        $this->assertSame($firstDue->toDateString(), $billings[0]->due_at?->toDateString());
+        $this->assertSame($secondDue->toDateString(), $billings[1]->due_at?->toDateString());
+        $this->assertSame(5000, $billings[0]->amount_cents);
+        $this->assertSame(5000, $billings[1]->amount_cents);
+        $this->assertTrue(
+            $billings->every(fn (FinanceBilling $billing): bool => $billing->status === BillingStatus::PENDING),
+        );
+
+        $this->assertSame($secondDue->toDateString(), $subscription->last_billed_at?->toDateString());
+        $this->assertSame($thirdDue->toDateString(), $subscription->next_billing_at?->toDateString());
+    }
+
     public function test_rejects_vehicles_from_another_client(): void
     {
         [, $tenant] = $this->createOperationalChild();
@@ -127,5 +171,8 @@ class ClientOrderTest extends TestCase
         $this->assertSame(1, ClientOrder::query()->where('client_id', $client->getKey())->count());
         $this->assertSame(1, FinanceSubscription::query()->where('client_id', $client->getKey())->count());
         $this->assertSame(20000, FinanceSubscription::query()->where('client_id', $client->getKey())->value('plan_price_cents'));
+
+        // As cobranças iniciais são geradas apenas na criação do pedido.
+        $this->assertSame(2, FinanceBilling::query()->count());
     }
 }

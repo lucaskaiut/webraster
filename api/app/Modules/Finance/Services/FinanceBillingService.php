@@ -10,12 +10,15 @@ use App\Modules\Finance\Events\InvoicePaid;
 use App\Modules\Finance\Models\FinanceBilling;
 use App\Modules\Finance\Models\FinanceBillingEvent;
 use App\Modules\Finance\Models\FinanceSubscription;
+use App\Modules\Shared\Subscription\Enums\BillingPeriodicity;
 use App\Modules\Shared\Subscription\Enums\BillingStatus;
+use App\Modules\Shared\Subscription\Support\NextBillingDate;
 use App\Modules\Tenant\Support\Facades\TenantContext;
 use App\Modules\User\Models\User;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -73,6 +76,63 @@ class FinanceBillingService
         event(new InvoiceCreated($billing));
 
         return $billing->load(['client', 'subscription.plan']);
+    }
+
+    /**
+     * Gera as primeiras cobranças de uma assinatura recém-criada,
+     * antecipando os ciclos a partir de next_billing_at.
+     *
+     * @return Collection<int, FinanceBilling>
+     */
+    public function generateInitialForSubscription(FinanceSubscription $subscription, int $count = 2): Collection
+    {
+        $periodicity = $subscription->plan_periodicity
+            ?? $subscription->plan?->periodicity
+            ?? BillingPeriodicity::MONTHLY;
+
+        $due = $subscription->next_billing_at
+            ? CarbonImmutable::parse($subscription->next_billing_at)->startOfDay()
+            : $this->defaultDueDate($subscription);
+
+        $billings = new Collection;
+
+        for ($cycle = 0; $cycle < max(1, $count); $cycle++) {
+            $billings->push($this->generateForSubscription($subscription, Carbon::parse($due)));
+            $due = NextBillingDate::advance($due, $periodicity);
+        }
+
+        return $billings;
+    }
+
+    /**
+     * Gera a próxima cobrança a partir da última fatura emitida para a
+     * assinatura, caindo para next_billing_at quando ainda não há faturas.
+     * Um next_billing_at posterior (ajuste manual) é respeitado.
+     */
+    public function generateNextForSubscription(FinanceSubscription $subscription): FinanceBilling
+    {
+        $periodicity = $subscription->plan_periodicity
+            ?? $subscription->plan?->periodicity
+            ?? BillingPeriodicity::MONTHLY;
+
+        $lastBilling = $subscription->billings()
+            ->orderByDesc('due_at')
+            ->orderByDesc('id')
+            ->first();
+
+        $due = $lastBilling?->due_at
+            ? NextBillingDate::advance(CarbonImmutable::parse($lastBilling->due_at)->startOfDay(), $periodicity)
+            : $this->defaultDueDate($subscription);
+
+        if ($subscription->next_billing_at !== null) {
+            $scheduled = CarbonImmutable::parse($subscription->next_billing_at)->startOfDay();
+
+            if ($scheduled->greaterThan($due)) {
+                $due = $scheduled;
+            }
+        }
+
+        return $this->generateForSubscription($subscription, Carbon::parse($due));
     }
 
     public function markOverdue(): int

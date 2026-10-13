@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
-import { CreditCard, RefreshCw } from 'lucide-react'
+import { CreditCard, Plus, RefreshCw } from 'lucide-react'
 import {
   Alert,
   Badge,
@@ -27,6 +27,7 @@ import { formResolver } from '@/shared/utils/forms'
 import type { FinanceBilling } from '@/shared/types/models'
 import {
   useFinanceClientOverviewQuery,
+  useGenerateNextFinanceBilling,
   useReactivateFinanceSubscription,
   useUpdateFinanceSubscription,
 } from '@/modules/finance/hooks/useFinance'
@@ -68,7 +69,9 @@ export function ClientFinanceSection({ clientId }: { clientId: string }) {
   )
   const reactivate = useReactivateFinanceSubscription()
   const updateSubscription = useUpdateFinanceSubscription()
+  const generateNextBilling = useGenerateNextFinanceBilling()
   const [confirmReactivate, setConfirmReactivate] = useState(false)
+  const [confirmNextBilling, setConfirmNextBilling] = useState(false)
 
   const subscription = overview.data?.subscription ?? null
   const openBilling = overview.data?.open_billing ?? null
@@ -167,6 +170,7 @@ export function ClientFinanceSection({ clientId }: { clientId: string }) {
   }
 
   const canEdit = can(Permission.FINANCE_SUBSCRIPTION_UPDATE)
+  const canGenerateBilling = can(Permission.FINANCE_BILLING_CREATE)
   const canReactivate =
     canEdit &&
     !!subscription &&
@@ -337,7 +341,18 @@ export function ClientFinanceSection({ clientId }: { clientId: string }) {
             </Form>
           </Section>
 
-          <Section title="Histórico de cobranças" description="Últimas cobranças deste cliente.">
+          <Section
+            title="Histórico de cobranças"
+            description="Últimas cobranças deste cliente."
+            actions={
+              canGenerateBilling ? (
+                <Button variant="secondary" onClick={() => setConfirmNextBilling(true)}>
+                  <Plus className="size-4" />
+                  Gerar próxima cobrança
+                </Button>
+              ) : undefined
+            }
+          >
             <DataTable
               caption="Histórico de cobranças"
               columns={columns}
@@ -373,6 +388,26 @@ export function ClientFinanceSection({ clientId }: { clientId: string }) {
           </>
         }
         confirmLabel="Reativar"
+      />
+
+      <ConfirmDialog
+        open={confirmNextBilling}
+        onClose={() => setConfirmNextBilling(false)}
+        onConfirm={() => {
+          if (!subscription) return
+          generateNextBilling.mutate(subscription.id, {
+            onSettled: () => setConfirmNextBilling(false),
+          })
+        }}
+        loading={generateNextBilling.isPending}
+        title="Gerar próxima cobrança"
+        description={
+          <>
+            Uma nova cobrança será gerada a partir da última fatura deste cliente e a data da
+            próxima cobrança será avançada para o ciclo seguinte.
+          </>
+        }
+        confirmLabel="Gerar"
       />
     </>
   )

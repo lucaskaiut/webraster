@@ -6,6 +6,7 @@ use App\Modules\Client\Models\Client;
 use App\Modules\Client\Models\ClientOrder;
 use App\Modules\Finance\Events\SubscriptionCanceled;
 use App\Modules\Finance\Events\SubscriptionCreated;
+use App\Modules\Finance\Models\FinanceBilling;
 use App\Modules\Finance\Models\FinancePlan;
 use App\Modules\Finance\Models\FinanceSubscription;
 use App\Modules\Shared\Subscription\Enums\BillingPeriodicity;
@@ -21,6 +22,7 @@ class FinanceSubscriptionService
 {
     public function __construct(
         private readonly DelinquencyService $delinquency,
+        private readonly FinanceBillingService $billings,
     ) {}
 
     /**
@@ -327,7 +329,7 @@ class FinanceSubscriptionService
             ->get();
     }
 
-    public function advanceBillingDates(FinanceSubscription $subscription): FinanceSubscription
+    public function advanceBillingDates(FinanceSubscription $subscription, int $cycles = 1): FinanceSubscription
     {
         $periodicity = $subscription->plan_periodicity
             ?? $subscription->plan?->periodicity
@@ -337,11 +339,33 @@ class FinanceSubscriptionService
             ? CarbonImmutable::parse($subscription->next_billing_at)
             : CarbonImmutable::today();
 
-        $subscription->last_billed_at = $from->toDateString();
-        $subscription->next_billing_at = NextBillingDate::advance($from, $periodicity)->toDateString();
+        for ($cycle = 0; $cycle < max(1, $cycles); $cycle++) {
+            $subscription->last_billed_at = $from->toDateString();
+            $from = NextBillingDate::advance($from, $periodicity);
+        }
+
+        $subscription->next_billing_at = $from->toDateString();
         $subscription->save();
 
         return $subscription;
+    }
+
+    /**
+     * Gera a próxima cobrança da assinatura (a partir da última fatura
+     * emitida) e avança o ciclo para depois dela.
+     */
+    public function generateNextBilling(FinanceSubscription $subscription): FinanceBilling
+    {
+        return DB::transaction(function () use ($subscription) {
+            $billing = $this->billings->generateNextForSubscription($subscription);
+
+            $subscription->next_billing_at = $billing->due_at?->toDateString();
+            $subscription->save();
+
+            $this->advanceBillingDates($subscription);
+
+            return $billing->load(['client', 'subscription.plan']);
+        });
     }
 
     public function currentForClient(Client $client): ?FinanceSubscription
