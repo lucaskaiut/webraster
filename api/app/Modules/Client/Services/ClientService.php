@@ -21,6 +21,7 @@ class ClientService
 {
     public function __construct(
         private readonly FinanceSubscriptionService $subscriptions,
+        private readonly ClientContractService $contracts,
     ) {}
 
     public function paginate(
@@ -66,6 +67,10 @@ class ClientService
         return DB::transaction(function () use ($data) {
             $client = Client::query()->create($this->payload($data));
 
+            if ($client->without_contract) {
+                $this->contracts->markWithoutContract($client);
+            }
+
             if (! empty($client->plan_id)) {
                 $plan = FinancePlan::query()->find($client->plan_id);
                 if ($plan) {
@@ -85,8 +90,20 @@ class ClientService
         return DB::transaction(function () use ($client, $data) {
             $previousPlanId = $client->plan_id;
             $payload = $this->payload($data);
+
+            $withoutContractChanged = array_key_exists('without_contract', $payload)
+                && (bool) $client->without_contract !== (bool) $payload['without_contract'];
+
             $client->fill($payload);
             $client->save();
+
+            if ($withoutContractChanged) {
+                if ($client->without_contract) {
+                    $this->contracts->markWithoutContract($client);
+                } else {
+                    $this->contracts->clearWithoutContract($client);
+                }
+            }
 
             if (array_key_exists('plan_id', $payload) && (int) $previousPlanId !== (int) $client->plan_id) {
                 if ($client->plan_id) {
@@ -143,6 +160,7 @@ class ClientService
             'state',
             'zip',
             'is_active',
+            'without_contract',
             'plan_id',
         ]);
     }

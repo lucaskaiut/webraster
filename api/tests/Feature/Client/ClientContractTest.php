@@ -904,6 +904,92 @@ class ClientContractTest extends TestCase
             ->assertJsonPath('data.document_name', null);
     }
 
+    public function test_marking_client_without_contract_releases_app_access(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}", [
+            'without_contract' => true,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.without_contract', true);
+
+        $this->assertDatabaseHas('client_contracts', [
+            'client_id' => $client->getKey(),
+            'contract_id' => null,
+            'signature_status' => 'signed',
+        ]);
+
+        Sanctum::actingAs($this->createClient($tenant, ['client_id' => $client->getKey()]));
+
+        $this->getJson('/api/contract/portal')
+            ->assertOk()
+            ->assertJsonPath('data.contract_id', null)
+            ->assertJsonPath('data.signature_status', 'signed')
+            ->assertJsonPath('data.signature_status_label', 'Assinado');
+    }
+
+    public function test_removing_without_contract_allows_contract_requirement_again(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}", [
+            'without_contract' => true,
+        ])->assertOk();
+
+        $this->putJson("/api/clients/{$client->uuid}", [
+            'without_contract' => false,
+        ])->assertOk()->assertJsonPath('data.without_contract', false);
+
+        $this->assertSoftDeleted('client_contracts', [
+            'client_id' => $client->getKey(),
+        ]);
+
+        Sanctum::actingAs($this->createClient($tenant, ['client_id' => $client->getKey()]));
+
+        $this->getJson('/api/contract/portal')
+            ->assertOk()
+            ->assertJsonPath('data', null);
+    }
+
+    public function test_removing_without_contract_keeps_real_contract(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $contract = Contract::factory()->forTenant($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $contract->uuid,
+        ])->assertOk()->assertJsonPath('data.signature_status', 'pending');
+
+        $this->putJson("/api/clients/{$client->uuid}", [
+            'without_contract' => true,
+        ])->assertOk();
+
+        $this->assertDatabaseHas('client_contracts', [
+            'client_id' => $client->getKey(),
+            'contract_id' => $contract->getKey(),
+            'signature_status' => 'signed',
+        ]);
+
+        $this->putJson("/api/clients/{$client->uuid}", [
+            'without_contract' => false,
+        ])->assertOk();
+
+        $this->assertNotSoftDeleted('client_contracts', [
+            'client_id' => $client->getKey(),
+            'contract_id' => $contract->getKey(),
+        ]);
+    }
+
     public function test_client_user_reads_own_contract_through_portal(): void
     {
         [, $tenant] = $this->createOperationalChild();

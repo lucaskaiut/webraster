@@ -34,6 +34,7 @@ class ClientResource extends JsonResource
             'state' => $this->state,
             'zip' => $this->zip,
             'is_active' => (bool) $this->is_active,
+            'without_contract' => (bool) $this->without_contract,
             'plan_id' => $this->plan?->uuid,
             'plan' => $this->whenLoaded('plan', fn () => $this->plan ? [
                 'id' => $this->plan->uuid,

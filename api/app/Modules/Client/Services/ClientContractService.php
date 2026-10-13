@@ -168,4 +168,61 @@ class ClientContractService
             return $clientContract->fresh('contract');
         });
     }
+
+    /**
+     * Dispensa o contrato: garante um vínculo assinado (sem template e sem
+     * documento) para que o aplicativo considere o acesso do cliente liberado.
+     */
+    public function markWithoutContract(Client $client): ClientContract
+    {
+        return DB::transaction(function () use ($client) {
+            $clientContract = ClientContract::withTrashed()
+                ->where('client_id', $client->getKey())
+                ->first();
+
+            if ($clientContract === null) {
+                $clientContract = new ClientContract([
+                    'client_id' => $client->getKey(),
+                    'body' => '',
+                ]);
+            }
+
+            if ($clientContract->trashed()) {
+                $clientContract->restore();
+            }
+
+            if ($clientContract->signature_status !== ContractSignatureStatus::SIGNED) {
+                $clientContract->fill([
+                    'signature_status' => ContractSignatureStatus::SIGNED,
+                    'signed_at' => now(),
+                ]);
+                $clientContract->save();
+            }
+
+            return $clientContract->fresh('contract');
+        });
+    }
+
+    /**
+     * Volta a exigir contrato: remove o vínculo criado apenas para dispensar
+     * a assinatura. Contratos reais (com template, arquivo ou assinatura)
+     * são preservados.
+     */
+    public function clearWithoutContract(Client $client): void
+    {
+        $clientContract = $this->currentForClient($client);
+
+        if ($clientContract === null) {
+            return;
+        }
+
+        $isPlaceholder = $clientContract->contract_id === null
+            && $clientContract->document_path === null
+            && $clientContract->signature_path === null
+            && blank($clientContract->body);
+
+        if ($isPlaceholder) {
+            $clientContract->delete();
+        }
+    }
 }

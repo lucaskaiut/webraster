@@ -13,6 +13,7 @@ import {
   Modal,
   Section,
   SelectField,
+  Switch,
   buttonClasses,
 } from '@/shared/design-system'
 import { apiErrorMessage, isApiError } from '@/shared/api/errors'
@@ -28,7 +29,9 @@ import type { ClientContract, ContractSignatureStatus } from '@/shared/types/mod
 import { signatureStatusBadgeVariant, signatureStatusLabel } from '../lib/labels'
 import {
   useClientContractQuery,
+  useClientQuery,
   useDownloadClientContractPdf,
+  useSetClientWithoutContract,
   useUpdateClientContractSignature,
   useUploadClientContractDocument,
   useUpsertClientContract,
@@ -52,15 +55,18 @@ function SignerField({ label, value }: { label: string; value: string | null }) 
 export function ClientContractSection({ clientId }: { clientId: string }) {
   const contractsQuery = useContractsQuery({ per_page: 100 })
   const contractQuery = useClientContractQuery(clientId)
+  const clientQuery = useClientQuery(clientId)
   const upsert = useUpsertClientContract(clientId)
   const updateSignature = useUpdateClientContractSignature(clientId)
   const downloadPdf = useDownloadClientContractPdf(clientId)
   const uploadDocument = useUploadClientContractDocument(clientId)
+  const setWithoutContract = useSetClientWithoutContract(clientId)
 
   const contracts = contractsQuery.data?.data ?? []
   const current = contractQuery.data
+  const withoutContract = clientQuery.data?.without_contract ?? false
 
-  if (contractsQuery.isPending || contractQuery.isPending) {
+  if (contractsQuery.isPending || contractQuery.isPending || clientQuery.isPending) {
     return (
       <Card>
         <CardContent>
@@ -74,6 +80,8 @@ export function ClientContractSection({ clientId }: { clientId: string }) {
     <ClientContractForm
       contracts={contracts}
       current={current}
+      withoutContract={withoutContract}
+      togglingWithoutContract={setWithoutContract.isPending}
       submitting={upsert.isPending}
       signatureUpdating={updateSignature.isPending}
       downloadingPdf={downloadPdf.isPending}
@@ -82,6 +90,7 @@ export function ClientContractSection({ clientId }: { clientId: string }) {
       onChangeSignature={(status) => updateSignature.mutateAsync({ signature_status: status })}
       onDownloadPdf={() => downloadPdf.mutateAsync()}
       onUploadDocument={(file) => uploadDocument.mutateAsync(file)}
+      onChangeWithoutContract={(value) => setWithoutContract.mutateAsync(value)}
     />
   )
 }
@@ -89,6 +98,8 @@ export function ClientContractSection({ clientId }: { clientId: string }) {
 function ClientContractForm({
   contracts,
   current,
+  withoutContract,
+  togglingWithoutContract,
   submitting,
   signatureUpdating,
   downloadingPdf,
@@ -97,9 +108,12 @@ function ClientContractForm({
   onChangeSignature,
   onDownloadPdf,
   onUploadDocument,
+  onChangeWithoutContract,
 }: {
   contracts: Array<{ id: string; name: string }>
   current: ClientContract | null | undefined
+  withoutContract: boolean
+  togglingWithoutContract: boolean
   submitting: boolean
   signatureUpdating: boolean
   downloadingPdf: boolean
@@ -108,6 +122,7 @@ function ClientContractForm({
   onChangeSignature: (status: ContractSignatureStatus) => Promise<unknown>
   onDownloadPdf: () => Promise<unknown>
   onUploadDocument: (file: File) => Promise<unknown>
+  onChangeWithoutContract: (value: boolean) => Promise<unknown>
 }) {
   const [previewOpen, setPreviewOpen] = useState(false)
   const { can } = usePermissions()
@@ -151,120 +166,155 @@ function ClientContractForm({
               title="Contrato"
               description="Vincule um modelo para assinatura digital ou importe um contrato já assinado."
             >
-              {hasTemplates ? (
-                <SelectField
-                  name="contract_id"
-                  label="Contrato"
-                  placeholder="Selecione..."
-                  options={options}
-                  required
-                />
-              ) : (
-                <Alert variant="info" title="Nenhum modelo de contrato cadastrado">
-                  <p>
-                    Para usar a assinatura digital no app, cadastre um modelo de contrato. Você
-                    ainda pode importar um contrato já assinado abaixo.
+              <div className="flex flex-col gap-3 rounded-xl bg-surface-2 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">Cliente sem contrato</p>
+                  <p className="text-[13px] text-muted">
+                    Não gera contrato para assinatura e libera o acesso do cliente no aplicativo.
                   </p>
-                  <ButtonLink to="/contracts/create" variant="secondary" size="sm" className="mt-3">
-                    Cadastrar contrato
-                  </ButtonLink>
-                </Alert>
-              )}
+                </div>
+                <Switch
+                  checked={withoutContract}
+                  disabled={!canUpdate || togglingWithoutContract}
+                  onCheckedChange={(checked) => {
+                    void onChangeWithoutContract(checked).catch(() => undefined)
+                  }}
+                  label="Cliente sem contrato"
+                />
+              </div>
 
-              {current && (
-                <div className="space-y-3 rounded-xl bg-surface-2 p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-medium text-foreground">
-                          Status da assinatura
-                        </span>
-                        <Badge variant={signatureStatusBadgeVariant(current.signature_status)}>
-                          {current.signature_status_label ??
-                            signatureStatusLabel(current.signature_status)}
-                        </Badge>
-                      </div>
-                      <p className="text-[13px] text-muted">
-                        {signed && current.signed_at
-                          ? `Assinado em ${formatDateTime(current.signed_at)}`
-                          : 'Marque quando o cliente assinar o contrato.'}
+              {withoutContract ? (
+                <Alert variant="success" title="Contrato dispensado">
+                  Este cliente não possui contrato para assinatura e já está liberado para acessar
+                  o aplicativo.
+                </Alert>
+              ) : (
+                <>
+                  {hasTemplates ? (
+                    <SelectField
+                      name="contract_id"
+                      label="Contrato"
+                      placeholder="Selecione..."
+                      options={options}
+                      required
+                    />
+                  ) : (
+                    <Alert variant="info" title="Nenhum modelo de contrato cadastrado">
+                      <p>
+                        Para usar a assinatura digital no app, cadastre um modelo de contrato. Você
+                        ainda pode importar um contrato já assinado abaixo.
                       </p>
-                    </div>
-                    {canUpdate && (
-                      <Button
-                        type="button"
-                        variant={signed ? 'secondary' : 'primary'}
-                        loading={signatureUpdating}
-                        onClick={() => {
-                          void onChangeSignature(signed ? 'pending' : 'signed').catch(
-                            () => undefined,
-                          )
-                        }}
+                      <ButtonLink
+                        to="/contracts/create"
+                        variant="secondary"
+                        size="sm"
+                        className="mt-3"
                       >
-                        {signed ? 'Marcar como pendente' : 'Marcar como assinado'}
+                        Cadastrar contrato
+                      </ButtonLink>
+                    </Alert>
+                  )}
+
+                  {current && (
+                    <div className="space-y-3 rounded-xl bg-surface-2 p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-medium text-foreground">
+                              Status da assinatura
+                            </span>
+                            <Badge variant={signatureStatusBadgeVariant(current.signature_status)}>
+                              {current.signature_status_label ??
+                                signatureStatusLabel(current.signature_status)}
+                            </Badge>
+                          </div>
+                          <p className="text-[13px] text-muted">
+                            {signed && current.signed_at
+                              ? `Assinado em ${formatDateTime(current.signed_at)}`
+                              : 'Marque quando o cliente assinar o contrato.'}
+                          </p>
+                        </div>
+                        {canUpdate && (
+                          <Button
+                            type="button"
+                            variant={signed ? 'secondary' : 'primary'}
+                            loading={signatureUpdating}
+                            onClick={() => {
+                              void onChangeSignature(signed ? 'pending' : 'signed').catch(
+                                () => undefined,
+                              )
+                            }}
+                          >
+                            {signed ? 'Marcar como pendente' : 'Marcar como assinado'}
+                          </Button>
+                        )}
+                      </div>
+
+                      {hasSignerData && (
+                        <dl className="grid gap-3 rounded-xl bg-surface p-3.5 sm:grid-cols-3">
+                          <SignerField label="Nome completo" value={current.signer_name} />
+                          <SignerField label="CPF" value={formatDocument(current.signer_cpf)} />
+                          <SignerField
+                            label="Data de nascimento"
+                            value={formatDate(current.signer_birth_date)}
+                          />
+                        </dl>
+                      )}
+                    </div>
+                  )}
+
+                  <ContractDocumentUpload
+                    current={current}
+                    uploading={uploadingDocument}
+                    canUpdate={canUpdate}
+                    onUpload={onUploadDocument}
+                  />
+
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {current && hasBody && (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => setPreviewOpen(true)}
+                        >
+                          <Eye className="size-4" />
+                          Ver texto gerado
+                        </Button>
+                      )}
+                      {current && (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          loading={downloadingPdf}
+                          onClick={() => {
+                            void onDownloadPdf().catch(() => undefined)
+                          }}
+                        >
+                          <FileDown className="size-4" />
+                          {current.document_url ? 'Baixar contrato' : 'Baixar PDF'}
+                        </Button>
+                      )}
+                      {current?.signature_url && (
+                        <a
+                          href={current.signature_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={buttonClasses('secondary')}
+                        >
+                          <PenLine className="size-4" />
+                          Ver assinatura
+                        </a>
+                      )}
+                    </div>
+                    {hasTemplates && (
+                      <Button type="submit" loading={submitting}>
+                        Salvar contrato
                       </Button>
                     )}
                   </div>
-
-                  {hasSignerData && (
-                    <dl className="grid gap-3 rounded-xl bg-surface p-3.5 sm:grid-cols-3">
-                      <SignerField label="Nome completo" value={current.signer_name} />
-                      <SignerField label="CPF" value={formatDocument(current.signer_cpf)} />
-                      <SignerField
-                        label="Data de nascimento"
-                        value={formatDate(current.signer_birth_date)}
-                      />
-                    </dl>
-                  )}
-                </div>
+                </>
               )}
-
-              <ContractDocumentUpload
-                current={current}
-                uploading={uploadingDocument}
-                canUpdate={canUpdate}
-                onUpload={onUploadDocument}
-              />
-
-              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-wrap items-center gap-2">
-                  {current && hasBody && (
-                    <Button type="button" variant="secondary" onClick={() => setPreviewOpen(true)}>
-                      <Eye className="size-4" />
-                      Ver texto gerado
-                    </Button>
-                  )}
-                  {current && (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      loading={downloadingPdf}
-                      onClick={() => {
-                        void onDownloadPdf().catch(() => undefined)
-                      }}
-                    >
-                      <FileDown className="size-4" />
-                      {current.document_url ? 'Baixar contrato' : 'Baixar PDF'}
-                    </Button>
-                  )}
-                  {current?.signature_url && (
-                    <a
-                      href={current.signature_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={buttonClasses('secondary')}
-                    >
-                      <PenLine className="size-4" />
-                      Ver assinatura
-                    </a>
-                  )}
-                </div>
-                {hasTemplates && (
-                  <Button type="submit" loading={submitting}>
-                    Salvar contrato
-                  </Button>
-                )}
-              </div>
             </Section>
           </Form>
         </CardContent>

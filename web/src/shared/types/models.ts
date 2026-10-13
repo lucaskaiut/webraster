@@ -237,6 +237,7 @@ export interface Client {
   plan_id: string | null
   plan?: Pick<FinancePlan, 'id' | 'name' | 'amount_cents' | 'periodicity'> | null
   is_active: boolean
+  without_contract: boolean
   created_at: string | null
   updated_at: string | null
 }

@@ -8,7 +8,8 @@
 - CRUD de **Serviços** (nome e valor) em `/services`
 - CRUD de **Contratos** (nome + texto rico com variáveis) em `/contracts`
 - **Pedido do cliente** (serviços × veículos) em `/clients/{id}/edit?tab=pedido`
-- Cadastro de cliente em **wizard**: informações básicas → endereço → usuários → veículos → serviço
+- Cadastro de cliente em **wizard**: informações básicas → endereço → usuários → veículos → serviço → contrato
+- Opção **Cliente sem contrato** na etapa/aba de contrato: dispensa a assinatura e libera o acesso do cliente no aplicativo (o portal do cliente passa a considerar o contrato como assinado)
 
 ## Isolamento por cliente (portal)
 

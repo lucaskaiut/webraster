@@ -106,6 +106,12 @@ class ClientContractController extends ApiController
 
         $this->authorize('signContract', $client);
 
+        // Cliente dispensado de contrato: garante o vínculo assinado para o
+        // aplicativo considerar o acesso liberado.
+        if ($client->without_contract) {
+            $this->contracts->markWithoutContract($client);
+        }
+
         $contract = $this->contracts->currentForClient($client);
 
         return $this->success($contract ? ClientContractResource::make($contract) : null);

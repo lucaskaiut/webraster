@@ -20,6 +20,7 @@ export interface ClientPayload {
   state?: string | null
   zip?: string | null
   is_active?: boolean
+  without_contract?: boolean
 }
 
 export interface ClientUserPayload {
@@ -70,6 +71,14 @@ export const clientsService = {
 
   async update(id: string, payload: ClientPayload): Promise<Client> {
     const response = await http.put<ApiResponse<Client>>(`/clients/${id}`, payload)
+
+    return response.data.data
+  },
+
+  async setWithoutContract(id: string, withoutContract: boolean): Promise<Client> {
+    const response = await http.patch<ApiResponse<Client>>(`/clients/${id}`, {
+      without_contract: withoutContract,
+    })
 
     return response.data.data
   },

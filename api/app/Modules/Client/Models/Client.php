@@ -44,6 +44,7 @@ class Client extends Model
         'state',
         'zip',
         'is_active',
+        'without_contract',
         'plan_id',
     ];
 
@@ -64,6 +65,7 @@ class Client extends Model
     {
         return [
             'is_active' => 'boolean',
+            'without_contract' => 'boolean',
         ];
     }
 

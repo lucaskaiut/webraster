@@ -43,6 +43,7 @@ class StoreClientRequest extends FormRequest
             'state' => ['nullable', 'string', 'size:2'],
             'zip' => ['nullable', 'string', 'max:8'],
             'is_active' => ['sometimes', 'boolean'],
+            'without_contract' => ['sometimes', 'boolean'],
             'plan_id' => ['sometimes', 'nullable', 'integer', Rule::exists('finance_plans', 'id')->whereNull('deleted_at')],
         ];
     }

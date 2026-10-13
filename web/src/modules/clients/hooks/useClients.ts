@@ -63,6 +63,24 @@ export function useDeleteClient() {
   })
 }
 
+export function useSetClientWithoutContract(clientId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (withoutContract: boolean) =>
+      clientsService.setWithoutContract(clientId, withoutContract),
+    onSuccess: (_client, withoutContract) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.clients.all })
+      toast.success(
+        withoutContract ? 'Cliente sem contrato' : 'Contrato exigido novamente',
+        withoutContract
+          ? 'O acesso do cliente no aplicativo já está liberado.'
+          : 'O cliente voltará a precisar de um contrato assinado.',
+      )
+    },
+  })
+}
+
 export function useClientUsersQuery(clientId: string | undefined, params: ListParams) {
   return useQuery({
     queryKey: queryKeys.clients.users(clientId ?? '', params),
