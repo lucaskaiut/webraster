@@ -43,6 +43,8 @@ export interface Tenant {
   favicon_url: string | null
   signature_path: string | null
   signature_url: string | null
+  late_fine_percent: string | null
+  late_interest_percent: string | null
   app_name: string | null
   app_icon_path: string | null
   app_icon_url: string | null
@@ -997,6 +999,7 @@ export interface FinanceBilling {
   description: string | null
   payment_gateway: string | null
   gateway_payment_id: string | null
+  gateway_expires_at: string | null
   created_at: string | null
   updated_at: string | null
 }

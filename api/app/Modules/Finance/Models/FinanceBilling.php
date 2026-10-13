@@ -42,6 +42,7 @@ class FinanceBilling extends Model
         'paid_at',
         'cancelled_at',
         'gateway_payment_id',
+        'gateway_expires_at',
         'invoice_url',
         'bank_slip_url',
         'pix_qr_code',
@@ -64,6 +65,7 @@ class FinanceBilling extends Model
             'due_at' => 'date',
             'paid_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            'gateway_expires_at' => 'datetime',
             'gateway_payload' => 'array',
         ];
     }

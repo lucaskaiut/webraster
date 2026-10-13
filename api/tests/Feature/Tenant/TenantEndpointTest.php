@@ -159,6 +159,49 @@ class TenantEndpointTest extends TestCase
             ->assertJsonValidationErrors(['app_secondary_color']);
     }
 
+    public function test_update_persists_late_fee_settings(): void
+    {
+        $tenant = $this->createTenantWithRoles();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson('/api/tenant', [
+            'late_fine_percent' => 2,
+            'late_interest_percent' => 1,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.late_fine_percent', '2.00')
+            ->assertJsonPath('data.late_interest_percent', '1.00');
+
+        $tenant->refresh();
+
+        $this->assertSame('2.00', $tenant->late_fine_percent);
+        $this->assertSame('1.00', $tenant->late_interest_percent);
+
+        $this->putJson('/api/tenant', [
+            'late_fine_percent' => null,
+            'late_interest_percent' => null,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.late_fine_percent', null)
+            ->assertJsonPath('data.late_interest_percent', null);
+    }
+
+    public function test_update_validates_late_fee_percentages(): void
+    {
+        $tenant = $this->createTenantWithRoles();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson('/api/tenant', ['late_fine_percent' => 100.01])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['late_fine_percent']);
+
+        $this->putJson('/api/tenant', ['late_interest_percent' => -1])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['late_interest_percent']);
+    }
+
     public function test_update_can_change_identifier(): void
     {
         $tenant = $this->createTenantWithRoles();

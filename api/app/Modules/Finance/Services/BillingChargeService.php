@@ -17,6 +17,7 @@ class BillingChargeService
     public function __construct(
         private readonly PaymentGatewayResolver $gateways,
         private readonly FinanceBillingService $billings,
+        private readonly LateFeeService $lateFees,
     ) {}
 
     /**
@@ -40,14 +41,18 @@ class BillingChargeService
             ]);
         }
 
-        if (filled($billing->gateway_payment_id) && $billing->status === BillingStatus::AWAITING_PAYMENT) {
+        if (filled($billing->gateway_payment_id) && $billing->status === BillingStatus::AWAITING_PAYMENT && ! $this->gatewayChargeExpired($billing)) {
             return $billing->load(['client', 'subscription.plan']);
         }
 
+        // Aplica multa/juros de atraso antes de emitir a nova cobrança.
+        $this->lateFees->sync($billing, force: true);
+
         $gateway = $this->gateways->resolveReadyFor($method);
 
-        $dueDate = CarbonImmutable::parse($billing->due_at)->startOfDay();
-        $today = CarbonImmutable::today();
+        // A cobrança no gateway tem validade curta: o vencimento da fatura
+        // é controlado pela plataforma (juros/multa), não pelo gateway.
+        $expiresAt = CarbonImmutable::now()->addMinutes($this->gatewayExpiresMinutes());
 
         try {
             $customer = $gateway->ensureCustomer($client);
@@ -55,7 +60,7 @@ class BillingChargeService
                 customerExternalId: $customer->externalId,
                 amount: number_format($billing->totalCents() / 100, 2, '.', ''),
                 paymentMethod: $method,
-                dueDate: $dueDate->lessThan($today) ? $today : $dueDate,
+                expiresAt: $expiresAt,
                 externalReference: (string) $billing->uuid,
                 description: $billing->description ?: $billing->code,
                 creditCard: CreditCardDTO::tryFromArray($paymentData),
@@ -71,6 +76,7 @@ class BillingChargeService
         $billing->payment_gateway = $gateway->key();
         $billing->status = BillingStatus::AWAITING_PAYMENT;
         $billing->gateway_payment_id = $payment->externalId !== '' ? $payment->externalId : null;
+        $billing->gateway_expires_at = $expiresAt;
         $billing->invoice_url = $payment->invoiceUrl ?? $payment->bankSlipUrl;
         $billing->bank_slip_url = $payment->bankSlipUrl;
         $billing->pix_qr_code = $payment->pixQrcode;
@@ -87,9 +93,24 @@ class BillingChargeService
                 'payment_method' => $method->value,
                 'payment_gateway' => $gateway->key(),
                 'gateway_payment_id' => $billing->gateway_payment_id,
+                'gateway_expires_at' => $billing->gateway_expires_at?->toIso8601String(),
             ],
         );
 
         return $billing->refresh()->load(['client', 'subscription.plan']);
+    }
+
+    /**
+     * A cobrança emitida no gateway expirou (ou nunca registrou validade)?
+     */
+    private function gatewayChargeExpired(FinanceBilling $billing): bool
+    {
+        return $billing->gateway_expires_at === null
+            || $billing->gateway_expires_at->isPast();
+    }
+
+    private function gatewayExpiresMinutes(): int
+    {
+        return max(1, (int) config('finance.gateway_expires_minutes', 30));
     }
 }

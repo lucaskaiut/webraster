@@ -35,6 +35,8 @@ export const tenantSettingsSchema = tenantFields.extend({
   logo_path: z.string().nullable(),
   favicon_path: z.string().nullable(),
   signature_path: z.string().nullable(),
+  late_fine_percent: z.coerce.number().min(0, 'Mínimo 0').max(100, 'Máximo 100'),
+  late_interest_percent: z.coerce.number().min(0, 'Mínimo 0').max(100, 'Máximo 100'),
 })
 
 export const tenantAppSettingsSchema = z.object({

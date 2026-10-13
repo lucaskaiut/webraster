@@ -35,6 +35,10 @@ Ao criar o pedido, as **duas primeiras cobranças** são geradas de imediato (ve
 
 No cadastro do cliente (aba Pedido), o botão **Gerar próxima cobrança** emite a fatura seguinte à última gerada para a assinatura e avança o ciclo. Quando não há faturas, usa `next_billing_at`.
 
+**Multa e juros por atraso** são configurados em Configurações da empresa (`late_fine_percent` e `late_interest_percent` no tenant): multa percentual única e juros percentuais ao mês proporcionais aos dias de atraso (base 30 dias). O `LateFeeService` recalcula `fine_cents`/`interest_cents` ao abrir a fatura (portal/painel) e antes de emitir ou liquidar o pagamento, e o total passa a incluir os encargos. Enquanto válida, a cobrança emitida no gateway mantém o valor congelado.
+
+**Validade da cobrança no gateway**: o vencimento contratual, juros e multa são controlados pela plataforma; a cobrança emitida no gateway (PIX/boleto/cartão) tem validade curta de `finance.gateway_expires_minutes` (padrão **30 minutos**, `FINANCE_GATEWAY_EXPIRES_MINUTES`). Quando ela expira, o próximo clique em pagar gera automaticamente uma **nova cobrança** no gateway (registrada em `gateway_expires_at`); webhooks de cobranças anteriores da mesma fatura continuam liquidando pela referência externa.
+
 Inadimplência: após `block_after_days` com `block_on_overdue`, motor de suspensão + `DeviceSuspensionProvider` suspende equipamentos.
 
 ## API (operador)

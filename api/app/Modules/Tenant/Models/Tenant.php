@@ -33,6 +33,8 @@ class Tenant extends Model
         'logo_path',
         'favicon_path',
         'signature_path',
+        'late_fine_percent',
+        'late_interest_percent',
         'vehicle_alert_defaults',
         'app_name',
         'app_icon_path',
@@ -45,6 +47,8 @@ class Tenant extends Model
     {
         return [
             'vehicle_alert_defaults' => 'array',
+            'late_fine_percent' => 'decimal:2',
+            'late_interest_percent' => 'decimal:2',
         ];
     }
 

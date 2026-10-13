@@ -196,10 +196,25 @@ export default function FinanceBillingDetailPage() {
             />
             <Row label="Vencimento" value={formatDate(billing.due_at)} />
             <Row label="Total" value={formatCurrency(billing.total)} />
+            {(billing.fine_cents > 0 || billing.interest_cents > 0) && (
+              <>
+                <Row label="Multa por atraso" value={formatCurrency(billing.fine_cents / 100)} />
+                <Row
+                  label="Juros por atraso"
+                  value={formatCurrency(billing.interest_cents / 100)}
+                />
+              </>
+            )}
             <Row
               label="Método"
               value={billing.payment_method_label ?? paymentMethodLabel(billing.payment_method)}
             />
+            {billing.gateway_expires_at && (
+              <Row
+                label="Validade da cobrança"
+                value={formatDateTime(billing.gateway_expires_at)}
+              />
+            )}
             <Row label="Pago em" value={formatDateTime(billing.paid_at)} />
             <Row
               label="Valor pago"

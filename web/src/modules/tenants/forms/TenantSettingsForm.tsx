@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Controller, useForm, useFormContext } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
 import {
   Button,
   Card,
@@ -12,7 +11,7 @@ import {
   type ImageValue,
 } from '@/shared/design-system'
 import { isApiError } from '@/shared/api/errors'
-import { applyApiErrorsToForm } from '@/shared/utils/forms'
+import { applyApiErrorsToForm, formResolver } from '@/shared/utils/forms'
 import { onlyDigits } from '@/shared/utils/document'
 import { maskCpfCnpj, maskPhone } from '@/shared/utils/mask'
 import type { Tenant } from '@/shared/types/models'
@@ -31,7 +30,7 @@ interface TenantSettingsFormProps {
 
 export function TenantSettingsForm({ tenant, submitting, onSubmit }: TenantSettingsFormProps) {
   const form = useForm<TenantSettingsFormValues>({
-    resolver: zodResolver(tenantSettingsSchema),
+    resolver: formResolver<TenantSettingsFormValues>(tenantSettingsSchema),
     defaultValues: {
       name: tenant.name,
       identifier: tenant.identifier,
@@ -41,6 +40,9 @@ export function TenantSettingsForm({ tenant, submitting, onSubmit }: TenantSetti
       logo_path: tenant.logo_path,
       favicon_path: tenant.favicon_path,
       signature_path: tenant.signature_path,
+      late_fine_percent: tenant.late_fine_percent != null ? Number(tenant.late_fine_percent) : 0,
+      late_interest_percent:
+        tenant.late_interest_percent != null ? Number(tenant.late_interest_percent) : 0,
     },
   })
 
@@ -54,6 +56,8 @@ export function TenantSettingsForm({ tenant, submitting, onSubmit }: TenantSetti
       logo_path: values.logo_path,
       favicon_path: values.favicon_path,
       signature_path: values.signature_path,
+      late_fine_percent: values.late_fine_percent,
+      late_interest_percent: values.late_interest_percent,
     }
 
     try {
@@ -125,6 +129,32 @@ export function TenantSettingsForm({ tenant, submitting, onSubmit }: TenantSetti
             description="Assinatura aplicada automaticamente nos contratos que usam a variável {{ASSINATURA_EMPRESA}}."
           >
             <SignatureField initialUrl={tenant.signature_url} />
+          </Section>
+
+          <Section
+            title="Multa e juros por atraso"
+            description="Aplicados automaticamente em cobranças vencidas quando o cliente efetua o pagamento."
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TextField
+                name="late_fine_percent"
+                label="Multa (% do valor)"
+                type="number"
+                min={0}
+                max={100}
+                step="0.01"
+                hint="Aplicada uma única vez sobre o valor da cobrança em atraso."
+              />
+              <TextField
+                name="late_interest_percent"
+                label="Juros (% ao mês)"
+                type="number"
+                min={0}
+                max={100}
+                step="0.01"
+                hint="Calculados por dia de atraso, proporcionais ao mês (base 30 dias)."
+              />
+            </div>
           </Section>
 
           <div className="flex justify-end">

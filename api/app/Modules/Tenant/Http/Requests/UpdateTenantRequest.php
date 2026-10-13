@@ -43,6 +43,8 @@ class UpdateTenantRequest extends FormRequest
             'logo_path' => ['sometimes', 'nullable', 'string', 'max:255'],
             'favicon_path' => ['sometimes', 'nullable', 'string', 'max:255'],
             'signature_path' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'late_fine_percent' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:100'],
+            'late_interest_percent' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:100'],
             'app_name' => ['sometimes', 'nullable', 'string', 'max:255'],
             'app_icon_path' => ['sometimes', 'nullable', 'string', 'max:255'],
             'app_logo_path' => ['sometimes', 'nullable', 'string', 'max:255'],

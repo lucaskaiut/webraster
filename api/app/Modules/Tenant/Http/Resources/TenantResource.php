@@ -30,6 +30,8 @@ class TenantResource extends JsonResource
             'favicon_url' => $this->faviconUrl(),
             'signature_path' => $this->signature_path,
             'signature_url' => $this->signatureUrl(),
+            'late_fine_percent' => $this->late_fine_percent,
+            'late_interest_percent' => $this->late_interest_percent,
             'app_name' => $this->app_name,
             'app_icon_path' => $this->app_icon_path,
             'app_icon_url' => $this->appIconUrl(),

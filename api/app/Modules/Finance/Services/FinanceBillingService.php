@@ -26,6 +26,7 @@ class FinanceBillingService
 {
     public function __construct(
         private readonly DelinquencyService $delinquency,
+        private readonly LateFeeService $lateFees,
     ) {}
 
     /**
@@ -173,6 +174,9 @@ class FinanceBillingService
                 'status' => ['Não é possível liquidar uma cobrança cancelada ou estornada.'],
             ]);
         }
+
+        // Garante multa/juros atualizados antes de registrar a liquidação.
+        $this->lateFees->sync($billing);
 
         $from = $billing->status;
         $billing->status = BillingStatus::PAID;

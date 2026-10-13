@@ -133,6 +133,15 @@ export default function FinancePortalBillingDetailPage() {
               }
             />
             <Row label="Total" value={formatCurrency(billing.total)} />
+            {(billing.fine_cents > 0 || billing.interest_cents > 0) && (
+              <>
+                <Row label="Multa por atraso" value={formatCurrency(billing.fine_cents / 100)} />
+                <Row
+                  label="Juros por atraso"
+                  value={formatCurrency(billing.interest_cents / 100)}
+                />
+              </>
+            )}
             <Row label="Vencimento" value={formatDate(billing.due_at)} />
             <Row
               label="Método"

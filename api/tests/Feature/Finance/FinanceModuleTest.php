@@ -15,6 +15,7 @@ use App\Modules\Shared\Subscription\Enums\BillingStatus;
 use App\Modules\Shared\Subscription\Enums\SubscriptionStatus;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Vehicle\Models\Vehicle;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
@@ -294,6 +295,39 @@ class FinanceModuleTest extends TestCase
         $this->assertSame(1, FinanceWebhookLog::query()->where('event_id', 'evt_1')->count());
     }
 
+    public function test_webhook_accepts_payment_from_an_earlier_gateway_charge(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $plan = FinancePlan::factory()->forTenant($tenant)->create();
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create();
+        $billing = FinanceBilling::factory()->forSubscription($subscription)->create([
+            'number' => 1,
+            'status' => BillingStatus::AWAITING_PAYMENT,
+            'gateway_payment_id' => 'pay_new',
+            'gateway_expires_at' => now()->subMinute(),
+        ]);
+
+        $this->createGatewayConfig($tenant, 'secret-token');
+        $this->fakeAsaasPayment('pay_old', 'RECEIVED', $billing->uuid, 49.90);
+
+        // Pagamento da cobrança anterior (já expirada) da mesma fatura.
+        $this->postJson("/api/webhooks/payments/asaas/{$tenant->uuid}", [
+            'id' => 'evt_old_payment',
+            'event' => 'PAYMENT_RECEIVED',
+            'payment' => [
+                'id' => 'pay_old',
+                'value' => 49.90,
+                'status' => 'RECEIVED',
+                'externalReference' => $billing->uuid,
+            ],
+        ], [
+            'asaas-access-token' => 'secret-token',
+        ])->assertOk();
+
+        $this->assertSame(BillingStatus::PAID, $billing->fresh()->status);
+    }
+
     public function test_webhook_does_not_mark_paid_when_gateway_status_is_pending(): void
     {
         [, $tenant] = $this->createOperationalChild();
@@ -514,7 +548,7 @@ class FinanceModuleTest extends TestCase
             ], 200),
         ]);
 
-        $this->postJson("/api/finance/billings/{$billing->uuid}/charge", [
+        $response = $this->postJson("/api/finance/billings/{$billing->uuid}/charge", [
             'payment_method' => 'boleto',
         ])
             ->assertOk()
@@ -522,14 +556,63 @@ class FinanceModuleTest extends TestCase
             ->assertJsonPath('data.gateway_payment_id', 'pay_abc')
             ->assertJsonPath('data.payment_gateway', 'asaas');
 
+        $this->assertNotNull($response->json('data.gateway_expires_at'));
+
+        // A cobrança no gateway tem validade curta (hoje), não o vencimento da fatura.
         Http::assertSent(fn ($request) => str_contains($request->url(), '/payments')
-            && $request['dueDate'] === $billing->due_at->toDateString());
+            && $request['dueDate'] === now()->toDateString());
 
         Http::assertSent(fn ($request) => str_contains($request->url(), '/customers')
             && $request['notificationDisabled'] === true);
     }
 
-    public function test_charge_uses_today_as_due_date_when_billing_is_overdue(): void
+    public function test_charge_uses_short_gateway_expiration(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create([
+            'document' => '39053344705',
+            'email' => 'cliente@example.com',
+        ]);
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->createGatewayConfig($tenant, 'wh_token', 'asaas_key');
+
+        $plan = FinancePlan::factory()->forTenant($tenant)->create();
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create();
+        // O vencimento contratual está distante: prevalece a validade curta do gateway.
+        $billing = FinanceBilling::factory()->forSubscription($subscription)->create([
+            'number' => 1,
+            'status' => BillingStatus::PENDING,
+            'due_at' => now()->addDays(30)->toDateString(),
+        ]);
+
+        Http::fake([
+            '*/customers*' => Http::response(['id' => 'cus_1', 'name' => 'Cliente'], 200),
+            '*/payments' => Http::response([
+                'id' => 'pay_short',
+                'status' => 'PENDING',
+            ], 200),
+        ]);
+
+        $response = $this->postJson("/api/finance/billings/{$billing->uuid}/charge", [
+            'payment_method' => 'boleto',
+        ])->assertOk();
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/payments')
+            && $request['dueDate'] === now()->toDateString());
+
+        $expiresAt = CarbonImmutable::parse((string) $response->json('data.gateway_expires_at'));
+
+        $this->assertTrue(
+            $expiresAt->between(
+                CarbonImmutable::now()->addMinutes(25),
+                CarbonImmutable::now()->addMinutes(35),
+            ),
+            'A cobrança no gateway deve expirar em aproximadamente 30 minutos.',
+        );
+    }
+
+    public function test_charge_regenerates_gateway_payment_after_expiration(): void
     {
         [, $tenant] = $this->createOperationalChild();
         $client = Client::factory()->for($tenant)->create([
@@ -545,13 +628,55 @@ class FinanceModuleTest extends TestCase
         $billing = FinanceBilling::factory()->forSubscription($subscription)->create([
             'number' => 1,
             'status' => BillingStatus::PENDING,
-            'due_at' => now()->subDays(10)->toDateString(),
+        ]);
+
+        Http::fake([
+            '*/customers*' => Http::response(['id' => 'cus_1', 'name' => 'Cliente'], 200),
+            '*/payments' => Http::sequence()
+                ->push(['id' => 'pay_first', 'status' => 'PENDING'], 200)
+                ->push(['id' => 'pay_second', 'status' => 'PENDING'], 200),
+        ]);
+
+        $this->postJson("/api/finance/billings/{$billing->uuid}/charge", [
+            'payment_method' => 'boleto',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.gateway_payment_id', 'pay_first');
+
+        // Simula a expiração da cobrança gerada no gateway.
+        $billing->forceFill(['gateway_expires_at' => now()->subMinute()])->save();
+
+        $this->postJson("/api/finance/billings/{$billing->uuid}/charge", [
+            'payment_method' => 'boleto',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.gateway_payment_id', 'pay_second');
+
+        $this->assertTrue($billing->fresh()->gateway_expires_at->isFuture());
+    }
+
+    public function test_charge_reuses_gateway_payment_before_expiration(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create([
+            'document' => '39053344705',
+            'email' => 'cliente@example.com',
+        ]);
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->createGatewayConfig($tenant, 'wh_token', 'asaas_key');
+
+        $plan = FinancePlan::factory()->forTenant($tenant)->create();
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create();
+        $billing = FinanceBilling::factory()->forSubscription($subscription)->create([
+            'number' => 1,
+            'status' => BillingStatus::PENDING,
         ]);
 
         Http::fake([
             '*/customers*' => Http::response(['id' => 'cus_1', 'name' => 'Cliente'], 200),
             '*/payments' => Http::response([
-                'id' => 'pay_overdue',
+                'id' => 'pay_single',
                 'status' => 'PENDING',
             ], 200),
         ]);
@@ -560,10 +685,163 @@ class FinanceModuleTest extends TestCase
             'payment_method' => 'boleto',
         ])
             ->assertOk()
-            ->assertJsonPath('data.gateway_payment_id', 'pay_overdue');
+            ->assertJsonPath('data.gateway_payment_id', 'pay_single');
+
+        $this->postJson("/api/finance/billings/{$billing->uuid}/charge", [
+            'payment_method' => 'boleto',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.gateway_payment_id', 'pay_single');
+
+        $paymentsCreated = Http::recorded(
+            fn ($request) => $request->method() === 'POST' && str_ends_with($request->url(), '/payments'),
+        );
+
+        $this->assertCount(1, $paymentsCreated);
+    }
+
+    public function test_charge_applies_late_fees_to_overdue_billing(): void
+    {
+        [, $tenant] = $this->createOperationalChild(childAttributes: [
+            'late_fine_percent' => 2,
+            'late_interest_percent' => 1,
+        ]);
+        $client = Client::factory()->for($tenant)->create([
+            'document' => '39053344705',
+            'email' => 'cliente@example.com',
+        ]);
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->createGatewayConfig($tenant, 'wh_token', 'asaas_key');
+
+        $plan = FinancePlan::factory()->forTenant($tenant)->create();
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create();
+        $billing = FinanceBilling::factory()->forSubscription($subscription)->create([
+            'number' => 1,
+            'status' => BillingStatus::PENDING,
+            'amount_cents' => 5000,
+            'due_at' => now()->subDays(10)->toDateString(),
+        ]);
+
+        Http::fake([
+            '*/customers*' => Http::response(['id' => 'cus_1', 'name' => 'Cliente'], 200),
+            '*/payments' => Http::response([
+                'id' => 'pay_late',
+                'status' => 'PENDING',
+            ], 200),
+        ]);
+
+        $this->postJson("/api/finance/billings/{$billing->uuid}/charge", [
+            'payment_method' => 'boleto',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.fine_cents', 100)
+            ->assertJsonPath('data.interest_cents', 17)
+            ->assertJsonPath('data.total_cents', 5117)
+            ->assertJsonPath('data.total', '51.17');
+
+        // Multa 2% (R$ 50 → R$ 1,00) + juros 1% ao mês por 10 dias (R$ 0,17).
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/payments')
+            && (float) $request['value'] === 51.17);
+    }
+
+    public function test_charge_does_not_apply_late_fees_before_due_date(): void
+    {
+        [, $tenant] = $this->createOperationalChild(childAttributes: [
+            'late_fine_percent' => 2,
+            'late_interest_percent' => 1,
+        ]);
+        $client = Client::factory()->for($tenant)->create([
+            'document' => '39053344705',
+            'email' => 'cliente@example.com',
+        ]);
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->createGatewayConfig($tenant, 'wh_token', 'asaas_key');
+
+        $plan = FinancePlan::factory()->forTenant($tenant)->create();
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create();
+        $billing = FinanceBilling::factory()->forSubscription($subscription)->create([
+            'number' => 1,
+            'status' => BillingStatus::PENDING,
+            'amount_cents' => 5000,
+            'due_at' => now()->addDays(5)->toDateString(),
+        ]);
+
+        Http::fake([
+            '*/customers*' => Http::response(['id' => 'cus_1', 'name' => 'Cliente'], 200),
+            '*/payments' => Http::response([
+                'id' => 'pay_ontime',
+                'status' => 'PENDING',
+            ], 200),
+        ]);
+
+        $this->postJson("/api/finance/billings/{$billing->uuid}/charge", [
+            'payment_method' => 'boleto',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.fine_cents', 0)
+            ->assertJsonPath('data.interest_cents', 0)
+            ->assertJsonPath('data.total_cents', 5000);
 
         Http::assertSent(fn ($request) => str_contains($request->url(), '/payments')
-            && $request['dueDate'] === now()->toDateString());
+            && (float) $request['value'] === 50.0);
+    }
+
+    public function test_portal_billing_show_applies_late_fees(): void
+    {
+        [, $tenant] = $this->createOperationalChild(childAttributes: [
+            'late_fine_percent' => 2,
+            'late_interest_percent' => 1,
+        ]);
+        $client = Client::factory()->for($tenant)->create();
+        $plan = FinancePlan::factory()->forTenant($tenant)->create();
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create();
+        $billing = FinanceBilling::factory()->forSubscription($subscription)->create([
+            'number' => 1,
+            'status' => BillingStatus::PENDING,
+            'amount_cents' => 5000,
+            'due_at' => now()->subDays(10)->toDateString(),
+        ]);
+
+        Sanctum::actingAs($this->createClient($tenant, ['client_id' => $client->getKey()]));
+
+        $this->getJson("/api/finance/portal/billings/{$billing->uuid}")
+            ->assertOk()
+            ->assertJsonPath('data.fine_cents', 100)
+            ->assertJsonPath('data.interest_cents', 17)
+            ->assertJsonPath('data.total_cents', 5117)
+            ->assertJsonPath('data.total', '51.17');
+
+        $this->assertDatabaseHas('finance_billings', [
+            'id' => $billing->getKey(),
+            'fine_cents' => 100,
+            'interest_cents' => 17,
+        ]);
+    }
+
+    public function test_mark_paid_uses_total_with_late_fees(): void
+    {
+        [, $tenant] = $this->createOperationalChild(childAttributes: [
+            'late_fine_percent' => 2,
+            'late_interest_percent' => 1,
+        ]);
+        $client = Client::factory()->for($tenant)->create();
+        $plan = FinancePlan::factory()->forTenant($tenant)->create();
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create();
+        $billing = FinanceBilling::factory()->forSubscription($subscription)->create([
+            'number' => 1,
+            'status' => BillingStatus::PENDING,
+            'amount_cents' => 5000,
+            'due_at' => now()->subDays(10)->toDateString(),
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->postJson("/api/finance/billings/{$billing->uuid}/mark-paid")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'paid')
+            ->assertJsonPath('data.paid_amount_cents', 5117);
     }
 
     public function test_reactivate_unsuspends_devices_even_when_overdue(): void

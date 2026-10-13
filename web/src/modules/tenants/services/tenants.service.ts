@@ -34,6 +34,8 @@ export interface UpdateTenantPayload {
   logo_path?: string | null
   favicon_path?: string | null
   signature_path?: string | null
+  late_fine_percent?: number | null
+  late_interest_percent?: number | null
   app_name?: string | null
   app_icon_path?: string | null
   app_logo_path?: string | null

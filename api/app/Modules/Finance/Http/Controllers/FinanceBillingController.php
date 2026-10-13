@@ -10,6 +10,7 @@ use App\Modules\Finance\Models\FinanceBilling;
 use App\Modules\Finance\Models\FinanceSubscription;
 use App\Modules\Finance\Services\BillingChargeService;
 use App\Modules\Finance\Services\FinanceBillingService;
+use App\Modules\Finance\Services\LateFeeService;
 use App\Modules\Shared\Http\Controllers\ApiController;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -20,6 +21,7 @@ class FinanceBillingController extends ApiController
     public function __construct(
         private readonly FinanceBillingService $service,
         private readonly BillingChargeService $chargeService,
+        private readonly LateFeeService $lateFees,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -44,6 +46,8 @@ class FinanceBillingController extends ApiController
     public function show(FinanceBilling $financeBilling): JsonResponse
     {
         $this->authorize('view', $financeBilling);
+
+        $this->lateFees->sync($financeBilling);
 
         $financeBilling->load(['client', 'subscription.plan', 'events']);
 

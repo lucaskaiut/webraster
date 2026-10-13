@@ -129,13 +129,6 @@ class PaymentWebhookProcessor
             ]);
         }
 
-        if (filled($billing->gateway_payment_id)
-            && ! hash_equals((string) $billing->gateway_payment_id, $paymentId)) {
-            throw ValidationException::withMessages([
-                'payment_gateway' => ['O pagamento do webhook não corresponde à cobrança local.'],
-            ]);
-        }
-
         try {
             $remote = $gateway->getPayment($paymentId);
         } catch (GatewayException $exception) {
@@ -161,16 +154,20 @@ class PaymentWebhookProcessor
         }
 
         $remoteExternal = (string) ($remote->externalReference ?? '');
-        if ($remoteExternal !== '' && ! hash_equals((string) $billing->uuid, $remoteExternal)) {
-            throw ValidationException::withMessages([
-                'payment_gateway' => ['O pagamento do gateway não pertence a esta cobrança.'],
-            ]);
-        }
+        $isCurrentPayment = filled($billing->gateway_payment_id)
+            && hash_equals((string) $billing->gateway_payment_id, $paymentId);
 
-        if (blank($billing->gateway_payment_id)
-            && ($remoteExternal === '' || ! hash_equals((string) $billing->uuid, $remoteExternal))) {
+        if ($remoteExternal !== '') {
+            // A cobrança no gateway pode ter sido regerada por expiração; o
+            // pagamento pertence à fatura pela referência externa (uuid).
+            if (! hash_equals((string) $billing->uuid, $remoteExternal)) {
+                throw ValidationException::withMessages([
+                    'payment_gateway' => ['O pagamento do gateway não pertence a esta cobrança.'],
+                ]);
+            }
+        } elseif (! $isCurrentPayment) {
             throw ValidationException::withMessages([
-                'payment_gateway' => ['O pagamento do gateway não pertence a esta cobrança.'],
+                'payment_gateway' => ['O pagamento do webhook não corresponde à cobrança local.'],
             ]);
         }
 

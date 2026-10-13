@@ -229,7 +229,7 @@ final class AsaasGateway implements PaymentGatewayInterface
                 PaymentMethod::CREDIT_CARD => 'CREDIT_CARD',
             },
             'value' => (float) $payment->amount,
-            'dueDate' => $payment->dueDate->format('Y-m-d'),
+            'dueDate' => $payment->expiresAt->format('Y-m-d'),
             'description' => $payment->description,
             'externalReference' => $payment->externalReference,
         ];

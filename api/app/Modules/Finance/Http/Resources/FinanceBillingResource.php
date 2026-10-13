@@ -48,6 +48,7 @@ class FinanceBillingResource extends JsonResource
             'description' => $this->description,
             'payment_gateway' => $this->payment_gateway,
             'gateway_payment_id' => $this->gateway_payment_id,
+            'gateway_expires_at' => $this->gateway_expires_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
