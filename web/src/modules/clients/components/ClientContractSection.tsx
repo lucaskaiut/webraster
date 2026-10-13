@@ -1,23 +1,25 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
-import { Eye, FileDown, FileText, PenLine } from 'lucide-react'
+import { Eye, FileDown, FileText, PenLine, Upload } from 'lucide-react'
 import {
+  Alert,
   Badge,
   Button,
   ButtonLink,
   Card,
   CardContent,
-  EmptyState,
   Form,
   Modal,
   Section,
   SelectField,
   buttonClasses,
 } from '@/shared/design-system'
-import { isApiError } from '@/shared/api/errors'
+import { apiErrorMessage, isApiError } from '@/shared/api/errors'
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL } from '@/shared/api/uploads'
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
+import { toast } from '@/shared/stores/toast.store'
 import { formatDocument } from '@/shared/utils/document'
 import { formatDate, formatDateTime } from '@/shared/utils/format'
 import { applyApiErrorsToForm, formResolver } from '@/shared/utils/forms'
@@ -28,6 +30,7 @@ import {
   useClientContractQuery,
   useDownloadClientContractPdf,
   useUpdateClientContractSignature,
+  useUploadClientContractDocument,
   useUpsertClientContract,
 } from '../hooks/useClients'
 
@@ -52,6 +55,7 @@ export function ClientContractSection({ clientId }: { clientId: string }) {
   const upsert = useUpsertClientContract(clientId)
   const updateSignature = useUpdateClientContractSignature(clientId)
   const downloadPdf = useDownloadClientContractPdf(clientId)
+  const uploadDocument = useUploadClientContractDocument(clientId)
 
   const contracts = contractsQuery.data?.data ?? []
   const current = contractQuery.data
@@ -66,25 +70,6 @@ export function ClientContractSection({ clientId }: { clientId: string }) {
     )
   }
 
-  if (contracts.length === 0) {
-    return (
-      <Card>
-        <CardContent>
-          <EmptyState
-            icon={FileText}
-            title="Nenhum contrato cadastrado"
-            description="Cadastre um modelo de contrato antes de vincular ao cliente."
-            action={
-              <ButtonLink to="/contracts/create" variant="secondary">
-                Cadastrar contrato
-              </ButtonLink>
-            }
-          />
-        </CardContent>
-      </Card>
-    )
-  }
-
   return (
     <ClientContractForm
       contracts={contracts}
@@ -92,9 +77,11 @@ export function ClientContractSection({ clientId }: { clientId: string }) {
       submitting={upsert.isPending}
       signatureUpdating={updateSignature.isPending}
       downloadingPdf={downloadPdf.isPending}
+      uploadingDocument={uploadDocument.isPending}
       onSubmit={(values) => upsert.mutateAsync(values)}
       onChangeSignature={(status) => updateSignature.mutateAsync({ signature_status: status })}
       onDownloadPdf={() => downloadPdf.mutateAsync()}
+      onUploadDocument={(file) => uploadDocument.mutateAsync(file)}
     />
   )
 }
@@ -105,18 +92,22 @@ function ClientContractForm({
   submitting,
   signatureUpdating,
   downloadingPdf,
+  uploadingDocument,
   onSubmit,
   onChangeSignature,
   onDownloadPdf,
+  onUploadDocument,
 }: {
   contracts: Array<{ id: string; name: string }>
   current: ClientContract | null | undefined
   submitting: boolean
   signatureUpdating: boolean
   downloadingPdf: boolean
+  uploadingDocument: boolean
   onSubmit: (values: ClientContractFormValues) => Promise<unknown>
   onChangeSignature: (status: ContractSignatureStatus) => Promise<unknown>
   onDownloadPdf: () => Promise<unknown>
+  onUploadDocument: (file: File) => Promise<unknown>
 }) {
   const [previewOpen, setPreviewOpen] = useState(false)
   const { can } = usePermissions()
@@ -134,10 +125,12 @@ function ClientContractForm({
     [contracts],
   )
 
+  const hasTemplates = contracts.length > 0
   const signed = current?.signature_status === 'signed'
   const hasSignerData = Boolean(
     current?.signer_name || current?.signer_cpf || current?.signer_birth_date,
   )
+  const hasBody = Boolean(current?.body?.trim())
 
   const handleSubmit = async (values: ClientContractFormValues) => {
     try {
@@ -156,15 +149,27 @@ function ClientContractForm({
           <Form form={form} onSubmit={handleSubmit} className="space-y-8">
             <Section
               title="Contrato"
-              description="Selecione o contrato que o cliente irá assinar."
+              description="Vincule um modelo para assinatura digital ou importe um contrato já assinado."
             >
-              <SelectField
-                name="contract_id"
-                label="Contrato"
-                placeholder="Selecione..."
-                options={options}
-                required
-              />
+              {hasTemplates ? (
+                <SelectField
+                  name="contract_id"
+                  label="Contrato"
+                  placeholder="Selecione..."
+                  options={options}
+                  required
+                />
+              ) : (
+                <Alert variant="info" title="Nenhum modelo de contrato cadastrado">
+                  <p>
+                    Para usar a assinatura digital no app, cadastre um modelo de contrato. Você
+                    ainda pode importar um contrato já assinado abaixo.
+                  </p>
+                  <ButtonLink to="/contracts/create" variant="secondary" size="sm" className="mt-3">
+                    Cadastrar contrato
+                  </ButtonLink>
+                </Alert>
+              )}
 
               {current && (
                 <div className="space-y-3 rounded-xl bg-surface-2 p-4">
@@ -214,26 +219,33 @@ function ClientContractForm({
                 </div>
               )}
 
+              <ContractDocumentUpload
+                current={current}
+                uploading={uploadingDocument}
+                canUpdate={canUpdate}
+                onUpload={onUploadDocument}
+              />
+
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex flex-wrap items-center gap-2">
+                  {current && hasBody && (
+                    <Button type="button" variant="secondary" onClick={() => setPreviewOpen(true)}>
+                      <Eye className="size-4" />
+                      Ver texto gerado
+                    </Button>
+                  )}
                   {current && (
-                    <>
-                      <Button type="button" variant="secondary" onClick={() => setPreviewOpen(true)}>
-                        <Eye className="size-4" />
-                        Ver texto gerado
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        loading={downloadingPdf}
-                        onClick={() => {
-                          void onDownloadPdf().catch(() => undefined)
-                        }}
-                      >
-                        <FileDown className="size-4" />
-                        Baixar PDF
-                      </Button>
-                    </>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      loading={downloadingPdf}
+                      onClick={() => {
+                        void onDownloadPdf().catch(() => undefined)
+                      }}
+                    >
+                      <FileDown className="size-4" />
+                      {current.document_url ? 'Baixar contrato' : 'Baixar PDF'}
+                    </Button>
                   )}
                   {current?.signature_url && (
                     <a
@@ -247,9 +259,11 @@ function ClientContractForm({
                     </a>
                   )}
                 </div>
-                <Button type="submit" loading={submitting}>
-                  Salvar contrato
-                </Button>
+                {hasTemplates && (
+                  <Button type="submit" loading={submitting}>
+                    Salvar contrato
+                  </Button>
+                )}
               </div>
             </Section>
           </Form>
@@ -274,5 +288,91 @@ function ClientContractForm({
         />
       </Modal>
     </>
+  )
+}
+
+function ContractDocumentUpload({
+  current,
+  uploading,
+  canUpdate,
+  onUpload,
+}: {
+  current: ClientContract | null | undefined
+  uploading: boolean
+  canUpdate: boolean
+  onUpload: (file: File) => Promise<unknown>
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast.error('Arquivo muito grande', `O limite para envio é de ${MAX_UPLOAD_LABEL}.`)
+      return
+    }
+
+    void onUpload(file).catch((error) => {
+      if (isApiError(error) && error.status === 422) {
+        toast.error('Arquivo inválido', apiErrorMessage(error))
+      }
+    })
+  }
+
+  return (
+    <div className="space-y-3 rounded-xl bg-surface-2 p-4">
+      <div className="space-y-1">
+        <p className="text-sm font-medium text-foreground">Contrato já assinado</p>
+        <p className="text-[13px] text-muted">
+          Se o cliente já possui um contrato ativo assinado (por exemplo, vindo de outra
+          plataforma), envie o arquivo para marcar como assinado sem exigir uma nova assinatura.
+        </p>
+      </div>
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".pdf,image/png,image/jpeg,image/webp"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
+      {current?.document_url ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <a
+            href={current.document_url}
+            target="_blank"
+            rel="noreferrer"
+            className={buttonClasses('secondary')}
+          >
+            <FileText className="size-4" />
+            {current.document_name ?? 'Ver contrato enviado'}
+          </a>
+          {canUpdate && (
+            <Button
+              type="button"
+              variant="secondary"
+              loading={uploading}
+              onClick={() => inputRef.current?.click()}
+            >
+              <Upload className="size-4" />
+              Substituir arquivo
+            </Button>
+          )}
+        </div>
+      ) : canUpdate ? (
+        <Button
+          type="button"
+          variant="secondary"
+          loading={uploading}
+          onClick={() => inputRef.current?.click()}
+        >
+          <Upload className="size-4" />
+          Enviar contrato assinado
+        </Button>
+      ) : null}
+    </div>
   )
 }

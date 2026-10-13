@@ -132,6 +132,18 @@ export const clientsService = {
     return response.data.data
   },
 
+  async uploadContractDocument(clientId: string, file: File): Promise<ClientContract> {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const response = await http.post<ApiResponse<ClientContract>>(
+      `/clients/${clientId}/contract/document`,
+      formData,
+    )
+
+    return response.data.data
+  },
+
   async downloadContractPdf(clientId: string): Promise<void> {
     const response = await http.get<Blob>(`/clients/${clientId}/contract/pdf`, {
       responseType: 'blob',

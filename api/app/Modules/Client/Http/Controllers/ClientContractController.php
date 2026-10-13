@@ -5,6 +5,7 @@ namespace App\Modules\Client\Http\Controllers;
 use App\Modules\Client\Enums\ContractSignatureStatus;
 use App\Modules\Client\Http\Requests\SignClientContractRequest;
 use App\Modules\Client\Http\Requests\UpdateClientContractSignatureRequest;
+use App\Modules\Client\Http\Requests\UploadClientContractDocumentRequest;
 use App\Modules\Client\Http\Requests\UpsertClientContractRequest;
 use App\Modules\Client\Http\Resources\ClientContractResource;
 use App\Modules\Client\Models\Client;
@@ -64,6 +65,18 @@ class ClientContractController extends ApiController
         return $this->success(
             ClientContractResource::make($contract),
             $status->isSigned() ? 'Contrato marcado como assinado.' : 'Contrato marcado como pendente.',
+        );
+    }
+
+    public function uploadDocument(UploadClientContractDocumentRequest $request, Client $client): JsonResponse
+    {
+        $this->authorize('update', $client);
+
+        $contract = $this->contracts->uploadDocument($client, $request->file('file'));
+
+        return $this->success(
+            ClientContractResource::make($contract),
+            'Contrato enviado e marcado como assinado.',
         );
     }
 

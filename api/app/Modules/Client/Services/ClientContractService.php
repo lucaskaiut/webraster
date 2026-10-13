@@ -58,6 +58,8 @@ class ClientContractService
                 $clientContract->signature_status = ContractSignatureStatus::PENDING;
                 $clientContract->signed_at = null;
                 $clientContract->signature_path = null;
+                $clientContract->document_path = null;
+                $clientContract->document_name = null;
                 $clientContract->signer_name = null;
                 $clientContract->signer_cpf = null;
                 $clientContract->signer_birth_date = null;
@@ -118,6 +120,8 @@ class ClientContractService
 
         if (! $status->isSigned()) {
             $clientContract->signature_path = null;
+            $clientContract->document_path = null;
+            $clientContract->document_name = null;
             $clientContract->signer_name = null;
             $clientContract->signer_cpf = null;
             $clientContract->signer_birth_date = null;
@@ -126,5 +130,42 @@ class ClientContractService
         $clientContract->save();
 
         return $clientContract->fresh('contract');
+    }
+
+    /**
+     * Importa um contrato já assinado (PDF ou imagem) e marca o vínculo como
+     * assinado, atendendo clientes que chegam de outra plataforma e não
+     * precisam passar pelo fluxo de assinatura.
+     */
+    public function uploadDocument(Client $client, UploadedFile $file): ClientContract
+    {
+        $path = $file->store('contracts', 'public');
+
+        return DB::transaction(function () use ($client, $file, $path) {
+            $clientContract = ClientContract::withTrashed()
+                ->where('client_id', $client->getKey())
+                ->first();
+
+            if ($clientContract === null) {
+                $clientContract = new ClientContract([
+                    'client_id' => $client->getKey(),
+                    'body' => '',
+                ]);
+            }
+
+            if ($clientContract->trashed()) {
+                $clientContract->restore();
+            }
+
+            $clientContract->fill([
+                'signature_status' => ContractSignatureStatus::SIGNED,
+                'signed_at' => now(),
+                'document_path' => $path,
+                'document_name' => $file->getClientOriginalName(),
+            ]);
+            $clientContract->save();
+
+            return $clientContract->fresh('contract');
+        });
     }
 }

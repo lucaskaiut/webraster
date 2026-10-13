@@ -705,6 +705,205 @@ class ClientContractTest extends TestCase
             ->assertJsonPath('data.body', '<p><em>Assinatura pendente</em></p>');
     }
 
+    public function test_upload_signed_document_marks_contract_as_signed(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $contract = Contract::factory()->forTenant($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $contract->uuid,
+        ])->assertOk();
+
+        Storage::fake('public');
+
+        $response = $this->post(
+            "/api/clients/{$client->uuid}/contract/document",
+            ['file' => $this->fakeSignedContract()],
+            ['Accept' => 'application/json'],
+        );
+
+        $response->assertOk()
+            ->assertJsonPath('data.contract_id', $contract->uuid)
+            ->assertJsonPath('data.signature_status', 'signed')
+            ->assertJsonPath('data.signature_status_label', 'Assinado')
+            ->assertJsonPath('data.document_name', 'contrato-assinado.pdf');
+
+        $this->assertNotNull($response->json('data.signed_at'));
+        $this->assertNotNull($response->json('data.document_url'));
+
+        Storage::disk('public')->assertExists($response->json('data.document_path'));
+
+        $this->assertDatabaseHas('client_contracts', [
+            'client_id' => $client->getKey(),
+            'signature_status' => 'signed',
+            'document_name' => 'contrato-assinado.pdf',
+        ]);
+    }
+
+    public function test_upload_signed_document_works_without_contract_template(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        Storage::fake('public');
+
+        $this->post(
+            "/api/clients/{$client->uuid}/contract/document",
+            ['file' => $this->fakeSignedContract()],
+            ['Accept' => 'application/json'],
+        )
+            ->assertOk()
+            ->assertJsonPath('data.contract_id', null)
+            ->assertJsonPath('data.contract_name', null)
+            ->assertJsonPath('data.signature_status', 'signed');
+
+        $this->assertDatabaseHas('client_contracts', [
+            'client_id' => $client->getKey(),
+            'contract_id' => null,
+            'signature_status' => 'signed',
+            'document_name' => 'contrato-assinado.pdf',
+        ]);
+    }
+
+    public function test_upload_signed_document_replaces_previous_file(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        Storage::fake('public');
+
+        $first = $this->post(
+            "/api/clients/{$client->uuid}/contract/document",
+            ['file' => $this->fakeSignedContract('primeiro.pdf')],
+            ['Accept' => 'application/json'],
+        )->assertOk();
+
+        $second = $this->post(
+            "/api/clients/{$client->uuid}/contract/document",
+            ['file' => $this->fakeSignedContract('segundo.pdf')],
+            ['Accept' => 'application/json'],
+        )->assertOk()->assertJsonPath('data.document_name', 'segundo.pdf');
+
+        $this->assertNotSame($first->json('data.document_path'), $second->json('data.document_path'));
+        Storage::disk('public')->assertExists($second->json('data.document_path'));
+        $this->assertDatabaseCount('client_contracts', 1);
+    }
+
+    public function test_upload_signed_document_validates_file(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->post(
+            "/api/clients/{$client->uuid}/contract/document",
+            ['file' => UploadedFile::fake()->createWithContent('contrato.txt', 'conteúdo')],
+            ['Accept' => 'application/json'],
+        )->assertUnprocessable()->assertJsonValidationErrors(['file']);
+    }
+
+    public function test_member_without_update_permission_cannot_upload_document(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+
+        Sanctum::actingAs($this->createClient($tenant));
+
+        $this->post(
+            "/api/clients/{$client->uuid}/contract/document",
+            ['file' => $this->fakeSignedContract()],
+            ['Accept' => 'application/json'],
+        )->assertForbidden();
+    }
+
+    public function test_export_contract_pdf_returns_uploaded_document(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        Storage::fake('public');
+
+        $content = "%PDF-1.4\n% contrato assinado em outra plataforma\n%%EOF";
+
+        $this->post(
+            "/api/clients/{$client->uuid}/contract/document",
+            ['file' => UploadedFile::fake()->createWithContent('contrato-assinado.pdf', $content)],
+            ['Accept' => 'application/json'],
+        )->assertOk();
+
+        $response = $this->get("/api/clients/{$client->uuid}/contract/pdf");
+
+        $response->assertOk()->assertHeader('Content-Type', 'application/pdf');
+
+        $this->assertSame($content, $response->streamedContent());
+    }
+
+    public function test_reassigning_another_contract_clears_uploaded_document(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $contract = Contract::factory()->forTenant($tenant)->create();
+        $another = Contract::factory()->forTenant($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $contract->uuid,
+        ])->assertOk();
+
+        Storage::fake('public');
+
+        $this->post(
+            "/api/clients/{$client->uuid}/contract/document",
+            ['file' => $this->fakeSignedContract()],
+            ['Accept' => 'application/json'],
+        )->assertOk();
+
+        $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $another->uuid,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.signature_status', 'pending')
+            ->assertJsonPath('data.document_path', null)
+            ->assertJsonPath('data.document_url', null)
+            ->assertJsonPath('data.document_name', null);
+    }
+
+    public function test_marking_contract_pending_clears_uploaded_document(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        Storage::fake('public');
+
+        $this->post(
+            "/api/clients/{$client->uuid}/contract/document",
+            ['file' => $this->fakeSignedContract()],
+            ['Accept' => 'application/json'],
+        )->assertOk();
+
+        $this->putJson("/api/clients/{$client->uuid}/contract/signature", [
+            'signature_status' => 'pending',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.signature_status', 'pending')
+            ->assertJsonPath('data.signed_at', null)
+            ->assertJsonPath('data.document_path', null)
+            ->assertJsonPath('data.document_name', null);
+    }
+
     public function test_client_user_reads_own_contract_through_portal(): void
     {
         [, $tenant] = $this->createOperationalChild();
@@ -732,5 +931,13 @@ class ClientContractTest extends TestCase
         Sanctum::actingAs($this->createAdmin($tenant));
 
         $this->getJson('/api/contract/portal')->assertForbidden();
+    }
+
+    private function fakeSignedContract(string $name = 'contrato-assinado.pdf'): UploadedFile
+    {
+        return UploadedFile::fake()->createWithContent(
+            $name,
+            "%PDF-1.4\n% contrato assinado\n%%EOF",
+        );
     }
 }

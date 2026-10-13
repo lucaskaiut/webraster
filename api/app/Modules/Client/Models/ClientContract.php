@@ -24,6 +24,8 @@ class ClientContract extends Model
         'signature_status',
         'signed_at',
         'signature_path',
+        'document_path',
+        'document_name',
         'signer_name',
         'signer_cpf',
         'signer_birth_date',
@@ -53,6 +55,11 @@ class ClientContract extends Model
     public function signatureUrl(): ?string
     {
         return $this->signature_path ? asset("storage/{$this->signature_path}") : null;
+    }
+
+    public function documentUrl(): ?string
+    {
+        return $this->document_path ? asset("storage/{$this->document_path}") : null;
     }
 
     public function tenantLogoUrl(): ?string

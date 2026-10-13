@@ -160,3 +160,15 @@ export function useUpdateClientContractSignature(clientId: string) {
     },
   })
 }
+
+export function useUploadClientContractDocument(clientId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (file: File) => clientsService.uploadContractDocument(clientId, file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.clients.contract(clientId) })
+      toast.success('Contrato importado', 'O contrato foi enviado e marcado como assinado.')
+    },
+  })
+}

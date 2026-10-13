@@ -14,6 +14,15 @@ class ClientContractPdfService
 
     public function download(ClientContract $contract, ?string $filename = null): StreamedResponse
     {
+        $disk = Storage::disk('public');
+
+        if ($contract->document_path !== null && $disk->exists($contract->document_path)) {
+            return $disk->download(
+                $contract->document_path,
+                $contract->document_name ?: ($filename ?? 'contrato.pdf'),
+            );
+        }
+
         $pdf = $this->render($contract);
 
         return response()->streamDownload(

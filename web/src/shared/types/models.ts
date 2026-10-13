@@ -318,6 +318,9 @@ export interface ClientContract {
   signed_at: string | null
   signature_path: string | null
   signature_url: string | null
+  document_path: string | null
+  document_url: string | null
+  document_name: string | null
   signer_name: string | null
   signer_cpf: string | null
   signer_birth_date: string | null
