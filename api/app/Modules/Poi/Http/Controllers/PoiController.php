@@ -38,6 +38,7 @@ class PoiController extends ApiController
             $clientId,
             $this->service->resolveCategoryId($request->string('category_id')->toString() ?: null),
             $isActive,
+            $request->string('sort')->toString() ?: null,
         );
 
         return $this->paginated(PoiResource::collection($pois));

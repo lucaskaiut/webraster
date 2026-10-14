@@ -4,12 +4,12 @@ namespace App\Modules\Poi\Services;
 
 use App\Modules\Poi\Models\Poi;
 use App\Modules\Poi\Models\PoiCategory;
+use App\Modules\Shared\Support\QuerySort;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Tenant\Support\Facades\TenantContext;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 
 class PoiService
 {
@@ -66,10 +66,11 @@ class PoiService
         ?int $clientId = null,
         ?int $categoryId = null,
         ?bool $isActive = null,
+        ?string $sort = null,
     ): LengthAwarePaginator {
         $this->ensureDefaultCategories();
 
-        return Poi::query()
+        $query = Poi::query()
             ->with(['client', 'category'])
             ->when($clientId !== null, fn ($query) => $query->where('client_id', $clientId))
             ->when($categoryId !== null, fn ($query) => $query->where('poi_category_id', $categoryId))
@@ -80,8 +81,9 @@ class PoiService
                         ->orWhere('description', 'like', "%{$search}%")
                         ->orWhere('address', 'like', "%{$search}%");
                 });
-            })
-            ->orderBy('name')
+            });
+
+        return QuerySort::apply($query, $sort, ['name', 'is_active', 'created_at'], 'name:asc')
             ->paginate(min(max($perPage, 1), 100));
     }
 

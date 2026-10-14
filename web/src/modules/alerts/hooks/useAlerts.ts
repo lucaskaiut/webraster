@@ -249,3 +249,23 @@ export function useClientAlertConfigsQuery(clientId: string | undefined) {
     enabled: Boolean(clientId),
   })
 }
+
+export function useAlertSoundPreferencesQuery(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.alerts.soundPreferences(),
+    queryFn: () => alertsService.soundPreferences(),
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useUpdateAlertSoundPreference() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ type, sound }: { type: string; sound: string }) =>
+      alertsService.updateSoundPreference(type, sound),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.alerts.soundPreferences() })
+    },
+  })
+}

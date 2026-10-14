@@ -20,6 +20,7 @@ import { Can } from '@/app/guards/PermissionGuard'
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import { useDebounce } from '@/shared/hooks/useDebounce'
+import { useTableSort } from '@/shared/hooks/useTableSort'
 import type { Geofence } from '@/shared/types/models'
 import { useDeleteGeofence, useGeofencesQuery } from '../hooks/useGeofences'
 
@@ -35,10 +36,12 @@ export default function GeofencesListPage() {
   const [toDelete, setToDelete] = useState<Geofence | null>(null)
   const deleteGeofence = useDeleteGeofence()
 
+  const { sort, sortParam, toggleSort } = useTableSort()
   const query = useGeofencesQuery({
     page,
     per_page: PER_PAGE,
     search: debouncedSearch || undefined,
+    sort: sortParam,
   })
 
   const updateParams = (next: { page?: number; search?: string }) => {
@@ -63,6 +66,7 @@ export default function GeofencesListPage() {
     {
       key: 'name',
       header: 'Geocerca',
+      sortable: true,
       render: (item) => (
         <div className="min-w-0">
           <p className="truncate font-medium text-foreground">{item.name}</p>
@@ -73,6 +77,7 @@ export default function GeofencesListPage() {
     {
       key: 'type',
       header: 'Tipo',
+      sortable: true,
       render: (item) => (
         <Badge variant={item.type === 'circle' ? 'success' : 'primary'}>
           {item.type === 'circle' ? 'Círculo' : 'Polígono'}
@@ -82,6 +87,8 @@ export default function GeofencesListPage() {
     {
       key: 'status',
       header: 'Status',
+      sortable: true,
+      sortKey: 'is_active',
       render: (item) => (
         <Badge variant={item.is_active ? 'success' : 'neutral'}>
           {item.is_active ? 'Ativa' : 'Inativa'}
@@ -96,6 +103,8 @@ export default function GeofencesListPage() {
     {
       key: 'created',
       header: 'Criada em',
+      sortable: true,
+      sortKey: 'created_at',
       render: (item) => (
         <span className="text-muted">
           {item.created_at ? new Date(item.created_at).toLocaleDateString('pt-BR') : '—'}
@@ -172,6 +181,8 @@ export default function GeofencesListPage() {
           rows={query.data?.data ?? []}
           rowKey={(item) => item.id}
           loading={query.isPending}
+          sort={sort}
+          onSort={toggleSort}
           emptyState={
             <EmptyState
               icon={MapPinned}

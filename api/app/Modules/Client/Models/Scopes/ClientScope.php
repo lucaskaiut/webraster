@@ -20,6 +20,20 @@ class ClientScope implements Scope
             ? $model->clientScopeColumn()
             : 'client_id';
 
+        if (method_exists($model, 'clientScopeIncludesShared') && $model->clientScopeIncludesShared()) {
+            $clientId = ClientContext::clientId();
+
+            $builder->where(function (Builder $query) use ($model, $column, $clientId): void {
+                $query->where($model->qualifyColumn($column), $clientId)
+                    ->orWhereHas(
+                        'shares',
+                        fn (Builder $share) => $share->where('client_id', $clientId),
+                    );
+            });
+
+            return;
+        }
+
         $builder->where(
             $model->qualifyColumn($column),
             ClientContext::clientId(),

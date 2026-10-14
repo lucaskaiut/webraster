@@ -5,14 +5,20 @@ namespace App\Modules\Alert\Services;
 use App\Modules\Alert\Enums\AlertSeverity;
 use App\Modules\Alert\Enums\AlertStatus;
 use App\Modules\Alert\Models\Alert;
+use App\Modules\Alert\Models\UserNotification;
+use App\Modules\Audit\Enums\AuditAction;
+use App\Modules\Audit\Services\AuditLogService;
 use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Models\Vehicle;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class AlertService
 {
+    public function __construct(private readonly AuditLogService $audit) {}
+
     public function paginate(
         int $perPage = 15,
         ?int $vehicleId = null,
@@ -24,7 +30,7 @@ class AlertService
         string $sort = 'desc',
     ): LengthAwarePaginator {
         return Alert::query()
-            ->with(['vehicle', 'equipment', 'client'])
+            ->with(['vehicle', 'equipment', 'client', 'acknowledgedByUser'])
             ->when($vehicleId !== null, fn ($q) => $q->where('vehicle_id', $vehicleId))
             ->when($type !== null, fn ($q) => $q->where('type', $type))
             ->when($status !== null, fn ($q) => $q->where('status', $status))
@@ -36,7 +42,7 @@ class AlertService
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, Alert>
+     * @return Collection<int, Alert>
      */
     public function listForMap(?string $status = 'open', int $limit = 200)
     {
@@ -56,17 +62,27 @@ class AlertService
             return $alert;
         }
 
+        $previousStatus = $alert->status?->value;
+
         $alert->forceFill([
             'status' => AlertStatus::ACKNOWLEDGED,
             'acknowledged_at' => now(),
             'acknowledged_by' => $user->getKey(),
         ])->save();
 
-        return $alert->refresh()->load(['vehicle', 'equipment', 'client']);
+        $this->audit->recordEntity($user, AuditAction::AlertAcknowledged, 'alert', $alert->uuid, [
+            'alert_type' => $alert->type?->value,
+            'previous_status' => $previousStatus,
+            'status' => AlertStatus::ACKNOWLEDGED->value,
+        ]);
+
+        return $alert->refresh()->load(['vehicle', 'equipment', 'client', 'acknowledgedByUser']);
     }
 
     public function resolve(Alert $alert, User $user): Alert
     {
+        $previousStatus = $alert->status?->value;
+
         $alert->forceFill([
             'status' => AlertStatus::RESOLVED,
             'resolved_at' => now(),
@@ -74,7 +90,20 @@ class AlertService
             'acknowledged_by' => $alert->acknowledged_by ?? $user->getKey(),
         ])->save();
 
-        return $alert->refresh()->load(['vehicle', 'equipment', 'client']);
+        // O encerramento consome a notificação no sino: ela permanece no
+        // histórico, mas deixa de contar como pendente para o usuário.
+        UserNotification::query()
+            ->where('alert_id', $alert->getKey())
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
+
+        $this->audit->recordEntity($user, AuditAction::AlertResolved, 'alert', $alert->uuid, [
+            'alert_type' => $alert->type?->value,
+            'previous_status' => $previousStatus,
+            'status' => AlertStatus::RESOLVED->value,
+        ]);
+
+        return $alert->refresh()->load(['vehicle', 'equipment', 'client', 'acknowledgedByUser']);
     }
 
     /**

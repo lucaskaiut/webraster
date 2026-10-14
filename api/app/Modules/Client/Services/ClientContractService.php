@@ -2,17 +2,24 @@
 
 namespace App\Modules\Client\Services;
 
+use App\Modules\Audit\Enums\AuditAction;
+use App\Modules\Audit\Services\AuditLogService;
 use App\Modules\Client\Enums\ContractSignatureStatus;
 use App\Modules\Client\Models\Client;
 use App\Modules\Client\Models\ClientContract;
 use App\Modules\Contract\Models\Contract;
+use App\Modules\User\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class ClientContractService
 {
-    public function __construct(private readonly ContractBodyRenderer $renderer) {}
+    public function __construct(
+        private readonly ContractBodyRenderer $renderer,
+        private readonly AuditLogService $audit,
+    ) {}
 
     public function currentForClient(Client $client): ?ClientContract
     {
@@ -33,7 +40,7 @@ class ClientContractService
 
         $body = $this->renderer->render($contract, $client, $order);
 
-        return DB::transaction(function () use ($client, $contract, $data, $body) {
+        return DB::transaction(function () use ($client, $contract, $body) {
             $clientContract = ClientContract::withTrashed()
                 ->where('client_id', $client->getKey())
                 ->first();
@@ -60,6 +67,10 @@ class ClientContractService
                 $clientContract->signature_path = null;
                 $clientContract->document_path = null;
                 $clientContract->document_name = null;
+                $clientContract->document_hash = null;
+                $clientContract->signature_hash = null;
+                $clientContract->signed_ip = null;
+                $clientContract->signed_user_agent = null;
                 $clientContract->signer_name = null;
                 $clientContract->signer_cpf = null;
                 $clientContract->signer_birth_date = null;
@@ -96,11 +107,22 @@ class ClientContractService
             'signature_status' => ContractSignatureStatus::SIGNED,
             'signed_at' => now(),
             'signature_path' => $path,
+            'document_hash' => hash('sha256', (string) $clientContract->body),
+            'signature_hash' => hash_file('sha256', $image->getRealPath()) ?: null,
+            'signed_ip' => request()->ip(),
+            'signed_user_agent' => Str::limit((string) request()->userAgent(), 512, ''),
             'signer_name' => $signer['signer_name'],
             'signer_cpf' => $signer['signer_cpf'],
             'signer_birth_date' => $signer['signer_birth_date'],
         ]);
         $clientContract->save();
+
+        $this->recordAudit($clientContract, AuditAction::ContractSigned, [
+            'signature_status' => ContractSignatureStatus::SIGNED->value,
+            'document_hash' => $clientContract->document_hash,
+            'signature_hash' => $clientContract->signature_hash,
+            'signer_cpf' => $clientContract->signer_cpf,
+        ]);
 
         return $clientContract->fresh('contract');
     }
@@ -113,21 +135,40 @@ class ClientContractService
             return null;
         }
 
+        $previousStatus = $clientContract->signature_status?->value;
+
         $clientContract->fill([
             'signature_status' => $status,
             'signed_at' => $status->isSigned() ? now() : null,
         ]);
 
-        if (! $status->isSigned()) {
+        if ($status->isSigned()) {
+            $clientContract->fill([
+                'document_hash' => $clientContract->document_hash
+                    ?: hash('sha256', (string) $clientContract->body),
+                'signed_ip' => request()->ip(),
+                'signed_user_agent' => Str::limit((string) request()->userAgent(), 512, ''),
+            ]);
+        } else {
             $clientContract->signature_path = null;
             $clientContract->document_path = null;
             $clientContract->document_name = null;
+            $clientContract->document_hash = null;
+            $clientContract->signature_hash = null;
+            $clientContract->signed_ip = null;
+            $clientContract->signed_user_agent = null;
             $clientContract->signer_name = null;
             $clientContract->signer_cpf = null;
             $clientContract->signer_birth_date = null;
         }
 
         $clientContract->save();
+
+        $this->recordAudit($clientContract, AuditAction::ContractSignatureUpdated, [
+            'previous_status' => $previousStatus,
+            'signature_status' => $status->value,
+            'document_hash' => $clientContract->document_hash,
+        ]);
 
         return $clientContract->fresh('contract');
     }
@@ -162,8 +203,17 @@ class ClientContractService
                 'signed_at' => now(),
                 'document_path' => $path,
                 'document_name' => $file->getClientOriginalName(),
+                'document_hash' => hash_file('sha256', $file->getRealPath()) ?: null,
+                'signature_hash' => null,
+                'signed_ip' => request()->ip(),
+                'signed_user_agent' => Str::limit((string) request()->userAgent(), 512, ''),
             ]);
             $clientContract->save();
+
+            $this->recordAudit($clientContract, AuditAction::ContractDocumentUploaded, [
+                'document_name' => $clientContract->document_name,
+                'document_hash' => $clientContract->document_hash,
+            ]);
 
             return $clientContract->fresh('contract');
         });
@@ -224,5 +274,25 @@ class ClientContractService
         if ($isPlaceholder) {
             $clientContract->delete();
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $details
+     */
+    private function recordAudit(ClientContract $contract, AuditAction $action, array $details = []): void
+    {
+        $user = request()->user();
+
+        if (! $user instanceof User) {
+            return;
+        }
+
+        $this->audit->recordEntity(
+            $user,
+            $action,
+            'client_contract',
+            (string) $contract->uuid,
+            $details,
+        );
     }
 }

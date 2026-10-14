@@ -56,12 +56,6 @@ class TraccarEventProcessor
 
         $vehicle = $equipment->vehicle;
 
-        if ($vehicle === null) {
-            $event->markIgnored('unassigned_device');
-
-            return;
-        }
-
         $event->forceFill([
             'tenant_id' => $equipment->tenant_id,
             'traccar_device_id' => $position->deviceId,
@@ -70,7 +64,13 @@ class TraccarEventProcessor
         try {
             TenantContext::set($equipment->tenant);
 
-            $this->tracking->persistPosition($vehicle, $equipment, $position);
+            if ($vehicle !== null) {
+                $this->tracking->persistPosition($vehicle, $equipment, $position);
+            } else {
+                // Equipamento em estoque: persiste a posição para exibir os
+                // indicadores no cadastro mesmo sem vínculo com veículo.
+                $this->tracking->persistEquipmentPosition($equipment, $position);
+            }
         } catch (Throwable $exception) {
             $event->recordError($exception->getMessage());
 

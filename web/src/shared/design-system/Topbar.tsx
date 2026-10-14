@@ -5,7 +5,7 @@ export function Topbar({ children, className }: { children: ReactNode; className
   return (
     <header
       className={cn(
-        'z-30 flex h-14 shrink-0 items-center gap-3 bg-background px-4 sm:px-6 lg:px-8',
+        'z-30 flex h-12 shrink-0 items-center gap-2 bg-background px-3 sm:px-4 lg:px-5',
         className,
       )}
     >

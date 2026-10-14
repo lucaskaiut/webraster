@@ -3,18 +3,20 @@
 namespace App\Modules\Service\Services;
 
 use App\Modules\Service\Models\Service;
+use App\Modules\Shared\Support\QuerySort;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
 
 class ServiceService
 {
-    public function paginate(int $perPage = 15, ?string $search = null): LengthAwarePaginator
+    public function paginate(int $perPage = 15, ?string $search = null, ?string $sort = null): LengthAwarePaginator
     {
-        return Service::query()
+        $query = Service::query()
             ->when(filled($search), function ($query) use ($search): void {
                 $query->where('name', 'like', "%{$search}%");
-            })
-            ->orderBy('name')
+            });
+
+        return QuerySort::apply($query, $sort, ['name', 'amount_cents', 'created_at'], 'name:asc')
             ->paginate(min(max($perPage, 1), 100));
     }
 

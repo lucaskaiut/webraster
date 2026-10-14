@@ -3,6 +3,7 @@
 namespace App\Modules\Tracking\Services;
 
 use App\Modules\Alert\Services\AlertEngine;
+use App\Modules\Client\Support\ClientAuthorization;
 use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Geofence\Services\GeofenceDetectionService;
 use App\Modules\Tracking\Contracts\TraccarGateway;
@@ -12,6 +13,7 @@ use App\Modules\Tracking\Http\Resources\GpsPositionResource;
 use App\Modules\Tracking\Models\GpsPosition;
 use App\Modules\Vehicle\Models\Vehicle;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -40,7 +42,7 @@ class TrackingService
     public function listMonitoredVehicles(?string $search = null): Collection
     {
         return Vehicle::query()
-            ->with(['client', 'equipment', 'images'])
+            ->with(['client', 'equipment', 'images', 'driver'])
             ->where('is_active', true)
             ->whereHas('equipment', fn ($query) => $query->where('is_active', true))
             ->when(filled($search), function ($query) use ($search): void {
@@ -98,18 +100,79 @@ class TrackingService
     }
 
     /**
+     * Equipamentos ativos sem veículo (estoque) com a última posição
+     * persistida, para exibir posições e indicadores no cadastro.
+     *
+     * @return Collection<int, array{equipment: Equipment, position: ?GpsPosition, online: bool}>
+     */
+    public function liveEquipments(?string $search = null): Collection
+    {
+        // Usuário de cliente não enxerga o estoque do tenant.
+        if (ClientAuthorization::isRestricted()) {
+            return collect();
+        }
+
+        $equipments = Equipment::query()
+            ->with('vehicle.client')
+            ->where('is_active', true)
+            ->whereNull('vehicle_id')
+            ->when(filled($search), function ($query) use ($search): void {
+                $query->where(function ($query) use ($search): void {
+                    $query->where('imei', 'like', "%{$search}%")
+                        ->orWhere('model', 'like', "%{$search}%")
+                        ->orWhere('line_number', 'like', "%{$search}%")
+                        ->orWhere('carrier', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('imei')
+            ->limit(200)
+            ->get();
+
+        if ($equipments->isEmpty()) {
+            return collect();
+        }
+
+        $positions = $this->latestEquipmentPositionsFor($equipments->pluck('id')->all());
+        $now = CarbonImmutable::now();
+
+        return $equipments->map(function (Equipment $equipment) use ($positions, $now) {
+            $position = $positions->get($equipment->getKey());
+
+            return [
+                'equipment' => $equipment,
+                'position' => $position,
+                'online' => $this->isEquipmentOnline($equipment, $position, $now),
+            ];
+        })->values();
+    }
+
+    private function isEquipmentOnline(
+        Equipment $equipment,
+        ?GpsPosition $position,
+        CarbonImmutable $now,
+    ): bool {
+        return $this->isSignalOnline($position, $equipment->traccar_last_update, $now);
+    }
+
+    /**
      * Online quando a última posição é recente ou quando o Traccar reporta
      * comunicação recente do dispositivo (lastUpdate), mesmo sem posição nova.
      */
     private function isOnline(Vehicle $vehicle, ?GpsPosition $position, CarbonImmutable $now): bool
     {
+        return $this->isSignalOnline($position, $vehicle->equipment?->traccar_last_update, $now);
+    }
+
+    private function isSignalOnline(
+        ?GpsPosition $position,
+        ?CarbonInterface $lastUpdate,
+        CarbonImmutable $now,
+    ): bool {
         if ($position !== null
             && $position->recorded_at !== null
             && $position->recorded_at->greaterThan($now->subMinutes(self::POSITION_ONLINE_MINUTES))) {
             return true;
         }
-
-        $lastUpdate = $vehicle->equipment?->traccar_last_update;
 
         if ($lastUpdate === null) {
             return false;
@@ -312,6 +375,48 @@ class TrackingService
             ->keyBy('vehicle_id');
     }
 
+    /**
+     * Última posição persistida de equipamentos sem veículo, pela chave
+     * natural (equipment_id + recorded_at).
+     *
+     * @param  list<int>  $equipmentIds
+     * @return Collection<int, GpsPosition>
+     */
+    private function latestEquipmentPositionsFor(array $equipmentIds): Collection
+    {
+        if ($equipmentIds === []) {
+            return collect();
+        }
+
+        $latestRecordedAt = GpsPosition::query()
+            ->select('equipment_id')
+            ->selectRaw('MAX(recorded_at) AS max_recorded_at')
+            ->whereIn('equipment_id', $equipmentIds)
+            ->whereNull('vehicle_id')
+            ->groupBy('equipment_id')
+            ->get();
+
+        if ($latestRecordedAt->isEmpty()) {
+            return collect();
+        }
+
+        return GpsPosition::query()
+            ->whereIn('equipment_id', $equipmentIds)
+            ->whereNull('vehicle_id')
+            ->where(function ($query) use ($latestRecordedAt): void {
+                foreach ($latestRecordedAt as $latest) {
+                    $query->orWhere(function ($query) use ($latest): void {
+                        $query->where('equipment_id', $latest->equipment_id)
+                            ->where('recorded_at', $latest->max_recorded_at);
+                    });
+                }
+            })
+            ->orderByDesc('id')
+            ->get()
+            ->unique('equipment_id')
+            ->keyBy('equipment_id');
+    }
+
     private function resolveDeviceId(Equipment $equipment): ?int
     {
         if ($equipment->traccar_device_id) {
@@ -344,6 +449,20 @@ class TrackingService
 
     public function persistPosition(Vehicle $vehicle, Equipment $equipment, TraccarPosition $position): GpsPosition
     {
+        return $this->persist($equipment, $position, $vehicle);
+    }
+
+    /**
+     * Posição de um equipamento ainda sem vínculo com veículo (estoque).
+     * Geocercas e alertas dependem do veículo e não são avaliados.
+     */
+    public function persistEquipmentPosition(Equipment $equipment, TraccarPosition $position): GpsPosition
+    {
+        return $this->persist($equipment, $position, null);
+    }
+
+    private function persist(Equipment $equipment, TraccarPosition $position, ?Vehicle $vehicle): GpsPosition
+    {
         // O forward do Traccar chega antes do ID do banco ser atribuído (id=0),
         // então a idempotência usa a chave natural equipamento + horário.
         $gpsPosition = GpsPosition::query()->updateOrCreate(
@@ -352,9 +471,9 @@ class TrackingService
                 'recorded_at' => $position->recordedAt,
             ],
             [
-                'tenant_id' => $vehicle->tenant_id,
-                'vehicle_id' => $vehicle->getKey(),
-                'client_id' => $vehicle->client_id,
+                'tenant_id' => $equipment->tenant_id,
+                'vehicle_id' => $vehicle?->getKey(),
+                'client_id' => $vehicle?->client_id,
                 'traccar_position_id' => $position->id > 0 ? $position->id : null,
                 'latitude' => $position->latitude,
                 'longitude' => $position->longitude,
@@ -382,31 +501,34 @@ class TrackingService
         // reentrega do webhook) fazia posições antigas de um dispositivo parado
         // dispararem "dispositivo online" a cada varredura.
         if ($gpsPosition->wasRecentlyCreated) {
-            try {
-                $this->geofenceDetection->process($gpsPosition);
-            } catch (\Throwable $exception) {
-                Log::warning('geofence.detection_failed', [
-                    'position_id' => $gpsPosition->getKey(),
-                    'vehicle_id' => $vehicle->getKey(),
-                    'message' => $exception->getMessage(),
-                ]);
-            }
+            if ($vehicle !== null) {
+                try {
+                    $this->geofenceDetection->process($gpsPosition);
+                } catch (\Throwable $exception) {
+                    Log::warning('geofence.detection_failed', [
+                        'position_id' => $gpsPosition->getKey(),
+                        'vehicle_id' => $vehicle->getKey(),
+                        'message' => $exception->getMessage(),
+                    ]);
+                }
 
-            try {
-                $this->alertEngine->process($gpsPosition);
-            } catch (\Throwable $exception) {
-                Log::warning('alert.detection_failed', [
-                    'position_id' => $gpsPosition->getKey(),
-                    'vehicle_id' => $vehicle->getKey(),
-                    'message' => $exception->getMessage(),
-                ]);
+                try {
+                    $this->alertEngine->process($gpsPosition);
+                } catch (\Throwable $exception) {
+                    Log::warning('alert.detection_failed', [
+                        'position_id' => $gpsPosition->getKey(),
+                        'vehicle_id' => $vehicle->getKey(),
+                        'message' => $exception->getMessage(),
+                    ]);
+                }
             }
 
             PositionUpdated::dispatch(
                 $equipment->tenant?->uuid,
-                $vehicle->client?->uuid,
+                $vehicle?->client?->uuid,
                 [
-                    'vehicle_id' => $vehicle->uuid,
+                    'vehicle_id' => $vehicle?->uuid,
+                    'equipment_id' => $equipment->uuid,
                     'online' => true,
                     'position' => GpsPositionResource::make($gpsPosition)->resolve(),
                 ],

@@ -5,8 +5,10 @@ namespace App\Modules\Geofence\Services;
 use App\Modules\Geofence\Enums\GeofenceType;
 use App\Modules\Geofence\Models\Geofence;
 use App\Modules\Geofence\Support\GeoMath;
+use App\Modules\Shared\Support\QuerySort;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 class GeofenceService
@@ -23,8 +25,9 @@ class GeofenceService
         ?int $clientId = null,
         ?string $type = null,
         ?bool $isActive = null,
+        ?string $sort = null,
     ): LengthAwarePaginator {
-        return Geofence::query()
+        $query = Geofence::query()
             ->with(['client'])
             ->withCount('events')
             ->when($clientId !== null, fn ($query) => $query->where('client_id', $clientId))
@@ -35,13 +38,14 @@ class GeofenceService
                     $query->where('name', 'like', "%{$search}%")
                         ->orWhere('description', 'like', "%{$search}%");
                 });
-            })
-            ->orderBy('name')
+            });
+
+        return QuerySort::apply($query, $sort, ['name', 'type', 'is_active', 'created_at'], 'name:asc')
             ->paginate(min(max($perPage, 1), 100));
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, Geofence>
+     * @return Collection<int, Geofence>
      */
     public function listForMap(?int $clientId = null, bool $activeOnly = true)
     {

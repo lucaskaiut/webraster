@@ -419,4 +419,36 @@ class TrackingLiveTest extends TestCase
             ->assertJsonPath('data.enabled', false)
             ->assertJsonPath('data.configured', false);
     }
+
+    public function test_live_equipments_exposes_stock_positions_without_vehicle(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $equipment = Equipment::factory()->forTenant($tenant)->create([
+            'imei' => '359633100000777',
+            'traccar_last_update' => now(),
+        ]);
+
+        GpsPosition::factory()->forStockEquipment($equipment)->create([
+            'recorded_at' => now()->subMinutes(2),
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->getJson('/api/tracking/equipments/live')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $equipment->uuid)
+            ->assertJsonPath('data.0.online', true)
+            ->assertJsonPath('data.0.position.vehicle_id', null);
+    }
+
+    public function test_live_equipments_requires_tracking_permission(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $user = $this->createMember($tenant);
+        $user->roles()->firstOrFail()->revokePermissions(Permission::TRACKING_READ);
+
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/tracking/equipments/live')->assertForbidden();
+    }
 }

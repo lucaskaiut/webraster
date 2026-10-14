@@ -21,6 +21,7 @@ import { Can } from '@/app/guards/PermissionGuard'
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import { useDebounce } from '@/shared/hooks/useDebounce'
+import { useTableSort } from '@/shared/hooks/useTableSort'
 import { useSessionStore } from '@/shared/stores/session.store'
 import { formatDate } from '@/shared/utils/format'
 import { formatDocument } from '@/shared/utils/document'
@@ -41,8 +42,14 @@ export default function UsersListPage() {
 
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
   const deleteUser = useDeleteUser()
+  const { sort, sortParam, toggleSort } = useTableSort()
 
-  const query = useUsersQuery({ page, per_page: PER_PAGE, search: debouncedSearch || undefined })
+  const query = useUsersQuery({
+    page,
+    per_page: PER_PAGE,
+    search: debouncedSearch || undefined,
+    sort: sortParam,
+  })
 
   const updateParams = (next: { page?: number; search?: string }) => {
     setSearchParams(
@@ -77,6 +84,7 @@ export default function UsersListPage() {
     {
       key: 'name',
       header: 'Usuário',
+      sortable: true,
       render: (user) => (
         <div className="flex items-center gap-3">
           <Avatar name={user.name} />
@@ -112,6 +120,7 @@ export default function UsersListPage() {
     {
       key: 'created_at',
       header: 'Criado em',
+      sortable: true,
       render: (user) => <span className="text-muted">{formatDate(user.created_at)}</span>,
     },
     ...(canMutate
@@ -182,6 +191,8 @@ export default function UsersListPage() {
           rows={query.data?.data ?? []}
           rowKey={(user) => user.id}
           loading={query.isPending}
+          sort={sort}
+          onSort={toggleSort}
           emptyState={
             <EmptyState
               icon={Users}

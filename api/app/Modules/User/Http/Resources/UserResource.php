@@ -24,6 +24,7 @@ class UserResource extends JsonResource
             'phone' => $this->phone,
             'document' => $this->document,
             'is_master' => (bool) $this->is_master,
+            'is_primary' => (bool) $this->is_primary,
             'client_id' => $this->when(
                 $this->client_id !== null,
                 fn () => $this->relationLoaded('client')

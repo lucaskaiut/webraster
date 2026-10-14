@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
-import { Eye, FileDown, FileText, PenLine, Upload } from 'lucide-react'
+import { Check, Copy, Eye, FileDown, FileText, PenLine, Upload } from 'lucide-react'
 import {
   Alert,
   Badge,
@@ -48,6 +48,43 @@ function SignerField({ label, value }: { label: string; value: string | null }) 
     <div className="space-y-0.5">
       <dt className="text-xs text-muted">{label}</dt>
       <dd className="text-[13px] font-medium text-foreground">{value ?? '—'}</dd>
+    </div>
+  )
+}
+
+function EvidenceField({ label, value }: { label: string; value: string | null }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    if (!value) return
+
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast.error('Não foi possível copiar')
+    }
+  }
+
+  return (
+    <div className="space-y-0.5">
+      <dt className="text-xs text-muted">{label}</dt>
+      <dd className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
+        <span className="truncate" title={value ?? undefined}>
+          {value || '—'}
+        </span>
+        {value && (
+          <button
+            type="button"
+            onClick={() => void handleCopy()}
+            aria-label={`Copiar ${label}`}
+            className="shrink-0 rounded p-0.5 text-subtle transition-colors hover:bg-surface-3 hover:text-foreground"
+          >
+            {copied ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
+          </button>
+        )}
+      </dd>
     </div>
   )
 }
@@ -260,6 +297,36 @@ function ClientContractForm({
                           />
                         </dl>
                       )}
+
+                      {signed &&
+                        (current.document_hash ||
+                          current.signature_hash ||
+                          current.signed_ip ||
+                          current.signed_user_agent) && (
+                          <div className="space-y-2 rounded-xl bg-surface p-3.5">
+                            <p className="text-xs font-semibold tracking-wide text-muted uppercase">
+                              Evidências da assinatura
+                            </p>
+                            <dl className="grid gap-3 sm:grid-cols-2">
+                              <EvidenceField
+                                label="Hash do documento (SHA-256)"
+                                value={current.document_hash}
+                              />
+                              <EvidenceField
+                                label="Hash da assinatura (SHA-256)"
+                                value={current.signature_hash}
+                              />
+                              <EvidenceField label="Endereço IP" value={current.signed_ip} />
+                              <EvidenceField
+                                label="Dispositivo"
+                                value={current.signed_user_agent}
+                              />
+                            </dl>
+                            <p className="text-[11px] text-subtle">
+                              Os hashes ficam registrados na trilha de auditoria do sistema.
+                            </p>
+                          </div>
+                        )}
                     </div>
                   )}
 

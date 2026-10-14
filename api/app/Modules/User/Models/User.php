@@ -38,6 +38,7 @@ class User extends Authenticatable
         'document',
         'password',
         'is_master',
+        'is_primary',
         'client_id',
     ];
 
@@ -50,6 +51,7 @@ class User extends Authenticatable
         return [
             'password' => 'hashed',
             'is_master' => 'boolean',
+            'is_primary' => 'boolean',
         ];
     }
 

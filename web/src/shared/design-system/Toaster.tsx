@@ -17,7 +17,7 @@ export function Toaster() {
     <div
       aria-live="polite"
       aria-label="Notificações"
-      className="pointer-events-none fixed right-4 bottom-4 z-[60] flex w-full max-w-sm flex-col gap-2"
+      className="pointer-events-none fixed top-14 right-4 z-[60] flex w-full max-w-sm flex-col gap-2"
     >
       {toasts.map((item) => {
         const { icon: Icon, className } = ICONS[item.type]

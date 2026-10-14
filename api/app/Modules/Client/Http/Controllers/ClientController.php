@@ -23,6 +23,7 @@ class ClientController extends ApiController
             (int) $request->integer('per_page', 15),
             $request->string('search')->toString() ?: null,
             $request->filled('delinquent') ? $request->boolean('delinquent') : null,
+            $request->string('sort')->toString() ?: null,
         );
 
         return $this->paginated(ClientResource::collection($clients));

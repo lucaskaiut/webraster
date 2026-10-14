@@ -7,7 +7,7 @@ import { FleetSidebar, type FleetSidebarProps } from './FleetSidebar'
 const PANEL_WIDTH = 300
 const PANEL_HEIGHT = 560
 const EDGE_MARGIN = 12
-const INITIAL_POSITION = { x: EDGE_MARGIN, y: 160 }
+const INITIAL_POSITION = { x: EDGE_MARGIN, y: 120 }
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)

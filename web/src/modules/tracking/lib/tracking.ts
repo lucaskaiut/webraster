@@ -11,6 +11,7 @@ export type FleetFilter =
   | 'with_alarm'
 export type ConnectionStatus = 'online' | 'offline' | 'no_position'
 export type MotionStatus = 'moving' | 'stopped'
+export type FleetSort = 'recent' | 'oldest'
 
 const MOVING_KMH = 2
 const KNOTS_TO_KMH = 1.852

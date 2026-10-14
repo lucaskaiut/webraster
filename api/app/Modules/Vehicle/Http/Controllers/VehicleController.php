@@ -20,6 +20,7 @@ use App\Modules\Vehicle\Services\VehicleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class VehicleController extends ApiController
 {
@@ -39,13 +40,43 @@ class VehicleController extends ApiController
                 ->value('id');
         }
 
+        $excludeClientId = null;
+        if ($request->filled('exclude_client_id')) {
+            $excludeClientId = Client::query()
+                ->where('uuid', $request->string('exclude_client_id')->toString())
+                ->value('id');
+        }
+
         $vehicles = $this->service->paginate(
             (int) $request->integer('per_page', 15),
             $request->string('search')->toString() ?: null,
             $clientId,
+            $excludeClientId,
+            $request->string('sort')->toString() ?: null,
         );
 
         return $this->paginated(VehicleResource::collection($vehicles));
+    }
+
+    /**
+     * Exporta a listagem em XLSX respeitando busca e filtro de cliente.
+     */
+    public function export(Request $request): StreamedResponse
+    {
+        $this->authorize('viewAny', Vehicle::class);
+
+        $clientId = null;
+        if ($request->filled('client_id')) {
+            $clientId = Client::query()
+                ->where('uuid', $request->string('client_id')->toString())
+                ->value('id');
+        }
+
+        return $this->service->export(
+            $request->string('search')->toString() ?: null,
+            $clientId,
+            $request->string('sort')->toString() ?: null,
+        );
     }
 
     public function show(Vehicle $vehicle): JsonResponse

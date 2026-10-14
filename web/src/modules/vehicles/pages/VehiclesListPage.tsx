@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
-import { Car, Plus } from 'lucide-react'
+import { Car, Download, Plus } from 'lucide-react'
 import {
   Badge,
+  Button,
   ButtonLink,
   ConfirmDialog,
   DataTable,
@@ -19,12 +20,16 @@ import { Can } from '@/app/guards/PermissionGuard'
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import { useDebounce } from '@/shared/hooks/useDebounce'
+import { useTableSort } from '@/shared/hooks/useTableSort'
 import type { TrackingLiveVehicle, Vehicle } from '@/shared/types/models'
-import { formatDateTimeWithSeconds } from '@/shared/utils/format'
+import { formatDateTime, formatDateTimeWithSeconds } from '@/shared/utils/format'
+import { downloadBlob } from '@/shared/utils/report-export'
+import { toast } from '@/shared/stores/toast.store'
 import { useTrackingLiveQuery } from '@/modules/tracking/hooks/useTracking'
 import { VehicleStatusIndicators } from '@/modules/tracking/components/VehicleStatusIndicators'
 import { VehicleListRowActions } from '../components/VehicleListRowActions'
 import { useDeleteVehicle, useVehiclesQuery } from '../hooks/useVehicles'
+import { vehiclesService } from '../services/vehicles.service'
 
 const PER_PAGE = 10
 
@@ -39,13 +44,16 @@ export default function VehiclesListPage() {
   const { can } = usePermissions()
 
   const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null)
+  const [exporting, setExporting] = useState(false)
   const deleteVehicle = useDeleteVehicle()
+  const { sort, sortParam, toggleSort } = useTableSort()
 
   const query = useVehiclesQuery({
     page,
     per_page: PER_PAGE,
     search: debouncedSearch || undefined,
     client_id: clientId,
+    sort: sortParam,
   })
 
   const canTrack = can(Permission.TRACKING_READ)
@@ -93,6 +101,24 @@ export default function VehiclesListPage() {
     deleteVehicle.mutate(vehicleToDelete.id, { onSettled: () => setVehicleToDelete(null) })
   }
 
+  const handleExport = async () => {
+    setExporting(true)
+
+    try {
+      const blob = await vehiclesService.export({
+        search: debouncedSearch || undefined,
+        client_id: clientId,
+        sort: sortParam,
+      })
+      downloadBlob(blob, 'veiculos.xlsx')
+      toast.success('Exportação gerada', 'A lista de veículos foi exportada em XLSX.')
+    } catch {
+      toast.error('Não foi possível exportar a lista de veículos')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const canViewEquipmentDetails = can(Permission.EQUIPMENT_DETAILS_READ)
   const showActionsColumn =
     can(Permission.VEHICLE_UPDATE) ||
@@ -107,6 +133,7 @@ export default function VehiclesListPage() {
     {
       key: 'plate',
       header: 'Veículo',
+      sortable: true,
       render: (vehicle) => (
         <div className="min-w-0">
           <p className="truncate font-medium text-foreground">{vehicle.plate}</p>
@@ -124,6 +151,7 @@ export default function VehiclesListPage() {
     {
       key: 'year',
       header: 'Ano',
+      sortable: true,
       render: (vehicle) => <span className="text-muted">{vehicle.year ?? '—'}</span>,
     },
     {
@@ -153,10 +181,19 @@ export default function VehiclesListPage() {
     {
       key: 'is_active',
       header: 'Status',
+      sortable: true,
       render: (vehicle) => (
         <Badge variant={vehicle.is_active ? 'success' : 'neutral'}>
           {vehicle.is_active ? 'Ativo' : 'Inativo'}
         </Badge>
+      ),
+    },
+    {
+      key: 'created_at',
+      header: 'Cadastro',
+      sortable: true,
+      render: (vehicle) => (
+        <span className="whitespace-nowrap text-muted">{formatDateTime(vehicle.created_at)}</span>
       ),
     },
     ...(canTrack
@@ -221,19 +258,25 @@ export default function VehiclesListPage() {
         description="Gerencie a frota vinculada aos clientes."
         breadcrumb={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Veículos' }]}
         actions={
-          <Can permission={Permission.VEHICLE_CREATE}>
-            <ButtonLink to="/vehicles/create">
-              <Plus className="size-4" />
-              Novo veículo
-            </ButtonLink>
-          </Can>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={handleExport} loading={exporting}>
+              <Download className="size-4" aria-hidden="true" />
+              Exportar
+            </Button>
+            <Can permission={Permission.VEHICLE_CREATE}>
+              <ButtonLink to="/vehicles/create">
+                <Plus className="size-4" />
+                Novo veículo
+              </ButtonLink>
+            </Can>
+          </div>
         }
       />
 
       <PageContent variant="table">
         <FilterBar>
           <SearchInput
-            placeholder="Buscar por placa, chassi, marca, modelo ou cliente..."
+            placeholder="Buscar por placa, IMEI do equipamento, chassi, marca, modelo ou cliente..."
             aria-label="Buscar veículos"
             value={search}
             onChange={(event) => {
@@ -249,6 +292,8 @@ export default function VehiclesListPage() {
           rows={query.data?.data ?? []}
           rowKey={(vehicle) => vehicle.id}
           loading={query.isPending}
+          sort={sort}
+          onSort={toggleSort}
           emptyState={
             <EmptyState
               icon={Car}

@@ -270,7 +270,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { value: Permission.EQUIPMENT_DELETE, label: 'Remover equipamentos' },
       {
         value: Permission.EQUIPMENT_DETAILS_READ,
-        label: 'Visualizar dados do dispositivo (IMEI, modelo, ICCID e operadora)',
+        label: 'Visualizar dados do dispositivo (IMEI, modelo, número da linha e operadora)',
       },
     ],
   },

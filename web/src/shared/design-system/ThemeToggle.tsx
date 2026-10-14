@@ -19,7 +19,7 @@ export function ThemeToggle() {
     <Dropdown
       label="Alterar tema"
       trigger={
-        <span className="flex size-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground">
+        <span className="flex size-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground">
           <CurrentIcon className="size-4.5" aria-hidden="true" />
         </span>
       }

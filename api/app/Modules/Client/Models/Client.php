@@ -11,6 +11,7 @@ use App\Modules\Shared\Models\Concerns\HasUuid;
 use App\Modules\Tenant\Models\Concerns\BelongsToTenant;
 use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Models\Vehicle;
+use App\Modules\Vehicle\Models\VehicleShare;
 use Database\Factories\ClientFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -23,6 +24,7 @@ class Client extends Model
 {
     /** @use HasFactory<ClientFactory> */
     use BelongsToTenant;
+
     use HasFactory;
     use HasUuid;
     use SoftDeletes;
@@ -97,6 +99,12 @@ class Client extends Model
     public function vehicles(): HasMany
     {
         return $this->hasMany(Vehicle::class);
+    }
+
+    /** Veículos de outros clientes compartilhados com este cliente. */
+    public function vehicleShares(): HasMany
+    {
+        return $this->hasMany(VehicleShare::class);
     }
 
     public function order(): HasOne

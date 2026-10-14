@@ -1019,6 +1019,106 @@ class ClientContractTest extends TestCase
         $this->getJson('/api/contract/portal')->assertForbidden();
     }
 
+    public function test_signing_records_evidence_hashes_and_audit_log(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $contract = Contract::factory()->forTenant($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $assigned = $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $contract->uuid,
+        ])->assertOk();
+
+        $clientContractId = $assigned->json('data.id');
+
+        Storage::fake('public');
+
+        Sanctum::actingAs($this->createClient($tenant, ['client_id' => $client->getKey()]));
+
+        $response = $this->post(
+            "/api/clients/{$client->uuid}/contract/signature",
+            [
+                'image' => UploadedFile::fake()->image('assinatura.png'),
+                'contract_id' => $contract->uuid,
+                'signer_name' => 'Maria da Silva',
+                'signer_cpf' => '529.982.247-25',
+                'signer_birth_date' => '1990-05-20',
+            ],
+            ['Accept' => 'application/json'],
+        );
+
+        $response->assertOk();
+
+        $this->assertSame(64, strlen((string) $response->json('data.document_hash')));
+        $this->assertSame(64, strlen((string) $response->json('data.signature_hash')));
+        $this->assertSame('127.0.0.1', $response->json('data.signed_ip'));
+        $this->assertNotEmpty($response->json('data.signed_user_agent'));
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'contract_signed',
+            'entity_type' => 'client_contract',
+            'entity_id' => $clientContractId,
+        ]);
+    }
+
+    public function test_uploading_document_records_hash_and_audit_log(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        Storage::fake('public');
+
+        $content = "%PDF-1.4\n% contrato assinado em outra plataforma\n%%EOF";
+
+        $response = $this->post(
+            "/api/clients/{$client->uuid}/contract/document",
+            ['file' => UploadedFile::fake()->createWithContent('contrato-assinado.pdf', $content)],
+            ['Accept' => 'application/json'],
+        )->assertOk();
+
+        $this->assertSame(hash('sha256', $content), $response->json('data.document_hash'));
+        $this->assertSame('127.0.0.1', $response->json('data.signed_ip'));
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'contract_document_uploaded',
+            'entity_type' => 'client_contract',
+        ]);
+    }
+
+    public function test_marking_pending_clears_evidence_and_audits_change(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $contract = Contract::factory()->forTenant($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}/contract", [
+            'contract_id' => $contract->uuid,
+        ])->assertOk();
+
+        $this->putJson("/api/clients/{$client->uuid}/contract/signature", [
+            'signature_status' => 'signed',
+        ])->assertOk();
+
+        $this->putJson("/api/clients/{$client->uuid}/contract/signature", [
+            'signature_status' => 'pending',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.document_hash', null)
+            ->assertJsonPath('data.signed_ip', null)
+            ->assertJsonPath('data.signed_user_agent', null);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'contract_signature_updated',
+            'entity_type' => 'client_contract',
+        ]);
+    }
+
     private function fakeSignedContract(string $name = 'contrato-assinado.pdf'): UploadedFile
     {
         return UploadedFile::fake()->createWithContent(

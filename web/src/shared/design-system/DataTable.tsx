@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
+import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
 import { cn } from '@/shared/utils/cn'
+import type { SortCriterion } from '@/shared/utils/table-sort'
 import { Card } from './Card'
 import { Skeleton } from './Skeleton'
 
@@ -8,6 +10,10 @@ export interface Column<T> {
   header: ReactNode
   render: (row: T) => ReactNode
   className?: string
+  /** Habilita o botão de ordenação no cabeçalho da coluna. */
+  sortable?: boolean
+  /** Nome da coluna enviado à API (padrão: `key`). */
+  sortKey?: string
 }
 
 export interface DataTableProps<T> {
@@ -22,6 +28,59 @@ export interface DataTableProps<T> {
   /** Preenche a altura disponível no layout de listagem e rola o corpo da tabela. */
   fillHeight?: boolean
   className?: string
+  /** Critérios de ordenação ativos (a ordem define a prioridade). */
+  sort?: SortCriterion[]
+  /** Chamado ao clicar no cabeçalho de uma coluna ordenável. */
+  onSort?: (column: string) => void
+}
+
+function SortableHeader<T>({
+  column,
+  sort,
+  onSort,
+}: {
+  column: Column<T>
+  sort: SortCriterion[]
+  onSort: (column: string) => void
+}) {
+  const sortKey = column.sortKey ?? column.key
+  const index = sort.findIndex((criterion) => criterion.column === sortKey)
+  const direction = index >= 0 ? sort[index]!.direction : null
+  const multiple = sort.length > 1
+
+  const title =
+    direction === 'asc'
+      ? 'Ordenação crescente (clique para decrescente)'
+      : direction === 'desc'
+        ? 'Ordenação decrescente (clique para remover)'
+        : 'Clique para ordenar'
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSort(sortKey)}
+      title={title}
+      aria-label={typeof column.header === 'string' ? `Ordenar por ${column.header}` : undefined}
+      className={cn(
+        'group/sort -mx-1 inline-flex cursor-pointer items-center gap-1.5 rounded px-1 py-0.5 transition-colors hover:text-foreground',
+        direction !== null && 'text-foreground',
+      )}
+    >
+      <span>{column.header}</span>
+      <span className="inline-flex shrink-0 items-center gap-0.5">
+        {direction === 'asc' ? (
+          <ArrowUp className="size-3.5 text-primary" aria-hidden="true" />
+        ) : direction === 'desc' ? (
+          <ArrowDown className="size-3.5 text-primary" aria-hidden="true" />
+        ) : (
+          <ArrowUpDown className="size-3.5 text-subtle/50 group-hover/sort:text-subtle" aria-hidden="true" />
+        )}
+        {multiple && direction !== null && (
+          <span className="text-[9px] leading-none font-normal text-subtle">{index + 1}</span>
+        )}
+      </span>
+    </button>
+  )
 }
 
 export function DataTable<T>({
@@ -35,6 +94,8 @@ export function DataTable<T>({
   onRowClick,
   fillHeight = false,
   className,
+  sort = [],
+  onSort,
 }: DataTableProps<T>) {
   const showEmpty = !loading && rows.length === 0
 
@@ -56,7 +117,11 @@ export function DataTable<T>({
             <tr className="bg-surface-2/95 text-left text-xs tracking-wide text-muted uppercase backdrop-blur-sm">
               {columns.map((column) => (
                 <th key={column.key} scope="col" className={cn('px-5 py-3 font-medium', column.className)}>
-                  {column.header}
+                  {column.sortable && onSort ? (
+                    <SortableHeader column={column} sort={sort} onSort={onSort} />
+                  ) : (
+                    column.header
+                  )}
                 </th>
               ))}
             </tr>

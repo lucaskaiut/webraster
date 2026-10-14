@@ -46,6 +46,12 @@ class LiveTrackingItemResource extends JsonResource
             'images' => $vehicle->relationLoaded('images')
                 ? VehicleImageResource::collection($vehicle->images)
                 : [],
+            'driver' => $vehicle->driver !== null
+                ? [
+                    'id' => $vehicle->driver->uuid,
+                    'name' => $vehicle->driver->name,
+                ]
+                : null,
             'online' => $this->online,
             'position' => $this->position !== null
                 ? GpsPositionResource::make($this->position)

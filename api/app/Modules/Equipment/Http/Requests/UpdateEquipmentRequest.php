@@ -14,6 +14,14 @@ class UpdateEquipmentRequest extends FormRequest
         return true;
     }
 
+    public function messages(): array
+    {
+        return [
+            'imei.regex' => 'O número do equipamento deve conter apenas dígitos, sem espaços.',
+            'imei.max' => 'O número do equipamento deve ter no máximo 16 dígitos.',
+        ];
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -27,13 +35,14 @@ class UpdateEquipmentRequest extends FormRequest
                 'sometimes',
                 'required',
                 'string',
-                'max:20',
+                'max:16',
+                'regex:/^\d+$/',
                 Rule::unique('equipments', 'imei')
                     ->ignore($equipment->getKey())
                     ->where(fn ($query) => $query->where('tenant_id', TenantContext::tenantId())->whereNull('deleted_at')),
             ],
             'model' => ['sometimes', 'nullable', 'string', 'max:100'],
-            'iccid' => ['sometimes', 'nullable', 'string', 'max:30'],
+            'line_number' => ['sometimes', 'nullable', 'string', 'max:30'],
             'carrier' => ['sometimes', 'nullable', 'string', 'max:100'],
             'is_active' => ['sometimes', 'boolean'],
         ];

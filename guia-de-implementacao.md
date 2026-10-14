@@ -240,7 +240,7 @@ Campos:
 
 * IMEI
 * Modelo
-* ICCID
+* Número da Linha
 * Operadora
 
 ## Associação

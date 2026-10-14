@@ -5,16 +5,70 @@ namespace App\Modules\Client\Services;
 use App\Modules\ACL\Enums\DefaultRole;
 use App\Modules\ACL\Models\Role;
 use App\Modules\Client\Models\Client;
+use App\Modules\Shared\Support\QuerySort;
 use App\Modules\User\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class ClientUserService
 {
-    public function paginate(Client $client, int $perPage = 15, ?string $search = null): LengthAwarePaginator
+    /**
+     * Cria o usuário principal do cliente reutilizando os dados do cadastro
+     * (nome, e-mail e telefone). Não duplica quando já existe usuário com o
+     * mesmo e-mail no tenant e exige CPF/CNPJ válido para a senha inicial.
+     */
+    public function ensurePrimaryUser(Client $client): ?User
     {
-        return User::query()
+        if (blank($client->email)) {
+            return null;
+        }
+
+        $digits = (string) preg_replace('/\D+/', '', (string) $client->document);
+
+        if (strlen($digits) < 6) {
+            return null;
+        }
+
+        $email = mb_strtolower(trim((string) $client->email));
+
+        $alreadyExists = User::query()
+            ->withoutGlobalScopes()
+            ->where('tenant_id', $client->tenant_id)
+            ->whereRaw('LOWER(email) = ?', [$email])
+            ->exists();
+
+        if ($alreadyExists) {
+            return null;
+        }
+
+        return DB::transaction(function () use ($client, $email, $digits): User {
+            $user = new User([
+                'name' => $client->name,
+                'email' => $email,
+                'phone' => $client->phone,
+                'client_id' => $client->getKey(),
+                'is_primary' => true,
+                'password' => substr($digits, 0, 6),
+            ]);
+
+            $user->tenant_id = $client->tenant_id;
+            $user->save();
+
+            $user->syncRoles($this->defaultClientRoleIds());
+
+            return $user->load('roles.permissions');
+        });
+    }
+
+    public function paginate(
+        Client $client,
+        int $perPage = 15,
+        ?string $search = null,
+        ?string $sort = null,
+    ): LengthAwarePaginator {
+        $query = User::query()
             ->with('roles.permissions')
             ->where('client_id', $client->getKey())
             ->when(filled($search), function ($query) use ($search): void {
@@ -22,8 +76,9 @@ class ClientUserService
                     $query->where('name', 'like', "%{$search}%")
                         ->orWhere('email', 'like', "%{$search}%");
                 });
-            })
-            ->orderBy('name')
+            });
+
+        return QuerySort::apply($query, $sort, ['name', 'email', 'created_at'], 'name:asc')
             ->paginate(min(max($perPage, 1), 100));
     }
 

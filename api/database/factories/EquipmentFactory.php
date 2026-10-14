@@ -21,7 +21,7 @@ class EquipmentFactory extends Factory
             'vehicle_id' => null,
             'imei' => fake()->unique()->numerify('###############'),
             'model' => fake()->randomElement(['GT06N', 'TK103', 'FMB920', 'GV55']),
-            'iccid' => fake()->numerify('####################'),
+            'line_number' => fake()->numerify('###########'),
             'carrier' => fake()->randomElement(['Vivo', 'Claro', 'TIM', 'Oi']),
             'is_active' => true,
         ];

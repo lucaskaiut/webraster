@@ -190,3 +190,37 @@ export function useUploadClientContractDocument(clientId: string) {
     },
   })
 }
+
+export function useClientSharedVehiclesQuery(clientId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.clients.sharedVehicles(clientId ?? ''),
+    queryFn: () => clientsService.listSharedVehicles(clientId as string, { per_page: 100 }),
+    enabled: Boolean(clientId),
+  })
+}
+
+export function useShareClientVehicle(clientId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (vehicleId: string) => clientsService.shareVehicle(clientId, vehicleId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.clients.sharedVehicles(clientId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.all })
+      toast.success('Veículo compartilhado', 'O veículo está disponível para este cliente.')
+    },
+  })
+}
+
+export function useRemoveClientVehicleShare(clientId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (shareId: string) => clientsService.removeVehicleShare(clientId, shareId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.clients.sharedVehicles(clientId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.all })
+      toast.success('Compartilhamento removido')
+    },
+  })
+}

@@ -160,25 +160,25 @@ export function MapLayerToggles({
   showVehicles,
   showGeofences,
   showPois,
-  showAlerts,
   onToggleVehicles,
   onToggleGeofences,
   onTogglePois,
-  onToggleAlerts,
+  markerInfo,
+  onToggleMarkerInfo,
   action,
 }: {
   showVehicles: boolean
   showGeofences: boolean
   showPois: boolean
-  showAlerts?: boolean
   onToggleVehicles: (value: boolean) => void
   onToggleGeofences: (value: boolean) => void
   onTogglePois: (value: boolean) => void
-  onToggleAlerts?: (value: boolean) => void
+  markerInfo?: { plate: boolean; vehicle: boolean; driver: boolean }
+  onToggleMarkerInfo?: (key: 'plate' | 'vehicle' | 'driver', value: boolean) => void
   action?: ReactNode
 }) {
   return (
-    <div className="absolute top-3 left-3 flex flex-col gap-2 rounded-xl bg-surface/95 p-3 shadow-card">
+    <div className="absolute top-2 left-2 flex flex-col gap-1.5 rounded-xl bg-surface/95 p-2.5 shadow-card">
       <Checkbox
         label="Veículos"
         checked={showVehicles}
@@ -194,12 +194,28 @@ export function MapLayerToggles({
         checked={showPois}
         onChange={(event) => onTogglePois(event.target.checked)}
       />
-      {onToggleAlerts && (
-        <Checkbox
-          label="Alertas"
-          checked={!!showAlerts}
-          onChange={(event) => onToggleAlerts(event.target.checked)}
-        />
+      {markerInfo && onToggleMarkerInfo && (
+        <>
+          <div className="my-0.5 h-px bg-surface-2" />
+          <p className="px-1 text-[10px] font-semibold tracking-wider text-subtle uppercase">
+            Informações no mapa
+          </p>
+          <Checkbox
+            label="Placa"
+            checked={markerInfo.plate}
+            onChange={(event) => onToggleMarkerInfo('plate', event.target.checked)}
+          />
+          <Checkbox
+            label="Identificação do veículo"
+            checked={markerInfo.vehicle}
+            onChange={(event) => onToggleMarkerInfo('vehicle', event.target.checked)}
+          />
+          <Checkbox
+            label="Nome do motorista"
+            checked={markerInfo.driver}
+            onChange={(event) => onToggleMarkerInfo('driver', event.target.checked)}
+          />
+        </>
       )}
       {action}
     </div>

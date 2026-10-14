@@ -1,11 +1,17 @@
 import { APIProvider, Map, AdvancedMarker, useMap } from '@vis.gl/react-google-maps'
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { Crosshair, Locate } from 'lucide-react'
-import type { Alert, Geofence, GpsPosition, Poi, TrackingLiveVehicle } from '@/shared/types/models'
+import type { Geofence, GpsPosition, Poi, TrackingLiveVehicle } from '@/shared/types/models'
 import { cn } from '@/shared/utils/cn'
-import { connectionStatus, hasActiveAlarm, motionStatus } from '../lib/tracking'
+import { connectionStatus, hasActiveAlarm, motionStatus, vehicleLabel } from '../lib/tracking'
 import { vehicleTypeIcon } from '@/modules/vehicles/lib/vehicle-types'
 import { MapLayerToggles, MapLayersOverlay } from './MapLayers'
+
+export type MarkerInfoOptions = {
+  plate: boolean
+  vehicle: boolean
+  driver: boolean
+}
 
 const DEFAULT_CENTER = { lat: -15.78, lng: -47.93 }
 const DEFAULT_ZOOM = 4
@@ -139,10 +145,12 @@ function RouteLayer({ route }: { route: GpsPosition[] }) {
 function VehicleMarker({
   vehicle,
   selected,
+  info,
   onSelect,
 }: {
   vehicle: TrackingLiveVehicle
   selected: boolean
+  info: MarkerInfoOptions
   onSelect: (id: string) => void
 }) {
   if (!vehicle.position) return null
@@ -160,6 +168,8 @@ function VehicleMarker({
           ? 'ring-danger'
           : null
   const TypeIcon = vehicleTypeIcon(vehicle.vehicle_type)
+  const label = vehicleLabel(vehicle)
+  const driverName = vehicle.driver?.name ?? null
 
   return (
     <AdvancedMarker
@@ -186,14 +196,26 @@ function VehicleMarker({
         >
           <TypeIcon className="size-4 text-white" aria-hidden="true" />
         </div>
-        <span
-          className={cn(
-            'mt-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold shadow',
-            selected ? 'bg-primary text-primary-foreground' : 'bg-surface text-foreground',
-          )}
-        >
-          {vehicle.plate}
-        </span>
+        {info.plate && (
+          <span
+            className={cn(
+              'mt-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold shadow',
+              selected ? 'bg-primary text-primary-foreground' : 'bg-surface text-foreground',
+            )}
+          >
+            {vehicle.plate}
+          </span>
+        )}
+        {info.vehicle && label && (
+          <span className="mt-0.5 max-w-32 truncate rounded bg-surface/90 px-1 py-px text-[9px] text-muted shadow">
+            {label}
+          </span>
+        )}
+        {info.driver && driverName && (
+          <span className="mt-0.5 max-w-32 truncate rounded bg-surface/90 px-1 py-px text-[9px] text-muted shadow">
+            {driverName}
+          </span>
+        )}
       </div>
     </AdvancedMarker>
   )
@@ -212,20 +234,17 @@ export function TrackingMap({
   showVehicles = true,
   showGeofences = true,
   showPois = true,
-  showAlerts = true,
   onToggleVehicles,
   onToggleGeofences,
   onTogglePois,
-  onToggleAlerts,
+  markerInfo,
+  onToggleMarkerInfo,
   geofences = [],
   pois = [],
-  alerts = [],
   selectedGeofenceId = null,
   selectedPoiId = null,
-  selectedAlertId = null,
   onSelectGeofence,
   onSelectPoi,
-  onSelectAlert,
   layersAction,
 }: {
   vehicles: TrackingLiveVehicle[]
@@ -240,20 +259,17 @@ export function TrackingMap({
   showVehicles?: boolean
   showGeofences?: boolean
   showPois?: boolean
-  showAlerts?: boolean
   onToggleVehicles?: (value: boolean) => void
   onToggleGeofences?: (value: boolean) => void
   onTogglePois?: (value: boolean) => void
-  onToggleAlerts?: (value: boolean) => void
+  markerInfo: MarkerInfoOptions
+  onToggleMarkerInfo?: (key: keyof MarkerInfoOptions, value: boolean) => void
   geofences?: Geofence[]
   pois?: Poi[]
-  alerts?: Alert[]
   selectedGeofenceId?: string | null
   selectedPoiId?: string | null
-  selectedAlertId?: string | null
   onSelectGeofence?: (id: string) => void
   onSelectPoi?: (id: string) => void
-  onSelectAlert?: (id: string) => void
   layersAction?: ReactNode
 }) {
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined
@@ -306,34 +322,13 @@ export function TrackingMap({
             onSelectGeofence={onSelectGeofence ?? (() => undefined)}
             onSelectPoi={onSelectPoi ?? (() => undefined)}
           />
-          {showAlerts &&
-            alerts
-              .filter((alert) => alert.latitude != null && alert.longitude != null)
-              .map((alert) => (
-                <AdvancedMarker
-                  key={alert.id}
-                  position={{ lat: alert.latitude!, lng: alert.longitude! }}
-                  onClick={() => onSelectAlert?.(alert.id)}
-                  zIndex={alert.id === selectedAlertId ? 5 : 2}
-                  title={alert.title}
-                >
-                  <div
-                    className={cn(
-                      'rounded px-1.5 py-0.5 text-[10px] font-semibold text-white shadow',
-                      alert.severity === 'critical' ? 'bg-rose-700' : 'bg-amber-600',
-                      alert.id === selectedAlertId && 'ring-2 ring-white',
-                    )}
-                  >
-                    {alert.type_label ?? alert.type}
-                  </div>
-                </AdvancedMarker>
-              ))}
           {showVehicles &&
             vehicles.map((vehicle) => (
               <VehicleMarker
                 key={vehicle.id}
                 vehicle={vehicle}
                 selected={vehicle.id === selectedId}
+                info={markerInfo}
                 onSelect={onSelect}
               />
             ))}
@@ -350,32 +345,13 @@ export function TrackingMap({
           showVehicles={showVehicles}
           showGeofences={showGeofences}
           showPois={showPois}
-          showAlerts={showAlerts}
           onToggleVehicles={onToggleVehicles}
           onToggleGeofences={onToggleGeofences}
           onTogglePois={onTogglePois}
-          onToggleAlerts={onToggleAlerts}
+          markerInfo={markerInfo}
+          onToggleMarkerInfo={onToggleMarkerInfo}
           action={layersAction}
         />
-      )}
-
-      {selectedAlertId && (
-        <div className="absolute bottom-3 left-3 max-w-xs rounded-lg bg-surface/95 px-3 py-2 text-xs shadow-card">
-          {(() => {
-            const alert = alerts.find((item) => item.id === selectedAlertId)
-            if (!alert) return null
-            return (
-              <div className="space-y-0.5">
-                <p className="font-semibold text-foreground">{alert.title}</p>
-                <p className="text-muted">
-                  {alert.vehicle?.plate ?? '—'} ·{' '}
-                  {alert.occurred_at ? new Date(alert.occurred_at).toLocaleString('pt-BR') : ''}
-                </p>
-                {alert.description && <p className="text-muted">{alert.description}</p>}
-              </div>
-            )
-          })()}
-        </div>
       )}
 
       <div className="absolute top-3 right-3 flex flex-col gap-2">

@@ -20,6 +20,7 @@ import { Can } from '@/app/guards/PermissionGuard'
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import { useDebounce } from '@/shared/hooks/useDebounce'
+import { useTableSort } from '@/shared/hooks/useTableSort'
 import { formatDate } from '@/shared/utils/format'
 import { formatDocument } from '@/shared/utils/document'
 import type { Driver } from '@/shared/types/models'
@@ -39,12 +40,14 @@ export default function DriversListPage() {
 
   const [driverToDelete, setDriverToDelete] = useState<Driver | null>(null)
   const deleteDriver = useDeleteDriver()
+  const { sort, sortParam, toggleSort } = useTableSort()
 
   const query = useDriversQuery({
     page,
     per_page: PER_PAGE,
     search: debouncedSearch || undefined,
     client_id: clientId,
+    sort: sortParam,
   })
 
   const updateParams = (next: { page?: number; search?: string }) => {
@@ -80,6 +83,7 @@ export default function DriversListPage() {
     {
       key: 'name',
       header: 'Motorista',
+      sortable: true,
       render: (driver) => (
         <div className="min-w-0">
           <p className="truncate font-medium text-foreground">{driver.name}</p>
@@ -97,16 +101,19 @@ export default function DriversListPage() {
     {
       key: 'document',
       header: 'CPF',
+      sortable: true,
       render: (driver) => <span className="text-muted">{formatDocument(driver.document)}</span>,
     },
     {
       key: 'cnh_expires_at',
       header: 'Validade CNH',
+      sortable: true,
       render: (driver) => <span className="text-muted">{formatDate(driver.cnh_expires_at)}</span>,
     },
     {
       key: 'is_active',
       header: 'Status',
+      sortable: true,
       render: (driver) => (
         <Badge variant={driver.is_active ? 'success' : 'neutral'}>
           {driver.is_active ? 'Ativo' : 'Inativo'}
@@ -181,6 +188,8 @@ export default function DriversListPage() {
           rows={query.data?.data ?? []}
           rowKey={(driver) => driver.id}
           loading={query.isPending}
+          sort={sort}
+          onSort={toggleSort}
           emptyState={
             <EmptyState
               icon={IdCard}

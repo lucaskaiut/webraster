@@ -7,7 +7,8 @@ import { useTenantContextStore } from '@/shared/stores/tenant.store'
 import type { GpsPosition, TrackingLiveVehicle } from '@/shared/types/models'
 
 export interface PositionUpdatedPayload {
-  vehicle_id: string
+  vehicle_id: string | null
+  equipment_id?: string | null
   online: boolean
   position: GpsPosition
 }

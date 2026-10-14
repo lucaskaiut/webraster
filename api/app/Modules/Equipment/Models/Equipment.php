@@ -17,6 +17,7 @@ class Equipment extends Model
 {
     /** @use HasFactory<EquipmentFactory> */
     use BelongsToTenant;
+
     use HasFactory;
     use HasUuid;
     use SoftDeletes;
@@ -30,7 +31,7 @@ class Equipment extends Model
         'traccar_status',
         'traccar_last_update',
         'model',
-        'iccid',
+        'line_number',
         'carrier',
         'is_active',
         'billing_suspended_at',

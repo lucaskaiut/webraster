@@ -187,6 +187,22 @@ export default function AlertsListPage() {
         </span>
       ),
     },
+    {
+      key: 'closure',
+      header: 'Encerramento',
+      render: (item) => (
+        <div className="min-w-0 text-[13px]">
+          <p className="truncate text-muted">{item.acknowledged_by?.name ?? '—'}</p>
+          <p className="truncate text-subtle">
+            {item.resolved_at
+              ? new Date(item.resolved_at).toLocaleString('pt-BR')
+              : item.acknowledged_at
+                ? new Date(item.acknowledged_at).toLocaleString('pt-BR')
+                : '—'}
+          </p>
+        </div>
+      ),
+    },
     ...(can(Permission.ALERT_MANAGE)
       ? [
           {

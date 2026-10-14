@@ -2,15 +2,16 @@
 
 namespace App\Modules\User\Services;
 
+use App\Modules\Shared\Support\QuerySort;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\User\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class UserService
 {
-    public function paginate(int $perPage = 15, ?string $search = null): LengthAwarePaginator
+    public function paginate(int $perPage = 15, ?string $search = null, ?string $sort = null): LengthAwarePaginator
     {
-        return User::query()
+        $query = User::query()
             ->with('roles.permissions')
             ->whereNull('client_id')
             ->when(filled($search), function ($query) use ($search): void {
@@ -18,8 +19,9 @@ class UserService
                     $query->where('name', 'like', "%{$search}%")
                         ->orWhere('email', 'like', "%{$search}%");
                 });
-            })
-            ->orderBy('name')
+            });
+
+        return QuerySort::apply($query, $sort, ['name', 'email', 'created_at'], 'name:asc')
             ->paginate(min(max($perPage, 1), 100));
     }
 

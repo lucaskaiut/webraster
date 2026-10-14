@@ -22,6 +22,7 @@ class ServiceController extends ApiController
         $services = $this->service->paginate(
             (int) $request->integer('per_page', 15),
             $request->string('search')->toString() ?: null,
+            $request->string('sort')->toString() ?: null,
         );
 
         return $this->paginated(ServiceResource::collection($services));

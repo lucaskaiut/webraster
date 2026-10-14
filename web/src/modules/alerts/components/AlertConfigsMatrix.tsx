@@ -1,12 +1,16 @@
 import { useController, useFieldArray, useFormContext, type FieldArrayPath, type FieldValues } from 'react-hook-form'
 import { Switch } from '@/shared/design-system'
-import { VEHICLE_ALERT_TYPES } from '../lib/alert-types'
+import { VEHICLE_ALERT_TYPES, type VehicleAlertTypeOption } from '../lib/alert-types'
 
 interface AlertConfigsMatrixProps {
   /** Campo do formulário com a lista de configurações (ex.: `alert_configs`). */
   name: string
   /** Texto explicativo da seção de alarmes do dispositivo. */
   deviceHint?: string
+  /** Subconjunto de alertas gerais exibidos (padrão: todos). */
+  types?: VehicleAlertTypeOption[]
+  /** Exibe a seção de alarmes do dispositivo. */
+  showDeviceAlarms?: boolean
 }
 
 function ChannelSwitch({
@@ -120,55 +124,67 @@ function fieldLabel(field: unknown): string {
 export function AlertConfigsMatrix({
   name,
   deviceHint = 'Alarmes enviados pelo rastreador, cada um com canais próprios. Alarmes novos aparecem aqui automaticamente após a primeira ocorrência.',
+  types = VEHICLE_ALERT_TYPES,
+  showDeviceAlarms = true,
 }: AlertConfigsMatrixProps) {
   const { control } = useFormContext<FieldValues>()
   const { fields } = useFieldArray({ control, name: name as FieldArrayPath<FieldValues> })
 
-  const generalFields = fields.slice(0, VEHICLE_ALERT_TYPES.length)
-  const deviceFields = fields.slice(VEHICLE_ALERT_TYPES.length)
+  // O índice do campo segue o catálogo completo; a tela apenas exibe um
+  // subconjunto (os alertas ocultos continuam no formulário e no envio).
+  const generalFields = types
+    .map((option) => {
+      const index = VEHICLE_ALERT_TYPES.findIndex((item) => item.type === option.type)
+      const field = fields[index]
+
+      return field ? { field, index, option } : null
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null)
+
+  const deviceFields = showDeviceAlarms ? fields.slice(VEHICLE_ALERT_TYPES.length) : []
 
   return (
     <div className="space-y-6">
       <div className="overflow-x-auto">
         <div className="min-w-[720px] space-y-2">
           <AlertMatrixHeader />
-          {generalFields.map((field, index) => (
+          {generalFields.map(({ field, index, option }) => (
             <AlertRow
               key={field.id}
               base={`${name}.${index}`}
-              label={fieldLabel(field)}
-              description={
-                VEHICLE_ALERT_TYPES[index]?.description ?? `Alarme "${fieldLabel(field)}".`
-              }
+              label={option.label}
+              description={option.description}
             />
           ))}
         </div>
       </div>
 
-      <div className="space-y-3">
-        <div>
-          <h4 className="text-sm font-semibold text-foreground">Alarmes do dispositivo</h4>
-          <p className="mt-0.5 text-[13px] text-muted">{deviceHint}</p>
-        </div>
+      {showDeviceAlarms && (
+        <div className="space-y-3">
+          <div>
+            <h4 className="text-sm font-semibold text-foreground">Alarmes do dispositivo</h4>
+            <p className="mt-0.5 text-[13px] text-muted">{deviceHint}</p>
+          </div>
 
-        <div className="overflow-x-auto">
-          <div className="min-w-[720px] space-y-2">
-            <AlertMatrixHeader />
-            {deviceFields.map((field, offset) => {
-              const index = VEHICLE_ALERT_TYPES.length + offset
+          <div className="overflow-x-auto">
+            <div className="min-w-[720px] space-y-2">
+              <AlertMatrixHeader />
+              {deviceFields.map((field, offset) => {
+                const index = VEHICLE_ALERT_TYPES.length + offset
 
-              return (
-                <AlertRow
-                  key={field.id}
-                  base={`${name}.${index}`}
-                  label={fieldLabel(field)}
-                  description={`Alarme "${fieldLabel(field)}" reportado pelo rastreador.`}
-                />
-              )
-            })}
+                return (
+                  <AlertRow
+                    key={field.id}
+                    base={`${name}.${index}`}
+                    label={fieldLabel(field)}
+                    description={`Alarme "${fieldLabel(field)}" reportado pelo rastreador.`}
+                  />
+                )
+              })}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

@@ -2,16 +2,19 @@ import { http } from '@/shared/api/http'
 import type { ApiResponse, ListParams, PaginatedResponse } from '@/shared/types/api'
 import type { Equipment, EquipmentAssignmentEvent } from '@/shared/types/models'
 
-export interface EquipmentListParams extends ListParams {
+export interface EquipmentListParams extends Omit<ListParams, 'per_page'> {
+  per_page?: number | 'all'
   available?: boolean
   is_active?: boolean
   vehicle_id?: string
+  /** Ordenação multi-coluna no formato `coluna:asc,coluna2:desc`. */
+  sort?: string
 }
 
 export interface EquipmentPayload {
   imei?: string
   model?: string | null
-  iccid?: string | null
+  line_number?: string | null
   carrier?: string | null
   is_active?: boolean
 }

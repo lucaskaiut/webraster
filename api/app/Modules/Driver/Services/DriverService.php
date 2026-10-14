@@ -3,6 +3,7 @@
 namespace App\Modules\Driver\Services;
 
 use App\Modules\Driver\Models\Driver;
+use App\Modules\Shared\Support\QuerySort;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
@@ -10,9 +11,13 @@ use Illuminate\Validation\ValidationException;
 
 class DriverService
 {
-    public function paginate(int $perPage = 15, ?string $search = null, ?int $clientId = null): LengthAwarePaginator
-    {
-        return Driver::query()
+    public function paginate(
+        int $perPage = 15,
+        ?string $search = null,
+        ?int $clientId = null,
+        ?string $sort = null,
+    ): LengthAwarePaginator {
+        $query = Driver::query()
             ->with(['client', 'vehicle'])
             ->when($clientId !== null, fn ($query) => $query->where('client_id', $clientId))
             ->when(filled($search), function ($query) use ($search): void {
@@ -21,9 +26,14 @@ class DriverService
                         ->orWhere('document', 'like', "%{$search}%")
                         ->orWhere('cnh_number', 'like', "%{$search}%");
                 });
-            })
-            ->orderBy('name')
-            ->paginate(min(max($perPage, 1), 100));
+            });
+
+        return QuerySort::apply(
+            $query,
+            $sort,
+            ['name', 'document', 'cnh_number', 'cnh_expires_at', 'is_active', 'created_at'],
+            'name:asc',
+        )->paginate(min(max($perPage, 1), 100));
     }
 
     /**

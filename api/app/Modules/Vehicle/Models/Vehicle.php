@@ -4,6 +4,7 @@ namespace App\Modules\Vehicle\Models;
 
 use App\Modules\Alert\Models\AlertConfig;
 use App\Modules\Client\Models\Concerns\BelongsToClient;
+use App\Modules\Driver\Models\Driver;
 use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Shared\Models\Concerns\HasUuid;
 use App\Modules\Tenant\Models\Concerns\BelongsToTenant;
@@ -72,6 +73,25 @@ class Vehicle extends Model
     public function equipment(): HasOne
     {
         return $this->hasOne(Equipment::class);
+    }
+
+    public function driver(): HasOne
+    {
+        return $this->hasOne(Driver::class);
+    }
+
+    public function shares(): HasMany
+    {
+        return $this->hasMany(VehicleShare::class);
+    }
+
+    /**
+     * Para usuários do portal, veículos compartilhados por outros clientes
+     * também entram no escopo de leitura.
+     */
+    public function clientScopeIncludesShared(): bool
+    {
+        return true;
     }
 
     public function alertConfigs(): HasMany

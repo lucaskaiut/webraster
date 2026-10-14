@@ -39,7 +39,7 @@ export function TenantSelector() {
       <Building2 className="size-4 shrink-0 text-muted" aria-hidden="true" />
       <Select
         aria-label="Selecionar empresa"
-        className="h-9 min-w-40"
+        className="h-8 min-w-36 text-xs"
         disabled={switchTenant.isPending}
         value={selectedTenantId ?? ''}
         options={availableTenants.map((tenant) => ({

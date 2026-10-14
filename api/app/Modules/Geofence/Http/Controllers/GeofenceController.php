@@ -37,6 +37,7 @@ class GeofenceController extends ApiController
             $clientId,
             $request->string('type')->toString() ?: null,
             $isActive,
+            $request->string('sort')->toString() ?: null,
         );
 
         return $this->paginated(GeofenceResource::collection($geofences));

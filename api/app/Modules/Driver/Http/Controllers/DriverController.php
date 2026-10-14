@@ -30,6 +30,7 @@ class DriverController extends ApiController
             (int) $request->integer('per_page', 15),
             $request->string('search')->toString() ?: null,
             $clientId,
+            $request->string('sort')->toString() ?: null,
         );
 
         return $this->paginated(DriverResource::collection($drivers));

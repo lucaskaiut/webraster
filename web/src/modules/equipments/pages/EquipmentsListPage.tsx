@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
-import { Cpu, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Cpu, FlaskConical, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import {
   Badge,
   Button,
@@ -21,19 +21,37 @@ import { Can } from '@/app/guards/PermissionGuard'
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import { useDebounce } from '@/shared/hooks/useDebounce'
+import { useTableSort } from '@/shared/hooks/useTableSort'
 import type { Equipment, TrackingLiveVehicle } from '@/shared/types/models'
 import { formatDateTimeWithSeconds } from '@/shared/utils/format'
-import { useTrackingLiveQuery } from '@/modules/tracking/hooks/useTracking'
+import { useTrackingLiveEquipmentsQuery, useTrackingLiveQuery } from '@/modules/tracking/hooks/useTracking'
 import { VehicleStatusIndicators } from '@/modules/tracking/components/VehicleStatusIndicators'
 import { useDeleteEquipment, useEquipmentsQuery } from '../hooks/useEquipments'
+import { EquipmentTestModal } from '../components/EquipmentTestModal'
+import { equipmentLiveAsVehicle } from '../lib/live'
 
-const PER_PAGE = 10
+const PER_PAGE_OPTIONS = [
+  { value: '10', label: '10 registros' },
+  { value: '50', label: '50 registros' },
+  { value: '100', label: '100 registros' },
+  { value: 'all', label: 'Todos os registros' },
+]
+
+function parsePerPage(value: string | null): number | 'all' {
+  if (value === 'all') return 'all'
+
+  const parsed = Number(value)
+
+  return parsed === 50 || parsed === 100 ? parsed : 10
+}
 
 export default function EquipmentsListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState(searchParams.get('search') ?? '')
   const debouncedSearch = useDebounce(search)
   const page = Number(searchParams.get('page') ?? 1)
+  const perPage = parsePerPage(searchParams.get('per_page'))
+  const { sort, sortParam, toggleSort } = useTableSort()
   const availableParam = searchParams.get('available')
   const statusParam = searchParams.get('is_active')
 
@@ -45,18 +63,21 @@ export default function EquipmentsListPage() {
   const { can } = usePermissions()
 
   const [equipmentToDelete, setEquipmentToDelete] = useState<Equipment | null>(null)
+  const [equipmentToTest, setEquipmentToTest] = useState<Equipment | null>(null)
   const deleteEquipment = useDeleteEquipment()
 
   const query = useEquipmentsQuery({
     page,
-    per_page: PER_PAGE,
+    per_page: perPage,
     search: debouncedSearch || undefined,
     available: availableParam === null ? undefined : availableParam === '1',
     is_active: statusParam === null ? undefined : statusParam === '1',
+    sort: sortParam,
   })
 
   const canTrack = can(Permission.TRACKING_READ)
   const liveQuery = useTrackingLiveQuery(canTrack)
+  const equipmentLiveQuery = useTrackingLiveEquipmentsQuery(canTrack)
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
@@ -76,14 +97,22 @@ export default function EquipmentsListPage() {
       }
     }
 
+    // Equipamentos em estoque (sem veículo) também exibem posição e indicadores.
+    for (const item of equipmentLiveQuery.data ?? []) {
+      if (!map.has(item.id)) {
+        map.set(item.id, equipmentLiveAsVehicle(item))
+      }
+    }
+
     return map
-  }, [liveQuery.data])
+  }, [liveQuery.data, equipmentLiveQuery.data])
 
   const updateParams = (next: {
     page?: number
     search?: string
     available?: string
     status?: string
+    perPage?: string
   }) => {
     setSearchParams(
       (params) => {
@@ -111,6 +140,14 @@ export default function EquipmentsListPage() {
           }
           params.delete('page')
         }
+        if (next.perPage !== undefined) {
+          if (next.perPage && next.perPage !== '10') {
+            params.set('per_page', next.perPage)
+          } else {
+            params.delete('per_page')
+          }
+          params.delete('page')
+        }
         if (next.page !== undefined) {
           if (next.page > 1) {
             params.set('page', String(next.page))
@@ -131,6 +168,8 @@ export default function EquipmentsListPage() {
 
   const canMutate = can(Permission.EQUIPMENT_UPDATE) || can(Permission.EQUIPMENT_DELETE)
   const canViewDetails = can(Permission.EQUIPMENT_DETAILS_READ)
+  const canTest = can(Permission.DEVICE_COMMANDS_SEND)
+  const showActions = canMutate || canTest
 
   const columns: Array<Column<Equipment>> = [
     ...(canViewDetails
@@ -138,6 +177,7 @@ export default function EquipmentsListPage() {
           {
             key: 'imei',
             header: 'IMEI',
+            sortable: true,
             render: (equipment) => (
               <div className="min-w-0">
                 <p className="truncate font-medium text-foreground">{equipment.imei}</p>
@@ -148,12 +188,14 @@ export default function EquipmentsListPage() {
           {
             key: 'carrier',
             header: 'Operadora',
+            sortable: true,
             render: (equipment) => <span className="text-muted">{equipment.carrier ?? '—'}</span>,
           },
           {
-            key: 'iccid',
-            header: 'ICCID',
-            render: (equipment) => <span className="text-muted">{equipment.iccid ?? '—'}</span>,
+            key: 'line_number',
+            header: 'Número da Linha',
+            sortable: true,
+            render: (equipment) => <span className="text-muted">{equipment.line_number ?? '—'}</span>,
           },
         ] satisfies Array<Column<Equipment>>)
       : []),
@@ -167,6 +209,8 @@ export default function EquipmentsListPage() {
     {
       key: 'last_connection',
       header: 'Última conexão',
+      sortable: true,
+      sortKey: 'traccar_last_update',
       render: (equipment) => (
         <span className="whitespace-nowrap text-muted">
           {formatDateTimeWithSeconds(equipment.traccar_last_update)}
@@ -189,10 +233,21 @@ export default function EquipmentsListPage() {
     {
       key: 'is_active',
       header: 'Status',
+      sortable: true,
       render: (equipment) => (
         <Badge variant={equipment.is_active ? 'success' : 'neutral'}>
           {equipment.is_active ? 'Ativo' : 'Inativo'}
         </Badge>
+      ),
+    },
+    {
+      key: 'created_at',
+      header: 'Cadastro',
+      sortable: true,
+      render: (equipment) => (
+        <span className="whitespace-nowrap text-muted">
+          {formatDateTimeWithSeconds(equipment.created_at)}
+        </span>
       ),
     },
     ...(canTrack
@@ -213,14 +268,25 @@ export default function EquipmentsListPage() {
           } satisfies Column<Equipment>,
         ]
       : []),
-    ...(canMutate
+    ...(showActions
       ? [
           {
             key: 'actions',
             header: <span className="sr-only">Ações</span>,
-            className: 'w-24 text-right',
+            className: 'w-28 text-right',
             render: (equipment: Equipment) => (
               <div className="flex items-center justify-end gap-1">
+                {canTest && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEquipmentToTest(equipment)}
+                    aria-label={`Testar ${equipment.imei ?? 'equipamento'}`}
+                    title="Testar equipamento"
+                  >
+                    <FlaskConical className="size-4" />
+                  </Button>
+                )}
                 {can(Permission.EQUIPMENT_UPDATE) && (
                   <Button
                     variant="ghost"
@@ -256,14 +322,25 @@ export default function EquipmentsListPage() {
         description="Gerencie os rastreadores da frota."
         breadcrumb={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Equipamentos' }]}
         actions={
-          canViewDetails ? (
-            <Can permission={Permission.EQUIPMENT_CREATE}>
-              <ButtonLink to="/equipments/create">
-                <Plus className="size-4" />
-                Novo equipamento
-              </ButtonLink>
-            </Can>
-          ) : undefined
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => void query.refetch()}
+              loading={query.isFetching}
+              aria-label="Atualizar lista de equipamentos"
+            >
+              <RefreshCw className="size-4" aria-hidden="true" />
+              Atualizar
+            </Button>
+            {canViewDetails && (
+              <Can permission={Permission.EQUIPMENT_CREATE}>
+                <ButtonLink to="/equipments/create">
+                  <Plus className="size-4" />
+                  Novo equipamento
+                </ButtonLink>
+              </Can>
+            )}
+          </div>
         }
       />
 
@@ -272,7 +349,7 @@ export default function EquipmentsListPage() {
           <SearchInput
             placeholder={
               canViewDetails
-                ? 'Buscar por IMEI, modelo, ICCID ou operadora...'
+                ? 'Buscar por IMEI, modelo, número da linha ou operadora...'
                 : 'Buscar equipamentos...'
             }
             aria-label="Buscar equipamentos"
@@ -330,6 +407,8 @@ export default function EquipmentsListPage() {
           rows={query.data?.data ?? []}
           rowKey={(equipment) => equipment.id}
           loading={query.isPending}
+          sort={sort}
+          onSort={toggleSort}
           emptyState={
             <EmptyState
               icon={Cpu}
@@ -354,7 +433,15 @@ export default function EquipmentsListPage() {
         />
 
         {query.data && (
-          <Pagination meta={query.data.meta} onPageChange={(next) => updateParams({ page: next })} />
+          <Pagination
+            meta={query.data.meta}
+            onPageChange={(next) => updateParams({ page: next })}
+            perPage={perPage}
+            perPageOptions={PER_PAGE_OPTIONS}
+            onPerPageChange={(value) =>
+              updateParams({ perPage: value === 'all' ? 'all' : String(value) })
+            }
+          />
         )}
       </PageContent>
 
@@ -371,6 +458,12 @@ export default function EquipmentsListPage() {
           </>
         }
         confirmLabel="Excluir"
+      />
+
+      <EquipmentTestModal
+        equipment={equipmentToTest}
+        open={equipmentToTest !== null}
+        onClose={() => setEquipmentToTest(null)}
       />
     </Page>
   )

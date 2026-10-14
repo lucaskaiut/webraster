@@ -27,7 +27,9 @@ use App\Modules\Client\Http\Controllers\ClientContractController;
 use App\Modules\Client\Http\Controllers\ClientController;
 use App\Modules\Client\Http\Controllers\ClientOrderController;
 use App\Modules\Client\Http\Controllers\ClientUserController;
+use App\Modules\Client\Http\Controllers\ClientVehicleShareController;
 use App\Modules\Contract\Http\Controllers\ContractController;
+use App\Modules\Dashboard\Http\Controllers\MonitoringDashboardController;
 use App\Modules\DeviceCommand\Http\Controllers\DeviceCommandController;
 use App\Modules\Driver\Http\Controllers\DriverController;
 use App\Modules\Equipment\Http\Controllers\EquipmentController;
@@ -143,6 +145,10 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::match(['put', 'patch'], 'clients/{client}/users/{user}', [ClientUserController::class, 'update'])->middleware('permission:client.update');
     Route::delete('clients/{client}/users/{user}', [ClientUserController::class, 'destroy'])->middleware('permission:client.update');
 
+    Route::get('clients/{client}/shared-vehicles', [ClientVehicleShareController::class, 'index'])->middleware('permission:client.read');
+    Route::post('clients/{client}/shared-vehicles', [ClientVehicleShareController::class, 'store'])->middleware('permission:client.update');
+    Route::delete('clients/{client}/shared-vehicles/{share}', [ClientVehicleShareController::class, 'destroy'])->middleware('permission:client.update');
+
     Route::get('clients/{client}/order', [ClientOrderController::class, 'show'])->middleware('permission:client.read');
     Route::match(['put', 'patch'], 'clients/{client}/order', [ClientOrderController::class, 'upsert'])->middleware('permission:finance-subscription.create');
 
@@ -173,6 +179,7 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::delete('contracts/{contract}', [ContractController::class, 'destroy'])->middleware('permission:contract.delete');
 
     Route::get('vehicles', [VehicleController::class, 'index'])->middleware('permission:vehicle.read');
+    Route::get('vehicles/export', [VehicleController::class, 'export'])->middleware('permission:vehicle.read');
     Route::post('vehicles', [VehicleController::class, 'store'])->middleware('permission:vehicle.create');
     Route::get('vehicles/{vehicle}', [VehicleController::class, 'show'])->middleware('permission:vehicle.read');
     Route::match(['put', 'patch'], 'vehicles/{vehicle}', [VehicleController::class, 'update'])->middleware('permission:vehicle.update');
@@ -257,7 +264,10 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
 
     Route::get('tracking/status', [TrackingController::class, 'status'])->middleware('permission:tracking.read');
     Route::get('tracking/live', [TrackingController::class, 'live'])->middleware('permission:tracking.read');
+    Route::get('tracking/equipments/live', [TrackingController::class, 'liveEquipments'])->middleware('permission:tracking.read');
     Route::get('tracking/vehicles/{vehicle}/history', [TrackingController::class, 'history'])->middleware('permission:tracking.read');
+
+    Route::get('dashboard/monitoring', [MonitoringDashboardController::class, 'index']);
 
     Route::get('geofences', [GeofenceController::class, 'index'])->middleware('permission:geofence.read');
     Route::get('geofences/map', [GeofenceController::class, 'map'])->middleware('permission:geofence.read');

@@ -15,6 +15,7 @@ const ForgotPasswordPage = lazy(() => import('@/modules/auth/pages/ForgotPasswor
 const ResetPasswordPage = lazy(() => import('@/modules/auth/pages/ResetPasswordPage'))
 const PaymentPendingPage = lazy(() => import('@/modules/auth/pages/PaymentPendingPage'))
 const DashboardPage = lazy(() => import('@/modules/dashboard/pages/DashboardPage'))
+const MonitoringDashboardPage = lazy(() => import('@/modules/dashboard/pages/MonitoringDashboardPage'))
 const UsersListPage = lazy(() => import('@/modules/users/pages/UsersListPage'))
 const UserCreatePage = lazy(() => import('@/modules/users/pages/UserCreatePage'))
 const UserEditPage = lazy(() => import('@/modules/users/pages/UserEditPage'))
@@ -139,7 +140,9 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           { path: '/', element: <Navigate to="/dashboard" replace /> },
-          { path: '/dashboard', element: <DashboardPage /> },
+          { path: '/dashboard', element: <MonitoringDashboardPage /> },
+          { path: '/dashboard/monitoring', element: <Navigate to="/dashboard" replace /> },
+          { path: '/alerts/dashboard', element: <DashboardPage /> },
           {
             path: '/monitoring',
             element: (

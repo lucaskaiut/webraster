@@ -21,6 +21,7 @@ import { Can } from '@/app/guards/PermissionGuard'
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import { useDebounce } from '@/shared/hooks/useDebounce'
+import { useTableSort } from '@/shared/hooks/useTableSort'
 import { formatDate } from '@/shared/utils/format'
 import { formatDocument } from '@/shared/utils/document'
 import type { Client } from '@/shared/types/models'
@@ -41,12 +42,14 @@ export default function ClientsListPage() {
 
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null)
   const deleteClient = useDeleteClient()
+  const { sort, sortParam, toggleSort } = useTableSort()
 
   const query = useClientsQuery({
     page,
     per_page: PER_PAGE,
     search: debouncedSearch || undefined,
     delinquent: delinquentParam === '1' ? true : undefined,
+    sort: sortParam,
   })
 
   const updateParams = (next: { page?: number; search?: string; delinquent?: string }) => {
@@ -86,6 +89,7 @@ export default function ClientsListPage() {
     {
       key: 'name',
       header: 'Cliente',
+      sortable: true,
       render: (client) => (
         <div className="min-w-0">
           <p className="truncate font-medium text-foreground">{client.name}</p>
@@ -96,16 +100,19 @@ export default function ClientsListPage() {
     {
       key: 'document',
       header: 'CPF/CNPJ',
+      sortable: true,
       render: (client) => <span className="text-muted">{formatDocument(client.document)}</span>,
     },
     {
       key: 'phone',
       header: 'Telefone',
+      sortable: true,
       render: (client) => <span className="text-muted">{client.phone ?? '—'}</span>,
     },
     {
       key: 'is_active',
       header: 'Status',
+      sortable: true,
       render: (client) => (
         <Badge variant={client.is_active ? 'success' : 'neutral'}>
           {client.is_active ? 'Ativo' : 'Inativo'}
@@ -115,6 +122,7 @@ export default function ClientsListPage() {
     {
       key: 'created_at',
       header: 'Criado em',
+      sortable: true,
       render: (client) => <span className="text-muted">{formatDate(client.created_at)}</span>,
     },
     ...(canMutate
@@ -197,6 +205,8 @@ export default function ClientsListPage() {
           rows={query.data?.data ?? []}
           rowKey={(client) => client.id}
           loading={query.isPending}
+          sort={sort}
+          onSort={toggleSort}
           emptyState={
             <EmptyState
               icon={Contact}

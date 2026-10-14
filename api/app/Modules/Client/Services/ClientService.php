@@ -7,10 +7,11 @@ use App\Modules\Client\Models\ClientOrder;
 use App\Modules\Driver\Models\Driver;
 use App\Modules\Finance\Models\FinancePlan;
 use App\Modules\Finance\Services\FinanceSubscriptionService;
-use App\Modules\Shared\Subscription\Enums\BillingStatus;
 use App\Modules\Geofence\Models\Geofence;
 use App\Modules\Poi\Models\Poi;
 use App\Modules\ServiceOrder\Models\ServiceOrder;
+use App\Modules\Shared\Subscription\Enums\BillingStatus;
+use App\Modules\Shared\Support\QuerySort;
 use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -22,14 +23,16 @@ class ClientService
     public function __construct(
         private readonly FinanceSubscriptionService $subscriptions,
         private readonly ClientContractService $contracts,
+        private readonly ClientUserService $clientUsers,
     ) {}
 
     public function paginate(
         int $perPage = 15,
         ?string $search = null,
         ?bool $delinquent = null,
+        ?string $sort = null,
     ): LengthAwarePaginator {
-        return Client::query()
+        $query = Client::query()
             ->when(filled($search), function ($query) use ($search): void {
                 $digits = preg_replace('/\D+/', '', $search) ?: null;
 
@@ -54,9 +57,14 @@ class ClientService
                     'billings',
                     fn ($query) => $query->where('status', BillingStatus::OVERDUE->value),
                 );
-            })
-            ->orderBy('name')
-            ->paginate(min(max($perPage, 1), 100));
+            });
+
+        return QuerySort::apply(
+            $query,
+            $sort,
+            ['name', 'document', 'email', 'phone', 'city', 'state', 'is_active', 'created_at'],
+            'name:asc',
+        )->paginate(min(max($perPage, 1), 100));
     }
 
     /**
@@ -77,6 +85,9 @@ class ClientService
                     $this->subscriptions->syncForClient($client, $plan);
                 }
             }
+
+            // Disponibiliza o usuário principal com os dados já cadastrados.
+            $this->clientUsers->ensurePrimaryUser($client);
 
             return $client->refresh()->load('plan');
         });

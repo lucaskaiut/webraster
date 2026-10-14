@@ -73,6 +73,35 @@ export interface DeviceAlarmTypeOption {
   severity: AlertSeverity
 }
 
+/**
+ * Notificações disponíveis nos formulários de cliente e veículo.
+ * As demais opções continuam existindo no backend para uso futuro.
+ */
+export const VISIBLE_VEHICLE_ALERT_TYPES: VehicleAlertTypeOption[] = [
+  {
+    type: 'ignition_on',
+    label: 'Ignição ligada',
+    description: 'Avisa quando o veículo é ligado.',
+  },
+  {
+    type: 'ignition_off',
+    label: 'Ignição desligada',
+    description: 'Avisa quando o veículo é desligado.',
+  },
+  {
+    type: 'geofence',
+    label: 'Saída de cerca',
+    description: 'Avisa quando o veículo sai de uma geocerca.',
+  },
+  {
+    type: 'battery',
+    label: 'Bateria violada',
+    description: 'Avisa quando a bateria do rastreador é violada ou removida.',
+  },
+]
+
+export const VISIBLE_ALERT_TYPE_VALUES = VISIBLE_VEHICLE_ALERT_TYPES.map((option) => option.type)
+
 export const ALERT_TYPE_LABELS: Record<string, string> = {
   speed: 'Excesso de velocidade',
   ignition_on: 'Ignição ligada',

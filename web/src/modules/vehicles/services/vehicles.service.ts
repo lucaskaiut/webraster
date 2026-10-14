@@ -11,6 +11,8 @@ import type { AlertTypeValue } from '@/modules/alerts/lib/alert-types'
 
 export interface VehicleListParams extends ListParams {
   client_id?: string
+  /** Exclui os veículos do cliente informado (busca de candidatos a compartilhamento). */
+  exclude_client_id?: string
 }
 
 export interface VehicleAlertConfigPayload {
@@ -71,6 +73,13 @@ export const vehiclesService = {
     const response = await http.get<PaginatedResponse<Vehicle>>('/vehicles', { params })
 
     return response.data
+  },
+
+  /** Exportação XLSX da listagem (respeita busca, filtro de cliente e ordenação). */
+  async export(params: Pick<VehicleListParams, 'search' | 'client_id' | 'sort'>): Promise<Blob> {
+    const response = await http.get('/vehicles/export', { params, responseType: 'blob' })
+
+    return response.data as Blob
   },
 
   async get(id: string): Promise<Vehicle> {

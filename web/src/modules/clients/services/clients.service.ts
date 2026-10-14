@@ -1,7 +1,7 @@
 import { http } from '@/shared/api/http'
 import { downloadBlob } from '@/shared/utils/report-export'
 import type { ApiResponse, ListParams, PaginatedResponse } from '@/shared/types/api'
-import type { Client, ClientContract, ClientOrder, ContractSignatureStatus, User } from '@/shared/types/models'
+import type { Client, ClientContract, ClientOrder, ContractSignatureStatus, SharedVehicle, User } from '@/shared/types/models'
 
 export interface ClientPayload {
   name: string
@@ -26,6 +26,7 @@ export interface ClientPayload {
 export interface ClientUserPayload {
   name: string
   email: string
+  phone?: string
   password: string
   role_ids?: number[]
 }
@@ -103,6 +104,32 @@ export const clientsService = {
 
   async removeUser(clientId: string, userId: string): Promise<void> {
     await http.delete(`/clients/${clientId}/users/${userId}`)
+  },
+
+  /** Veículos de outros clientes compartilhados com este cliente. */
+  async listSharedVehicles(
+    clientId: string,
+    params: ListParams = {},
+  ): Promise<PaginatedResponse<SharedVehicle>> {
+    const response = await http.get<PaginatedResponse<SharedVehicle>>(
+      `/clients/${clientId}/shared-vehicles`,
+      { params },
+    )
+
+    return response.data
+  },
+
+  async shareVehicle(clientId: string, vehicleId: string): Promise<SharedVehicle> {
+    const response = await http.post<ApiResponse<SharedVehicle>>(
+      `/clients/${clientId}/shared-vehicles`,
+      { vehicle_id: vehicleId },
+    )
+
+    return response.data.data
+  },
+
+  async removeVehicleShare(clientId: string, shareId: string): Promise<void> {
+    await http.delete(`/clients/${clientId}/shared-vehicles/${shareId}`)
   },
 
   async getOrder(clientId: string): Promise<ClientOrder | null> {

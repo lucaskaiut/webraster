@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { Cpu } from 'lucide-react'
 import {
@@ -13,10 +14,15 @@ import {
 } from '@/shared/design-system'
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
+import { formatDateTimeWithSeconds } from '@/shared/utils/format'
 import { VehicleCommandsPanel } from '@/modules/tracking/components/VehicleCommandsPanel'
 import { DeviceCommandHistory } from '@/modules/tracking/components/DeviceCommandHistory'
+import { VehicleStatusIndicators } from '@/modules/tracking/components/VehicleStatusIndicators'
+import { useTrackingLiveEquipmentsQuery, useTrackingLiveQuery } from '@/modules/tracking/hooks/useTracking'
+import type { TrackingLiveVehicle } from '@/shared/types/models'
 import { EquipmentForm } from '../forms/EquipmentForm'
 import { useEquipmentQuery, useUpdateEquipment } from '../hooks/useEquipments'
+import { equipmentLiveAsVehicle } from '../lib/live'
 
 function FormSkeleton() {
   return (
@@ -40,6 +46,29 @@ export default function EquipmentEditPage() {
 
   const query = useEquipmentQuery(id)
   const updateEquipment = useUpdateEquipment(id ?? '')
+
+  const canTrack = can(Permission.TRACKING_READ)
+  const liveQuery = useTrackingLiveQuery(canTrack)
+  const equipmentLiveQuery = useTrackingLiveEquipmentsQuery(canTrack)
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    if (!canTrack) return
+
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000)
+
+    return () => window.clearInterval(timer)
+  }, [canTrack])
+
+  const live = useMemo<TrackingLiveVehicle | null>(() => {
+    for (const item of liveQuery.data ?? []) {
+      if (item.equipment?.id === id) return item
+    }
+
+    const stock = (equipmentLiveQuery.data ?? []).find((item) => item.id === id)
+
+    return stock ? equipmentLiveAsVehicle(stock) : null
+  }, [liveQuery.data, equipmentLiveQuery.data, id])
 
   return (
     <Page>
@@ -84,7 +113,7 @@ export default function EquipmentEditPage() {
               defaultValues={{
                 imei: query.data.imei ?? '',
                 model: query.data.model ?? '',
-                iccid: query.data.iccid ?? '',
+                line_number: query.data.line_number ?? '',
                 carrier: query.data.carrier ?? '',
                 is_active: query.data.is_active,
               }}
@@ -94,6 +123,32 @@ export default function EquipmentEditPage() {
                 navigate('/equipments')
               }}
             />
+
+            {canTrack && (
+              <Card>
+                <CardHeader
+                  title="Posição e indicadores"
+                  description="Última posição conhecida do equipamento, mesmo antes do vínculo com um veículo."
+                />
+                <CardContent>
+                  {!live ? (
+                    <p className="text-sm text-muted">
+                      Nenhuma posição recebida ainda para este equipamento.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-[13px] text-muted">
+                        Última posição:{' '}
+                        <span className="font-medium text-foreground">
+                          {formatDateTimeWithSeconds(live.position?.recorded_at)}
+                        </span>
+                      </p>
+                      <VehicleStatusIndicators vehicle={live} now={now} />
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {can(Permission.DEVICE_COMMANDS_SEND) && (
               <Card>

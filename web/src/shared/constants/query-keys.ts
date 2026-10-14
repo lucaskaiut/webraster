@@ -85,6 +85,7 @@ export const queryKeys = {
       ['clients', clientId, 'users', params] as const,
     order: (clientId: string) => ['clients', clientId, 'order'] as const,
     contract: (clientId: string) => ['clients', clientId, 'contract'] as const,
+    sharedVehicles: (clientId: string) => ['clients', clientId, 'shared-vehicles'] as const,
   },
 
   drivers: {
@@ -107,7 +108,8 @@ export const queryKeys = {
 
   vehicles: {
     all: ['vehicles'] as const,
-    list: (params: ListParams & { client_id?: string }) => ['vehicles', 'list', params] as const,
+    list: (params: ListParams & { client_id?: string; exclude_client_id?: string }) =>
+      ['vehicles', 'list', params] as const,
     detail: (id: string) => ['vehicles', 'detail', id] as const,
     history: (id: string) => ['vehicles', 'history', id] as const,
   },
@@ -119,7 +121,7 @@ export const queryKeys = {
 
   equipments: {
     all: ['equipments'] as const,
-    list: (params: ListParams & { available?: boolean; vehicle_id?: string }) =>
+    list: (params: Omit<ListParams, 'per_page'> & { per_page?: number | 'all'; available?: boolean; vehicle_id?: string }) =>
       ['equipments', 'list', params] as const,
     detail: (id: string) => ['equipments', 'detail', id] as const,
     history: (id: string) => ['equipments', 'history', id] as const,
@@ -128,6 +130,7 @@ export const queryKeys = {
   tracking: {
     all: ['tracking'] as const,
     live: (search?: string) => ['tracking', 'live', search ?? ''] as const,
+    liveEquipments: (search?: string) => ['tracking', 'live-equipments', search ?? ''] as const,
     history: (vehicleId: string, from: string, to: string) =>
       ['tracking', 'history', vehicleId, from, to] as const,
     status: () => ['tracking', 'status'] as const,
@@ -198,6 +201,7 @@ export const queryKeys = {
     vehicleDefaultsAll: ['alerts', 'vehicle-defaults'] as const,
     portalConfigs: () => ['alerts', 'portal-configs'] as const,
     clientConfigs: (clientId: string) => ['alerts', 'client-configs', clientId] as const,
+    soundPreferences: () => ['alerts', 'sound-preferences'] as const,
   },
 
   notifications: {

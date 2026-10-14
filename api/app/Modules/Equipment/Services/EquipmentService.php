@@ -3,6 +3,7 @@
 namespace App\Modules\Equipment\Services;
 
 use App\Modules\Equipment\Models\Equipment;
+use App\Modules\Shared\Support\QuerySort;
 use App\Modules\Tracking\Services\TraccarDeviceService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
@@ -14,13 +15,21 @@ class EquipmentService
     public function __construct(private readonly TraccarDeviceService $traccarDevices) {}
 
     public function paginate(
-        int $perPage = 15,
+        int|string $perPage = 15,
         ?string $search = null,
         ?bool $availableOnly = null,
         ?int $vehicleId = null,
         ?bool $isActive = null,
+        ?string $sort = null,
     ): LengthAwarePaginator {
-        return Equipment::query()
+        // Compatibilidade com o antigo seletor de ordenação por data.
+        $sort = match ($sort) {
+            'oldest' => 'created_at:asc',
+            'newest' => 'created_at:desc',
+            default => $sort,
+        };
+
+        $query = Equipment::query()
             ->with('vehicle.client')
             ->when($availableOnly === true, fn ($query) => $query->whereNull('vehicle_id'))
             ->when($availableOnly === false, fn ($query) => $query->whereNotNull('vehicle_id'))
@@ -30,12 +39,25 @@ class EquipmentService
                 $query->where(function ($query) use ($search): void {
                     $query->where('imei', 'like', "%{$search}%")
                         ->orWhere('model', 'like', "%{$search}%")
-                        ->orWhere('iccid', 'like', "%{$search}%")
+                        ->orWhere('line_number', 'like', "%{$search}%")
                         ->orWhere('carrier', 'like', "%{$search}%");
                 });
-            })
-            ->orderBy('imei')
-            ->paginate(min(max($perPage, 1), 100));
+            });
+
+        QuerySort::apply(
+            $query,
+            $sort,
+            ['imei', 'model', 'line_number', 'carrier', 'is_active', 'traccar_last_update', 'created_at'],
+            'created_at:desc',
+        );
+
+        if ($perPage === 'all') {
+            $total = (clone $query)->toBase()->getCountForPagination();
+
+            return $query->paginate(max(1, $total));
+        }
+
+        return $query->paginate(min(max((int) $perPage, 1), 100));
     }
 
     /**
@@ -86,7 +108,7 @@ class EquipmentService
         return Arr::only($data, [
             'imei',
             'model',
-            'iccid',
+            'line_number',
             'carrier',
             'is_active',
         ]);

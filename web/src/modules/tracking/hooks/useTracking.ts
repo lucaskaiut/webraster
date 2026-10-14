@@ -23,6 +23,17 @@ export function useTrackingLiveQuery(enabled = true) {
   })
 }
 
+/** Posições e indicadores de equipamentos sem veículo (estoque). */
+export function useTrackingLiveEquipmentsQuery(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.tracking.liveEquipments(),
+    queryFn: () => trackingService.liveEquipments(),
+    refetchInterval: 30_000,
+    placeholderData: keepPreviousData,
+    enabled,
+  })
+}
+
 export function useTrackingHistoryQuery(
   vehicleId: string | undefined,
   from: string,

@@ -48,7 +48,7 @@ export function EquipmentForm({ mode, defaultValues, submitting, onSubmit }: Equ
     defaultValues: {
       imei: '',
       model: '',
-      iccid: '',
+      line_number: '',
       carrier: '',
       is_active: true,
       ...defaultValues,
@@ -66,9 +66,9 @@ export function EquipmentForm({ mode, defaultValues, submitting, onSubmit }: Equ
     const payload: EquipmentPayload = {
       ...(canViewDetails
         ? {
-            imei: values.imei,
+            imei: values.imei.trim(),
             model: values.model || null,
-            iccid: values.iccid || null,
+            line_number: values.line_number || null,
             carrier: values.carrier || null,
           }
         : {}),
@@ -111,7 +111,15 @@ export function EquipmentForm({ mode, defaultValues, submitting, onSubmit }: Equ
             <div className="grid gap-4 sm:grid-cols-2">
               {canViewDetails && (
                 <>
-                  <TextField name="imei" label="IMEI" required className="sm:col-span-2" />
+                  <TextField
+                    name="imei"
+                    label="Número do equipamento (IMEI)"
+                    required
+                    className="sm:col-span-2"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    mask={(value) => value.replace(/\D/g, '').slice(0, 16)}
+                  />
                   <SearchSelectField
                     name="model"
                     label="Modelo"
@@ -121,7 +129,7 @@ export function EquipmentForm({ mode, defaultValues, submitting, onSubmit }: Equ
                     resolveLabel={resolveModelOption}
                   />
                   <TextField name="carrier" label="Operadora" />
-                  <TextField name="iccid" label="ICCID" className="sm:col-span-2" />
+                  <TextField name="line_number" label="Número da Linha" className="sm:col-span-2" />
                 </>
               )}
               <SwitchField name="is_active" label="Equipamento ativo" />

@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Modules\Client\Models\Client;
+use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Tracking\Models\GpsPosition;
 use App\Modules\Vehicle\Models\Vehicle;
@@ -38,6 +39,16 @@ class GpsPositionFactory extends Factory
             'tenant_id' => $vehicle->tenant_id,
             'vehicle_id' => $vehicle->getKey(),
             'client_id' => $vehicle->client_id,
+        ]);
+    }
+
+    public function forStockEquipment(Equipment $equipment): static
+    {
+        return $this->state(fn (): array => [
+            'tenant_id' => $equipment->tenant_id,
+            'vehicle_id' => null,
+            'client_id' => null,
+            'equipment_id' => $equipment->getKey(),
         ]);
     }
 }

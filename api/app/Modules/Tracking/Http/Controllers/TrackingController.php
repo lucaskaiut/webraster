@@ -8,6 +8,7 @@ use App\Modules\Shared\Http\Controllers\ApiController;
 use App\Modules\Tenant\Support\TenantAuthorization;
 use App\Modules\Tracking\Http\Requests\TrackingHistoryRequest;
 use App\Modules\Tracking\Http\Resources\GpsPositionResource;
+use App\Modules\Tracking\Http\Resources\LiveEquipmentItemResource;
 use App\Modules\Tracking\Http\Resources\LiveTrackingItemResource;
 use App\Modules\Tracking\Services\TrackingService;
 use App\Modules\Vehicle\Models\Vehicle;
@@ -57,6 +58,28 @@ class TrackingController extends ApiController
         );
 
         return $this->success(GpsPositionResource::collection($positions));
+    }
+
+    /**
+     * Equipamentos ativos sem veículo (estoque) com posição e indicadores.
+     */
+    public function liveEquipments(Request $request): JsonResponse
+    {
+        $this->authorizeTracking();
+
+        $items = $this->service->liveEquipments(
+            $request->string('search')->toString() ?: null,
+        );
+
+        $payload = $items->map(
+            fn (array $item) => new LiveEquipmentItemResource(
+                $item['equipment'],
+                $item['position'],
+                $item['online'],
+            ),
+        );
+
+        return $this->success($payload);
     }
 
     private function authorizeTracking(): void

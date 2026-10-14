@@ -63,6 +63,7 @@ export type ClientAddressFormValues = z.infer<typeof clientAddressSchema>
 export const createClientUserSchema = z.object({
   name: z.string().min(1, 'Informe o nome'),
   email: z.string().min(1, 'Informe o e-mail').email('Informe um e-mail válido'),
+  phone: z.string(),
   password: z
     .string()
     .refine((value) => !value || value.length >= 8, 'A senha deve ter no mínimo 8 caracteres'),

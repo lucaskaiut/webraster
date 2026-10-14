@@ -26,7 +26,7 @@ class EquipmentResource extends JsonResource
             'vehicle' => VehicleResource::make($this->whenLoaded('vehicle')),
             'imei' => $canViewDetails ? $this->imei : null,
             'model' => $canViewDetails ? $this->model : null,
-            'iccid' => $canViewDetails ? $this->iccid : null,
+            'line_number' => $canViewDetails ? $this->line_number : null,
             'carrier' => $canViewDetails ? $this->carrier : null,
             'is_active' => (bool) $this->is_active,
             'is_assigned' => $this->vehicle_id !== null,

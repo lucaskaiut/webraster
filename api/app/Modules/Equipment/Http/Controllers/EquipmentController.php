@@ -40,12 +40,19 @@ class EquipmentController extends ApiController
             ? $request->boolean('is_active')
             : null;
 
+        $perPage = $request->string('per_page')->toString() === 'all'
+            ? 'all'
+            : (int) $request->integer('per_page', 15);
+
+        $sort = $request->string('sort')->toString() ?: null;
+
         $equipments = $this->service->paginate(
-            (int) $request->integer('per_page', 15),
+            $perPage,
             $request->string('search')->toString() ?: null,
             $availableOnly,
             $vehicleId,
             $isActive,
+            $sort,
         );
 
         return $this->paginated(EquipmentResource::collection($equipments));

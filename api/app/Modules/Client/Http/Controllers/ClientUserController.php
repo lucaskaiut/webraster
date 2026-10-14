@@ -24,6 +24,7 @@ class ClientUserController extends ApiController
             $client,
             (int) $request->integer('per_page', 15),
             $request->string('search')->toString() ?: null,
+            $request->string('sort')->toString() ?: null,
         );
 
         return $this->paginated(UserResource::collection($users));

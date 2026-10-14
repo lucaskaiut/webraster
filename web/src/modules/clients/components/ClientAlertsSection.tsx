@@ -1,12 +1,16 @@
 import { BellRing } from 'lucide-react'
 import { Badge, Card, CardContent, CardHeader, EmptyState, Skeleton } from '@/shared/design-system'
 import { useClientAlertConfigsQuery } from '@/modules/alerts/hooks/useAlerts'
+import { VISIBLE_ALERT_TYPE_VALUES } from '@/modules/alerts/lib/alert-types'
 
 /**
  * Visão do tenant: quais alertas o cliente silenciou no portal (somente leitura).
  */
 export function ClientAlertsSection({ clientId }: { clientId?: string }) {
   const query = useClientAlertConfigsQuery(clientId)
+  const options = query.data?.filter((option) =>
+    VISIBLE_ALERT_TYPE_VALUES.includes(option.type as (typeof VISIBLE_ALERT_TYPE_VALUES)[number]),
+  )
 
   return (
     <Card>
@@ -34,7 +38,7 @@ export function ClientAlertsSection({ clientId }: { clientId?: string }) {
           />
         )}
 
-        {query.data?.map((option) => (
+        {options?.map((option) => (
           <div key={option.type} className="flex items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="text-sm font-semibold text-foreground">{option.label}</p>

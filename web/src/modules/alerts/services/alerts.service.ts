@@ -1,6 +1,6 @@
 import { http } from '@/shared/api/http'
 import type { ApiResponse, ListParams, PaginatedResponse } from '@/shared/types/api'
-import type { Alert, AlertConfig, AlertDashboardStats, ClientAlertConfigOption } from '@/shared/types/models'
+import type { Alert, AlertConfig, AlertDashboardStats, AlertSoundGroup, ClientAlertConfigOption } from '@/shared/types/models'
 import type { VehicleAlertConfigValue } from '../lib/alert-types'
 
 export interface AlertListParams extends ListParams {
@@ -103,6 +103,22 @@ export const alertsService = {
   async clientConfigs(clientId: string): Promise<ClientAlertConfigOption[]> {
     const response = await http.get<ApiResponse<ClientAlertConfigOption[]>>(
       `/alert-configs/client/${clientId}`,
+    )
+    return response.data.data
+  },
+
+  /** Sons de notificação por grupo escolhidos pelo usuário (mesma API do app). */
+  async soundPreferences(): Promise<{ sounds: string[]; alerts: AlertSoundGroup[] }> {
+    const response = await http.get<ApiResponse<{ sounds: string[]; alerts: AlertSoundGroup[] }>>(
+      '/alert-sound-preferences',
+    )
+    return response.data.data
+  },
+
+  async updateSoundPreference(type: string, sound: string): Promise<{ type: string; sound: string }> {
+    const response = await http.put<ApiResponse<{ type: string; sound: string }>>(
+      `/alert-sound-preferences/${type}`,
+      { sound },
     )
     return response.data.data
   },

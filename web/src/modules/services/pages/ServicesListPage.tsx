@@ -19,6 +19,7 @@ import { Can } from '@/app/guards/PermissionGuard'
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import { useDebounce } from '@/shared/hooks/useDebounce'
+import { useTableSort } from '@/shared/hooks/useTableSort'
 import { formatCurrency } from '@/shared/utils/format'
 import type { CatalogService } from '@/shared/types/models'
 import { useDeleteService, useServicesQuery } from '../hooks/useServices'
@@ -37,10 +38,12 @@ export default function ServicesListPage() {
   const [serviceToDelete, setServiceToDelete] = useState<CatalogService | null>(null)
   const deleteService = useDeleteService()
 
+  const { sort, sortParam, toggleSort } = useTableSort()
   const query = useServicesQuery({
     page,
     per_page: PER_PAGE,
     search: debouncedSearch || undefined,
+    sort: sortParam,
   })
 
   const updateParams = (next: { page?: number; search?: string }) => {
@@ -76,11 +79,14 @@ export default function ServicesListPage() {
     {
       key: 'name',
       header: 'Serviço',
+      sortable: true,
       render: (service) => <p className="truncate font-medium text-foreground">{service.name}</p>,
     },
     {
       key: 'amount',
       header: 'Valor',
+      sortable: true,
+      sortKey: 'amount_cents',
       render: (service) => <span className="text-muted">{formatCurrency(service.amount)}</span>,
     },
     ...(canMutate
@@ -151,6 +157,8 @@ export default function ServicesListPage() {
           rows={query.data?.data ?? []}
           rowKey={(service) => service.id}
           loading={query.isPending}
+          sort={sort}
+          onSort={toggleSort}
           emptyState={
             <EmptyState
               icon={Wrench}

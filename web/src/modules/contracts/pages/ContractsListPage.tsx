@@ -20,6 +20,7 @@ import { Can } from '@/app/guards/PermissionGuard'
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import { useDebounce } from '@/shared/hooks/useDebounce'
+import { useTableSort } from '@/shared/hooks/useTableSort'
 import type { Contract } from '@/shared/types/models'
 import { useDeleteContract, useContractsQuery } from '../hooks/useContracts'
 import {
@@ -42,10 +43,12 @@ export default function ContractsListPage() {
   const [previewContract, setPreviewContract] = useState<Contract | null>(null)
   const deleteContract = useDeleteContract()
 
+  const { sort, sortParam, toggleSort } = useTableSort()
   const query = useContractsQuery({
     page,
     per_page: PER_PAGE,
     search: debouncedSearch || undefined,
+    sort: sortParam,
   })
 
   const updateParams = (next: { page?: number; search?: string }) => {
@@ -81,6 +84,7 @@ export default function ContractsListPage() {
     {
       key: 'name',
       header: 'Contrato',
+      sortable: true,
       render: (contract) => <p className="truncate font-medium text-foreground">{contract.name}</p>,
     },
     {
@@ -170,6 +174,8 @@ export default function ContractsListPage() {
           rows={query.data?.data ?? []}
           rowKey={(contract) => contract.id}
           loading={query.isPending}
+          sort={sort}
+          onSort={toggleSort}
           emptyState={
             <EmptyState
               icon={FileText}

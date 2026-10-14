@@ -14,6 +14,7 @@ export interface User {
   phone: string | null
   document: string | null
   is_master: boolean
+  is_primary?: boolean
   client_id?: string | null
   roles?: Role[]
   created_at: string | null
@@ -324,6 +325,10 @@ export interface ClientContract {
   document_path: string | null
   document_url: string | null
   document_name: string | null
+  document_hash: string | null
+  signature_hash: string | null
+  signed_ip: string | null
+  signed_user_agent: string | null
   signer_name: string | null
   signer_cpf: string | null
   signer_birth_date: string | null
@@ -338,7 +343,7 @@ export interface Equipment {
   vehicle?: Vehicle
   imei: string | null
   model: string | null
-  iccid: string | null
+  line_number: string | null
   carrier: string | null
   is_active: boolean
   is_assigned: boolean
@@ -346,6 +351,27 @@ export interface Equipment {
   traccar_last_update: string | null
   created_at: string | null
   updated_at: string | null
+}
+
+/** Equipamento em estoque (sem veículo) com a última posição conhecida. */
+export interface EquipmentLiveItem {
+  id: string
+  imei: string | null
+  model: string | null
+  line_number: string | null
+  carrier: string | null
+  online: boolean
+  position: GpsPosition | null
+}
+
+/** Veículo de outro cliente associado (somente leitura) a um cliente. */
+export interface SharedVehicle {
+  id: string
+  vehicle_id: string | null
+  vehicle?: Vehicle | null
+  owner_client_id: string | null
+  shared_by: string | null
+  created_at: string | null
 }
 
 export interface VehicleImage {
@@ -567,6 +593,7 @@ export interface TrackingLiveVehicle {
   client?: Client | null
   equipment?: Equipment | null
   images?: VehicleImage[]
+  driver?: { id: string; name: string } | null
   online: boolean
   position: GpsPosition | null
 }
@@ -694,6 +721,7 @@ export interface Alert {
   speed_excess?: SpeedExcessEvent | null
   occurred_at: string | null
   acknowledged_at: string | null
+  acknowledged_by?: { id: string; name: string } | null
   resolved_at: string | null
   vehicle_id?: string | null
   vehicle?: Vehicle | null
@@ -748,6 +776,24 @@ export interface AlertDashboardStats {
   critical_open: Alert[]
 }
 
+export interface MonitoringDashboardMetrics {
+  vehicles: {
+    total: number
+    online: number
+    offline_up_to_24h: number
+    offline_24h_to_36h: number
+    offline_over_36h: number
+  }
+  equipments: {
+    active: number
+    in_stock: number
+  } | null
+  chips: {
+    in_stock: number
+  } | null
+  generated_at: string
+}
+
 export interface AppNotification {
   id: string
   type: string
@@ -765,6 +811,13 @@ export interface ClientAlertConfigOption {
   label: string
   description: string
   is_enabled: boolean
+}
+
+export interface AlertSoundGroup {
+  type: string
+  label: string
+  description: string
+  sound: string
 }
 
 export interface NotificationDelivery {

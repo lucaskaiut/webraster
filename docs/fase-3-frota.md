@@ -3,7 +3,7 @@
 ## Escopo entregue
 
 - CRUD de **Veículos** (placa, chassi, renavam, marca, modelo, cor, ano, cliente)
-- CRUD de **Equipamentos** (IMEI, modelo, ICCID, operadora)
+- CRUD de **Equipamentos** (IMEI, modelo, Número da Linha, operadora)
 - **Associação** veículo ↔ equipamento (instalação, remoção, troca)
 - **Histórico** de associação em `equipment_assignment_events`
 

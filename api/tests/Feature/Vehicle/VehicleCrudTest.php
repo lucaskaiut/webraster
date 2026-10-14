@@ -409,4 +409,47 @@ class VehicleCrudTest extends TestCase
         $this->assertTrue($events->contains('swap'));
         $this->assertTrue($events->contains('removal'));
     }
+
+    public function test_index_searches_by_equipment_imei(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+
+        $target = Vehicle::factory()->forClient($client)->create(['plate' => 'TRG1T23']);
+        Equipment::factory()->assignedTo($target)->create(['imei' => '359633100009999']);
+
+        $other = Vehicle::factory()->forClient($client)->create(['plate' => 'OUT1R23']);
+        Equipment::factory()->assignedTo($other)->create(['imei' => '359633100008888']);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $response = $this->getJson('/api/vehicles?search=359633100009999')->assertOk();
+        $plates = collect($response->json('data'))->pluck('plate');
+
+        $this->assertTrue($plates->contains('TRG1T23'));
+        $this->assertFalse($plates->contains('OUT1R23'));
+    }
+
+    public function test_export_returns_xlsx_respecting_filters(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+
+        Vehicle::factory()->forClient($client)->create(['plate' => 'EXP1T23']);
+        Vehicle::factory()->forClient($client)->create(['plate' => 'NAO1E23']);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $response = $this->get('/api/vehicles/export?search=EXP1T23')
+            ->assertOk()
+            ->assertHeader(
+                'content-type',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            );
+
+        $content = $response->streamedContent();
+
+        $this->assertStringStartsWith('PK', $content);
+        $this->assertStringContainsString('veiculos.xlsx', (string) $response->headers->get('content-disposition'));
+    }
 }

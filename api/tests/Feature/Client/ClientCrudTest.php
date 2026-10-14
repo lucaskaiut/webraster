@@ -9,7 +9,9 @@ use App\Modules\Finance\Models\FinancePlan;
 use App\Modules\Finance\Models\FinanceSubscription;
 use App\Modules\Shared\Subscription\Enums\BillingStatus;
 use App\Modules\Shared\Support\Document;
+use App\Modules\User\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -167,12 +169,12 @@ class ClientCrudTest extends TestCase
             'document' => '52998224725',
         ])->assertCreated();
 
-        $user = \App\Modules\User\Models\User::query()
+        $user = User::query()
             ->where('client_id', $client->getKey())
             ->where('email', 'portal@cliente.com')
             ->firstOrFail();
 
-        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('123456', $user->password));
+        $this->assertTrue(Hash::check('123456', $user->password));
     }
 
     public function test_store_rejects_duplicate_document_of_active_client(): void
@@ -281,5 +283,53 @@ class ClientCrudTest extends TestCase
         $this->postJson('/api/clients', ['name' => 'X'])->assertForbidden();
         $this->putJson("/api/clients/{$client->uuid}", ['name' => 'Y'])->assertForbidden();
         $this->deleteJson("/api/clients/{$client->uuid}")->assertForbidden();
+    }
+
+    public function test_creating_client_provisions_primary_user_with_client_data(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->postJson('/api/clients', [
+            'name' => 'Transportadora Silva',
+            'document' => Document::fakeCnpj(),
+            'email' => 'Contato@Silva.com',
+            'phone' => '41999998888',
+        ])->assertCreated();
+
+        $client = Client::query()->where('email', 'Contato@Silva.com')->firstOrFail();
+
+        $this->assertDatabaseHas('users', [
+            'tenant_id' => $tenant->getKey(),
+            'client_id' => $client->getKey(),
+            'name' => 'Transportadora Silva',
+            'email' => 'contato@silva.com',
+            'phone' => '41999998888',
+            'is_primary' => true,
+        ]);
+
+        $this->getJson("/api/clients/{$client->uuid}/users")
+            ->assertOk()
+            ->assertJsonPath('data.0.is_primary', true)
+            ->assertJsonPath('data.0.email', 'contato@silva.com');
+
+        $this->assertDatabaseHas('user_roles', [
+            'role_id' => $tenant->roles()->where('name', DefaultRole::CLIENT->value)->value('id'),
+        ]);
+    }
+
+    public function test_primary_user_is_skipped_without_email(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->postJson('/api/clients', [
+            'name' => 'Sem Contato',
+            'document' => Document::fakeCnpj(),
+        ])->assertCreated();
+
+        $this->assertSame(0, User::query()->whereNotNull('client_id')->count());
     }
 }

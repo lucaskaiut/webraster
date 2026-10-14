@@ -35,6 +35,12 @@ class AlertResource extends JsonResource
             'speed_excess' => $this->type?->value === 'speed' ? $this->speedExcessPayload() : null,
             'occurred_at' => $this->occurred_at?->toIso8601String(),
             'acknowledged_at' => $this->acknowledged_at?->toIso8601String(),
+            'acknowledged_by' => $this->whenLoaded('acknowledgedByUser', fn () => $this->acknowledgedByUser
+                ? [
+                    'id' => $this->acknowledgedByUser->uuid,
+                    'name' => $this->acknowledgedByUser->name,
+                ]
+                : null),
             'resolved_at' => $this->resolved_at?->toIso8601String(),
             'vehicle_id' => $this->vehicle?->uuid,
             'vehicle' => VehicleResource::make($this->whenLoaded('vehicle')),

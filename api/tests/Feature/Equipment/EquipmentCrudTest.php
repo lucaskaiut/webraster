@@ -25,12 +25,13 @@ class EquipmentCrudTest extends TestCase
         $this->postJson('/api/equipments', [
             'imei' => '359633100000001',
             'model' => 'FMB920',
-            'iccid' => '8955051234567890123',
+            'line_number' => '11987654321',
             'carrier' => 'Vivo',
         ])
             ->assertCreated()
             ->assertJsonPath('data.imei', '359633100000001')
             ->assertJsonPath('data.model', 'FMB920')
+            ->assertJsonPath('data.line_number', '11987654321')
             ->assertJsonPath('data.is_assigned', false);
 
         $this->assertDatabaseHas('equipments', [
@@ -47,7 +48,7 @@ class EquipmentCrudTest extends TestCase
         Equipment::factory()->forTenant($tenant)->create([
             'imei' => '359633100000099',
             'model' => 'E3+4G',
-            'iccid' => '8955051234567890123',
+            'line_number' => '11987654321',
             'carrier' => 'Vivo',
             'traccar_status' => 'online',
         ]);
@@ -61,7 +62,7 @@ class EquipmentCrudTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.imei', null)
             ->assertJsonPath('data.0.model', null)
-            ->assertJsonPath('data.0.iccid', null)
+            ->assertJsonPath('data.0.line_number', null)
             ->assertJsonPath('data.0.carrier', null)
             ->assertJsonPath('data.0.traccar_status', 'online');
     }
@@ -161,6 +162,25 @@ class EquipmentCrudTest extends TestCase
             ->assertJsonPath('data.imei', '359633100000001');
     }
 
+    public function test_store_rejects_imei_with_spaces_or_invalid_length(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->postJson('/api/equipments', ['imei' => '359 633100000001'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['imei']);
+
+        $this->postJson('/api/equipments', ['imei' => '12345678901234567'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['imei']);
+
+        $this->postJson('/api/equipments', ['imei' => ''])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['imei']);
+    }
+
     public function test_cannot_delete_assigned_equipment(): void
     {
         [, $tenant] = $this->createOperationalChild();
@@ -173,6 +193,76 @@ class EquipmentCrudTest extends TestCase
         $this->deleteJson("/api/equipments/{$equipment->uuid}")
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['equipment']);
+    }
+
+    public function test_index_supports_all_records_and_oldest_sort(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+
+        $first = Equipment::factory()->forTenant($tenant)->create(['imei' => '100000000000021']);
+        $first->forceFill(['created_at' => now()->subDays(3)])->save();
+
+        $second = Equipment::factory()->forTenant($tenant)->create(['imei' => '100000000000022']);
+        $second->forceFill(['created_at' => now()->subDays(2)])->save();
+
+        $third = Equipment::factory()->forTenant($tenant)->create(['imei' => '100000000000023']);
+        $third->forceFill(['created_at' => now()->subDay()])->save();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->getJson('/api/equipments?per_page=all')
+            ->assertOk()
+            ->assertJsonCount(3, 'data')
+            ->assertJsonPath('meta.per_page', 3);
+
+        $oldest = collect(
+            $this->getJson('/api/equipments?sort=oldest')->assertOk()->json('data'),
+        )->pluck('imei');
+
+        $this->assertSame('100000000000021', $oldest->first());
+
+        $newest = collect(
+            $this->getJson('/api/equipments')->assertOk()->json('data'),
+        )->pluck('imei');
+
+        $this->assertSame('100000000000023', $newest->first());
+    }
+
+    public function test_index_supports_multiple_sort_columns(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+
+        Equipment::factory()->forTenant($tenant)->create([
+            'imei' => '200000000000001',
+            'carrier' => 'Vivo',
+            'is_active' => false,
+        ]);
+        Equipment::factory()->forTenant($tenant)->create([
+            'imei' => '200000000000002',
+            'carrier' => 'Vivo',
+            'is_active' => true,
+        ]);
+        Equipment::factory()->forTenant($tenant)->create([
+            'imei' => '200000000000003',
+            'carrier' => 'Claro',
+            'is_active' => true,
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        // Ativos primeiro (true = 1); dentro de cada status, IMEI decrescente.
+        $response = $this->getJson('/api/equipments?sort=is_active:desc,imei:desc')->assertOk();
+        $imeis = collect($response->json('data'))->pluck('imei');
+
+        $this->assertSame(
+            ['200000000000003', '200000000000002', '200000000000001'],
+            $imeis->all(),
+        );
+
+        // Critério inválido é ignorado e o padrão continua valendo.
+        $this->getJson('/api/equipments?sort=coluna_invalida:asc')
+            ->assertOk()
+            ->assertJsonCount(3, 'data');
     }
 
     public function test_update_and_destroy_unassigned_equipment(): void

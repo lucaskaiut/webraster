@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { Outlet } from 'react-router'
-import { Building2, BellRing, Car, ClipboardList, Columns3, Contact, Cpu, CreditCard, FileBarChart, FileText, Hexagon, History, IdCard, Kanban, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, MessageCircle, Package, Receipt, Repeat, ScrollText, Search, Send, Settings, ShieldCheck, Terminal, Users, Wallet, Wrench } from 'lucide-react'
+import { Bell, BellRing, Building2, Car, ChartColumn, ClipboardList, Cog, Columns3, Contact, Cpu, CreditCard, Database, FileBarChart, FileText, Hammer, Handshake, Hexagon, History, IdCard, Inbox, Kanban, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, MessageCircle, Package, Receipt, Repeat, ScrollText, Search, Send, Settings, ShieldCheck, Terminal, Users, Wallet, Wrench } from 'lucide-react'
 import { AppLogo } from '@/shared/brand/AppLogo'
 import { useActiveTenant } from '@/shared/brand/useActiveTenant'
 import { TenantSelector } from '@/modules/auth/components/TenantSelector'
@@ -85,10 +85,16 @@ function SidebarNavigation({
   const showNotificationSend = isOperatingTenant && can(Permission.NOTIFICATION_SEND)
   const showServiceOrders = isOperatingTenant && can(Permission.SERVICE_ORDER_READ)
   const showCadastrosGroup =
-    showClients || showDrivers || showServices || showContracts || showVehicles || showEquipments
-  const showGeoGroup = showGeofences || showPois
+    showClients ||
+    showDrivers ||
+    showServices ||
+    showContracts ||
+    showVehicles ||
+    showVehicleDataConfig ||
+    showEquipments ||
+    showGeofences ||
+    showPois
   const showAlertsGroup = showAlerts || showNotificationSend
-  const showOpsGroup = showServiceOrders
 
   const showCrmInbox = isOperatingTenant && can(Permission.CRM_CONVERSATION_VIEW)
   const showCrmKanban = isOperatingTenant && can(Permission.CRM_LEAD_VIEW)
@@ -105,170 +111,49 @@ function SidebarNavigation({
   const showFinanceReports = isOperatingTenant && can(Permission.FINANCE_REPORT_READ)
   const showFinanceGateway = isOperatingTenant && can(Permission.FINANCE_GATEWAY_CONFIG_READ)
   const showFinanceOperatorGroup =
-    showFinanceDashboard ||
     showFinancePlans ||
     showFinanceBillings ||
     showFinanceSubscriptions ||
     showFinanceReports ||
     showFinanceGateway
   const showFinancePortal = isOperatingTenant && can(Permission.FINANCE_PORTAL_VIEW) && !showFinanceOperatorGroup
+  const showManagementGroup =
+    isUmbrella ||
+    can(Permission.USER_READ) ||
+    can(Permission.ROLE_READ) ||
+    can(Permission.AUDIT_VIEW) ||
+    can(Permission.TENANT_UPDATE) ||
+    showDeviceRawLogs
 
   return (
     <Sidebar header={<Brand collapsed={collapsed} />} collapsed={collapsed}>
-      <SidebarGroup label="Geral">
-        <SidebarItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" onNavigate={onNavigate} />
+      <SidebarGroup label="Dashboard" icon={LayoutDashboard} collapsible defaultOpen>
+        <SidebarItem
+          to="/dashboard"
+          icon={LayoutDashboard}
+          label="Dashboard de Monitoramento"
+          onNavigate={onNavigate}
+        />
         {showTracking && (
-          <SidebarItem to="/monitoring" icon={MapPinned} label="Monitoramento" onNavigate={onNavigate} />
-        )}
-        {showDeviceRawLogs && (
           <SidebarItem
-            to="/monitoring/device-logs"
-            icon={Terminal}
-            label="Log do dispositivo"
+            to="/monitoring"
+            icon={MapPinned}
+            label="Painel de Monitoramento"
             onNavigate={onNavigate}
           />
         )}
-        {showReports && (
-          <SidebarItem to="/reports" icon={FileBarChart} label="Relatórios" onNavigate={onNavigate} />
+        {showFinanceDashboard && (
+          <SidebarItem
+            to="/finance/dashboard"
+            icon={Wallet}
+            label="Dashboard Financeiro"
+            onNavigate={onNavigate}
+          />
         )}
-        {/* Assistente de IA oculto no frontend
-        {can(Permission.ASSISTANT_VIEW) && (
-          <SidebarItem to="/assistant" icon={Sparkles} label="Assistente de IA" onNavigate={onNavigate} />
-        )}
-        */}
       </SidebarGroup>
 
-      {showOpsGroup && (
-        <SidebarGroup label="Operação">
-          {showServiceOrders && (
-            <SidebarItem
-              to="/service-orders"
-              icon={ClipboardList}
-              label="Ordens de serviço"
-              onNavigate={onNavigate}
-            />
-          )}
-        </SidebarGroup>
-      )}
-
-      {showCrmGroup && (
-        <SidebarGroup label="CRM">
-          {showCrmInbox && (
-            <SidebarItem to="/crm/inbox" icon={MessageCircle} label="Conversas" onNavigate={onNavigate} />
-          )}
-          {showCrmKanban && (
-            <SidebarItem to="/crm/kanban" icon={Kanban} label="Kanban" onNavigate={onNavigate} />
-          )}
-          {showCrmPipelines && (
-            <SidebarItem to="/crm/pipelines" icon={Columns3} label="Etapas" onNavigate={onNavigate} />
-          )}
-          {showCrmLeads && (
-            <SidebarItem to="/crm/leads" icon={Contact} label="Leads" onNavigate={onNavigate} />
-          )}
-          {showCrmSettings && (
-            <SidebarItem to="/crm/settings" icon={Settings} label="Configurações" onNavigate={onNavigate} />
-          )}
-        </SidebarGroup>
-      )}
-      {/* Controle de assinatura desabilitado neste sistema
-      {showBillingGroup && (
-        <SidebarGroup label="Assinaturas">
-          {showPlans && (
-            <SidebarItem to="/billing/plans" icon={CreditCard} label="Planos" onNavigate={onNavigate} />
-          )}
-          {showSubscription && (
-            <SidebarItem
-              to="/billing/subscription"
-              icon={CreditCard}
-              label="Minha assinatura"
-              onNavigate={onNavigate}
-            />
-          )}
-          {showInvoices && (
-            <SidebarItem
-              to="/billing/invoices"
-              icon={Receipt}
-              label="Cobranças"
-              onNavigate={onNavigate}
-            />
-          )}
-        </SidebarGroup>
-      )}
-      */}
-
-      {showFinanceOperatorGroup && (
-        <SidebarGroup label="Financeiro">
-          {showFinanceDashboard && (
-            <SidebarItem
-              to="/finance/dashboard"
-              icon={Wallet}
-              label="Dashboard"
-              onNavigate={onNavigate}
-            />
-          )}
-          {showFinancePlans && (
-            <SidebarItem to="/finance/plans" icon={Package} label="Planos" onNavigate={onNavigate} />
-          )}
-          {showFinanceSubscriptions && (
-            <SidebarItem
-              to="/finance/subscriptions"
-              icon={Repeat}
-              label="Assinaturas"
-              onNavigate={onNavigate}
-            />
-          )}
-          {showFinanceBillings && (
-            <SidebarItem
-              to="/finance/billings"
-              icon={Receipt}
-              label="Cobranças"
-              onNavigate={onNavigate}
-            />
-          )}
-          {showFinanceReports && (
-            <SidebarItem
-              to="/finance/reports"
-              icon={FileBarChart}
-              label="Relatórios"
-              onNavigate={onNavigate}
-            />
-          )}
-          {showFinanceGateway && (
-            <SidebarItem
-              to="/finance/gateway-config"
-              icon={CreditCard}
-              label="Gateway"
-              onNavigate={onNavigate}
-            />
-          )}
-        </SidebarGroup>
-      )}
-
-      {showFinancePortal && (
-        <SidebarGroup label="Financeiro">
-          <SidebarItem
-            to="/finance/portal/billings"
-            icon={Receipt}
-            label="Minhas faturas"
-            onNavigate={onNavigate}
-          />
-          <SidebarItem
-            to="/finance/portal/subscription"
-            icon={Repeat}
-            label="Assinatura"
-            onNavigate={onNavigate}
-          />
-          <SidebarItem
-            to="/finance/portal/history"
-            icon={History}
-            label="Histórico"
-            onNavigate={onNavigate}
-          />
-        </SidebarGroup>
-      )}
-
       {showCadastrosGroup && (
-        <SidebarGroup label="Cadastros">
+        <SidebarGroup label="Cadastros" icon={Database} collapsible>
           {showClients && (
             <SidebarItem to="/clients" icon={Contact} label="Clientes" onNavigate={onNavigate} />
           )}
@@ -295,16 +180,16 @@ function SidebarNavigation({
           {showEquipments && (
             <SidebarItem to="/equipments" icon={Cpu} label="Equipamentos" onNavigate={onNavigate} />
           )}
-        </SidebarGroup>
-      )}
-
-      {showGeoGroup && (
-        <SidebarGroup label="Geocercas e POIs">
           {showGeofences && (
             <SidebarItem to="/geofences" icon={Hexagon} label="Geocercas" onNavigate={onNavigate} />
           )}
           {showGeofences && (
-            <SidebarItem to="/geofence-events" icon={History} label="Eventos" onNavigate={onNavigate} />
+            <SidebarItem
+              to="/geofence-events"
+              icon={History}
+              label="Eventos de geocerca"
+              onNavigate={onNavigate}
+            />
           )}
           {showPois && (
             <SidebarItem to="/pois" icon={MapPin} label="POIs" onNavigate={onNavigate} />
@@ -312,15 +197,115 @@ function SidebarNavigation({
         </SidebarGroup>
       )}
 
+      {(showFinanceOperatorGroup || showFinancePortal) && (
+        <SidebarGroup
+          label={showFinancePortal ? 'Meu financeiro' : 'Financeiro'}
+          icon={Wallet}
+          collapsible
+        >
+          {showFinanceOperatorGroup && (
+            <>
+              {showFinancePlans && (
+                <SidebarItem to="/finance/plans" icon={Package} label="Planos" onNavigate={onNavigate} />
+              )}
+              {showFinanceSubscriptions && (
+                <SidebarItem
+                  to="/finance/subscriptions"
+                  icon={Repeat}
+                  label="Assinaturas"
+                  onNavigate={onNavigate}
+                />
+              )}
+              {showFinanceBillings && (
+                <SidebarItem
+                  to="/finance/billings"
+                  icon={Receipt}
+                  label="Cobranças"
+                  onNavigate={onNavigate}
+                />
+              )}
+              {showFinanceReports && (
+                <SidebarItem
+                  to="/finance/reports"
+                  icon={FileBarChart}
+                  label="Relatórios"
+                  onNavigate={onNavigate}
+                />
+              )}
+              {showFinanceGateway && (
+                <SidebarItem
+                  to="/finance/gateway-config"
+                  icon={CreditCard}
+                  label="Gateway"
+                  onNavigate={onNavigate}
+                />
+              )}
+            </>
+          )}
+          {showFinancePortal && (
+            <>
+              <SidebarItem
+                to="/finance/portal/billings"
+                icon={Receipt}
+                label="Minhas faturas"
+                onNavigate={onNavigate}
+              />
+              <SidebarItem
+                to="/finance/portal/subscription"
+                icon={Repeat}
+                label="Assinatura"
+                onNavigate={onNavigate}
+              />
+              <SidebarItem
+                to="/finance/portal/history"
+                icon={History}
+                label="Histórico"
+                onNavigate={onNavigate}
+              />
+            </>
+          )}
+        </SidebarGroup>
+      )}
+
+      {showServiceOrders && (
+        <SidebarGroup label="Ordens de Serviço" icon={Hammer} collapsible>
+          <SidebarItem
+            to="/service-orders"
+            icon={ClipboardList}
+            label="Ordens de serviço"
+            onNavigate={onNavigate}
+          />
+        </SidebarGroup>
+      )}
+
+      {showReports && (
+        <SidebarGroup label="Relatórios" icon={ChartColumn} collapsible>
+          <SidebarItem
+            to="/reports"
+            icon={FileBarChart}
+            label="Relatórios"
+            onNavigate={onNavigate}
+          />
+        </SidebarGroup>
+      )}
+
       {showAlertsGroup && (
-        <SidebarGroup label="Alertas">
+        <SidebarGroup label="Mensagens" icon={Inbox} collapsible>
+          {showAlerts && (
+            <SidebarItem
+              to="/alerts/dashboard"
+              icon={LayoutDashboard}
+              label="Painel de alertas"
+              onNavigate={onNavigate}
+            />
+          )}
           {showAlerts && (
             <SidebarItem to="/alerts" icon={BellRing} label="Alertas" onNavigate={onNavigate} />
           )}
           {showAlertPreferences && (
             <SidebarItem
               to="/alerts/preferences"
-              icon={BellRing}
+              icon={Bell}
               label="Meus alertas"
               onNavigate={onNavigate}
             />
@@ -334,32 +319,87 @@ function SidebarNavigation({
         </SidebarGroup>
       )}
 
-      <SidebarGroup label="Gestão">
-        {isUmbrella && can(Permission.TENANT_READ) && (
-          <SidebarItem to="/tenants" icon={Building2} label="Empresas" onNavigate={onNavigate} />
-        )}
-        {can(Permission.USER_READ) && (
-          <SidebarItem to="/users" icon={Users} label="Usuários" onNavigate={onNavigate} />
-        )}
-        {can(Permission.ROLE_READ) && (
-          <SidebarItem to="/roles" icon={ShieldCheck} label="Perfis de acesso" onNavigate={onNavigate} />
-        )}
-        {/* Tokens de API e Webhooks ocultos no frontend
-        {can(Permission.API_TOKEN_READ) && (
-          <SidebarItem to="/api-tokens" icon={KeyRound} label="Tokens de API" onNavigate={onNavigate} />
-        )}
-        {can(Permission.WEBHOOK_READ) && (
-          <SidebarItem to="/webhooks" icon={Webhook} label="Webhooks" onNavigate={onNavigate} />
-        )}
-        */}
-        {can(Permission.AUDIT_VIEW) && (
-          <SidebarItem to="/audit" icon={ScrollText} label="Auditoria" onNavigate={onNavigate} />
-        )}
-        {can(Permission.TENANT_UPDATE) && (
-          <SidebarItem to="/settings" icon={Settings} label="Configurações" onNavigate={onNavigate} />
-        )}
-      </SidebarGroup>
+      {showCrmGroup && (
+        <SidebarGroup label="CRM" icon={Handshake} collapsible>
+          {showCrmInbox && (
+            <SidebarItem to="/crm/inbox" icon={MessageCircle} label="Conversas" onNavigate={onNavigate} />
+          )}
+          {showCrmKanban && (
+            <SidebarItem to="/crm/kanban" icon={Kanban} label="Kanban" onNavigate={onNavigate} />
+          )}
+          {showCrmPipelines && (
+            <SidebarItem to="/crm/pipelines" icon={Columns3} label="Etapas" onNavigate={onNavigate} />
+          )}
+          {showCrmLeads && (
+            <SidebarItem to="/crm/leads" icon={Contact} label="Leads" onNavigate={onNavigate} />
+          )}
+          {showCrmSettings && (
+            <SidebarItem to="/crm/settings" icon={Settings} label="Configurações" onNavigate={onNavigate} />
+          )}
+        </SidebarGroup>
+      )}
 
+      {/* Controle de assinatura desabilitado neste sistema
+      {showBillingGroup && (
+        <SidebarGroup label="Assinaturas">
+          {showPlans && (
+            <SidebarItem to="/billing/plans" icon={CreditCard} label="Planos" onNavigate={onNavigate} />
+          )}
+          {showSubscription && (
+            <SidebarItem
+              to="/billing/subscription"
+              icon={CreditCard}
+              label="Minha assinatura"
+              onNavigate={onNavigate}
+            />
+          )}
+          {showInvoices && (
+            <SidebarItem
+              to="/billing/invoices"
+              icon={Receipt}
+              label="Cobranças"
+              onNavigate={onNavigate}
+            />
+          )}
+        </SidebarGroup>
+      )}
+      */}
+
+      {showManagementGroup && (
+        <SidebarGroup label="Gestão" icon={Cog} collapsible>
+          {isUmbrella && can(Permission.TENANT_READ) && (
+            <SidebarItem to="/tenants" icon={Building2} label="Empresas" onNavigate={onNavigate} />
+          )}
+          {can(Permission.USER_READ) && (
+            <SidebarItem to="/users" icon={Users} label="Usuários" onNavigate={onNavigate} />
+          )}
+          {can(Permission.ROLE_READ) && (
+            <SidebarItem to="/roles" icon={ShieldCheck} label="Perfis de acesso" onNavigate={onNavigate} />
+          )}
+          {/* Tokens de API e Webhooks ocultos no frontend
+          {can(Permission.API_TOKEN_READ) && (
+            <SidebarItem to="/api-tokens" icon={KeyRound} label="Tokens de API" onNavigate={onNavigate} />
+          )}
+          {can(Permission.WEBHOOK_READ) && (
+            <SidebarItem to="/webhooks" icon={Webhook} label="Webhooks" onNavigate={onNavigate} />
+          )}
+          */}
+          {can(Permission.AUDIT_VIEW) && (
+            <SidebarItem to="/audit" icon={ScrollText} label="Auditoria" onNavigate={onNavigate} />
+          )}
+          {can(Permission.TENANT_UPDATE) && (
+            <SidebarItem to="/settings" icon={Settings} label="Configurações" onNavigate={onNavigate} />
+          )}
+          {showDeviceRawLogs && (
+            <SidebarItem
+              to="/monitoring/device-logs"
+              icon={Terminal}
+              label="Log do dispositivo"
+              onNavigate={onNavigate}
+            />
+          )}
+        </SidebarGroup>
+      )}
     </Sidebar>
   )
 }
@@ -433,17 +473,17 @@ function AppLayoutShell() {
             type="button"
             onClick={openSidebar}
             aria-label="Abrir menu"
-            className="flex size-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground lg:hidden"
+            className="flex size-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground lg:hidden"
           >
-            <Menu className="size-5" />
+            <Menu className="size-4.5" />
           </button>
           <button
             type="button"
             onClick={toggleSidebarCollapsed}
             aria-label={sidebarCollapsed ? 'Mostrar menu' : 'Esconder menu'}
-            className="hidden size-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground lg:flex"
+            className="hidden size-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground lg:flex"
           >
-            <Menu className="size-5" />
+            <Menu className="size-4.5" />
           </button>
           {topbarSlot ? (
             <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">{topbarSlot}</div>
@@ -459,7 +499,7 @@ function AppLayoutShell() {
         </Topbar>
 
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <Container className="flex min-h-0 flex-1 flex-col overflow-hidden pt-2 pb-3">
+          <Container className="flex min-h-0 flex-1 flex-col overflow-hidden pt-1.5 pb-2">
             <Suspense fallback={<Loading />}>
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 <Outlet />

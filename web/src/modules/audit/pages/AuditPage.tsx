@@ -21,6 +21,11 @@ const ACTION_LABELS: Record<string, { label: string; variant: 'neutral' | 'prima
   master_login: { label: 'Login', variant: 'primary' },
   tenant_selected: { label: 'Seleção de organização', variant: 'neutral' },
   tenant_switched: { label: 'Troca de organização', variant: 'neutral' },
+  alert_acknowledged: { label: 'Alerta reconhecido', variant: 'warning' },
+  alert_resolved: { label: 'Alerta encerrado', variant: 'success' },
+  contract_signed: { label: 'Contrato assinado', variant: 'success' },
+  contract_signature_updated: { label: 'Assinatura do contrato alterada', variant: 'warning' },
+  contract_document_uploaded: { label: 'Contrato importado', variant: 'primary' },
 }
 
 export default function AuditPage() {

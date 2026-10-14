@@ -21,6 +21,7 @@ import { Can } from '@/app/guards/PermissionGuard'
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import { useDebounce } from '@/shared/hooks/useDebounce'
+import { useTableSort } from '@/shared/hooks/useTableSort'
 import type { Poi } from '@/shared/types/models'
 import { useDeletePoi, usePoiCategoriesQuery, usePoisQuery } from '../hooks/usePois'
 
@@ -38,11 +39,13 @@ export default function PoisListPage() {
   const deletePoi = useDeletePoi()
   const categoriesQuery = usePoiCategoriesQuery()
 
+  const { sort, sortParam, toggleSort } = useTableSort()
   const query = usePoisQuery({
     page,
     per_page: PER_PAGE,
     search: debouncedSearch || undefined,
     category_id: categoryId || undefined,
+    sort: sortParam,
   })
 
   const updateParams = (next: { page?: number; search?: string; category_id?: string }) => {
@@ -71,6 +74,7 @@ export default function PoisListPage() {
     {
       key: 'name',
       header: 'POI',
+      sortable: true,
       render: (item) => (
         <div className="min-w-0">
           <p className="truncate font-medium text-foreground">{item.name}</p>
@@ -95,6 +99,8 @@ export default function PoisListPage() {
     {
       key: 'status',
       header: 'Status',
+      sortable: true,
+      sortKey: 'is_active',
       render: (item) => (
         <Badge variant={item.is_active ? 'success' : 'neutral'}>
           {item.is_active ? 'Ativo' : 'Inativo'}
@@ -184,6 +190,8 @@ export default function PoisListPage() {
           rows={query.data?.data ?? []}
           rowKey={(item) => item.id}
           loading={query.isPending}
+          sort={sort}
+          onSort={toggleSort}
           emptyState={
             <EmptyState
               icon={MapPin}

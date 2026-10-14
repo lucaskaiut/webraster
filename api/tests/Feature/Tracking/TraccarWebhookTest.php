@@ -145,20 +145,24 @@ class TraccarWebhookTest extends TestCase
         $this->assertSame(2, GpsPosition::query()->whereNull('traccar_position_id')->count());
     }
 
-    public function test_unassigned_device_is_recorded_as_ignored(): void
+    public function test_unassigned_device_records_position_for_stock_equipment(): void
     {
         [, $tenant] = $this->createOperationalChild();
         $client = Client::factory()->for($tenant)->create();
-        Equipment::factory()->create(['traccar_device_id' => 42]);
+        $equipment = Equipment::factory()->create(['traccar_device_id' => 42]);
 
         $this->postJson('/api/webhooks/traccar', $this->positionPayload(12345, 42))
             ->assertOk();
 
         $event = TraccarEvent::query()->firstOrFail();
 
-        $this->assertSame(TraccarEventStatus::IGNORED, $event->status);
-        $this->assertSame('unassigned_device', $event->last_error);
-        $this->assertSame(0, GpsPosition::query()->count());
+        $this->assertSame(TraccarEventStatus::PROCESSED, $event->status);
+        $this->assertSame(1, GpsPosition::query()->count());
+
+        $position = GpsPosition::query()->firstOrFail();
+        $this->assertNull($position->vehicle_id);
+        $this->assertNull($position->client_id);
+        $this->assertSame($equipment->getKey(), $position->equipment_id);
     }
 
     public function test_pending_events_are_requeued(): void

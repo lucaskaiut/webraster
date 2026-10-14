@@ -150,6 +150,9 @@ export default function VehicleEditPage() {
                     <p className="truncate text-[13px] text-muted">
                       Cliente: {vehicle.client?.name ?? 'Não informado'}
                     </p>
+                    <p className="truncate text-[13px] text-muted">
+                      Cadastrado em {formatDateTime(vehicle.created_at)}
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -266,12 +269,7 @@ export default function VehicleEditPage() {
                 {vehicle.equipment && (
                   <Can permission={Permission.DEVICE_COMMANDS_SEND}>
                     <div className="space-y-3">
-                      <div>
-                        <p className="text-sm font-medium text-foreground">Comandos</p>
-                        <p className="text-[13px] text-muted">
-                          Envie comandos para o rastreador instalado via Traccar.
-                        </p>
-                      </div>
+                      <p className="text-sm font-medium text-foreground">Comandos</p>
                       <VehicleCommandsPanel deviceId={vehicle.equipment.id} />
                     </div>
                   </Can>

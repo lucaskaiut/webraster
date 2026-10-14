@@ -3,8 +3,9 @@ import { useSearchParams } from 'react-router'
 import { useTopbarSlot } from '@/app/layouts/topbar-slot'
 import { useTrackingLiveQuery } from '../hooks/useTracking'
 import { useTrackingRealtime } from '../hooks/useTrackingRealtime'
+import { useMapMarkerInfo } from '../hooks/useMapMarkerInfo'
 import type { GpsPosition } from '@/shared/types/models'
-import type { FleetFilter } from '../lib/tracking'
+import type { FleetFilter, FleetSort } from '../lib/tracking'
 import { FleetPanel, FleetPanelToggle } from '../components/FleetPanel'
 import { HistoryDrawer } from '../components/HistoryDrawer'
 import { MonitoringHeader } from '../components/MonitoringHeader'
@@ -12,14 +13,15 @@ import { TrackingMap } from '../components/TrackingMap'
 import { VehicleInfoPanel } from '../components/VehicleInfoPanel'
 import { useGeofencesMapQuery } from '@/modules/geofences/hooks/useGeofences'
 import { usePoisMapQuery } from '@/modules/pois/hooks/usePois'
-import { useAlertsMapQuery } from '@/modules/alerts/hooks/useAlerts'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import { Permission } from '@/shared/constants/permissions'
 
 export default function MonitoringPage() {
   const [searchParams] = useSearchParams()
   const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState<FleetFilter>('all')
+  const [filter, setFilter] = useState<FleetFilter>('online')
+  const [sort, setSort] = useState<FleetSort>('recent')
+  const [perPage, setPerPage] = useState<number | 'all'>(50)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [route, setRoute] = useState<GpsPosition[]>([])
   const [playbackIndex, setPlaybackIndex] = useState(0)
@@ -40,17 +42,15 @@ export default function MonitoringPage() {
   )
   const [showGeofences, setShowGeofences] = useState(true)
   const [showPois, setShowPois] = useState(true)
-  const [showAlerts, setShowAlerts] = useState(true)
   const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null)
   const [selectedPoiId, setSelectedPoiId] = useState<string | null>(null)
-  const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null)
+  const { markerInfo, toggleMarkerInfo } = useMapMarkerInfo()
 
   const { can } = usePermissions()
   const liveQuery = useTrackingLiveQuery()
   useTrackingRealtime()
   const geofencesQuery = useGeofencesMapQuery(undefined, can(Permission.GEOFENCE_READ) && showGeofences)
   const poisQuery = usePoisMapQuery(undefined, can(Permission.POI_READ) && showPois)
-  const alertsQuery = useAlertsMapQuery('open', can(Permission.ALERT_READ) && showAlerts)
 
   const vehicles = liveQuery.data ?? []
   const selected = useMemo(
@@ -100,7 +100,6 @@ export default function MonitoringPage() {
     setSelectedId(id)
     setSelectedGeofenceId(null)
     setSelectedPoiId(null)
-    setSelectedAlertId(null)
     setRoute([])
     setPlaybackIndex(0)
     setPlaying(false)
@@ -177,31 +176,22 @@ export default function MonitoringPage() {
           showVehicles={showVehicles}
           showGeofences={showGeofences && can(Permission.GEOFENCE_READ)}
           showPois={showPois && can(Permission.POI_READ)}
-          showAlerts={showAlerts && can(Permission.ALERT_READ)}
           onToggleVehicles={setShowVehicles}
           onToggleGeofences={setShowGeofences}
           onTogglePois={setShowPois}
-          onToggleAlerts={setShowAlerts}
+          markerInfo={markerInfo}
+          onToggleMarkerInfo={toggleMarkerInfo}
           geofences={geofencesQuery.data ?? []}
           pois={poisQuery.data ?? []}
-          alerts={alertsQuery.data ?? []}
           selectedGeofenceId={selectedGeofenceId}
           selectedPoiId={selectedPoiId}
-          selectedAlertId={selectedAlertId}
           onSelectGeofence={(id) => {
             setSelectedGeofenceId(id)
             setSelectedPoiId(null)
-            setSelectedAlertId(null)
           }}
           onSelectPoi={(id) => {
             setSelectedPoiId(id)
             setSelectedGeofenceId(null)
-            setSelectedAlertId(null)
-          }}
-          onSelectAlert={(id) => {
-            setSelectedAlertId(id)
-            setSelectedGeofenceId(null)
-            setSelectedPoiId(null)
           }}
           layersAction={
             fleetOpen ? null : (
@@ -218,6 +208,10 @@ export default function MonitoringPage() {
           onSearch={setSearch}
           filter={filter}
           onFilter={setFilter}
+          sort={sort}
+          onSortChange={setSort}
+          perPage={perPage}
+          onPerPageChange={setPerPage}
           selectedId={selectedId}
           onSelect={handleSelect}
           loading={liveQuery.isPending}
