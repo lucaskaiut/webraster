@@ -222,6 +222,8 @@ export default function EquipmentsListPage() {
           {
             key: 'last_position',
             header: 'Última posição',
+            sortable: true,
+            sortKey: 'last_position',
             render: (equipment: Equipment) => (
               <span className="whitespace-nowrap text-muted">
                 {formatDateTimeWithSeconds(liveByEquipment.get(equipment.id)?.position?.recorded_at)}

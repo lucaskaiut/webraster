@@ -15,6 +15,7 @@ final class QuerySort
     /**
      * @param  Builder<*>  $query
      * @param  list<string>  $allowed
+     * @param  array<string, string>  $expressions  Colunas que usam expressão SQL (ex.: subconsulta) em vez da coluna direta.
      * @return Builder<*>
      */
     public static function apply(
@@ -22,6 +23,7 @@ final class QuerySort
         ?string $sort,
         array $allowed,
         string $default = 'created_at:desc',
+        array $expressions = [],
     ): Builder {
         $criteria = self::parse($sort);
         $appliedColumns = [];
@@ -33,7 +35,16 @@ final class QuerySort
                 continue;
             }
 
-            $query->orderBy($criterion['column'], $criterion['direction']);
+            $expression = $expressions[$criterion['column']] ?? null;
+
+            if (is_string($expression) && $expression !== '') {
+                // A direção já vem normalizada (asc|desc) e a expressão é
+                // definida pelo backend, não pelo usuário.
+                $query->orderByRaw("{$expression} {$criterion['direction']}");
+            } else {
+                $query->orderBy($criterion['column'], $criterion['direction']);
+            }
+
             $appliedColumns[] = $criterion['column'];
             $lastDirection = $criterion['direction'];
             $applied = true;

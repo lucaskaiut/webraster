@@ -5,6 +5,7 @@ namespace Tests\Feature\Equipment;
 use App\Modules\ACL\Enums\Permission;
 use App\Modules\Client\Models\Client;
 use App\Modules\Equipment\Models\Equipment;
+use App\Modules\Tracking\Models\GpsPosition;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -263,6 +264,39 @@ class EquipmentCrudTest extends TestCase
         $this->getJson('/api/equipments?sort=coluna_invalida:asc')
             ->assertOk()
             ->assertJsonCount(3, 'data');
+    }
+
+    public function test_index_sorts_by_last_position(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+
+        $older = Equipment::factory()->forTenant($tenant)->create(['imei' => '300000000000001']);
+        GpsPosition::factory()->forStockEquipment($older)->create([
+            'recorded_at' => now()->subHours(5),
+        ]);
+
+        $newer = Equipment::factory()->forTenant($tenant)->create(['imei' => '300000000000002']);
+        GpsPosition::factory()->forStockEquipment($newer)->create([
+            'recorded_at' => now()->subHour(),
+        ]);
+
+        Equipment::factory()->forTenant($tenant)->create(['imei' => '300000000000003']);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $desc = collect(
+            $this->getJson('/api/equipments?sort=last_position:desc')->assertOk()->json('data'),
+        )->pluck('imei');
+
+        // Sem posição fica por último na ordem decrescente.
+        $this->assertSame(['300000000000002', '300000000000001', '300000000000003'], $desc->all());
+
+        $asc = collect(
+            $this->getJson('/api/equipments?sort=last_position:asc')->assertOk()->json('data'),
+        )->pluck('imei');
+
+        // Sem posição fica primeiro na ordem crescente.
+        $this->assertSame(['300000000000003', '300000000000001', '300000000000002'], $asc->all());
     }
 
     public function test_update_and_destroy_unassigned_equipment(): void

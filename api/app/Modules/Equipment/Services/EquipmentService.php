@@ -47,8 +47,12 @@ class EquipmentService
         QuerySort::apply(
             $query,
             $sort,
-            ['imei', 'model', 'line_number', 'carrier', 'is_active', 'traccar_last_update', 'created_at'],
+            ['imei', 'model', 'line_number', 'carrier', 'is_active', 'traccar_last_update', 'created_at', 'last_position'],
             'created_at:desc',
+            [
+                // Última posição persistida do equipamento (mesmo sem veículo).
+                'last_position' => '(SELECT MAX(gps_positions.recorded_at) FROM gps_positions WHERE gps_positions.equipment_id = equipments.id)',
+            ],
         );
 
         if ($perPage === 'all') {
