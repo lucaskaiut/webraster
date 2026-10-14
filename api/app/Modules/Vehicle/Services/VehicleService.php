@@ -5,6 +5,7 @@ namespace App\Modules\Vehicle\Services;
 use App\Modules\Alert\Services\AlertConfigService;
 use App\Modules\Shared\Support\QuerySort;
 use App\Modules\Vehicle\Models\Vehicle;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Arr;
@@ -16,23 +17,46 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class VehicleService
 {
+    /** Janela (minutos) para considerar o veículo online, igual ao dashboard. */
+    private const ONLINE_WINDOW_MINUTES = 15;
+
+    /** Filtros de último sinal aceitos na listagem. */
+    public const LAST_SIGNAL_FILTERS = [
+        'online',
+        'offline_up_to_24h',
+        'offline_24h_to_36h',
+        'offline_over_36h',
+    ];
+
     public function paginate(
-        int $perPage = 15,
+        int|string $perPage = 15,
         ?string $search = null,
         ?int $clientId = null,
         ?int $excludeClientId = null,
         ?string $sort = null,
+        ?string $lastSignal = null,
     ): LengthAwarePaginator {
-        return $this->filteredQuery($search, $clientId, $excludeClientId, $sort)
-            ->paginate(min(max($perPage, 1), 100));
+        $query = $this->filteredQuery($search, $clientId, $excludeClientId, $sort, $lastSignal);
+
+        if ($perPage === 'all') {
+            $total = (clone $query)->toBase()->getCountForPagination();
+
+            return $query->paginate(max(1, $total));
+        }
+
+        return $query->paginate(min(max((int) $perPage, 1), 100));
     }
 
     /**
      * Exportação XLSX da listagem, respeitando os filtros aplicados.
      */
-    public function export(?string $search = null, ?int $clientId = null, ?string $sort = null): StreamedResponse
-    {
-        $vehicles = $this->filteredQuery($search, $clientId, null, $sort)->get();
+    public function export(
+        ?string $search = null,
+        ?int $clientId = null,
+        ?string $sort = null,
+        ?string $lastSignal = null,
+    ): StreamedResponse {
+        $vehicles = $this->filteredQuery($search, $clientId, null, $sort, $lastSignal)->get();
 
         return response()->streamDownload(function () use ($vehicles): void {
             $spreadsheet = new Spreadsheet;
@@ -94,6 +118,7 @@ class VehicleService
         ?int $clientId,
         ?int $excludeClientId = null,
         ?string $sort = null,
+        ?string $lastSignal = null,
     ): Builder {
         $query = Vehicle::query()
             ->with(['client', 'equipment', 'images'])
@@ -109,6 +134,10 @@ class VehicleService
                 });
             })
             ->when($excludeClientId !== null, fn ($query) => $query->where('client_id', '!=', $excludeClientId))
+            ->when(
+                $lastSignal !== null && in_array($lastSignal, self::LAST_SIGNAL_FILTERS, true),
+                fn ($query) => $this->applyLastSignalFilter($query, $lastSignal),
+            )
             ->when(filled($search), function ($query) use ($search): void {
                 $normalized = $this->normalizePlate($search);
 
@@ -135,9 +164,84 @@ class VehicleService
         return QuerySort::apply(
             $query,
             $sort,
-            ['plate', 'brand', 'model', 'color', 'year', 'odometer', 'is_active', 'created_at'],
+            [
+                'plate',
+                'brand',
+                'model',
+                'color',
+                'year',
+                'odometer',
+                'is_active',
+                'created_at',
+                'last_connection',
+                'last_position',
+            ],
             'plate:asc',
+            [
+                // Última comunicação do equipamento instalado (ignora removidos).
+                'last_connection' => '(SELECT MAX(equipments.traccar_last_update) FROM equipments WHERE equipments.vehicle_id = vehicles.id AND equipments.deleted_at IS NULL)',
+                // Última posição GPS persistida do veículo.
+                'last_position' => '(SELECT MAX(gps_positions.recorded_at) FROM gps_positions WHERE gps_positions.vehicle_id = vehicles.id)',
+            ],
         );
+    }
+
+    /**
+     * Filtra pelo último sinal do veículo (posição persistida ou lastUpdate do
+     * equipamento), com as mesmas faixas do dashboard de monitoramento.
+     *
+     * @param  Builder<Vehicle>  $query
+     * @return Builder<Vehicle>
+     */
+    private function applyLastSignalFilter(Builder $query, string $lastSignal): Builder
+    {
+        $signal = $this->lastSignalExpression();
+        $now = CarbonImmutable::now();
+
+        $onlineThreshold = $now->subMinutes(self::ONLINE_WINDOW_MINUTES)->toDateTimeString();
+        $dayThreshold = $now->subHours(24)->toDateTimeString();
+        $thirtySixThreshold = $now->subHours(36)->toDateTimeString();
+
+        // Mesmo recorte do dashboard: veículos ativos com equipamento.
+        return $query
+            ->where('is_active', true)
+            ->whereHas('equipment')
+            ->where(function (Builder $query) use (
+                $signal,
+                $lastSignal,
+                $onlineThreshold,
+                $dayThreshold,
+                $thirtySixThreshold,
+            ): void {
+                match ($lastSignal) {
+                    'online' => $query->whereRaw("{$signal} >= ?", [$onlineThreshold]),
+                    'offline_up_to_24h' => $query->whereRaw(
+                        "{$signal} IS NOT NULL AND {$signal} < ? AND {$signal} >= ?",
+                        [$onlineThreshold, $dayThreshold],
+                    ),
+                    'offline_24h_to_36h' => $query->whereRaw(
+                        "{$signal} < ? AND {$signal} >= ?",
+                        [$dayThreshold, $thirtySixThreshold],
+                    ),
+                    'offline_over_36h' => $query->whereRaw(
+                        "({$signal} IS NULL OR {$signal} < ?)",
+                        [$thirtySixThreshold],
+                    ),
+                    default => null,
+                };
+            });
+    }
+
+    /**
+     * Expressão SQL do último sinal: o maior entre a posição persistida e o
+     * lastUpdate do equipamento (ignorando valores nulos).
+     */
+    private function lastSignalExpression(): string
+    {
+        $position = '(SELECT MAX(gps_positions.recorded_at) FROM gps_positions WHERE gps_positions.vehicle_id = vehicles.id)';
+        $update = '(SELECT MAX(equipments.traccar_last_update) FROM equipments WHERE equipments.vehicle_id = vehicles.id AND equipments.deleted_at IS NULL)';
+
+        return "CASE WHEN {$position} IS NULL THEN {$update} WHEN {$update} IS NULL THEN {$position} WHEN {$position} >= {$update} THEN {$position} ELSE {$update} END";
     }
 
     /**

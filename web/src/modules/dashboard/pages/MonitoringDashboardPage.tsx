@@ -140,21 +140,21 @@ export default function MonitoringDashboardPage() {
                   value={query.data.vehicles.offline_up_to_24h}
                   icon={SignalHigh}
                   tone="warning"
-                  to="/monitoring"
+                  to="/vehicles?last_signal=offline_up_to_24h"
                 />
                 <MetricCard
                   label="Offline de 24 a 36 horas"
                   value={query.data.vehicles.offline_24h_to_36h}
                   icon={SignalLow}
                   tone="warning"
-                  to="/monitoring"
+                  to="/vehicles?last_signal=offline_24h_to_36h"
                 />
                 <MetricCard
                   label="Offline há mais de 36 horas"
                   value={query.data.vehicles.offline_over_36h}
                   icon={SignalZero}
                   tone="danger"
-                  to="/monitoring"
+                  to="/vehicles?last_signal=offline_over_36h"
                 />
               </div>
             </section>

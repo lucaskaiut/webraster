@@ -9,10 +9,13 @@ import type {
 
 import type { AlertTypeValue } from '@/modules/alerts/lib/alert-types'
 
-export interface VehicleListParams extends ListParams {
+export interface VehicleListParams extends Omit<ListParams, 'per_page'> {
+  per_page?: number | 'all'
   client_id?: string
   /** Exclui os veículos do cliente informado (busca de candidatos a compartilhamento). */
   exclude_client_id?: string
+  /** Filtro de último sinal: online | offline_up_to_24h | offline_24h_to_36h | offline_over_36h. */
+  last_signal?: string
 }
 
 export interface VehicleAlertConfigPayload {
@@ -75,8 +78,10 @@ export const vehiclesService = {
     return response.data
   },
 
-  /** Exportação XLSX da listagem (respeita busca, filtro de cliente e ordenação). */
-  async export(params: Pick<VehicleListParams, 'search' | 'client_id' | 'sort'>): Promise<Blob> {
+  /** Exportação XLSX da listagem (respeita busca, filtros e ordenação). */
+  async export(
+    params: Pick<VehicleListParams, 'search' | 'client_id' | 'sort' | 'last_signal'>,
+  ): Promise<Blob> {
     const response = await http.get('/vehicles/export', { params, responseType: 'blob' })
 
     return response.data as Blob

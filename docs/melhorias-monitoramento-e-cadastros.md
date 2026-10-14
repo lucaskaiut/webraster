@@ -31,6 +31,11 @@ funcionalidades existentes.
   como +36h.
 - Página `/dashboard` (`MonitoringDashboardPage`) com cards clicáveis para a
   frota e o estoque. Usuários de portal não veem os números de estoque.
+- Os cards de veículos offline levam para a lista de veículos com o filtro
+  `?last_signal=...` (`online`, `offline_up_to_24h`, `offline_24h_to_36h`,
+  `offline_over_36h`), usando a mesma classificação do dashboard; o filtro
+  também está disponível no seletor "Filtrar por último sinal" da tela e é
+  respeitado pela exportação.
 
 ## 3. Painel de monitoramento
 

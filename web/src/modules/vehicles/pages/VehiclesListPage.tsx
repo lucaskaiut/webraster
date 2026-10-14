@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
-import { Car, Download, Plus } from 'lucide-react'
+import { Car, Download, Plus, RefreshCw } from 'lucide-react'
 import {
   Badge,
   Button,
@@ -14,6 +14,7 @@ import {
   PageHeader,
   Pagination,
   SearchInput,
+  Select,
   type Column,
 } from '@/shared/design-system'
 import { Can } from '@/app/guards/PermissionGuard'
@@ -27,18 +28,19 @@ import { downloadBlob } from '@/shared/utils/report-export'
 import { toast } from '@/shared/stores/toast.store'
 import { useTrackingLiveQuery } from '@/modules/tracking/hooks/useTracking'
 import { VehicleStatusIndicators } from '@/modules/tracking/components/VehicleStatusIndicators'
+import { TABLE_PER_PAGE_OPTIONS, parseTablePerPage } from '@/shared/constants/pagination'
 import { VehicleListRowActions } from '../components/VehicleListRowActions'
 import { useDeleteVehicle, useVehiclesQuery } from '../hooks/useVehicles'
 import { vehiclesService } from '../services/vehicles.service'
-
-const PER_PAGE = 10
 
 export default function VehiclesListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState(searchParams.get('search') ?? '')
   const debouncedSearch = useDebounce(search)
   const page = Number(searchParams.get('page') ?? 1)
+  const perPage = parseTablePerPage(searchParams.get('per_page'))
   const clientId = searchParams.get('client_id') ?? undefined
+  const lastSignal = searchParams.get('last_signal') ?? ''
 
   const navigate = useNavigate()
   const { can } = usePermissions()
@@ -50,10 +52,11 @@ export default function VehiclesListPage() {
 
   const query = useVehiclesQuery({
     page,
-    per_page: PER_PAGE,
+    per_page: perPage,
     search: debouncedSearch || undefined,
     client_id: clientId,
     sort: sortParam,
+    last_signal: lastSignal || undefined,
   })
 
   const canTrack = can(Permission.TRACKING_READ)
@@ -80,11 +83,32 @@ export default function VehiclesListPage() {
     return map
   }, [liveQuery.data])
 
-  const updateParams = (next: { page?: number; search?: string }) => {
+  const updateParams = (next: {
+    page?: number
+    search?: string
+    perPage?: string
+    lastSignal?: string
+  }) => {
     setSearchParams(
       (params) => {
         if (next.search !== undefined) {
           next.search ? params.set('search', next.search) : params.delete('search')
+          params.delete('page')
+        }
+        if (next.perPage !== undefined) {
+          if (next.perPage && next.perPage !== '10') {
+            params.set('per_page', next.perPage)
+          } else {
+            params.delete('per_page')
+          }
+          params.delete('page')
+        }
+        if (next.lastSignal !== undefined) {
+          if (next.lastSignal) {
+            params.set('last_signal', next.lastSignal)
+          } else {
+            params.delete('last_signal')
+          }
           params.delete('page')
         }
         if (next.page !== undefined) {
@@ -109,6 +133,7 @@ export default function VehiclesListPage() {
         search: debouncedSearch || undefined,
         client_id: clientId,
         sort: sortParam,
+        last_signal: lastSignal || undefined,
       })
       downloadBlob(blob, 'veiculos.xlsx')
       toast.success('Exportação gerada', 'A lista de veículos foi exportada em XLSX.')
@@ -170,6 +195,8 @@ export default function VehiclesListPage() {
     {
       key: 'last_connection',
       header: 'Última conexão',
+      sortable: true,
+      sortKey: 'last_connection',
       render: (vehicle) => (
         <span className="whitespace-nowrap text-muted">
           {vehicle.equipment
@@ -201,6 +228,8 @@ export default function VehiclesListPage() {
           {
             key: 'last_position',
             header: 'Última posição',
+            sortable: true,
+            sortKey: 'last_position',
             render: (vehicle: Vehicle) => (
               <span className="whitespace-nowrap text-muted">
                 {formatDateTimeWithSeconds(liveByVehicle.get(vehicle.id)?.position?.recorded_at)}
@@ -259,6 +288,15 @@ export default function VehiclesListPage() {
         breadcrumb={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Veículos' }]}
         actions={
           <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => void query.refetch()}
+              loading={query.isFetching}
+              aria-label="Atualizar lista de veículos"
+            >
+              <RefreshCw className="size-4" aria-hidden="true" />
+              Atualizar
+            </Button>
             <Button variant="secondary" onClick={handleExport} loading={exporting}>
               <Download className="size-4" aria-hidden="true" />
               Exportar
@@ -283,6 +321,19 @@ export default function VehiclesListPage() {
               setSearch(event.target.value)
               updateParams({ search: event.target.value })
             }}
+          />
+          <Select
+            aria-label="Filtrar por último sinal"
+            className="w-52"
+            value={lastSignal}
+            onChange={(event) => updateParams({ lastSignal: event.target.value })}
+            options={[
+              { value: '', label: 'Todos os sinais' },
+              { value: 'online', label: 'Online' },
+              { value: 'offline_up_to_24h', label: 'Offline até 24h' },
+              { value: 'offline_24h_to_36h', label: 'Offline de 24h a 36h' },
+              { value: 'offline_over_36h', label: 'Offline há mais de 36h' },
+            ]}
           />
         </FilterBar>
 
@@ -318,7 +369,15 @@ export default function VehiclesListPage() {
         />
 
         {query.data && (
-          <Pagination meta={query.data.meta} onPageChange={(next) => updateParams({ page: next })} />
+          <Pagination
+            meta={query.data.meta}
+            onPageChange={(next) => updateParams({ page: next })}
+            perPage={perPage}
+            perPageOptions={TABLE_PER_PAGE_OPTIONS}
+            onPerPageChange={(value) =>
+              updateParams({ perPage: value === 'all' ? 'all' : String(value) })
+            }
+          />
         )}
       </PageContent>
 

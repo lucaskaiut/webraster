@@ -22,6 +22,7 @@ import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import { useDebounce } from '@/shared/hooks/useDebounce'
 import { useTableSort } from '@/shared/hooks/useTableSort'
+import { TABLE_PER_PAGE_OPTIONS, parseTablePerPage } from '@/shared/constants/pagination'
 import type { Equipment, TrackingLiveVehicle } from '@/shared/types/models'
 import { formatDateTimeWithSeconds } from '@/shared/utils/format'
 import { useTrackingLiveEquipmentsQuery, useTrackingLiveQuery } from '@/modules/tracking/hooks/useTracking'
@@ -30,27 +31,12 @@ import { useDeleteEquipment, useEquipmentsQuery } from '../hooks/useEquipments'
 import { EquipmentTestModal } from '../components/EquipmentTestModal'
 import { equipmentLiveAsVehicle } from '../lib/live'
 
-const PER_PAGE_OPTIONS = [
-  { value: '10', label: '10 registros' },
-  { value: '50', label: '50 registros' },
-  { value: '100', label: '100 registros' },
-  { value: 'all', label: 'Todos os registros' },
-]
-
-function parsePerPage(value: string | null): number | 'all' {
-  if (value === 'all') return 'all'
-
-  const parsed = Number(value)
-
-  return parsed === 50 || parsed === 100 ? parsed : 10
-}
-
 export default function EquipmentsListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState(searchParams.get('search') ?? '')
   const debouncedSearch = useDebounce(search)
   const page = Number(searchParams.get('page') ?? 1)
-  const perPage = parsePerPage(searchParams.get('per_page'))
+  const perPage = parseTablePerPage(searchParams.get('per_page'))
   const { sort, sortParam, toggleSort } = useTableSort()
   const availableParam = searchParams.get('available')
   const statusParam = searchParams.get('is_active')
@@ -439,7 +425,7 @@ export default function EquipmentsListPage() {
             meta={query.data.meta}
             onPageChange={(next) => updateParams({ page: next })}
             perPage={perPage}
-            perPageOptions={PER_PAGE_OPTIONS}
+            perPageOptions={TABLE_PER_PAGE_OPTIONS}
             onPerPageChange={(value) =>
               updateParams({ perPage: value === 'all' ? 'all' : String(value) })
             }

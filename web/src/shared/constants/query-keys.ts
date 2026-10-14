@@ -107,8 +107,14 @@ export const queryKeys = {
 
   vehicles: {
     all: ['vehicles'] as const,
-    list: (params: ListParams & { client_id?: string; exclude_client_id?: string }) =>
-      ['vehicles', 'list', params] as const,
+    list: (
+      params: Omit<ListParams, 'per_page'> & {
+        per_page?: number | 'all'
+        client_id?: string
+        exclude_client_id?: string
+        last_signal?: string
+      },
+    ) => ['vehicles', 'list', params] as const,
     detail: (id: string) => ['vehicles', 'detail', id] as const,
     history: (id: string) => ['vehicles', 'history', id] as const,
   },

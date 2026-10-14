@@ -47,12 +47,19 @@ class VehicleController extends ApiController
                 ->value('id');
         }
 
+        $perPage = $request->string('per_page')->toString() === 'all'
+            ? 'all'
+            : (int) $request->integer('per_page', 15);
+
+        $lastSignal = $request->string('last_signal')->toString() ?: null;
+
         $vehicles = $this->service->paginate(
-            (int) $request->integer('per_page', 15),
+            $perPage,
             $request->string('search')->toString() ?: null,
             $clientId,
             $excludeClientId,
             $request->string('sort')->toString() ?: null,
+            $lastSignal,
         );
 
         return $this->paginated(VehicleResource::collection($vehicles));
@@ -76,6 +83,7 @@ class VehicleController extends ApiController
             $request->string('search')->toString() ?: null,
             $clientId,
             $request->string('sort')->toString() ?: null,
+            $request->string('last_signal')->toString() ?: null,
         );
     }
 

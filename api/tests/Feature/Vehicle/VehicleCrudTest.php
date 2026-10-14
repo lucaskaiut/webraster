@@ -4,6 +4,7 @@ namespace Tests\Feature\Vehicle;
 
 use App\Modules\Client\Models\Client;
 use App\Modules\Equipment\Models\Equipment;
+use App\Modules\Tracking\Models\GpsPosition;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -428,6 +429,104 @@ class VehicleCrudTest extends TestCase
 
         $this->assertTrue($plates->contains('TRG1T23'));
         $this->assertFalse($plates->contains('OUT1R23'));
+    }
+
+    public function test_index_accepts_all_as_per_page(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+
+        Vehicle::factory()->forClient($client)->create(['plate' => 'ALL1A23']);
+        Vehicle::factory()->forClient($client)->create(['plate' => 'ALL2B23']);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->getJson('/api/vehicles?per_page=all')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('meta.per_page', 2);
+    }
+
+    public function test_index_sorts_by_last_connection_and_last_position(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+
+        $stale = Vehicle::factory()->forClient($client)->create(['plate' => 'SORT1A1']);
+        $staleEquipment = Equipment::factory()->assignedTo($stale)->create([
+            'traccar_last_update' => now()->subHours(5),
+        ]);
+        GpsPosition::factory()->forVehicle($stale)->create([
+            'equipment_id' => $staleEquipment->getKey(),
+            'recorded_at' => now()->subDays(2),
+        ]);
+
+        $recent = Vehicle::factory()->forClient($client)->create(['plate' => 'SORT2B2']);
+        $recentEquipment = Equipment::factory()->assignedTo($recent)->create([
+            'traccar_last_update' => now()->subHour(),
+        ]);
+        GpsPosition::factory()->forVehicle($recent)->create([
+            'equipment_id' => $recentEquipment->getKey(),
+            'recorded_at' => now()->subMinutes(10),
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $byConnection = collect(
+            $this->getJson('/api/vehicles?sort=last_connection:desc')->assertOk()->json('data'),
+        )->pluck('plate');
+
+        $this->assertSame(['SORT2B2', 'SORT1A1'], $byConnection->all());
+
+        $byPosition = collect(
+            $this->getJson('/api/vehicles?sort=last_position:asc')->assertOk()->json('data'),
+        )->pluck('plate');
+
+        $this->assertSame(['SORT1A1', 'SORT2B2'], $byPosition->all());
+    }
+
+    public function test_index_filters_by_last_signal_buckets(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+
+        $online = Vehicle::factory()->forClient($client)->create(['plate' => 'ONL1N23']);
+        Equipment::factory()->assignedTo($online)->create(['traccar_last_update' => now()->subMinutes(2)]);
+
+        $offline24 = Vehicle::factory()->forClient($client)->create(['plate' => 'OF12423']);
+        Equipment::factory()->assignedTo($offline24)->create(['traccar_last_update' => now()->subHours(10)]);
+
+        $offline36 = Vehicle::factory()->forClient($client)->create(['plate' => 'OF23623']);
+        Equipment::factory()->assignedTo($offline36)->create(['traccar_last_update' => now()->subHours(30)]);
+
+        $offlineLong = Vehicle::factory()->forClient($client)->create(['plate' => 'OF44823']);
+        Equipment::factory()->assignedTo($offlineLong)->create(['traccar_last_update' => now()->subHours(48)]);
+
+        // Sem nenhum sinal conta como +36h.
+        $noSignal = Vehicle::factory()->forClient($client)->create(['plate' => 'NOS1G23']);
+        Equipment::factory()->assignedTo($noSignal)->create(['traccar_last_update' => null]);
+
+        // Inativo não entra nos filtros de sinal (mesmo recorte do dashboard).
+        $inactive = Vehicle::factory()->forClient($client)->create([
+            'plate' => 'INA1T23',
+            'is_active' => false,
+        ]);
+        Equipment::factory()->assignedTo($inactive)->create(['traccar_last_update' => now()->subHours(48)]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $plates = function (string $signal): array {
+            return collect(
+                $this->getJson("/api/vehicles?last_signal={$signal}&per_page=all")
+                    ->assertOk()
+                    ->json('data'),
+            )->pluck('plate')->all();
+        };
+
+        $this->assertSame(['ONL1N23'], $plates('online'));
+        $this->assertSame(['OF12423'], $plates('offline_up_to_24h'));
+        $this->assertSame(['OF23623'], $plates('offline_24h_to_36h'));
+        $this->assertEqualsCanonicalizing(['OF44823', 'NOS1G23'], $plates('offline_over_36h'));
     }
 
     public function test_export_returns_xlsx_respecting_filters(): void
