@@ -10,7 +10,6 @@ import {
   priorityBadgeVariant,
   priorityLabel,
   statusLabel,
-  typeLabel,
 } from '../lib/labels'
 import { Badge } from '@/shared/design-system'
 import { Can } from '@/app/guards/PermissionGuard'
@@ -92,9 +91,6 @@ export default function ServiceOrdersKanbanPage() {
                               {order.priority_label ?? priorityLabel(order.priority)}
                             </Badge>
                           </div>
-                          <p className="mt-1 text-[13px] text-muted">
-                            {order.type_label ?? typeLabel(order.type)}
-                          </p>
                           <p className="mt-2 truncate text-sm text-foreground">{order.client?.name ?? '—'}</p>
                           <p className="truncate text-[13px] text-muted">{order.vehicle?.plate ?? 'Sem veículo'}</p>
                           <p className="mt-2 text-[12px] text-muted">

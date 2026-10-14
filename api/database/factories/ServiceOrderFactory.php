@@ -5,7 +5,6 @@ namespace Database\Factories;
 use App\Modules\Client\Models\Client;
 use App\Modules\ServiceOrder\Enums\ServiceOrderPriority;
 use App\Modules\ServiceOrder\Enums\ServiceOrderStatus;
-use App\Modules\ServiceOrder\Enums\ServiceOrderType;
 use App\Modules\ServiceOrder\Models\ServiceOrder;
 use App\Modules\Tenant\Models\Tenant;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -22,7 +21,6 @@ class ServiceOrderFactory extends Factory
         return [
             'tenant_id' => Tenant::factory(),
             'number' => fake()->unique()->numberBetween(1, 999999),
-            'type' => ServiceOrderType::INSTALLATION,
             'status' => ServiceOrderStatus::OPEN,
             'priority' => ServiceOrderPriority::NORMAL,
             'client_id' => Client::factory(),

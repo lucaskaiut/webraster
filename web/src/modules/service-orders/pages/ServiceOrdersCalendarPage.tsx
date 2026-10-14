@@ -13,7 +13,7 @@ import {
 } from '@/shared/design-system'
 import { usersService } from '@/modules/users/services/users.service'
 import { useServiceOrdersCalendarQuery } from '../hooks/useServiceOrders'
-import { statusBadgeVariant, statusLabel, typeLabel } from '../lib/labels'
+import { statusBadgeVariant, statusLabel } from '../lib/labels'
 import { Can } from '@/app/guards/PermissionGuard'
 import { Permission } from '@/shared/constants/permissions'
 import { Plus } from 'lucide-react'
@@ -123,7 +123,7 @@ export default function ServiceOrdersCalendarPage() {
                                     minute: '2-digit',
                                   })
                                 : '—'}{' '}
-                              · {order.code} · {order.type_label ?? typeLabel(order.type)}
+                              · {order.code}
                             </p>
                             <p className="truncate text-[13px] text-muted">
                               {order.client?.name ?? '—'}

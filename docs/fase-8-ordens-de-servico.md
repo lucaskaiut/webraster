@@ -4,12 +4,6 @@
 
 Módulo operacional completo de OS com lista, Kanban, agenda, histórico, ACL e multi-tenancy.
 
-## Tipos
-
-- `installation` — Instalação
-- `maintenance` — Manutenção
-- `removal` — Retirada
-
 ## Status e transições
 
 ```text

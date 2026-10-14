@@ -4,7 +4,6 @@ namespace Tests\Feature\ServiceOrder;
 
 use App\Modules\Client\Models\Client;
 use App\Modules\ServiceOrder\Enums\ServiceOrderStatus;
-use App\Modules\ServiceOrder\Enums\ServiceOrderType;
 use App\Modules\ServiceOrder\Models\ServiceOrder;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -26,7 +25,6 @@ class ServiceOrderTest extends TestCase
         Sanctum::actingAs($admin);
 
         $this->postJson('/api/service-orders', [
-            'type' => ServiceOrderType::INSTALLATION->value,
             'client_id' => $client->uuid,
             'priority' => 'high',
             'description' => 'Instalar rastreador',
@@ -36,11 +34,9 @@ class ServiceOrderTest extends TestCase
         ])
             ->assertCreated()
             ->assertJsonPath('data.code', 'OS-000001')
-            ->assertJsonPath('data.status', 'open')
-            ->assertJsonPath('data.type', 'installation');
+            ->assertJsonPath('data.status', 'open');
 
         $this->postJson('/api/service-orders', [
-            'type' => ServiceOrderType::MAINTENANCE->value,
             'client_id' => $client->uuid,
         ])
             ->assertCreated()
@@ -57,7 +53,6 @@ class ServiceOrderTest extends TestCase
         Sanctum::actingAs($this->createAdmin($tenant));
 
         $this->postJson('/api/service-orders', [
-            'type' => 'installation',
             'client_id' => $clientA->uuid,
             'vehicle_id' => $vehicleB->uuid,
         ])->assertUnprocessable();
@@ -136,7 +131,6 @@ class ServiceOrderTest extends TestCase
         Sanctum::actingAs($this->createClient($tenant));
 
         $this->postJson('/api/service-orders', [
-            'type' => 'installation',
             'client_id' => $client->uuid,
         ])->assertForbidden();
     }
@@ -175,7 +169,6 @@ class ServiceOrderTest extends TestCase
         ]);
 
         $this->postJson('/api/service-orders', [
-            'type' => 'maintenance',
             'client_id' => $client->uuid,
             'technician_id' => $admin->uuid,
             'scheduled_start_at' => $start->copy()->addHour()->toIso8601String(),
@@ -183,7 +176,6 @@ class ServiceOrderTest extends TestCase
         ])->assertUnprocessable();
 
         $this->postJson('/api/service-orders', [
-            'type' => 'maintenance',
             'client_id' => $client->uuid,
             'technician_id' => $admin->uuid,
             'scheduled_start_at' => $start->copy()->addHour()->toIso8601String(),

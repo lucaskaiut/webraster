@@ -24,8 +24,6 @@ class ServiceOrderResource extends JsonResource
             'id' => $this->uuid,
             'number' => $this->number,
             'code' => $this->code,
-            'type' => $this->type?->value,
-            'type_label' => $this->type?->label(),
             'status' => $this->status?->value,
             'status_label' => $this->status?->label(),
             'priority' => $this->priority?->value,

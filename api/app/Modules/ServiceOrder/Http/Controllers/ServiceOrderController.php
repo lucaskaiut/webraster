@@ -171,7 +171,6 @@ class ServiceOrderController extends ApiController
         $filters = [
             'search' => $request->string('search')->toString() ?: null,
             'status' => $request->string('status')->toString() ?: null,
-            'type' => $request->string('type')->toString() ?: null,
             'priority' => $request->string('priority')->toString() ?: null,
             'from' => $request->string('from')->toString() ?: null,
             'to' => $request->string('to')->toString() ?: null,

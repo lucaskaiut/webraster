@@ -1,10 +1,4 @@
-import type { ServiceOrderPriority, ServiceOrderStatus, ServiceOrderType } from '@/shared/types/models'
-
-export const SERVICE_ORDER_TYPE_OPTIONS: Array<{ value: ServiceOrderType; label: string }> = [
-  { value: 'installation', label: 'Instalação' },
-  { value: 'maintenance', label: 'Manutenção' },
-  { value: 'removal', label: 'Retirada' },
-]
+import type { ServiceOrderPriority, ServiceOrderStatus } from '@/shared/types/models'
 
 export const SERVICE_ORDER_STATUS_OPTIONS: Array<{ value: ServiceOrderStatus; label: string }> = [
   { value: 'open', label: 'Aberta' },
@@ -56,7 +50,6 @@ const HISTORY_FIELD_LABELS: Record<string, string> = {
   status: 'Situação',
   items: 'Serviços',
   billing: 'Cobrança',
-  type: 'Tipo',
   priority: 'Prioridade',
   client_id: 'Cliente',
   vehicle_id: 'Veículo',
@@ -77,7 +70,7 @@ export function historyFieldLabel(field: string): string {
   return HISTORY_FIELD_LABELS[field] ?? field
 }
 
-/** Converte valores conhecidos (status, tipo, prioridade) para o rótulo em português. */
+/** Converte valores conhecidos (status, prioridade) para o rótulo em português. */
 export function historyValueLabel(value: string | null): string {
   if (!value || value.trim() === '') return '—'
 
@@ -85,7 +78,6 @@ export function historyValueLabel(value: string | null): string {
 
   return (
     SERVICE_ORDER_STATUS_OPTIONS.find((item) => item.value === trimmed)?.label ??
-    SERVICE_ORDER_TYPE_OPTIONS.find((item) => item.value === trimmed)?.label ??
     SERVICE_ORDER_PRIORITY_OPTIONS.find((item) => item.value === trimmed)?.label ??
     value
   )
@@ -102,10 +94,6 @@ export function isReadableHistoryValue(value: string | null): boolean {
 
 export function statusLabel(status: ServiceOrderStatus): string {
   return SERVICE_ORDER_STATUS_OPTIONS.find((item) => item.value === status)?.label ?? status
-}
-
-export function typeLabel(type: ServiceOrderType): string {
-  return SERVICE_ORDER_TYPE_OPTIONS.find((item) => item.value === type)?.label ?? type
 }
 
 export function priorityLabel(priority: ServiceOrderPriority): string {

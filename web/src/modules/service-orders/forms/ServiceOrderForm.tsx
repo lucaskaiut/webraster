@@ -36,7 +36,6 @@ import {
   SERVICE_ORDER_INITIAL_STATUSES,
   SERVICE_ORDER_PRIORITY_OPTIONS,
   SERVICE_ORDER_STATUS_TRANSITIONS,
-  SERVICE_ORDER_TYPE_OPTIONS,
   serviceOrderStatusOptions,
 } from '../lib/labels'
 
@@ -180,7 +179,6 @@ export function ServiceOrderForm({ mode, initial, submitting, onSubmit }: Servic
   const form = useForm<ServiceOrderFormValues>({
     resolver: zodResolver(serviceOrderSchema),
     defaultValues: {
-      type: initial?.type ?? 'installation',
       priority: initial?.priority ?? 'normal',
       status: initial?.status ?? 'open',
       client_id: initial?.client_id ?? '',
@@ -268,7 +266,6 @@ export function ServiceOrderForm({ mode, initial, submitting, onSubmit }: Servic
     setItemsError(null)
 
     const payload: ServiceOrderPayload = {
-      type: values.type,
       priority: values.priority,
       client_id: values.client_id,
       vehicle_id: values.vehicle_id || null,
@@ -303,12 +300,6 @@ export function ServiceOrderForm({ mode, initial, submitting, onSubmit }: Servic
         <Form form={form} onSubmit={handleSubmit} className="space-y-8">
           <Section title="Dados da OS">
             <div className="grid gap-4 sm:grid-cols-2">
-              <SelectField
-                name="type"
-                label="Tipo"
-                required
-                options={SERVICE_ORDER_TYPE_OPTIONS}
-              />
               <SelectField
                 name="priority"
                 label="Prioridade"

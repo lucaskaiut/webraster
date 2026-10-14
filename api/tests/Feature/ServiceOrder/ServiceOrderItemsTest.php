@@ -30,7 +30,6 @@ class ServiceOrderItemsTest extends TestCase
         Sanctum::actingAs($this->createAdmin($tenant));
 
         $this->postJson('/api/service-orders', [
-            'type' => 'installation',
             'client_id' => $client->uuid,
             'items' => [[
                 'service_id' => $service->uuid,
@@ -64,7 +63,6 @@ class ServiceOrderItemsTest extends TestCase
         Sanctum::actingAs($this->createAdmin($tenant));
 
         $this->postJson('/api/service-orders', [
-            'type' => 'maintenance',
             'client_id' => $client->uuid,
             'items' => [[
                 'service_id' => $foreignService->uuid,
@@ -125,7 +123,6 @@ class ServiceOrderItemsTest extends TestCase
         Sanctum::actingAs($admin);
 
         $orderId = $this->postJson('/api/service-orders', [
-            'type' => 'maintenance',
             'client_id' => $client->uuid,
             'items' => [[
                 'service_id' => $service->uuid,
@@ -267,7 +264,6 @@ class ServiceOrderItemsTest extends TestCase
         Sanctum::actingAs($this->createAdmin($tenant));
 
         $orderId = $this->postJson('/api/service-orders', [
-            'type' => 'installation',
             'client_id' => $client->uuid,
             'status' => 'in_progress',
         ])
@@ -309,7 +305,6 @@ class ServiceOrderItemsTest extends TestCase
         Sanctum::actingAs($this->createAdmin($tenant));
 
         $this->postJson('/api/service-orders', [
-            'type' => 'installation',
             'client_id' => $client->uuid,
             'status' => 'completed',
         ])->assertUnprocessable();

@@ -11,7 +11,6 @@ use App\Modules\Service\Models\Service;
 use App\Modules\ServiceOrder\Enums\ServiceOrderHistoryAction;
 use App\Modules\ServiceOrder\Enums\ServiceOrderPriority;
 use App\Modules\ServiceOrder\Enums\ServiceOrderStatus;
-use App\Modules\ServiceOrder\Enums\ServiceOrderType;
 use App\Modules\ServiceOrder\Models\ServiceOrder;
 use App\Modules\ServiceOrder\Models\ServiceOrderItem;
 use App\Modules\ServiceOrder\Models\ServiceOrderPhoto;
@@ -486,7 +485,7 @@ class ServiceOrderService
             });
         }
 
-        foreach (['status', 'type', 'priority'] as $field) {
+        foreach (['status', 'priority'] as $field) {
             if (! empty($filters[$field])) {
                 $query->where($field, $filters[$field]);
             }
@@ -516,7 +515,6 @@ class ServiceOrderService
     private function payload(array $data, ?ServiceOrder $existing = null): array
     {
         $payload = Arr::only($data, [
-            'type',
             'priority',
             'client_id',
             'vehicle_id',
@@ -528,12 +526,6 @@ class ServiceOrderService
             'notes',
             'execution_notes',
         ]);
-
-        if (isset($payload['type'])) {
-            $payload['type'] = ServiceOrderType::from((string) $payload['type']);
-        } elseif ($existing === null) {
-            throw ValidationException::withMessages(['type' => ['O tipo é obrigatório.']]);
-        }
 
         if (isset($payload['priority'])) {
             $payload['priority'] = ServiceOrderPriority::from((string) $payload['priority']);

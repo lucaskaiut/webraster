@@ -7,7 +7,6 @@ use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Service\Models\Service;
 use App\Modules\ServiceOrder\Enums\ServiceOrderPriority;
 use App\Modules\ServiceOrder\Enums\ServiceOrderStatus;
-use App\Modules\ServiceOrder\Enums\ServiceOrderType;
 use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Foundation\Http\FormRequest;
@@ -26,7 +25,6 @@ class UpdateServiceOrderRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'type' => ['sometimes', Rule::enum(ServiceOrderType::class)],
             'priority' => ['sometimes', Rule::enum(ServiceOrderPriority::class)],
             'status' => ['sometimes', Rule::enum(ServiceOrderStatus::class)],
             'client_id' => ['sometimes', 'integer', Rule::exists('clients', 'id')->whereNull('deleted_at')],

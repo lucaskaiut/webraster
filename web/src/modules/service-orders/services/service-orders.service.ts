@@ -8,12 +8,10 @@ import type {
   ServiceOrderPhoto,
   ServiceOrderPriority,
   ServiceOrderStatus,
-  ServiceOrderType,
 } from '@/shared/types/models'
 
 export interface ServiceOrderListParams extends ListParams {
   status?: ServiceOrderStatus | string
-  type?: ServiceOrderType | string
   priority?: ServiceOrderPriority | string
   client_id?: string
   vehicle_id?: string
@@ -29,7 +27,6 @@ export interface ServiceOrderItemPayload {
 }
 
 export interface ServiceOrderPayload {
-  type: ServiceOrderType | string
   priority?: ServiceOrderPriority | string
   status?: ServiceOrderStatus | string
   client_id: string

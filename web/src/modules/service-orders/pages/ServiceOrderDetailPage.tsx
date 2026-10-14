@@ -45,7 +45,6 @@ import {
   priorityLabel,
   statusBadgeVariant,
   statusLabel,
-  typeLabel,
 } from '../lib/labels'
 
 export default function ServiceOrderDetailPage() {
@@ -131,7 +130,7 @@ export default function ServiceOrderDetailPage() {
     <Page>
       <PageHeader
         title={order.code}
-        description={`${order.type_label ?? typeLabel(order.type)} · ${order.client?.name ?? '—'}`}
+        description={order.client?.name ?? '—'}
         breadcrumb={[
           { label: 'Ordens de serviço', to: '/service-orders' },
           { label: order.code },
@@ -162,7 +161,6 @@ export default function ServiceOrderDetailPage() {
           <CardHeader title="Informações gerais" />
           <CardContent className="space-y-3 text-sm">
             <Row label="Número" value={order.code} />
-            <Row label="Tipo" value={order.type_label ?? typeLabel(order.type)} />
             <Row
               label="Status"
               value={

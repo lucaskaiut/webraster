@@ -2,7 +2,6 @@ import type { ListParams } from '@/shared/types/api'
 
 type ServiceOrderQueryParams = ListParams & {
   status?: string
-  type?: string
   priority?: string
   client_id?: string
   vehicle_id?: string

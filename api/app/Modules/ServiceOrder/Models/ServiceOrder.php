@@ -7,7 +7,6 @@ use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Finance\Models\FinanceBilling;
 use App\Modules\ServiceOrder\Enums\ServiceOrderPriority;
 use App\Modules\ServiceOrder\Enums\ServiceOrderStatus;
-use App\Modules\ServiceOrder\Enums\ServiceOrderType;
 use App\Modules\Shared\Models\Concerns\HasUuid;
 use App\Modules\Tenant\Models\Concerns\BelongsToTenant;
 use App\Modules\User\Models\User;
@@ -31,7 +30,6 @@ class ServiceOrder extends Model
 
     protected $fillable = [
         'number',
-        'type',
         'status',
         'priority',
         'client_id',
@@ -54,7 +52,6 @@ class ServiceOrder extends Model
     protected function casts(): array
     {
         return [
-            'type' => ServiceOrderType::class,
             'status' => ServiceOrderStatus::class,
             'priority' => ServiceOrderPriority::class,
             'number' => 'integer',

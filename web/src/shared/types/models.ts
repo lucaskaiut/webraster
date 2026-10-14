@@ -845,7 +845,6 @@ export interface NotificationLog {
   deliveries: NotificationDelivery[]
 }
 
-export type ServiceOrderType = 'installation' | 'maintenance' | 'removal'
 export type ServiceOrderStatus = 'open' | 'in_progress' | 'completed' | 'cancelled'
 export type ServiceOrderPriority = 'low' | 'normal' | 'high' | 'urgent'
 
@@ -882,8 +881,6 @@ export interface ServiceOrder {
   id: string
   number: number
   code: string
-  type: ServiceOrderType
-  type_label?: string
   status: ServiceOrderStatus
   status_label?: string
   priority: ServiceOrderPriority

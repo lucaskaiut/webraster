@@ -3,7 +3,6 @@ import { parseLocalDateTime } from '@/shared/utils/date'
 
 export const serviceOrderSchema = z
   .object({
-    type: z.enum(['installation', 'maintenance', 'removal']),
     priority: z.enum(['low', 'normal', 'high', 'urgent']),
     status: z.enum(['open', 'in_progress', 'completed', 'cancelled']),
     client_id: z.string().min(1, 'Selecione o cliente'),

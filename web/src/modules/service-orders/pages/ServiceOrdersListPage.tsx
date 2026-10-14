@@ -29,10 +29,8 @@ import {
   priorityLabel,
   SERVICE_ORDER_PRIORITY_OPTIONS,
   SERVICE_ORDER_STATUS_OPTIONS,
-  SERVICE_ORDER_TYPE_OPTIONS,
   statusBadgeVariant,
   statusLabel,
-  typeLabel,
 } from '../lib/labels'
 
 const PER_PAGE = 10
@@ -43,7 +41,6 @@ export default function ServiceOrdersListPage() {
   const debouncedSearch = useDebounce(search)
   const page = Number(searchParams.get('page') ?? 1)
   const status = searchParams.get('status') ?? ''
-  const type = searchParams.get('type') ?? ''
   const priority = searchParams.get('priority') ?? ''
   const navigate = useNavigate()
   const { can } = usePermissions()
@@ -55,7 +52,6 @@ export default function ServiceOrdersListPage() {
     per_page: PER_PAGE,
     search: debouncedSearch || undefined,
     status: status || undefined,
-    type: type || undefined,
     priority: priority || undefined,
   })
 
@@ -79,11 +75,6 @@ export default function ServiceOrdersListPage() {
           {item.code}
         </Link>
       ),
-    },
-    {
-      key: 'type',
-      header: 'Tipo',
-      render: (item) => <span className="text-muted">{item.type_label ?? typeLabel(item.type)}</span>,
     },
     {
       key: 'client',
@@ -209,13 +200,6 @@ export default function ServiceOrdersListPage() {
             value={status}
             onChange={(event) => setFilter('status', event.target.value)}
             options={[{ value: '', label: 'Todos os status' }, ...SERVICE_ORDER_STATUS_OPTIONS]}
-          />
-          <Select
-            aria-label="Tipo"
-            className="w-44"
-            value={type}
-            onChange={(event) => setFilter('type', event.target.value)}
-            options={[{ value: '', label: 'Todos os tipos' }, ...SERVICE_ORDER_TYPE_OPTIONS]}
           />
           <Select
             aria-label="Prioridade"
