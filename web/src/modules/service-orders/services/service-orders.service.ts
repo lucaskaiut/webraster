@@ -1,9 +1,11 @@
 import { http } from '@/shared/api/http'
 import type { ApiResponse, ListParams, PaginatedResponse } from '@/shared/types/api'
 import type {
+  FinanceBilling,
   ServiceOrder,
   ServiceOrderHistory,
   ServiceOrderKanban,
+  ServiceOrderPhoto,
   ServiceOrderPriority,
   ServiceOrderStatus,
   ServiceOrderType,
@@ -20,9 +22,16 @@ export interface ServiceOrderListParams extends ListParams {
   to?: string
 }
 
+export interface ServiceOrderItemPayload {
+  service_id: string
+  quantity: number
+  unit_amount_cents: number
+}
+
 export interface ServiceOrderPayload {
   type: ServiceOrderType | string
   priority?: ServiceOrderPriority | string
+  status?: ServiceOrderStatus | string
   client_id: string
   vehicle_id?: string | null
   equipment_id?: string | null
@@ -32,6 +41,8 @@ export interface ServiceOrderPayload {
   description?: string | null
   notes?: string | null
   execution_notes?: string | null
+  cancellation_reason?: string | null
+  items?: ServiceOrderItemPayload[]
   ignore_schedule_conflict?: boolean
 }
 
@@ -93,5 +104,24 @@ export const serviceOrdersService = {
       `/service-orders/${id}/history`,
     )
     return response.data.data
+  },
+
+  async generateBilling(id: string, payload?: { due_at?: string | null }): Promise<FinanceBilling> {
+    const response = await http.post<ApiResponse<FinanceBilling>>(
+      `/service-orders/${id}/billing`,
+      payload ?? {},
+    )
+    return response.data.data
+  },
+
+  async addPhoto(id: string, path: string): Promise<ServiceOrderPhoto> {
+    const response = await http.post<ApiResponse<ServiceOrderPhoto>>(`/service-orders/${id}/photos`, {
+      path,
+    })
+    return response.data.data
+  },
+
+  async removePhoto(id: string, photoId: string): Promise<void> {
+    await http.delete(`/service-orders/${id}/photos/${photoId}`)
   },
 }

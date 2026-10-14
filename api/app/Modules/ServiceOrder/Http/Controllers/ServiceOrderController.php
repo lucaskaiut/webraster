@@ -4,13 +4,18 @@ namespace App\Modules\ServiceOrder\Http\Controllers;
 
 use App\Modules\Client\Models\Client;
 use App\Modules\Equipment\Models\Equipment;
+use App\Modules\Finance\Http\Resources\FinanceBillingResource;
 use App\Modules\ServiceOrder\Enums\ServiceOrderStatus;
 use App\Modules\ServiceOrder\Http\Requests\ChangeServiceOrderStatusRequest;
+use App\Modules\ServiceOrder\Http\Requests\GenerateServiceOrderBillingRequest;
+use App\Modules\ServiceOrder\Http\Requests\StoreServiceOrderPhotoRequest;
 use App\Modules\ServiceOrder\Http\Requests\StoreServiceOrderRequest;
 use App\Modules\ServiceOrder\Http\Requests\UpdateServiceOrderRequest;
 use App\Modules\ServiceOrder\Http\Resources\ServiceOrderHistoryResource;
+use App\Modules\ServiceOrder\Http\Resources\ServiceOrderPhotoResource;
 use App\Modules\ServiceOrder\Http\Resources\ServiceOrderResource;
 use App\Modules\ServiceOrder\Models\ServiceOrder;
+use App\Modules\ServiceOrder\Models\ServiceOrderPhoto;
 use App\Modules\ServiceOrder\Services\ServiceOrderService;
 use App\Modules\Shared\Http\Controllers\ApiController;
 use App\Modules\User\Models\User;
@@ -66,6 +71,9 @@ class ServiceOrderController extends ApiController
             'creator',
             'completer',
             'canceller',
+            'items.service',
+            'photos',
+            'billings',
             'histories.user',
         ]);
 
@@ -122,6 +130,37 @@ class ServiceOrderController extends ApiController
         $histories = $serviceOrder->histories()->with('user')->limit(100)->get();
 
         return $this->success(ServiceOrderHistoryResource::collection($histories));
+    }
+
+    public function generateBilling(GenerateServiceOrderBillingRequest $request, ServiceOrder $serviceOrder): JsonResponse
+    {
+        $this->authorize('generateBilling', $serviceOrder);
+
+        $billing = $this->service->generateBilling(
+            $serviceOrder,
+            $request->user(),
+            $request->validated('due_at'),
+        );
+
+        return $this->created(FinanceBillingResource::make($billing), 'Cobrança gerada.');
+    }
+
+    public function storePhoto(StoreServiceOrderPhotoRequest $request, ServiceOrder $serviceOrder): JsonResponse
+    {
+        $this->authorize('update', $serviceOrder);
+
+        $photo = $this->service->addPhoto($serviceOrder, $request->validated('path'));
+
+        return $this->created(ServiceOrderPhotoResource::make($photo), 'Foto adicionada.');
+    }
+
+    public function destroyPhoto(ServiceOrder $serviceOrder, ServiceOrderPhoto $photo): JsonResponse
+    {
+        $this->authorize('update', $serviceOrder);
+
+        $this->service->removePhoto($serviceOrder, $photo);
+
+        return $this->success(null, 'Foto removida.');
     }
 
     /**

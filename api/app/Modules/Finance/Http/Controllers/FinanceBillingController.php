@@ -49,7 +49,7 @@ class FinanceBillingController extends ApiController
 
         $this->lateFees->sync($financeBilling);
 
-        $financeBilling->load(['client', 'subscription.plan', 'events']);
+        $financeBilling->load(['client', 'subscription.plan', 'serviceOrder', 'events']);
 
         return $this->success(FinanceBillingResource::make($financeBilling));
     }

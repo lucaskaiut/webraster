@@ -860,6 +860,24 @@ export interface ServiceOrderHistory {
   created_at: string | null
 }
 
+export interface ServiceOrderItem {
+  id: string
+  service_id: string | null
+  name: string
+  quantity: number
+  unit_amount_cents: number
+  unit_amount?: string
+  total_cents: number
+  total?: string
+}
+
+export interface ServiceOrderPhoto {
+  id: string
+  url: string
+  path: string
+  sort_order: number
+}
+
 export interface ServiceOrder {
   id: string
   number: number
@@ -884,6 +902,11 @@ export interface ServiceOrder {
   notes: string | null
   execution_notes: string | null
   cancellation_reason: string | null
+  items?: ServiceOrderItem[]
+  items_total_cents?: number
+  items_total?: string
+  photos?: ServiceOrderPhoto[]
+  billing?: FinanceBilling | null
   created_by?: Pick<User, 'id' | 'name'> | null
   completed_by?: Pick<User, 'id' | 'name'> | null
   cancelled_by?: Pick<User, 'id' | 'name'> | null
@@ -1035,6 +1058,7 @@ export interface FinanceBilling {
   client_id: string | null
   client?: Pick<Client, 'id' | 'name'> | null
   subscription_id: string | null
+  service_order_id: string | null
   amount_cents: number
   amount: string
   discount_cents: number

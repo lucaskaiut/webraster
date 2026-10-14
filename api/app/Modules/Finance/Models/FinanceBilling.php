@@ -4,6 +4,7 @@ namespace App\Modules\Finance\Models;
 
 use App\Modules\Client\Models\Concerns\BelongsToClient;
 use App\Modules\Finance\Enums\PaymentMethod;
+use App\Modules\ServiceOrder\Models\ServiceOrder;
 use App\Modules\Shared\Models\Concerns\HasUuid;
 use App\Modules\Shared\Subscription\Enums\BillingStatus;
 use App\Modules\Tenant\Models\Concerns\BelongsToTenant;
@@ -29,6 +30,7 @@ class FinanceBilling extends Model
     protected $fillable = [
         'number',
         'subscription_id',
+        'service_order_id',
         'client_id',
         'status',
         'payment_method',
@@ -83,6 +85,11 @@ class FinanceBilling extends Model
     public function subscription(): BelongsTo
     {
         return $this->belongsTo(FinanceSubscription::class, 'subscription_id');
+    }
+
+    public function serviceOrder(): BelongsTo
+    {
+        return $this->belongsTo(ServiceOrder::class, 'service_order_id');
     }
 
     public function events(): HasMany

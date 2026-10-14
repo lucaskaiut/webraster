@@ -13,7 +13,13 @@ import { ChevronDown, type LucideIcon } from 'lucide-react'
 import { cn } from '@/shared/utils/cn'
 import { Tooltip } from './Tooltip'
 
-const SidebarContext = createContext(false)
+type SidebarContextValue = {
+  collapsed: boolean
+  /** Item aninhado em um grupo: recebe indentação para reforçar a hierarquia. */
+  nested: boolean
+}
+
+const SidebarContext = createContext<SidebarContextValue>({ collapsed: false, nested: false })
 
 export function Sidebar({
   header,
@@ -29,7 +35,7 @@ export function Sidebar({
   collapsed?: boolean
 }) {
   return (
-    <SidebarContext.Provider value={collapsed}>
+    <SidebarContext.Provider value={{ collapsed, nested: false }}>
       <aside
         className={cn(
           'flex h-full flex-col overflow-hidden bg-surface transition-[width] duration-200 ease-in-out motion-reduce:transition-none',
@@ -80,6 +86,9 @@ function matchesPath(currentPath: string, target: string): boolean {
  * Grupo de itens do menu. Com `collapsible`, o título funciona como um
  * accordion: as opções aparecem abaixo ao clicar e o grupo abre
  * automaticamente quando uma rota filha está ativa.
+ *
+ * Os itens filhos são indentados automaticamente para reforçar a
+ * hierarquia entre o menu e o submenu.
  */
 export function SidebarGroup({
   label,
@@ -94,7 +103,7 @@ export function SidebarGroup({
   collapsible?: boolean
   defaultOpen?: boolean
 }) {
-  const collapsed = useContext(SidebarContext)
+  const { collapsed } = useContext(SidebarContext)
   const location = useLocation()
   const paths = useMemo(() => collectPaths(children), [children])
   const hasActive = paths.some((path) => matchesPath(location.pathname, path))
@@ -126,7 +135,9 @@ export function SidebarGroup({
           {Icon && <Icon className="size-4 shrink-0 text-subtle" aria-hidden="true" />}
           <p className="text-[11px] font-semibold tracking-wider text-subtle uppercase">{label}</p>
         </div>
-        <div className="space-y-0.5">{children}</div>
+        <SidebarContext.Provider value={{ collapsed, nested: true }}>
+          <div className="space-y-0.5">{children}</div>
+        </SidebarContext.Provider>
       </div>
     )
   }
@@ -152,7 +163,11 @@ export function SidebarGroup({
           aria-hidden="true"
         />
       </button>
-      {open && <div className="mt-0.5 space-y-0.5">{children}</div>}
+      {open && (
+        <SidebarContext.Provider value={{ collapsed, nested: true }}>
+          <div className="mt-0.5 space-y-0.5">{children}</div>
+        </SidebarContext.Provider>
+      )}
     </div>
   )
 }
@@ -168,7 +183,7 @@ export function SidebarItem({
   label: string
   onNavigate?: () => void
 }) {
-  const collapsed = useContext(SidebarContext)
+  const { collapsed, nested } = useContext(SidebarContext)
 
   const link = (
     <NavLink
@@ -178,14 +193,16 @@ export function SidebarItem({
       className={({ isActive }) =>
         cn(
           'flex items-center rounded-lg text-sm transition-colors',
-          collapsed ? 'size-9 justify-center' : 'h-9 gap-3 px-3',
+          collapsed
+            ? 'size-9 justify-center'
+            : cn('h-9 gap-3 pr-3', nested ? 'pl-8' : 'pl-3'),
           isActive
             ? 'bg-primary-soft font-medium text-primary'
             : 'text-muted hover:bg-surface-2 hover:text-foreground',
         )
       }
     >
-      <Icon className="size-4.5 shrink-0" aria-hidden="true" />
+      <Icon className={cn('shrink-0', nested ? 'size-4' : 'size-4.5')} aria-hidden="true" />
       {!collapsed && <span className="truncate">{label}</span>}
     </NavLink>
   )

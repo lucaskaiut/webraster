@@ -2,21 +2,31 @@
 
 namespace App\Modules\ServiceOrder\Services;
 
+use App\Modules\ACL\Enums\Permission;
 use App\Modules\Client\Models\Client;
 use App\Modules\Equipment\Models\Equipment;
+use App\Modules\Finance\Models\FinanceBilling;
+use App\Modules\Finance\Services\FinanceBillingService;
+use App\Modules\Service\Models\Service;
 use App\Modules\ServiceOrder\Enums\ServiceOrderHistoryAction;
 use App\Modules\ServiceOrder\Enums\ServiceOrderPriority;
 use App\Modules\ServiceOrder\Enums\ServiceOrderStatus;
 use App\Modules\ServiceOrder\Enums\ServiceOrderType;
 use App\Modules\ServiceOrder\Models\ServiceOrder;
+use App\Modules\ServiceOrder\Models\ServiceOrderItem;
+use App\Modules\ServiceOrder\Models\ServiceOrderPhoto;
+use App\Modules\Shared\Subscription\Enums\BillingStatus;
 use App\Modules\Tenant\Support\Facades\TenantContext;
 use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Models\Vehicle;
 use Carbon\CarbonImmutable;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class ServiceOrderService
@@ -24,6 +34,7 @@ class ServiceOrderService
     public function __construct(
         private readonly ServiceOrderHistoryService $history,
         private readonly ServiceOrderNotificationService $notifications,
+        private readonly FinanceBillingService $billings,
     ) {}
 
     /**
@@ -97,19 +108,27 @@ class ServiceOrderService
         $this->assertRelations($payload);
         $this->assertScheduleConflict($payload, ignore: (bool) ($data['ignore_schedule_conflict'] ?? false));
 
-        $order = DB::transaction(function () use ($payload, $actor) {
+        $items = is_array($data['items'] ?? null) ? $data['items'] : [];
+
+        $order = DB::transaction(function () use ($payload, $items, $data, $actor) {
             $payload['number'] = $this->nextNumber();
-            $payload['status'] = ServiceOrderStatus::OPEN;
+            $payload['status'] = isset($data['status'])
+                ? ServiceOrderStatus::from((string) $data['status'])
+                : ServiceOrderStatus::OPEN;
             $payload['created_by'] = $actor->getKey();
 
             $order = ServiceOrder::query()->create($payload);
+
+            if ($items !== []) {
+                $this->syncItems($order, $items);
+            }
 
             $this->history->record($order, ServiceOrderHistoryAction::CREATED, $actor);
 
             return $order;
         });
 
-        $order->load(['client', 'vehicle', 'equipment', 'technician', 'creator']);
+        $order->load(['client', 'vehicle', 'equipment', 'technician', 'creator', 'items.service', 'photos', 'billings']);
 
         if ($order->technician_id) {
             $this->notifications->notifyAssigned($order);
@@ -132,6 +151,18 @@ class ServiceOrderService
         $payload = $this->payload($data, $order);
         $this->assertRelations($payload, $order);
         $this->assertScheduleConflict($payload, $order, (bool) ($data['ignore_schedule_conflict'] ?? false));
+
+        $nextStatus = isset($data['status'])
+            ? ServiceOrderStatus::from((string) $data['status'])
+            : null;
+
+        if (
+            $nextStatus !== null
+            && $nextStatus !== $order->status
+            && ! $actor->hasPermission(Permission::SERVICE_ORDER_CHANGE_STATUS)
+        ) {
+            throw new AuthorizationException('Você não tem permissão para alterar a situação da OS.');
+        }
 
         $changes = [];
         foreach ($payload as $field => $value) {
@@ -174,11 +205,44 @@ class ServiceOrderService
             );
         }
 
+        if (array_key_exists('items', $data)) {
+            $before = $order->items()->get()
+                ->map(fn (ServiceOrderItem $item) => $this->summarizeItem($item))
+                ->all();
+
+            $this->syncItems($order, is_array($data['items']) ? $data['items'] : []);
+
+            $after = $order->items()->get()
+                ->map(fn (ServiceOrderItem $item) => $this->summarizeItem($item))
+                ->all();
+
+            if ($before !== $after) {
+                $this->history->record(
+                    $order,
+                    ServiceOrderHistoryAction::SERVICES_CHANGED,
+                    $actor,
+                    'items',
+                    $before,
+                    $after,
+                );
+            }
+        }
+
+        if ($nextStatus !== null && $nextStatus !== $order->status) {
+            $this->applyStatusChange(
+                $order,
+                $nextStatus,
+                $actor,
+                $data['cancellation_reason'] ?? null,
+                $data['execution_notes'] ?? null,
+            );
+        }
+
         if (isset($changes['technician_id']) && $order->technician_id) {
             $this->notifications->notifyAssigned($order->fresh() ?? $order);
         }
 
-        return $order->refresh()->load(['client', 'vehicle', 'equipment', 'technician', 'creator']);
+        return $order->refresh()->load(['client', 'vehicle', 'equipment', 'technician', 'creator', 'items.service', 'photos', 'billings']);
     }
 
     public function changeStatus(
@@ -188,6 +252,18 @@ class ServiceOrderService
         ?string $cancellationReason = null,
         ?string $executionNotes = null,
     ): ServiceOrder {
+        $this->applyStatusChange($order, $next, $actor, $cancellationReason, $executionNotes);
+
+        return $order->refresh()->load(['client', 'vehicle', 'equipment', 'technician', 'creator', 'completer', 'canceller', 'items.service', 'photos', 'billings']);
+    }
+
+    private function applyStatusChange(
+        ServiceOrder $order,
+        ServiceOrderStatus $next,
+        User $actor,
+        ?string $cancellationReason = null,
+        ?string $executionNotes = null,
+    ): void {
         if (! $order->status->canTransitionTo($next)) {
             throw ValidationException::withMessages([
                 'status' => [sprintf(
@@ -246,8 +322,136 @@ class ServiceOrderService
             $previous->label(),
             $next->label(),
         );
+    }
 
-        return $order->refresh()->load(['client', 'vehicle', 'equipment', 'technician', 'creator', 'completer', 'canceller']);
+    /**
+     * Gera a cobrança do cliente a partir dos serviços realizados na OS.
+     */
+    public function generateBilling(ServiceOrder $order, User $actor, ?string $dueAt = null): FinanceBilling
+    {
+        $order->loadMissing('items');
+
+        if ($order->status === ServiceOrderStatus::CANCELLED) {
+            throw ValidationException::withMessages([
+                'status' => ['Não é possível gerar cobrança para uma OS cancelada.'],
+            ]);
+        }
+
+        if ($order->items->isEmpty()) {
+            throw ValidationException::withMessages([
+                'items' => ['Adicione ao menos um serviço realizado antes de gerar a cobrança.'],
+            ]);
+        }
+
+        $hasOpenBilling = $order->billings()
+            ->whereNotIn('status', [
+                BillingStatus::CANCELLED->value,
+                BillingStatus::REFUNDED->value,
+            ])
+            ->exists();
+
+        if ($hasOpenBilling) {
+            throw ValidationException::withMessages([
+                'billing' => ['Esta OS já possui uma cobrança em aberto.'],
+            ]);
+        }
+
+        $billing = $this->billings->generateForServiceOrder(
+            $order,
+            $dueAt !== null ? CarbonImmutable::parse($dueAt) : null,
+        );
+
+        $this->history->record(
+            $order,
+            ServiceOrderHistoryAction::BILLING_GENERATED,
+            $actor,
+            'billing',
+            null,
+            $billing->code,
+            ['billing_uuid' => $billing->uuid],
+        );
+
+        return $billing;
+    }
+
+    public function addPhoto(ServiceOrder $order, string $path): ServiceOrderPhoto
+    {
+        $this->assertPhotosMutable($order);
+
+        return $order->photos()->create([
+            'path' => $path,
+            'sort_order' => ((int) $order->photos()->max('sort_order')) + 1,
+        ]);
+    }
+
+    public function removePhoto(ServiceOrder $order, ServiceOrderPhoto $photo): void
+    {
+        $this->assertPhotosMutable($order);
+
+        if ((int) $photo->service_order_id !== (int) $order->getKey()) {
+            throw (new ModelNotFoundException)->setModel(ServiceOrderPhoto::class, [$photo->getKey()]);
+        }
+
+        Storage::disk('public')->delete($photo->path);
+        $photo->delete();
+    }
+
+    private function assertPhotosMutable(ServiceOrder $order): void
+    {
+        if ($order->status === ServiceOrderStatus::CANCELLED) {
+            throw ValidationException::withMessages([
+                'status' => ['Não é possível alterar as fotos de uma OS cancelada.'],
+            ]);
+        }
+    }
+
+    /**
+     * Substitui os itens da OS pelos enviados, mantendo o snapshot do
+     * nome e do valor do serviço no momento do lançamento.
+     *
+     * @param  list<array<string, mixed>>  $items
+     */
+    private function syncItems(ServiceOrder $order, array $items): void
+    {
+        $order->items()->delete();
+
+        $serviceIds = collect($items)->pluck('service_id')->filter()->unique()->values();
+
+        $services = $serviceIds->isEmpty()
+            ? collect()
+            : Service::query()->whereIn('id', $serviceIds)->get()->keyBy('id');
+
+        foreach (array_values($items) as $item) {
+            $service = $services->get((int) ($item['service_id'] ?? 0));
+
+            if ($service === null) {
+                throw ValidationException::withMessages([
+                    'items' => ['Serviço inválido na lista de serviços realizados.'],
+                ]);
+            }
+
+            $order->items()->create([
+                'service_id' => $service->getKey(),
+                'name' => $service->name,
+                'quantity' => max(1, (int) ($item['quantity'] ?? 1)),
+                'unit_amount_cents' => max(0, (int) ($item['unit_amount_cents'] ?? 0)),
+            ]);
+        }
+
+        $order->unsetRelation('items');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function summarizeItem(ServiceOrderItem $item): array
+    {
+        return [
+            'service_id' => $item->service_id,
+            'name' => $item->name,
+            'quantity' => $item->quantity,
+            'unit_amount_cents' => $item->unit_amount_cents,
+        ];
     }
 
     public function delete(ServiceOrder $order): void

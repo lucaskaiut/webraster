@@ -30,6 +30,7 @@ class FinanceBillingResource extends JsonResource
                 'name' => $this->client->name,
             ] : null),
             'subscription_id' => $this->subscription?->uuid,
+            'service_order_id' => $this->serviceOrder?->uuid,
             'amount_cents' => $this->amount_cents,
             'amount' => number_format($this->amount_cents / 100, 2, '.', ''),
             'discount_cents' => $this->discount_cents,

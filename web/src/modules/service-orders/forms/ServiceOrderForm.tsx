@@ -1,30 +1,43 @@
+import { useMemo, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Plus, Trash2 } from 'lucide-react'
 import {
   Button,
   ButtonLink,
   Card,
   CardContent,
   CheckboxField,
+  Field,
   Form,
+  Input,
+  SearchSelect,
   SearchSelectField,
   Section,
   SelectField,
   TextareaField,
   TextField,
+  type SearchSelectOption,
 } from '@/shared/design-system'
 import { isApiError } from '@/shared/api/errors'
 import { applyApiErrorsToForm } from '@/shared/utils/forms'
+import { formatCurrency } from '@/shared/utils/format'
+import { Permission } from '@/shared/constants/permissions'
+import { usePermissions } from '@/shared/hooks/usePermissions'
 import { clientsService } from '@/modules/clients/services/clients.service'
 import { vehiclesService } from '@/modules/vehicles/services/vehicles.service'
 import { equipmentsService } from '@/modules/equipments/services/equipments.service'
 import { usersService } from '@/modules/users/services/users.service'
+import { servicesService } from '@/modules/services/services/services.service'
 import type { ServiceOrder } from '@/shared/types/models'
-import type { ServiceOrderPayload } from '../services/service-orders.service'
+import type { ServiceOrderItemPayload, ServiceOrderPayload } from '../services/service-orders.service'
 import { serviceOrderSchema, type ServiceOrderFormValues } from '../schemas/service-order.schema'
 import {
+  SERVICE_ORDER_INITIAL_STATUSES,
   SERVICE_ORDER_PRIORITY_OPTIONS,
+  SERVICE_ORDER_STATUS_TRANSITIONS,
   SERVICE_ORDER_TYPE_OPTIONS,
+  serviceOrderStatusOptions,
 } from '../lib/labels'
 
 import { parseLocalDateTime, toLocalDateTimeValue } from '@/shared/utils/date'
@@ -41,6 +54,29 @@ function fromFormDateTime(value: string): string | null {
   const date = parseLocalDateTime(value)
   if (!date) return null
   return date.toISOString()
+}
+
+function reaisInputToCents(value: string): number {
+  const parsed = Number(value.replace(',', '.'))
+  return Number.isFinite(parsed) ? Math.round(parsed * 100) : 0
+}
+
+function centsToReaisInput(cents: number): string {
+  return (cents / 100).toFixed(2)
+}
+
+interface ServiceOption extends SearchSelectOption {
+  amount_cents: number
+}
+
+async function loadServiceOptions(search: string): Promise<ServiceOption[]> {
+  const response = await servicesService.list({ search: search || undefined, per_page: 20 })
+  return response.data.map((service) => ({
+    value: service.id,
+    label: service.name,
+    description: formatCurrency(service.amount_cents / 100),
+    amount_cents: service.amount_cents,
+  }))
 }
 
 async function loadClientOptions(search: string) {
@@ -109,6 +145,27 @@ async function resolveTechnicianLabel(value: string) {
   }
 }
 
+interface FormItemRow {
+  key: string
+  service_id: string
+  name: string
+  quantity: string
+  amount: string
+  /** Serviço excluído do catálogo: mantém o histórico visual, mas sai no próximo salvamento. */
+  missing?: boolean
+}
+
+function rowFromOrderItem(item: NonNullable<ServiceOrder['items']>[number]): FormItemRow {
+  return {
+    key: item.id,
+    service_id: item.service_id ?? '',
+    name: item.name,
+    quantity: String(item.quantity),
+    amount: centsToReaisInput(item.unit_amount_cents),
+    missing: !item.service_id,
+  }
+}
+
 interface ServiceOrderFormProps {
   mode: 'create' | 'edit'
   initial?: ServiceOrder | null
@@ -117,11 +174,15 @@ interface ServiceOrderFormProps {
 }
 
 export function ServiceOrderForm({ mode, initial, submitting, onSubmit }: ServiceOrderFormProps) {
+  const { can } = usePermissions()
+  const canChangeStatus = can(Permission.SERVICE_ORDER_CHANGE_STATUS)
+
   const form = useForm<ServiceOrderFormValues>({
     resolver: zodResolver(serviceOrderSchema),
     defaultValues: {
       type: initial?.type ?? 'installation',
       priority: initial?.priority ?? 'normal',
+      status: initial?.status ?? 'open',
       client_id: initial?.client_id ?? '',
       vehicle_id: initial?.vehicle_id ?? '',
       equipment_id: initial?.equipment_id ?? '',
@@ -130,13 +191,82 @@ export function ServiceOrderForm({ mode, initial, submitting, onSubmit }: Servic
       scheduled_end_at: toFormDateTime(initial?.scheduled_end_at),
       description: initial?.description ?? '',
       notes: initial?.notes ?? '',
+      cancellation_reason: initial?.cancellation_reason ?? '',
       ignore_schedule_conflict: false,
     },
   })
 
   const clientId = useWatch({ control: form.control, name: 'client_id' })
+  const statusValue = useWatch({ control: form.control, name: 'status' })
+
+  const [items, setItems] = useState<FormItemRow[]>(() => (initial?.items ?? []).map(rowFromOrderItem))
+  const [itemsError, setItemsError] = useState<string | null>(null)
+
+  const showStatusField = mode === 'create' || canChangeStatus
+
+  const statusOptions = useMemo(() => {
+    if (mode === 'create') {
+      return serviceOrderStatusOptions(SERVICE_ORDER_INITIAL_STATUSES)
+    }
+
+    return serviceOrderStatusOptions(SERVICE_ORDER_STATUS_TRANSITIONS[initial?.status ?? 'open'])
+  }, [mode, initial])
+
+  const itemsTotalCents = items.reduce((total, item) => {
+    if (item.missing) return total
+    const quantity = Math.max(0, Math.floor(Number(item.quantity) || 0))
+    return total + reaisInputToCents(item.amount) * quantity
+  }, 0)
+
+  const updateItem = (key: string, patch: Partial<FormItemRow>) => {
+    setItems((current) => current.map((item) => (item.key === key ? { ...item, ...patch } : item)))
+  }
+
+  const addItem = () => {
+    setItems((current) => [
+      ...current,
+      {
+        key: `new-${crypto.randomUUID()}`,
+        service_id: '',
+        name: '',
+        quantity: '1',
+        amount: '0.00',
+      },
+    ])
+  }
+
+  const removeItem = (key: string) => {
+    setItems((current) => current.filter((item) => item.key !== key))
+  }
 
   const handleSubmit = async (values: ServiceOrderFormValues) => {
+    const itemsPayload: ServiceOrderItemPayload[] = []
+
+    for (const item of items) {
+      if (item.missing) {
+        continue
+      }
+
+      if (!item.service_id) {
+        setItemsError('Selecione o serviço em todas as linhas ou remova as linhas vazias.')
+        return
+      }
+
+      const quantity = Math.floor(Number(item.quantity))
+      if (!Number.isFinite(quantity) || quantity < 1) {
+        setItemsError('Informe uma quantidade válida (mínimo 1) nos serviços realizados.')
+        return
+      }
+
+      itemsPayload.push({
+        service_id: item.service_id,
+        quantity,
+        unit_amount_cents: reaisInputToCents(item.amount),
+      })
+    }
+
+    setItemsError(null)
+
     const payload: ServiceOrderPayload = {
       type: values.type,
       priority: values.priority,
@@ -148,7 +278,14 @@ export function ServiceOrderForm({ mode, initial, submitting, onSubmit }: Servic
       scheduled_end_at: fromFormDateTime(values.scheduled_end_at ?? ''),
       description: values.description || null,
       notes: values.notes || null,
+      items: itemsPayload,
       ignore_schedule_conflict: values.ignore_schedule_conflict ?? false,
+    }
+
+    if (showStatusField) {
+      payload.status = values.status
+      payload.cancellation_reason =
+        values.status === 'cancelled' ? values.cancellation_reason || null : null
     }
 
     try {
@@ -178,6 +315,29 @@ export function ServiceOrderForm({ mode, initial, submitting, onSubmit }: Servic
                 required
                 options={SERVICE_ORDER_PRIORITY_OPTIONS}
               />
+              {showStatusField && (
+                <SelectField
+                  name="status"
+                  label="Situação"
+                  required
+                  className="sm:col-span-2"
+                  options={statusOptions}
+                  hint={
+                    mode === 'edit'
+                      ? 'A situação no kanban é atualizada conforme o fluxo permitido.'
+                      : 'A OS entra direto no fluxo com a situação escolhida.'
+                  }
+                />
+              )}
+              {showStatusField && statusValue === 'cancelled' && (
+                <TextareaField
+                  name="cancellation_reason"
+                  label="Motivo do cancelamento"
+                  required
+                  className="sm:col-span-2"
+                  placeholder="Descreva o motivo do cancelamento"
+                />
+              )}
               <SearchSelectField
                 name="client_id"
                 label="Cliente"
@@ -219,6 +379,122 @@ export function ServiceOrderForm({ mode, initial, submitting, onSubmit }: Servic
                 resolveLabel={resolveTechnicianLabel}
               />
             </div>
+          </Section>
+
+          <Section
+            title="Serviços realizados"
+            description="Selecione os serviços do catálogo e ajuste quantidade e valor. A cobrança do cliente é gerada depois, na tela da OS."
+          >
+            {items.length === 0 ? (
+              <p className="text-sm text-muted">Nenhum serviço lançado.</p>
+            ) : (
+              <div className="space-y-3">
+                {items.map((item) => {
+                  const quantity = Math.max(0, Math.floor(Number(item.quantity) || 0))
+                  const lineTotalCents = item.missing
+                    ? 0
+                    : reaisInputToCents(item.amount) * quantity
+
+                  return (
+                    <div key={item.key} className="space-y-3 rounded-xl bg-surface-2/60 p-3">
+                      <div className="grid gap-3 sm:grid-cols-12 sm:items-end">
+                        <SearchSelect
+                          className="sm:col-span-6"
+                          label="Serviço"
+                          required
+                          value={item.service_id}
+                          disabled={item.missing}
+                          placeholder="Buscar serviço..."
+                          emptyMessage="Nenhum serviço encontrado"
+                          loadOptions={loadServiceOptions}
+                          defaultOption={
+                            item.service_id ? { value: item.service_id, label: item.name } : null
+                          }
+                          onChange={(value, option) => {
+                            const service = option as ServiceOption | undefined
+                            updateItem(item.key, {
+                              service_id: value,
+                              name: service?.label ?? item.name,
+                              amount: service
+                                ? centsToReaisInput(service.amount_cents)
+                                : item.amount,
+                            })
+                          }}
+                        />
+                        <Field label="Qtd." className="sm:col-span-2">
+                          <Input
+                            type="number"
+                            min={1}
+                            step={1}
+                            value={item.quantity}
+                            aria-label="Quantidade"
+                            onChange={(event) =>
+                              updateItem(item.key, { quantity: event.target.value })
+                            }
+                          />
+                        </Field>
+                        <Field label="Valor unit. (R$)" className="sm:col-span-3">
+                          <Input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={item.amount}
+                            aria-label="Valor unitário"
+                            onChange={(event) =>
+                              updateItem(item.key, { amount: event.target.value })
+                            }
+                          />
+                        </Field>
+                        <div className="flex justify-end sm:col-span-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeItem(item.key)}
+                            aria-label={`Remover ${item.name || 'serviço'}`}
+                            className="text-danger hover:bg-danger-soft hover:text-danger"
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        {item.missing && (
+                          <p className="text-xs text-warning">
+                            Serviço removido do catálogo; será excluído ao salvar.
+                          </p>
+                        )}
+                        <p className="ml-auto text-xs text-muted">
+                          Total da linha:{' '}
+                          <span className="font-medium text-foreground">
+                            {formatCurrency(lineTotalCents / 100)}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <Button type="button" variant="secondary" onClick={addItem}>
+                <Plus className="size-4" />
+                Adicionar serviço
+              </Button>
+              <p className="text-sm text-muted">
+                Total dos serviços:{' '}
+                <span className="text-base font-semibold text-foreground">
+                  {formatCurrency(itemsTotalCents / 100)}
+                </span>
+              </p>
+            </div>
+
+            {itemsError && (
+              <p className="text-[13px] text-danger" role="alert">
+                {itemsError}
+              </p>
+            )}
           </Section>
 
           <Section title="Agendamento">

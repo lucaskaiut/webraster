@@ -48,6 +48,12 @@ class ServiceOrderPolicy
             && $user->hasPermission(Permission::SERVICE_ORDER_CHANGE_STATUS);
     }
 
+    public function generateBilling(User $user, ServiceOrder $order): bool
+    {
+        return $this->view($user, $order)
+            && $user->hasPermission(Permission::FINANCE_BILLING_CREATE);
+    }
+
     private function sameTenant(ServiceOrder $order): bool
     {
         return TenantAuthorization::matchesCurrentTenant((int) $order->tenant_id);

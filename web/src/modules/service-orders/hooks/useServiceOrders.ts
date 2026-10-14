@@ -99,3 +99,51 @@ export function useChangeServiceOrderStatus() {
     },
   })
 }
+
+export function useGenerateServiceOrderBilling() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string
+      payload?: { due_at?: string | null }
+    }) => serviceOrdersService.generateBilling(id, payload),
+    onSuccess: () => {
+      invalidateAll(queryClient)
+      queryClient.invalidateQueries({ queryKey: queryKeys.finance.billings.all })
+      toast.success('Cobrança gerada')
+    },
+    onError: (error) => {
+      if (isApiError(error)) {
+        const msg =
+          error.fieldErrors?.items?.[0] ??
+          error.fieldErrors?.billing?.[0] ??
+          error.fieldErrors?.status?.[0] ??
+          error.message
+        toast.error(msg)
+      }
+    },
+  })
+}
+
+export function useAddServiceOrderPhoto(id: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (path: string) => serviceOrdersService.addPhoto(id, path),
+    onSuccess: () => {
+      invalidateAll(queryClient)
+    },
+  })
+}
+
+export function useRemoveServiceOrderPhoto(id: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (photoId: string) => serviceOrdersService.removePhoto(id, photoId),
+    onSuccess: () => {
+      invalidateAll(queryClient)
+    },
+  })
+}

@@ -10,6 +10,7 @@ use App\Modules\Finance\Events\InvoicePaid;
 use App\Modules\Finance\Models\FinanceBilling;
 use App\Modules\Finance\Models\FinanceBillingEvent;
 use App\Modules\Finance\Models\FinanceSubscription;
+use App\Modules\ServiceOrder\Models\ServiceOrder;
 use App\Modules\Shared\Subscription\Enums\BillingPeriodicity;
 use App\Modules\Shared\Subscription\Enums\BillingStatus;
 use App\Modules\Shared\Subscription\Support\NextBillingDate;
@@ -17,9 +18,11 @@ use App\Modules\Tenant\Support\Facades\TenantContext;
 use App\Modules\User\Models\User;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class FinanceBillingService
@@ -35,7 +38,7 @@ class FinanceBillingService
     public function paginate(int $perPage = 15, array $filters = []): LengthAwarePaginator
     {
         return $this->filteredQuery($filters)
-            ->with(['client', 'subscription.plan'])
+            ->with(['client', 'subscription.plan', 'serviceOrder'])
             ->orderByDesc('due_at')
             ->orderByDesc('id')
             ->paginate(min(max($perPage, 1), 100));
@@ -77,6 +80,51 @@ class FinanceBillingService
         event(new InvoiceCreated($billing));
 
         return $billing->load(['client', 'subscription.plan']);
+    }
+
+    /**
+     * Gera uma cobrança avulsa a partir dos serviços realizados em uma OS.
+     */
+    public function generateForServiceOrder(ServiceOrder $order, ?CarbonInterface $dueDate = null): FinanceBilling
+    {
+        $order->loadMissing(['items', 'client']);
+
+        $amount = $order->itemsTotalCents();
+        $due = $dueDate
+            ? CarbonImmutable::parse($dueDate)->startOfDay()
+            : CarbonImmutable::parse(now()->toDateString());
+
+        $summary = $order->items
+            ->map(fn ($item) => $item->quantity > 1 ? "{$item->name} x{$item->quantity}" : $item->name)
+            ->implode(', ');
+
+        $billing = DB::transaction(function () use ($order, $amount, $due, $summary) {
+            $billing = FinanceBilling::query()->create([
+                'number' => $this->nextNumber((int) ($order->tenant_id ?: TenantContext::tenantId())),
+                'subscription_id' => null,
+                'service_order_id' => $order->getKey(),
+                'client_id' => $order->client_id,
+                'status' => BillingStatus::PENDING,
+                'amount_cents' => $amount,
+                'discount_cents' => 0,
+                'fine_cents' => 0,
+                'interest_cents' => 0,
+                'due_at' => $due->toDateString(),
+                'description' => sprintf(
+                    '%s — %s',
+                    $order->code,
+                    $summary !== '' ? Str::limit($summary, 180) : 'Serviços realizados',
+                ),
+            ]);
+
+            $this->recordEvent($billing, 'created', null, BillingStatus::PENDING);
+
+            return $billing;
+        });
+
+        event(new InvoiceCreated($billing));
+
+        return $billing->load(['client', 'serviceOrder']);
     }
 
     /**

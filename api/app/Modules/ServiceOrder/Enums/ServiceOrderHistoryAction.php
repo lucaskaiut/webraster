@@ -9,6 +9,8 @@ enum ServiceOrderHistoryAction: string
     case STATUS_CHANGED = 'status_changed';
     case TECHNICIAN_CHANGED = 'technician_changed';
     case SCHEDULE_CHANGED = 'schedule_changed';
+    case SERVICES_CHANGED = 'services_changed';
     case COMPLETED = 'completed';
     case CANCELLED = 'cancelled';
+    case BILLING_GENERATED = 'billing_generated';
 }

@@ -4,6 +4,7 @@ namespace App\Modules\ServiceOrder\Models;
 
 use App\Modules\Client\Models\Concerns\BelongsToClient;
 use App\Modules\Equipment\Models\Equipment;
+use App\Modules\Finance\Models\FinanceBilling;
 use App\Modules\ServiceOrder\Enums\ServiceOrderPriority;
 use App\Modules\ServiceOrder\Enums\ServiceOrderStatus;
 use App\Modules\ServiceOrder\Enums\ServiceOrderType;
@@ -22,6 +23,7 @@ class ServiceOrder extends Model
 {
     /** @use HasFactory<ServiceOrderFactory> */
     use BelongsToClient;
+
     use BelongsToTenant;
     use HasFactory;
     use HasUuid;
@@ -101,6 +103,26 @@ class ServiceOrder extends Model
     public function histories(): HasMany
     {
         return $this->hasMany(ServiceOrderHistory::class)->orderByDesc('created_at');
+    }
+
+    public function items(): HasMany
+    {
+        return $this->hasMany(ServiceOrderItem::class)->orderBy('id');
+    }
+
+    public function photos(): HasMany
+    {
+        return $this->hasMany(ServiceOrderPhoto::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    public function billings(): HasMany
+    {
+        return $this->hasMany(FinanceBilling::class, 'service_order_id')->orderByDesc('id');
+    }
+
+    public function itemsTotalCents(): int
+    {
+        return (int) $this->items->sum(fn (ServiceOrderItem $item) => $item->totalCents());
     }
 
     protected static function newFactory(): ServiceOrderFactory

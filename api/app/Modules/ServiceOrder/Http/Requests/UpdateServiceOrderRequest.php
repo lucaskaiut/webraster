@@ -4,7 +4,9 @@ namespace App\Modules\ServiceOrder\Http\Requests;
 
 use App\Modules\Client\Models\Client;
 use App\Modules\Equipment\Models\Equipment;
+use App\Modules\Service\Models\Service;
 use App\Modules\ServiceOrder\Enums\ServiceOrderPriority;
+use App\Modules\ServiceOrder\Enums\ServiceOrderStatus;
 use App\Modules\ServiceOrder\Enums\ServiceOrderType;
 use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Models\Vehicle;
@@ -26,6 +28,7 @@ class UpdateServiceOrderRequest extends FormRequest
         return [
             'type' => ['sometimes', Rule::enum(ServiceOrderType::class)],
             'priority' => ['sometimes', Rule::enum(ServiceOrderPriority::class)],
+            'status' => ['sometimes', Rule::enum(ServiceOrderStatus::class)],
             'client_id' => ['sometimes', 'integer', Rule::exists('clients', 'id')->whereNull('deleted_at')],
             'vehicle_id' => ['nullable', 'integer', Rule::exists('vehicles', 'id')->whereNull('deleted_at')],
             'equipment_id' => ['nullable', 'integer', Rule::exists('equipments', 'id')->whereNull('deleted_at')],
@@ -35,6 +38,11 @@ class UpdateServiceOrderRequest extends FormRequest
             'description' => ['nullable', 'string', 'max:5000'],
             'notes' => ['nullable', 'string', 'max:5000'],
             'execution_notes' => ['nullable', 'string', 'max:5000'],
+            'cancellation_reason' => ['nullable', 'string', 'max:2000'],
+            'items' => ['sometimes', 'array', 'max:50'],
+            'items.*.service_id' => ['required', 'integer', Rule::exists('services', 'id')->whereNull('deleted_at')],
+            'items.*.quantity' => ['sometimes', 'integer', 'min:1', 'max:9999'],
+            'items.*.unit_amount_cents' => ['required', 'integer', 'min:0', 'max:99999999'],
             'ignore_schedule_conflict' => ['sometimes', 'boolean'],
         ];
     }
@@ -63,6 +71,20 @@ class UpdateServiceOrderRequest extends FormRequest
             if ($this->has($field) && $this->input($field) === '') {
                 $input[$field] = null;
             }
+        }
+
+        $items = $this->input('items');
+
+        if (is_array($items)) {
+            foreach ($items as $index => $item) {
+                if (is_array($item) && isset($item['service_id']) && ! is_numeric($item['service_id'])) {
+                    $items[$index]['service_id'] = Service::query()
+                        ->where('uuid', $item['service_id'])
+                        ->value('id');
+                }
+            }
+
+            $input['items'] = $items;
         }
 
         if ($input !== []) {
