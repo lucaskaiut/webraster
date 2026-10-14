@@ -9,6 +9,7 @@ import { ClientUsersSection } from '../components/ClientUsersSection'
 import { ClientVehiclesSection } from '../components/ClientVehiclesSection'
 import { ClientOrderSection } from '../components/ClientOrderSection'
 import { ClientContractSection } from '../components/ClientContractSection'
+import { ClientServiceOrderSection } from '../components/ClientServiceOrderSection'
 import { ClientWizardStepper, type ClientWizardStep } from '../components/ClientWizardStepper'
 import { useClientQuery, useCreateClient, useUpdateClient } from '../hooks/useClients'
 
@@ -39,7 +40,7 @@ export default function ClientCreatePage() {
   const { can } = usePermissions()
 
   const rawStep = Number(searchParams.get('step') ?? 0)
-  const step = (Number.isFinite(rawStep) ? Math.min(Math.max(rawStep, 0), 5) : 0) as ClientWizardStep
+  const step = (Number.isFinite(rawStep) ? Math.min(Math.max(rawStep, 0), 6) : 0) as ClientWizardStep
   const clientId = searchParams.get('id')
 
   const clientQuery = useClientQuery(clientId ?? undefined)
@@ -78,7 +79,7 @@ export default function ClientCreatePage() {
     <Page>
       <PageHeader
         title="Novo cliente"
-        description="Cadastre o cliente em etapas: dados, endereço, usuários, veículos e pedido."
+        description="Cadastre o cliente em etapas: dados, endereço, usuários, veículos, pedido, contrato e OS de instalação."
         breadcrumb={[
           { label: 'Dashboard', to: '/dashboard' },
           { label: 'Clientes', to: '/clients' },
@@ -160,8 +161,37 @@ export default function ClientCreatePage() {
               <Button type="button" variant="secondary" onClick={() => goTo(4)}>
                 Voltar
               </Button>
-              <Button type="button" onClick={finish}>
-                Concluir cadastro
+              <Button type="button" onClick={() => goTo(6)}>
+                Continuar
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {step === 6 && clientId && (
+          <div className="space-y-4">
+            {can(Permission.SERVICE_ORDER_CREATE) ? (
+              <ClientServiceOrderSection
+                clientId={clientId}
+                onBack={() => goTo(5)}
+                onCreated={finish}
+              />
+            ) : (
+              <>
+                <p className="text-sm text-muted">
+                  Você não possui permissão para criar ordens de serviço. Conclua o cadastro e peça
+                  a um responsável para agendar a instalação.
+                </p>
+                <div>
+                  <Button type="button" variant="secondary" onClick={() => goTo(5)}>
+                    Voltar
+                  </Button>
+                </div>
+              </>
+            )}
+            <div className="flex justify-end">
+              <Button type="button" variant="secondary" onClick={finish}>
+                Concluir sem OS
               </Button>
             </div>
           </div>

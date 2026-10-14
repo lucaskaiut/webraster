@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus, Trash2 } from 'lucide-react'
@@ -165,14 +165,48 @@ function rowFromOrderItem(item: NonNullable<ServiceOrder['items']>[number]): For
   }
 }
 
+export interface ServiceOrderFormDefaultItem {
+  service_id: string
+  name: string
+  quantity: number
+  unit_amount_cents: number
+}
+
+export interface ServiceOrderFormDefaults {
+  client_id?: string
+  vehicle_id?: string
+  description?: string
+  items?: ServiceOrderFormDefaultItem[]
+}
+
 interface ServiceOrderFormProps {
   mode: 'create' | 'edit'
   initial?: ServiceOrder | null
+  /** Valores sugeridos ao criar uma OS (ignorados quando `initial` é informado). */
+  defaults?: ServiceOrderFormDefaults
+  lockClient?: boolean
   submitting: boolean
+  submitLabel?: string
+  cancelLabel?: string
+  /** Sem `onCancel`, o botão de cancelar volta para a lista de OS. */
+  onCancel?: () => void
+  /** Conteúdo extra exibido acima dos botões de ação. */
+  footer?: ReactNode
   onSubmit: (payload: ServiceOrderPayload) => Promise<unknown>
 }
 
-export function ServiceOrderForm({ mode, initial, submitting, onSubmit }: ServiceOrderFormProps) {
+export function ServiceOrderForm({
+  mode,
+  initial,
+  defaults,
+  lockClient = false,
+  submitting,
+  submitLabel,
+  cancelLabel = 'Cancelar',
+  onCancel,
+  footer,
+  onSubmit,
+}: ServiceOrderFormProps) {
   const { can } = usePermissions()
   const canChangeStatus = can(Permission.SERVICE_ORDER_CHANGE_STATUS)
 
@@ -181,13 +215,13 @@ export function ServiceOrderForm({ mode, initial, submitting, onSubmit }: Servic
     defaultValues: {
       priority: initial?.priority ?? 'normal',
       status: initial?.status ?? 'open',
-      client_id: initial?.client_id ?? '',
-      vehicle_id: initial?.vehicle_id ?? '',
+      client_id: initial?.client_id ?? defaults?.client_id ?? '',
+      vehicle_id: initial?.vehicle_id ?? defaults?.vehicle_id ?? '',
       equipment_id: initial?.equipment_id ?? '',
       technician_id: initial?.technician_id ?? '',
       scheduled_start_at: toFormDateTime(initial?.scheduled_start_at),
       scheduled_end_at: toFormDateTime(initial?.scheduled_end_at),
-      description: initial?.description ?? '',
+      description: initial?.description ?? defaults?.description ?? '',
       notes: initial?.notes ?? '',
       cancellation_reason: initial?.cancellation_reason ?? '',
       ignore_schedule_conflict: false,
@@ -197,7 +231,19 @@ export function ServiceOrderForm({ mode, initial, submitting, onSubmit }: Servic
   const clientId = useWatch({ control: form.control, name: 'client_id' })
   const statusValue = useWatch({ control: form.control, name: 'status' })
 
-  const [items, setItems] = useState<FormItemRow[]>(() => (initial?.items ?? []).map(rowFromOrderItem))
+  const [items, setItems] = useState<FormItemRow[]>(() => {
+    if (initial) {
+      return (initial.items ?? []).map(rowFromOrderItem)
+    }
+
+    return (defaults?.items ?? []).map((item) => ({
+      key: `new-${crypto.randomUUID()}`,
+      service_id: item.service_id,
+      name: item.name,
+      quantity: String(item.quantity),
+      amount: centsToReaisInput(item.unit_amount_cents),
+    }))
+  })
   const [itemsError, setItemsError] = useState<string | null>(null)
 
   const showStatusField = mode === 'create' || canChangeStatus
@@ -334,6 +380,7 @@ export function ServiceOrderForm({ mode, initial, submitting, onSubmit }: Servic
                 label="Cliente"
                 required
                 className="sm:col-span-2"
+                disabled={lockClient}
                 placeholder="Buscar cliente..."
                 emptyMessage="Nenhum cliente encontrado"
                 loadOptions={loadClientOptions}
@@ -507,12 +554,20 @@ export function ServiceOrderForm({ mode, initial, submitting, onSubmit }: Servic
             </div>
           </Section>
 
+          {footer}
+
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <ButtonLink to="/service-orders" variant="secondary">
-              Cancelar
-            </ButtonLink>
+            {onCancel ? (
+              <Button type="button" variant="secondary" onClick={onCancel}>
+                {cancelLabel}
+              </Button>
+            ) : (
+              <ButtonLink to="/service-orders" variant="secondary">
+                {cancelLabel}
+              </ButtonLink>
+            )}
             <Button type="submit" loading={submitting}>
-              {mode === 'create' ? 'Criar OS' : 'Salvar alterações'}
+              {submitLabel ?? (mode === 'create' ? 'Criar OS' : 'Salvar alterações')}
             </Button>
           </div>
         </Form>

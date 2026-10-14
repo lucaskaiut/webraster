@@ -92,6 +92,61 @@ class ServiceCrudTest extends TestCase
         $this->assertSoftDeleted('services', ['id' => $service->getKey()]);
     }
 
+    public function test_links_other_services(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $installation = Service::factory()->forTenant($tenant)->create(['name' => 'Instalação']);
+        $removal = Service::factory()->forTenant($tenant)->create(['name' => 'Retirada']);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $id = $this->postJson('/api/services', [
+            'name' => 'Rastreamento mensal',
+            'amount_cents' => 5000,
+            'linked_service_ids' => [$installation->uuid],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.linked_services.0.id', $installation->uuid)
+            ->json('data.id');
+
+        $this->putJson("/api/services/{$id}", [
+            'linked_service_ids' => [$removal->uuid, $installation->uuid],
+        ])
+            ->assertOk()
+            ->assertJsonCount(2, 'data.linked_services')
+            ->assertJsonPath('data.linked_services.0.name', 'Instalação');
+
+        $this->getJson('/api/services?search=Rastreamento')
+            ->assertOk()
+            ->assertJsonCount(2, 'data.0.linked_services');
+
+        $this->putJson("/api/services/{$id}", ['linked_service_ids' => []])
+            ->assertOk()
+            ->assertJsonCount(0, 'data.linked_services');
+    }
+
+    public function test_rejects_invalid_linked_services(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        [, $otherTenant] = $this->createOperationalChild();
+        $service = Service::factory()->forTenant($tenant)->create();
+        $foreign = Service::factory()->forTenant($otherTenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/services/{$service->uuid}", [
+            'linked_service_ids' => [$service->uuid],
+        ])->assertUnprocessable()->assertJsonValidationErrors('linked_service_ids.0');
+
+        $this->putJson("/api/services/{$service->uuid}", [
+            'linked_service_ids' => [$foreign->uuid],
+        ])->assertUnprocessable()->assertJsonValidationErrors('linked_service_ids.0');
+
+        $this->putJson("/api/services/{$service->uuid}", [
+            'linked_service_ids' => [$foreign->getKey()],
+        ])->assertUnprocessable()->assertJsonValidationErrors('linked_service_ids.0');
+    }
+
     public function test_forbids_create_without_permission(): void
     {
         [, $tenant] = $this->createOperationalChild();

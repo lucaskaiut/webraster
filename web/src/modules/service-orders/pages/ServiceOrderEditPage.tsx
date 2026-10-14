@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from 'react-router'
 import { Loading, Page, PageContent, PageHeader } from '@/shared/design-system'
-import { ServiceOrderForm } from '../forms/ServiceOrderForm'
+import { ServiceOrderForm } from '../components/ServiceOrderForm'
 import { useServiceOrderQuery, useUpdateServiceOrder } from '../hooks/useServiceOrders'
 
 export default function ServiceOrderEditPage() {

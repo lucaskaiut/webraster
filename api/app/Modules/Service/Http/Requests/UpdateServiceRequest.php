@@ -2,10 +2,14 @@
 
 namespace App\Modules\Service\Http\Requests;
 
+use App\Modules\Service\Http\Requests\Concerns\ResolvesLinkedServices;
+use App\Modules\Service\Models\Service;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateServiceRequest extends FormRequest
 {
+    use ResolvesLinkedServices;
+
     public function authorize(): bool
     {
         return true;
@@ -16,9 +20,12 @@ class UpdateServiceRequest extends FormRequest
      */
     public function rules(): array
     {
+        $service = $this->route('service');
+
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'amount_cents' => ['sometimes', 'required', 'integer', 'min:0'],
+            ...$this->linkedServiceRules($service instanceof Service ? $service->getKey() : null),
         ];
     }
 }

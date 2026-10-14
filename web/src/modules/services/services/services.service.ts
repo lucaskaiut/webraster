@@ -7,6 +7,7 @@ export type ServiceListParams = ListParams
 export interface ServicePayload {
   name: string
   amount_cents: number
+  linked_service_ids?: string[]
 }
 
 export const servicesService = {

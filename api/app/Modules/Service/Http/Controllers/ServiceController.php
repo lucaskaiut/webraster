@@ -32,7 +32,7 @@ class ServiceController extends ApiController
     {
         $this->authorize('view', $service);
 
-        return $this->success(ServiceResource::make($service));
+        return $this->success(ServiceResource::make($service->load('linkedServices')));
     }
 
     public function store(StoreServiceRequest $request): JsonResponse

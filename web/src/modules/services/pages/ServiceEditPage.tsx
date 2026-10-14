@@ -72,9 +72,11 @@ export default function ServiceEditPage() {
         {query.data && (
           <ServiceForm
             mode="edit"
+            serviceId={query.data.id}
             defaultValues={{
               name: query.data.name,
               amount: centsToReais(query.data.amount_cents),
+              linked_service_ids: (query.data.linked_services ?? []).map((service) => service.id),
             }}
             submitting={updateService.isPending}
             onSubmit={async (payload) => {

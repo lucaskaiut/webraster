@@ -7,6 +7,7 @@ export const CLIENT_WIZARD_STEPS = [
   { id: 3 as const, label: 'Veículos' },
   { id: 4 as const, label: 'Serviço' },
   { id: 5 as const, label: 'Contrato' },
+  { id: 6 as const, label: 'Ordem de serviço' },
 ]
 
 export type ClientWizardStep = (typeof CLIENT_WIZARD_STEPS)[number]['id']

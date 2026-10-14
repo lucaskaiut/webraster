@@ -81,15 +81,24 @@ export function SearchSelect({
     if (!resolveLabel) return
 
     let cancelled = false
+    let settled = false
 
-    resolveLabel(value).then((option) => {
-      if (!cancelled && option && resolvedValueRef.current === value) {
-        setSelected(option)
-      }
-    })
+    resolveLabel(value)
+      .then((option) => {
+        if (!cancelled && option && resolvedValueRef.current === value) {
+          setSelected(option)
+        }
+      })
+      .finally(() => {
+        settled = true
+      })
 
     return () => {
       cancelled = true
+      // Sem isso, o remount do StrictMode pula a nova busca e o rótulo nunca aparece.
+      if (!settled && resolvedValueRef.current === value) {
+        resolvedValueRef.current = null
+      }
     }
   }, [value, resolveLabel, defaultOption])
 

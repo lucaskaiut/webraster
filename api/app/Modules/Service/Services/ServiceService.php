@@ -6,12 +6,14 @@ use App\Modules\Service\Models\Service;
 use App\Modules\Shared\Support\QuerySort;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 
 class ServiceService
 {
     public function paginate(int $perPage = 15, ?string $search = null, ?string $sort = null): LengthAwarePaginator
     {
         $query = Service::query()
+            ->with('linkedServices')
             ->when(filled($search), function ($query) use ($search): void {
                 $query->where('name', 'like', "%{$search}%");
             });
@@ -25,7 +27,15 @@ class ServiceService
      */
     public function create(array $data): Service
     {
-        return Service::query()->create($this->payload($data));
+        return DB::transaction(function () use ($data): Service {
+            $service = Service::query()->create($this->payload($data));
+
+            if (array_key_exists('linked_service_ids', $data)) {
+                $service->linkedServices()->sync($data['linked_service_ids'] ?? []);
+            }
+
+            return $service->load('linkedServices');
+        });
     }
 
     /**
@@ -33,10 +43,16 @@ class ServiceService
      */
     public function update(Service $service, array $data): Service
     {
-        $service->fill($this->payload($data));
-        $service->save();
+        return DB::transaction(function () use ($service, $data): Service {
+            $service->fill($this->payload($data));
+            $service->save();
 
-        return $service->refresh();
+            if (array_key_exists('linked_service_ids', $data)) {
+                $service->linkedServices()->sync($data['linked_service_ids'] ?? []);
+            }
+
+            return $service->refresh()->load('linkedServices');
+        });
     }
 
     public function delete(Service $service): void

@@ -293,11 +293,20 @@ export interface Driver {
   updated_at: string | null
 }
 
+export interface LinkedCatalogService {
+  id: string
+  name: string
+  amount_cents: number
+  amount: string
+}
+
 export interface CatalogService {
   id: string
   name: string
   amount_cents: number
   amount: string
+  /** Serviços sugeridos na OS quando este serviço é contratado no pedido do cliente. */
+  linked_services?: LinkedCatalogService[]
   created_at: string | null
   updated_at: string | null
 }

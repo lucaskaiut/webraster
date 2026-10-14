@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router'
 import { Page, PageContent, PageHeader } from '@/shared/design-system'
-import { ServiceOrderForm } from '../forms/ServiceOrderForm'
+import { ServiceOrderForm } from '../components/ServiceOrderForm'
 import { useCreateServiceOrder } from '../hooks/useServiceOrders'
 
 export default function ServiceOrderCreatePage() {
