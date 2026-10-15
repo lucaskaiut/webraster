@@ -19,6 +19,7 @@ class ContractSigningSession extends Model
     protected $dateFormat = 'Y-m-d H:i:s.u';
 
     protected $fillable = [
+        'uuid',
         'tenant_id',
         'client_id',
         'client_contract_id',

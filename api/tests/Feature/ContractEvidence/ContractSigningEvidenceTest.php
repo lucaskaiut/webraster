@@ -100,6 +100,20 @@ class ContractSigningEvidenceTest extends TestCase
         $this->verify($signature['id'])->assertJsonPath('data.status', 'valid');
     }
 
+    public function test_sealed_pdf_contains_drawn_signature_in_presented_slot(): void
+    {
+        $record = $this->signedRecord();
+        $session = ContractSigningSession::query()->findOrFail($record->session_id);
+        $presented = Storage::disk('local')->get($session->presented_document_path);
+
+        $this->assertStringContainsString("/sessions/{$session->uuid}/", $session->presented_document_path);
+        $this->assertStringContainsString('data-signature-slot="'.$session->uuid.'"', $presented);
+
+        $pdf = Storage::disk('local')->get($record->document_path);
+
+        $this->assertSame(2, preg_match_all('#/Subtype\s*/Image#', $pdf), 'Desenho da assinatura e QR Code no PDF selado.');
+    }
+
     public function test_altered_pdf_is_detected(): void
     {
         $record = $this->signedRecord();
