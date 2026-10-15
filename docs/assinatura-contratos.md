@@ -68,6 +68,9 @@ completing → open   (falha de persistência ou recuperação pelo reconciliado
 - Falha de persistência: arquivos descartados, sessão volta a `open`, evento `signing_failed`,
   resposta `503 persistence_failed`. O app nunca recebe sucesso falso.
 - Contrato assinado é congelado: reatribuir o mesmo modelo não altera o corpo.
+- Contrato pendente acompanha o modelo: ao abrir a sessão de assinatura (ou ao voltar para
+  pendente) o texto é regerado a partir do modelo atual; se mudou, vira nova versão
+  (`document_version_changed`).
 - Trocar o modelo ou o corpo de um contrato existente incrementa `document_version`, revoga
   sessões abertas e registra `document_version_changed`.
 - Voltar para "pendente" ou trocar o contrato **supersede** a assinatura (`superseded_at`),
@@ -139,9 +142,11 @@ do contrato assinado serve sempre esses bytes (nunca regera o PDF). Arquivos leg
 
 ## Selo no PDF e validação pública
 
-O PDF assinado recebe ao final apenas um selo compacto: QR Code, nome declarado, data e hora
-(Brasília), código de verificação (UUID da assinatura) e a URL de validação. Os detalhes das
-evidências ficam no manifesto e no painel, não no documento.
+A assinatura desenhada substitui `{{ASSINATURA_CLIENTE}}` (e a da empresa, configurada no
+tenant, substitui `{{ASSINATURA_EMPRESA}}`). No rodapé da última página é desenhado um selo
+compacto: QR Code, nome declarado, data e hora (Brasília), código de verificação (UUID da
+assinatura) e a URL de validação. O fim do texto reserva o espaço do selo, que nunca se sobrepõe
+ao conteúdo. Os detalhes das evidências ficam no manifesto e no painel, não no documento.
 
 - URL: `CONTRACT_VERIFICATION_URL/{código}` (padrão `FRONTEND_URL/validar-contrato/{código}`).
 - Página pública do painel (`/validar-contrato/:code`), sem login, consulta

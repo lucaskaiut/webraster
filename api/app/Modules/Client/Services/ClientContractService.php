@@ -161,6 +161,10 @@ class ClientContractService
 
             $clientContract->save();
 
+            if (! $status->isSigned()) {
+                $this->signing->refreshPendingDocument($clientContract, $context, $actor?->getKey());
+            }
+
             $this->recordAudit($clientContract, AuditAction::ContractSignatureUpdated, [
                 'previous_status' => $previousStatus,
                 'signature_status' => $status->value,

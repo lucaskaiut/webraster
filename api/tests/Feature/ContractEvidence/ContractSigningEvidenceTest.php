@@ -679,6 +679,35 @@ class ContractSigningEvidenceTest extends TestCase
     /**
      * @return array<string, mixed>
      */
+    public function test_pending_contract_follows_template_changes_when_session_starts(): void
+    {
+        $this->contract->update(['body' => '<p>Nova versão para {{NOME_CLIENTE}}</p><p>{{ASSINATURA_CLIENTE}}</p>']);
+
+        $session = $this->openSigningSession();
+
+        $this->assertSame(2, $session['document']['version']);
+        $this->assertStringContainsString('Nova versão', $session['document']['html']);
+        $this->assertStringContainsString('data-signature-slot', $session['document']['html']);
+        $this->assertTrue(ContractEvidenceEvent::query()->where('type', 'document_version_changed')->exists());
+
+        $this->complete($session)->assertOk();
+    }
+
+    public function test_marking_pending_refreshes_document_from_template_without_touching_signed_text(): void
+    {
+        $this->signedRecord();
+        $signedBody = $this->contractRow()->body;
+
+        $this->contract->update(['body' => '<p>Texto revisado</p><p>{{ASSINATURA_CLIENTE}}</p>']);
+        $this->assertSame($signedBody, $this->contractRow()->body);
+
+        $this->actingAsAdmin();
+        $this->patchJson("/api/clients/{$this->client->uuid}/contract/signature", ['signature_status' => 'pending'])->assertOk();
+
+        $this->assertStringContainsString('Texto revisado', $this->contractRow()->body);
+        $this->assertSame(2, (int) $this->contractRow()->document_version);
+    }
+
     // ---------------------------------------------------------------------
     // Validação pública (QR Code)
     // ---------------------------------------------------------------------

@@ -7,6 +7,7 @@ use App\Modules\Audit\Services\AuditLogService;
 use App\Modules\Client\Enums\ContractSignatureStatus;
 use App\Modules\Client\Models\Client;
 use App\Modules\Client\Models\ClientContract;
+use App\Modules\Client\Services\ContractBodyRenderer;
 use App\Modules\ContractEvidence\Enums\EvidenceEventType;
 use App\Modules\ContractEvidence\Enums\EvidenceStatus;
 use App\Modules\ContractEvidence\Enums\SignatureMethod;
@@ -47,6 +48,7 @@ class ContractSigningService
         private readonly EvidenceManifestService $manifests,
         private readonly SignedDocumentService $documents,
         private readonly AuditLogService $audit,
+        private readonly ContractBodyRenderer $renderer,
     ) {}
 
     public function start(User $user, Client $client, RequestEvidence $context): ContractSigningSession
@@ -62,6 +64,8 @@ class ContractSigningService
         if ($contract->signature_status === ContractSignatureStatus::SIGNED) {
             throw SigningException::alreadySigned();
         }
+
+        $contract = $this->refreshPendingDocument($contract, $context, $user->getKey());
 
         $uuid = (string) Str::uuid();
         $path = $this->storage->sessionPath($contract, $uuid, 'presented.html');
@@ -281,6 +285,52 @@ class ContractSigningService
      * Revoga as sessões abertas do contrato (alteração do documento,
      * assinatura por outro meio, nova sessão do mesmo usuário).
      */
+    /**
+     * Contrato pendente acompanha o template atual: o texto é regerado (com
+     * os dados atuais do cliente e do pedido) e, se mudou, vira uma nova
+     * versão do documento. Contrato assinado nunca é alterado.
+     */
+    public function refreshPendingDocument(ClientContract $contract, RequestEvidence $context, ?int $actorId = null): ClientContract
+    {
+        if ($contract->signature_status === ContractSignatureStatus::SIGNED || blank($contract->body)) {
+            return $contract;
+        }
+
+        $template = $contract->contract;
+        $client = $contract->client;
+
+        if ($template === null || $client === null || $client->without_contract) {
+            return $contract;
+        }
+
+        $order = $client->order()->with('items.service', 'items.vehicles')->first();
+        $body = $this->renderer->render($template, $client, $order);
+
+        if ((string) $contract->body === $body) {
+            return $contract;
+        }
+
+        return DB::transaction(function () use ($contract, $body, $context, $actorId) {
+            $previousVersion = (int) $contract->document_version;
+
+            $contract->forceFill([
+                'body' => $body,
+                'document_version' => $previousVersion + 1,
+            ])->save();
+
+            $this->revokeOpenSessions($contract, 'document_changed', $context, $actorId);
+
+            $this->ledger->record($contract, EvidenceEventType::DOCUMENT_VERSION_CHANGED, [
+                'previous_version' => $previousVersion,
+                'document_version' => (int) $contract->document_version,
+                'body_sha256' => hash('sha256', $body),
+                'reason' => 'template_updated',
+            ], $context, $actorId);
+
+            return $contract;
+        });
+    }
+
     public function revokeOpenSessions(
         ClientContract $contract,
         string $reason,

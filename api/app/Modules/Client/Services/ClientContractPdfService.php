@@ -5,7 +5,9 @@ namespace App\Modules\Client\Services;
 use App\Modules\Client\Models\ClientContract;
 use App\Modules\ContractEvidence\Models\ContractSignature;
 use App\Modules\ContractEvidence\Support\EvidenceStorage;
+use Dompdf\Canvas;
 use Dompdf\Dompdf;
+use Dompdf\FontMetrics;
 use Dompdf\Options;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -80,7 +82,10 @@ class ClientContractPdfService
         return (new \finfo(FILEINFO_MIME_TYPE))->buffer($bytes) ?: 'application/octet-stream';
     }
 
-    public function renderPdf(string $bodyHtml): string
+    /**
+     * @param  (callable(Canvas, FontMetrics): void)|null  $afterRender  desenho direto nas páginas já paginadas
+     */
+    public function renderPdf(string $bodyHtml, ?callable $afterRender = null): string
     {
         $options = new Options;
         $options->setIsRemoteEnabled(true);
@@ -90,6 +95,10 @@ class ClientContractPdfService
         $dompdf->loadHtml($this->htmlDocument($bodyHtml), 'UTF-8');
         $dompdf->setPaper('A4');
         $dompdf->render();
+
+        if ($afterRender !== null) {
+            $afterRender($dompdf->getCanvas(), $dompdf->getFontMetrics());
+        }
 
         return (string) $dompdf->output();
     }
@@ -176,12 +185,7 @@ class ClientContractPdfService
           th, td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; vertical-align: top; }
           blockquote { margin: 10px 0; padding: 8px 12px; border-left: 3px solid #cbd5e1; color: #475569; }
           img { max-width: 100%; height: auto; }
-          .signature-stamp { width: 100%; margin-top: 24px; border: 1px solid #c9ced6; border-radius: 6px; border-collapse: separate; page-break-inside: avoid; font-size: 9px; color: #333; }
-          .signature-stamp td { padding: 6px 8px; vertical-align: middle; }
-          .signature-stamp__qr { width: 92px; }
-          .signature-stamp__qr img { width: 84px; height: 84px; }
-          .signature-stamp__text { line-height: 1.5; }
-          .signature-stamp__code { font-family: DejaVu Sans Mono, monospace; word-break: break-all; }
+          .signature-stamp-space { page-break-inside: avoid; }
         </style>
         </head>
         <body>{$body}</body>
