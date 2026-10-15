@@ -3,8 +3,11 @@
 namespace App\Modules\Client\Models;
 
 use App\Modules\Client\Enums\ContractSignatureStatus;
+use App\Modules\Client\Services\ClientContractPdfService;
 use App\Modules\Client\Services\ContractBodyRenderer;
 use App\Modules\Contract\Models\Contract;
+use App\Modules\ContractEvidence\Models\ContractSignature;
+use App\Modules\ContractEvidence\Support\EvidenceStorage;
 use App\Modules\Shared\Models\Concerns\HasUuid;
 use App\Modules\Tenant\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
@@ -16,6 +19,10 @@ class ClientContract extends Model
     use BelongsToTenant;
     use HasUuid;
     use SoftDeletes;
+
+    protected $attributes = [
+        'document_version' => 1,
+    ];
 
     protected $fillable = [
         'client_id',
@@ -43,6 +50,7 @@ class ClientContract extends Model
             'signature_status' => ContractSignatureStatus::class,
             'signed_at' => 'datetime',
             'signer_birth_date' => 'date',
+            'document_version' => 'integer',
         ];
     }
 
@@ -56,14 +64,53 @@ class ClientContract extends Model
         return $this->belongsTo(Contract::class);
     }
 
+    public function currentSignature(): BelongsTo
+    {
+        return $this->belongsTo(ContractSignature::class, 'current_signature_id');
+    }
+
+    /**
+     * protected/pending: assinatura com cadeia de evidências (manifesto
+     * assinado ou aguardando proteção); legacy: assinado antes da cadeia de
+     * evidências, sem registros retroativos; none: não assinado.
+     */
+    public function evidenceLevel(): string
+    {
+        if ($this->signature_status !== ContractSignatureStatus::SIGNED) {
+            return 'none';
+        }
+
+        return $this->currentSignature?->evidence_status->value ?? 'legacy';
+    }
+
+    /**
+     * Imagens no armazenamento privado de evidências são entregues inline
+     * (data URI) para não existir URL pública da assinatura.
+     */
     public function signatureUrl(): ?string
     {
-        return $this->signature_path ? asset("storage/{$this->signature_path}") : null;
+        if ($this->signature_path === null) {
+            return null;
+        }
+
+        $evidence = app(EvidenceStorage::class);
+
+        if ($evidence->isEvidencePath($this->signature_path)) {
+            $bytes = $evidence->read($this->signature_path);
+
+            return $bytes !== null ? ClientContractPdfService::dataUri($bytes) : null;
+        }
+
+        return asset("storage/{$this->signature_path}");
     }
 
     public function documentUrl(): ?string
     {
-        return $this->document_path ? asset("storage/{$this->document_path}") : null;
+        if ($this->document_path === null || app(EvidenceStorage::class)->isEvidencePath($this->document_path)) {
+            return null;
+        }
+
+        return asset("storage/{$this->document_path}");
     }
 
     public function tenantLogoUrl(): ?string

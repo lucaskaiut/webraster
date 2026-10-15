@@ -42,6 +42,14 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
 
+        // IP real do cliente atrás de proxy/load balancer (evidência de
+        // assinatura e auditoria). Sem a variável, nenhum proxy é confiável.
+        $trustedProxies = array_values(array_filter(array_map('trim', explode(',', (string) env('TRUSTED_PROXIES', '')))));
+
+        if ($trustedProxies !== []) {
+            $middleware->trustProxies(at: $trustedProxies === ['*'] ? '*' : $trustedProxies);
+        }
+
         $middleware->alias([
             'tenant' => ResolveTenant::class,
             'client.scope' => ResolveClientScope::class,

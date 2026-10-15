@@ -1,7 +1,15 @@
 import { http } from '@/shared/api/http'
 import { downloadBlob } from '@/shared/utils/report-export'
 import type { ApiResponse, ListParams, PaginatedResponse } from '@/shared/types/api'
-import type { Client, ClientContract, ClientOrder, ContractSignatureStatus, SharedVehicle, User } from '@/shared/types/models'
+import type {
+  Client,
+  ClientContract,
+  ClientOrder,
+  ContractSignatureStatus,
+  EvidenceVerificationReport,
+  SharedVehicle,
+  User,
+} from '@/shared/types/models'
 
 export interface ClientPayload {
   name: string
@@ -180,11 +188,31 @@ export const clientsService = {
     return response.data.data
   },
 
-  async downloadContractPdf(clientId: string): Promise<void> {
+  async downloadContractPdf(clientId: string, filename = 'contrato.pdf'): Promise<void> {
     const response = await http.get<Blob>(`/clients/${clientId}/contract/pdf`, {
       responseType: 'blob',
     })
 
-    downloadBlob(response.data, 'contrato.pdf')
+    downloadBlob(response.data, filename)
+  },
+
+  async verifyContractEvidence(
+    clientId: string,
+    signatureId: string,
+  ): Promise<EvidenceVerificationReport> {
+    const response = await http.get<ApiResponse<EvidenceVerificationReport>>(
+      `/clients/${clientId}/contract/evidence/${signatureId}/verify`,
+    )
+
+    return response.data.data
+  },
+
+  async exportContractEvidence(clientId: string, signatureId: string): Promise<void> {
+    const response = await http.get<Blob>(
+      `/clients/${clientId}/contract/evidence/${signatureId}/export`,
+      { responseType: 'blob' },
+    )
+
+    downloadBlob(response.data, `evidencias-${signatureId}.zip`)
   },
 }

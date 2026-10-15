@@ -321,6 +321,54 @@ export interface Contract {
 
 export type ContractSignatureStatus = 'pending' | 'signed'
 
+/** none: sem assinatura · legacy: anterior às evidências · pending: manifesto não assinado · protected: manifesto assinado */
+export type ContractEvidenceLevel = 'none' | 'legacy' | 'pending' | 'protected'
+
+export type ContractSignatureMethod =
+  | 'app_signature'
+  | 'legacy_app_signature'
+  | 'uploaded_document'
+  | 'manual_attestation'
+
+export interface ContractSignatureEvidence {
+  id: string
+  method: ContractSignatureMethod
+  method_label: string
+  signed_at: string | null
+  document_version: number
+  presented_document_sha256: string | null
+  document_sha256: string | null
+  signature_image_sha256: string | null
+  manifest_sha256: string | null
+  evidence_status: 'pending' | 'protected'
+  key_id: string | null
+  protected_at: string | null
+  superseded_at: string | null
+  superseded_reason: string | null
+  consent_explicit: boolean
+  consent_version: string | null
+  signer_name: string | null
+  signer_cpf_masked: string | null
+  cpf_matches_client: boolean | null
+  ip: string | null
+  user_agent: string | null
+  app_version: string | null
+}
+
+export type EvidenceVerificationStatus = 'valid' | 'integrity_failure' | 'missing' | 'inconclusive'
+
+export interface EvidenceVerificationCheck {
+  check: string
+  status: EvidenceVerificationStatus
+  detail: string
+}
+
+export interface EvidenceVerificationReport {
+  signature_id: string | null
+  status: EvidenceVerificationStatus
+  checks: EvidenceVerificationCheck[]
+}
+
 export interface ClientContract {
   id: string
   contract_id: string | null
@@ -342,6 +390,9 @@ export interface ClientContract {
   signer_cpf: string | null
   signer_birth_date: string | null
   body: string
+  document_version?: number
+  evidence_level?: ContractEvidenceLevel
+  evidence?: ContractSignatureEvidence | null
   created_at: string | null
   updated_at: string | null
 }

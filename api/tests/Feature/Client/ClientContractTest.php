@@ -19,6 +19,13 @@ class ClientContractTest extends TestCase
     use InteractsWithTenants;
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Storage::fake('local');
+    }
+
     public function test_show_returns_null_when_no_contract_assigned(): void
     {
         [, $tenant] = $this->createOperationalChild();
@@ -489,9 +496,10 @@ class ClientContractTest extends TestCase
             ->assertJsonPath('data.signer_birth_date', '1990-05-20');
 
         $this->assertNotNull($response->json('data.signed_at'));
-        $this->assertNotNull($response->json('data.signature_url'));
+        $this->assertStringStartsWith('data:image/', (string) $response->json('data.signature_url'));
 
-        Storage::disk('public')->assertExists($response->json('data.signature_path'));
+        Storage::disk('local')->assertExists($response->json('data.signature_path'));
+        Storage::disk('public')->assertMissing($response->json('data.signature_path'));
 
         $this->assertDatabaseHas('client_contracts', [
             'client_id' => $client->getKey(),
@@ -732,9 +740,9 @@ class ClientContractTest extends TestCase
             ->assertJsonPath('data.document_name', 'contrato-assinado.pdf');
 
         $this->assertNotNull($response->json('data.signed_at'));
-        $this->assertNotNull($response->json('data.document_url'));
+        $this->assertNull($response->json('data.document_url'));
 
-        Storage::disk('public')->assertExists($response->json('data.document_path'));
+        Storage::disk('local')->assertExists($response->json('data.document_path'));
 
         $this->assertDatabaseHas('client_contracts', [
             'client_id' => $client->getKey(),
@@ -792,7 +800,8 @@ class ClientContractTest extends TestCase
         )->assertOk()->assertJsonPath('data.document_name', 'segundo.pdf');
 
         $this->assertNotSame($first->json('data.document_path'), $second->json('data.document_path'));
-        Storage::disk('public')->assertExists($second->json('data.document_path'));
+        Storage::disk('local')->assertExists($second->json('data.document_path'));
+        Storage::disk('local')->assertExists($first->json('data.document_path'));
         $this->assertDatabaseCount('client_contracts', 1);
     }
 

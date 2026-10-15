@@ -3,6 +3,7 @@
 use App\Modules\Billing\Providers\BillingServiceProvider;
 use App\Modules\Chat\Providers\ChatServiceProvider;
 use App\Modules\Client\Providers\ClientServiceProvider;
+use App\Modules\ContractEvidence\Providers\ContractEvidenceServiceProvider;
 use App\Modules\Crm\Providers\CrmServiceProvider;
 use App\Modules\Finance\Providers\FinanceServiceProvider;
 use App\Modules\Tenant\Providers\TenantServiceProvider;
@@ -16,6 +17,7 @@ return [
     BillingServiceProvider::class,
     ChatServiceProvider::class,
     ClientServiceProvider::class,
+    ContractEvidenceServiceProvider::class,
     CrmServiceProvider::class,
     FinanceServiceProvider::class,
     TenantServiceProvider::class,

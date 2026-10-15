@@ -10,6 +10,9 @@ import { Loading } from '@/shared/design-system'
 import { NotFoundPage } from './NotFoundPage'
 
 const PrivacyPolicyPage = lazy(() => import('@/modules/legal/pages/PrivacyPolicyPage'))
+const ContractValidationPage = lazy(
+  () => import('@/modules/contract-validation/pages/ContractValidationPage'),
+)
 const LoginPage = lazy(() => import('@/modules/auth/pages/LoginPage'))
 const ForgotPasswordPage = lazy(() => import('@/modules/auth/pages/ForgotPasswordPage'))
 const ResetPasswordPage = lazy(() => import('@/modules/auth/pages/ResetPasswordPage'))
@@ -116,6 +119,14 @@ export const router = createBrowserRouter([
     path: '/privacy-policy',
     element: <Navigate to="/app/privacy-policy" replace />,
   },
+  ...['/validar-contrato', '/validar-contrato/:code'].map((path) => ({
+    path,
+    element: (
+      <Suspense fallback={<Loading />}>
+        <ContractValidationPage />
+      </Suspense>
+    ),
+  })),
   {
     element: <GuestGuard />,
     children: [

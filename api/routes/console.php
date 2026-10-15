@@ -4,6 +4,7 @@ use App\Modules\Alert\Jobs\CheckOfflineDevicesJob;
 use App\Modules\Billing\Console\Commands\CheckInvoiceStatusCommand;
 use App\Modules\Billing\Console\Commands\GenerateInvoicesCommand;
 use App\Modules\Billing\Console\Commands\SuspendExpiredSubscriptionsCommand;
+use App\Modules\ContractEvidence\Console\Commands\ReconcileContractEvidenceCommand;
 use App\Modules\Finance\Console\Commands\GenerateBillingsCommand;
 use App\Modules\Finance\Console\Commands\MarkOverdueBillingsCommand;
 use App\Modules\Finance\Console\Commands\NotifyDueSoonCommand;
@@ -29,6 +30,8 @@ Schedule::command(GenerateBillingsCommand::class)->hourly();
 Schedule::command(MarkOverdueBillingsCommand::class)->hourly();
 Schedule::command(ProcessDelinquencyCommand::class)->daily();
 Schedule::command(NotifyDueSoonCommand::class)->daily();
+
+Schedule::command(ReconcileContractEvidenceCommand::class)->everyFiveMinutes()->withoutOverlapping();
 
 Schedule::job(new DispatchPendingTraccarEventsJob)->everyMinute()->withoutOverlapping();
 Schedule::job(new SyncTraccarPositionsJob)

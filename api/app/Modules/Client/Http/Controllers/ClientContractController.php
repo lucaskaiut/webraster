@@ -85,6 +85,7 @@ class ClientContractController extends ApiController
         $this->authorize('signContract', $client);
 
         $contract = $this->contracts->sign(
+            $request->user(),
             $client,
             (int) $request->validated('contract_id'),
             $request->file('image'),

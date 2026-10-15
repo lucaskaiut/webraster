@@ -3,6 +3,7 @@
 namespace App\Modules\Client\Http\Resources;
 
 use App\Modules\Client\Models\ClientContract;
+use App\Modules\ContractEvidence\Http\Resources\ContractSignatureResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -37,6 +38,11 @@ class ClientContractResource extends JsonResource
             'signer_cpf' => $this->signer_cpf,
             'signer_birth_date' => $this->signer_birth_date?->toDateString(),
             'body' => $this->renderedBody(),
+            'document_version' => $this->document_version,
+            'evidence_level' => $this->evidenceLevel(),
+            'evidence' => $this->currentSignature
+                ? ContractSignatureResource::make($this->currentSignature)
+                : null,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

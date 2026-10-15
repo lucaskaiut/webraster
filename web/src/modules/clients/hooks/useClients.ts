@@ -157,7 +157,19 @@ export function useUpsertClientContract(clientId: string) {
 
 export function useDownloadClientContractPdf(clientId: string) {
   return useMutation({
-    mutationFn: () => clientsService.downloadContractPdf(clientId),
+    mutationFn: (filename?: string) => clientsService.downloadContractPdf(clientId, filename),
+  })
+}
+
+export function useVerifyClientContractEvidence(clientId: string) {
+  return useMutation({
+    mutationFn: (signatureId: string) => clientsService.verifyContractEvidence(clientId, signatureId),
+  })
+}
+
+export function useExportClientContractEvidence(clientId: string) {
+  return useMutation({
+    mutationFn: (signatureId: string) => clientsService.exportContractEvidence(clientId, signatureId),
   })
 }
 
