@@ -90,9 +90,12 @@ bash scripts/deploy.sh
 docker compose --env-file .env.prod -f docker-compose.prod.yml --profile a exec app-a \
   php artisan db:seed --force
 
-# 7) Cron do backup (root)
+# 7) Backup em nuvem (Cloudflare R2) — 3x/dia
+apt-get install -y rclone
+# crie o .env.prod backup (.backup.env) com as credenciais R2:
+#   R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ENDPOINT / R2_BUCKET
 crontab -e
-# 30 3 * * * /opt/nuvemax/panel/scripts/backup-databases.sh >> /var/log/nuvemax-backup.log 2>&1
+# 0 */8 * * * /opt/nuvemax/panel/scripts/backup.sh >> /opt/nuvemax/backups/cron.log 2>&1
 ```
 
 ## Traccar
@@ -202,5 +205,7 @@ produção, inclusive com outras aplicações):
   pelo nome interno `http://traccar:8082`; chame o painel de `http://webraster-app`.
 - Reverb roda em instância única; ao escalar, lembre que conexões WebSocket
   não são balanceadas por sticky session no Traefik por padrão.
-- Backups: `scripts/backup-databases.sh` (retenção 14 dias). Guarde cópias
-  fora do servidor (ex.: `rsync`/`rclone` para destino externo).
+- Backups: `scripts/backup.sh` roda 3x/dia (cron `0 */8`) e envia o pacote
+  (bases `webraster` + `traccar` e volumes de storage) para o Cloudflare R2 —
+  mesmo bucket compartilhado das stacks do contabo, prefixo `webraster/`.
+  Retenção de 24h (local e no R2), configurável em `.backup.env`.
