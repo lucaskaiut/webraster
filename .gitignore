@@ -2,5 +2,7 @@
 .env.prod
 *.log
 .DS_Store
+.deploy-active
+.workers-paused
 docker/gateway/traefik/dynamic/webraster-api.yml
 docker/gateway/traefik/dynamic/*.tmp

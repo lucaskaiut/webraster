@@ -203,8 +203,14 @@ echo "$TARGET" > "$STATE_FILE"
 # ---------------------------------------------------------------------------
 # 7) Worker / scheduler / reverb com a imagem nova
 # ---------------------------------------------------------------------------
-log "Recriando worker (x${WORKER_REPLICAS}), scheduler e reverb..."
-"${COMPOSE[@]}" up -d --force-recreate --scale worker="${WORKER_REPLICAS}" worker scheduler reverb
+if [ -f .workers-paused ]; then
+  log "worker/scheduler PAUSADOS (.workers-paused): recriando sem iniciar."
+  "${COMPOSE[@]}" up -d --force-recreate --no-start --scale worker="${WORKER_REPLICAS}" worker scheduler
+  "${COMPOSE[@]}" up -d --force-recreate reverb
+else
+  log "Recriando worker (x${WORKER_REPLICAS}), scheduler e reverb..."
+  "${COMPOSE[@]}" up -d --force-recreate --scale worker="${WORKER_REPLICAS}" worker scheduler reverb
+fi
 
 log "Status:"
 "${COMPOSE[@]}" ps

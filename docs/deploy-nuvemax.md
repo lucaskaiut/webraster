@@ -176,25 +176,22 @@ e rodar `bash scripts/deploy.sh`.
 
 ## Cutover (quando decidir aposentar o contabo)
 
-1. **Painel — migrar base**
-   ```bash
-   # No contabo: dump da base webraster (stack shared)
-   ssh contabo 'docker exec infra_shared_mysql sh -c "MYSQL_PWD=\$MYSQL_ROOT_PASSWORD mysqldump -uroot webraster" | gzip -1' \
-     > /tmp/webraster.sql.gz
-   # Na nuvemax: importar
-   gunzip -c /tmp/webraster.sql.gz | docker compose --env-file .env.prod -f docker-compose.prod.yml \
-     exec -T -e MYSQL_PWD="$(grep ^MYSQL_ROOT_PASSWORD= .env.prod | cut -d= -f2-)" mysql mysql -uroot webraster
-   ```
-2. **Traccar — migrar base**: parar o serviço no contabo, dump/restore da base
-   `traccar` (mesmo padrão acima, com a base `traccar`), depois ajustar no
-   `.env` do Traccar: `TRACCAR_DOMAIN=dispositivos.nuvemax.srv.br`,
-   `WEB_URL=https://dispositivos.nuvemax.srv.br` e no `.env.prod`:
-   `TRACCAR_SERVER_DNS=dispositivos.nuvemax.srv.br`.
-3. **DNS**: apontar `webraster-api`, `webraster-ws` e `dispositivos` para
-   `185.194.219.192` e ajustar `API_DOMAIN`/`WS_DOMAIN` no `.env.prod`
-   (`webraster-api.nuvemax.srv.br` etc.) + `bash scripts/deploy.sh`.
-4. **Frontend**: atualizar as variáveis `VITE_*` (API e Reverb) e rebuildar.
-5. **Contabo**: escalar as stacks `webraster`/`traccar` para 0 réplicas.
+O passo a passo completo (script de migração, validações e rollback) está em
+**[docs/migracao-dados-contabo.md](migracao-dados-contabo.md)**.
+
+Resumo do dia — **o contabo não é modificado em momento algum** (segue em
+produção, inclusive com outras aplicações):
+
+1. `bash scripts/migrate-from-contabo.sh` — copia as bases (`webraster` +
+   `traccar`) e os volumes de storage do contabo (somente leitura) para a
+   nuvemax e valida tabela a tabela. Rode de novo minutos antes de virar o
+   DNS para levar os dados mais recentes.
+2. Virar o DNS dos domínios definitivos para `185.194.219.192`.
+3. Ajustar `API_DOMAIN`/`WS_DOMAIN`/`TRACCAR_*` no `.env.prod` e no
+   `docker/traccar/.env`, depois `bash scripts/deploy.sh`.
+4. Atualizar os `VITE_*` na Vercel e rebuildar o frontend.
+5. Ativar `worker`/`scheduler` na nuvemax e manter o contabo rodando como
+   rollback natural.
 
 ## Notas
 
