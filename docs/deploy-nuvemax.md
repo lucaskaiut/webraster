@@ -11,13 +11,13 @@ Internet
   │ :80/:443            (+ portas GPS: 5011, 5023, 5130-5131, 5135 tcp)
   ▼
 nuvemax-gateway (Traefik v3.6 + Let's Encrypt)   rede: nuvemax_edge (172.31.0.0/24)
-  ├── new-webraster-api…  → app   (Nginx + PHP-FPM, migra no boot)
+  ├── new-webraster-api…  → app-a/app-b (blue-green; Nginx + PHP-FPM, migra no boot)
   ├── new-webraster-ws…   → reverb (WebSocket :8080)
   └── new-dispositivos…  → traccar (:8082;  rastreadores entram pelas portas GPS)
 
 nuvemax-panel (docker-compose.prod.yml)          rede: nuvemax_shared (172.31.1.0/24)
   ├── mysql:8.4 (bases webraster + traccar)
-  ├── app / worker (x2) / scheduler  — imagem local/webraster-api:latest
+  ├── app-a / app-b (blue-green) + worker (x2) / scheduler  — imagem local/webraster-api:latest
   └── reverb
 
 nuvemax-traccar (docker/traccar/docker-compose.yml)
@@ -87,7 +87,7 @@ docker compose --env-file .env -f docker/gateway/docker-compose.yml up -d
 bash scripts/deploy.sh
 
 # 6) (Opcional, somente nesta instância nova) dados de demonstração:
-docker compose --env-file .env.prod -f docker-compose.prod.yml exec app \
+docker compose --env-file .env.prod -f docker-compose.prod.yml --profile a exec app-a \
   php artisan db:seed --force
 
 # 7) Cron do backup (root)
@@ -118,15 +118,51 @@ docker compose --env-file docker/traccar/.env -f docker/traccar/docker-compose.y
   (rede interna) com o header `X-Traccar-Webhook-Token` — o mesmo valor de
   `TRACCAR_WEBHOOK_SECRET` no `.env.prod`.
 
-## Deploy do dia a dia (painel)
+## Deploy (blue-green, sem downtime)
+
+O painel roda em **dois slots** (`app-a` / `app-b`), com os mesmos labels do
+Traefik. O script sobe o slot inativo com a imagem nova, espera o healthcheck e
+a checagem `https://<API_DOMAIN>/up` via Traefik e só então remove o slot
+antigo — o tráfego HTTP nunca fica sem backend. Se qualquer etapa falhar, o
+slot antigo permanece no ar e o deploy aborta sem trocar tráfego.
 
 ```bash
 cd /opt/nuvemax/panel && bash scripts/deploy.sh
 ```
 
-Faz `git pull --ff-only`, build da imagem, sobe MySQL + aplicação com
-`worker x2` (ajuste com `WORKER_REPLICAS=3 bash scripts/deploy.sh`) e garante a
-base `traccar`.
+- `WORKER_REPLICAS=3 bash scripts/deploy.sh` ajusta a escala do worker.
+- MySQL nunca é recriado; a base `traccar` é garantida em toda execução.
+- Worker/scheduler/reverb são recriados depois da troca: a fila pausa alguns
+  segundos e o WebSocket reconecta sozinho (queda breve; o HTTP não cai).
+- Migrações rodam no boot do slot novo, antes de ele receber tráfego. Evite
+  migrações destrutivas em um único deploy (use expand/contract) para não
+  quebrar o slot antigo na janela de sobreposição.
+- A stack do **Traccar não entra no fluxo automático**; mudanças nela são
+  aplicadas manualmente com o `up -d` da seção do Traccar.
+
+## Deploy automático (GitHub Actions)
+
+Push na `main` tocando `api/**`, `docker-compose.prod.yml`, `docker/prod/**`
+ou `scripts/**` dispara o workflow `.github/workflows/deploy-nuvemax.yml`:
+runner da Actions → SSH na VPS (chave restrita que só executa
+`scripts/ci-deploy.sh`) → `scripts/deploy.sh`. O grupo `concurrency` do
+workflow serializa as execuções (nunca dois deploys em paralelo), e o
+`flock` no script é a segunda barreira.
+
+Secrets no repositório (Settings → Secrets and variables → Actions):
+
+| Secret            | Valor                                    |
+|-------------------|------------------------------------------|
+| `NUVEMAX_HOST`    | `185.194.219.192`                        |
+| `NUVEMAX_SSH_KEY` | chave privada de CI (gerada na VPS)      |
+
+A chave de CI é restrita na `authorized_keys` (`command="…/ci-deploy.sh",restrict`):
+mesmo que vaze, só consegue rodar o deploy. Para ver a chave privada e colar no
+GitHub: `ssh nuvemax 'cat /root/.ssh/nuvemax-ci-deploy'`.
+
+Rollback: `git revert <commit>` + push (dispara novo deploy) — ou re-taguear a
+imagem anterior (`docker tag local/webraster-api:<sha> local/webraster-api:latest`)
+e rodar `bash scripts/deploy.sh`.
 
 ## Cutover (quando decidir aposentar o contabo)
 
@@ -146,7 +182,7 @@ base `traccar`.
    `TRACCAR_SERVER_DNS=dispositivos.nuvemax.srv.br`.
 3. **DNS**: apontar `webraster-api`, `webraster-ws` e `dispositivos` para
    `185.194.219.192` e ajustar `API_DOMAIN`/`WS_DOMAIN` no `.env.prod`
-   (`webraster-api.nuvemax.srv.br` etc.) + `up -d`.
+   (`webraster-api.nuvemax.srv.br` etc.) + `bash scripts/deploy.sh`.
 4. **Frontend**: atualizar as variáveis `VITE_*` (API e Reverb) e rebuildar.
 5. **Contabo**: escalar as stacks `webraster`/`traccar` para 0 réplicas.
 

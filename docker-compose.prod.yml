@@ -1,12 +1,18 @@
 # Stack de produção do painel na VPS nuvemax.
 #
+# Deploy BLUE-GREEN: os serviços app-a/app-b são dois slots com os mesmos
+# labels do Traefik (mesmo router/serviço, balanceados como pool). O deploy
+# sobe o slot inativo, espera ficar healthy e só então remove o antigo —
+# ver scripts/deploy.sh. Em uso normal, apenas UM slot roda por vez.
+#
 # Pré-requisitos (criados uma única vez — ver scripts/install-server.sh):
 #   docker network create --subnet 172.31.0.0/24 nuvemax_edge
 #   docker network create --subnet 172.31.1.0/24 nuvemax_shared
 #
-# Uso (no servidor, raiz do repo):
-#   docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
-#   scripts/deploy.sh    (pull + build + up com escala do worker)
+# Uso:
+#   Deploy oficial:            bash scripts/deploy.sh
+#   Subir infra sem o app:     docker compose --env-file .env.prod -f docker-compose.prod.yml up -d mysql worker scheduler reverb
+#   Subir um slot manualmente: docker compose --env-file .env.prod -f docker-compose.prod.yml --profile a up -d app-a
 
 name: nuvemax-panel
 
@@ -20,6 +26,52 @@ x-app-image: &app-image
     - .env.prod
 
 x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+# Definição compartilhada dos slots blue-green (web).
+x-app-service: &app-service
+  image: local/webraster-api:latest
+  build:
+    context: .
+    dockerfile: docker/prod/Dockerfile
+  restart: unless-stopped
+  env_file:
+    - .env.prod
+  environment:
+    CONTAINER_ROLE: web
+  volumes:
+    - webraster_storage:/var/www/html/storage/app/public
+    - webraster_private:/var/www/html/storage/app/private
+  stop_grace_period: 45s
+  depends_on:
+    mysql:
+      condition: service_healthy
+  networks:
+    edge:
+      aliases:
+        - webraster-app
+    shared:
+  healthcheck:
+    test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/up || exit 1"]
+    interval: 15s
+    timeout: 5s
+    retries: 10
+    start_period: 120s
+  labels:
+    - traefik.enable=true
+    - traefik.docker.network=nuvemax_edge
+    - traefik.http.routers.webraster-api.rule=Host(`${API_DOMAIN:?defina API_DOMAIN no .env.prod}`)
+    - traefik.http.routers.webraster-api.entrypoints=websecure
+    - traefik.http.routers.webraster-api.tls=true
+    - traefik.http.routers.webraster-api.tls.certresolver=letsencrypt
+    - traefik.http.services.webraster-api.loadbalancer.server.port=80
+    - traefik.http.services.webraster-api.loadbalancer.healthcheck.path=/up
+    - traefik.http.services.webraster-api.loadbalancer.healthcheck.interval=5s
+    - traefik.http.services.webraster-api.loadbalancer.healthcheck.timeout=4s
   logging:
     driver: json-file
     options:
@@ -55,46 +107,20 @@ services:
       start_period: 30s
     <<: *logging
 
-  app:
-    <<: [*app-image, *logging]
-    environment:
-      CONTAINER_ROLE: web
-    volumes:
-      - webraster_storage:/var/www/html/storage/app/public
-      - webraster_private:/var/www/html/storage/app/private
-    stop_grace_period: 45s
-    depends_on:
-      mysql:
-        condition: service_healthy
-    networks:
-      edge:
-        aliases:
-          - webraster-app
-      shared:
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/up || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 10
-      start_period: 120s
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=nuvemax_edge
-      - traefik.http.routers.webraster-api.rule=Host(`${API_DOMAIN:?defina API_DOMAIN no .env.prod}`)
-      - traefik.http.routers.webraster-api.entrypoints=websecure
-      - traefik.http.routers.webraster-api.tls=true
-      - traefik.http.routers.webraster-api.tls.certresolver=letsencrypt
-      - traefik.http.services.webraster-api.loadbalancer.server.port=80
-      - traefik.http.services.webraster-api.loadbalancer.healthcheck.path=/up
-      - traefik.http.services.webraster-api.loadbalancer.healthcheck.interval=5s
-      - traefik.http.services.webraster-api.loadbalancer.healthcheck.timeout=4s
+  app-a:
+    <<: *app-service
+    profiles: ["a"]
+
+  app-b:
+    <<: *app-service
+    profiles: ["b"]
 
   reverb:
     <<: [*app-image, *logging]
     environment:
       CONTAINER_ROLE: reverb
     depends_on:
-      app:
+      mysql:
         condition: service_healthy
     networks:
       edge:
@@ -123,7 +149,7 @@ services:
     volumes:
       - webraster_private:/var/www/html/storage/app/private
     depends_on:
-      app:
+      mysql:
         condition: service_healthy
     networks:
       shared:
@@ -135,7 +161,7 @@ services:
     volumes:
       - webraster_private:/var/www/html/storage/app/private
     depends_on:
-      app:
+      mysql:
         condition: service_healthy
     networks:
       shared:

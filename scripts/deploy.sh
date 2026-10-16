@@ -1,7 +1,18 @@
 #!/usr/bin/env bash
 #
-# Deploy do painel na VPS nuvemax: git pull + build da imagem + up (com escala
-# do worker) + garantia das bases no MySQL.
+# Deploy do painel na VPS nuvemax — BLUE-GREEN (sem downtime de HTTP).
+#
+# Fluxo:
+#   1. git pull + build da imagem (tag :latest + :<sha>)
+#   2. garante MySQL e a base do Traccar
+#   3. sobe o slot INATIVO (app-a/app-b) com a imagem nova, ao lado do ativo
+#      — o Traefik balanceia entre os dois enquanto ambos estão de pé
+#   4. espera o healthcheck do container + checagem HTTP /up via Traefik
+#   5. só então remove o slot antigo
+#   6. recria worker/scheduler/reverb com a imagem nova
+#
+# Em caso de falha (build, healthcheck ou checagem HTTP), o slot antigo
+# continua no ar — o deploy aborta sem trocar o tráfego.
 #
 # Uso (no servidor, na raiz do clone do repo):
 #   bash scripts/deploy.sh
@@ -9,7 +20,18 @@
 set -Eeuo pipefail
 cd "$(dirname "$0")/.."
 
+# Exclusão mútua: nunca dois deploys ao mesmo tempo.
+exec 9>/var/lock/nuvemax-panel-deploy.lock
+if ! flock -n 9; then
+  echo "[deploy] Já existe um deploy em andamento — abortando."
+  exit 1
+fi
+
 COMPOSE=(docker compose --env-file .env.prod -f docker-compose.prod.yml)
+STATE_FILE=.deploy-active
+WORKER_REPLICAS="${WORKER_REPLICAS:-2}"
+
+log() { echo "[deploy] $*"; }
 
 env_get() {
   grep -E "^$1=" .env.prod | tail -n1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" || true
@@ -19,14 +41,32 @@ env_get_file() {
   grep -E "^$2=" "$1" | tail -n1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" || true
 }
 
-log() { echo "[deploy] $*"; }
+slot_status() { # $1 = a|b  → healthy|starting|unhealthy|missing|...
+  local cid status
+  cid="$("${COMPOSE[@]}" --profile "$1" ps -q "app-$1" 2>/dev/null || true)"
+  if [ -z "$cid" ]; then
+    echo "missing"
+    return
+  fi
+  status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid" 2>/dev/null || echo missing)"
+  echo "$status"
+}
 
+# ---------------------------------------------------------------------------
+# 1) Código + imagem
+# ---------------------------------------------------------------------------
 log "Atualizando código (git pull --ff-only)..."
 git pull --ff-only
 
-log "Build da imagem do painel..."
-"${COMPOSE[@]}" build app
+SHA="$(git rev-parse --short HEAD)"
+log "Build da imagem (commit ${SHA})..."
+"${COMPOSE[@]}" build app-a
+docker tag local/webraster-api:latest "local/webraster-api:${SHA}"
+log "Imagem: local/webraster-api:latest (também tagueada como :${SHA})"
 
+# ---------------------------------------------------------------------------
+# 2) MySQL + base do Traccar
+# ---------------------------------------------------------------------------
 log "Subindo MySQL..."
 "${COMPOSE[@]}" up -d --wait mysql
 
@@ -47,8 +87,73 @@ else
   log "AVISO: DATABASE_PASSWORD do Traccar não encontrado — pulando criação da base."
 fi
 
-log "Subindo aplicação (worker x${WORKER_REPLICAS:-2})..."
-"${COMPOSE[@]}" up -d --scale worker="${WORKER_REPLICAS:-2}"
+# ---------------------------------------------------------------------------
+# 3) Qual slot está ativo?
+# ---------------------------------------------------------------------------
+ACTIVE=""
+if [ -f "$STATE_FILE" ]; then
+  ACTIVE="$(cat "$STATE_FILE" 2>/dev/null || true)"
+fi
+if [ "$ACTIVE" != "a" ] && [ "$ACTIVE" != "b" ]; then
+  ACTIVE=""
+  for slot in a b; do
+    if [ "$(slot_status "$slot")" != "missing" ]; then
+      ACTIVE="$slot"
+    fi
+  done
+fi
+if [ "$ACTIVE" = "a" ]; then TARGET="b"; else TARGET="a"; fi
+
+log "Slot ativo: ${ACTIVE:-nenhum} → deploy no slot ${TARGET}"
+
+# ---------------------------------------------------------------------------
+# 4) Sobe o slot novo (o antigo continua atendendo)
+# ---------------------------------------------------------------------------
+"${COMPOSE[@]}" --profile "$TARGET" rm -sf "app-${TARGET}" >/dev/null 2>&1 || true
+"${COMPOSE[@]}" --profile "$TARGET" up -d "app-${TARGET}"
+
+log "Aguardando app-${TARGET} ficar healthy..."
+status=""
+for _ in $(seq 1 90); do
+  status="$(slot_status "$TARGET")"
+  case "$status" in
+    healthy) break ;;
+    unhealthy)
+      log "ERRO: app-${TARGET} ficou unhealthy — deploy abortado (slot antigo segue no ar)."
+      exit 1
+      ;;
+  esac
+  sleep 2
+done
+if [ "$status" != "healthy" ]; then
+  log "ERRO: timeout aguardando app-${TARGET} (status=${status}) — deploy abortado."
+  exit 1
+fi
+log "app-${TARGET} healthy."
+
+# Checagem de ponta a ponta via Traefik (independe do DNS público).
+API_DOMAIN="$(env_get API_DOMAIN)"
+HTTP_CODE="$(curl -sk -o /dev/null -m 10 -w '%{http_code}' --resolve "${API_DOMAIN}:443:127.0.0.1" "https://${API_DOMAIN}/up" || true)"
+if [ "$HTTP_CODE" != "200" ]; then
+  log "ERRO: checagem https://${API_DOMAIN}/up retornou ${HTTP_CODE} — deploy abortado (slot antigo segue no ar)."
+  exit 1
+fi
+log "Checagem HTTP via Traefik OK (${HTTP_CODE})."
+
+# ---------------------------------------------------------------------------
+# 5) Remove o slot antigo e registra o ativo
+# ---------------------------------------------------------------------------
+if [ -n "$ACTIVE" ] && [ "$ACTIVE" != "$TARGET" ]; then
+  log "Removendo slot antigo (app-${ACTIVE})..."
+  "${COMPOSE[@]}" --profile "$ACTIVE" rm -sf "app-${ACTIVE}" >/dev/null 2>&1 || true
+fi
+echo "$TARGET" > "$STATE_FILE"
+
+# ---------------------------------------------------------------------------
+# 6) Worker / scheduler / reverb com a imagem nova
+# ---------------------------------------------------------------------------
+log "Recriando worker (x${WORKER_REPLICAS}), scheduler e reverb..."
+"${COMPOSE[@]}" up -d --force-recreate --scale worker="${WORKER_REPLICAS}" worker scheduler reverb
 
 log "Status:"
 "${COMPOSE[@]}" ps
