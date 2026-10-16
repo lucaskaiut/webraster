@@ -43,6 +43,10 @@ Registros `A` apontando para `185.194.219.192`:
 O TLS é emitido automaticamente pelo Traefik (HTTP-01) assim que o DNS
 resolver. Sem DNS, os hosts respondem 404 e o certificado fica pendente.
 
+O frontend **não** é apontado para esta VPS: `new-webraster.nuvemax.srv.br`
+(transição) e `webraster.nuvemax.srv.br` (definitivo) vão para o Vercel. Ambos
+constam em `CORS_ALLOWED_ORIGINS` e `SANCTUM_STATEFUL_DOMAINS` no `.env.prod`.
+
 No cutover, os domínios definitivos (`webraster-api.nuvemax.srv.br`,
 `webraster-ws.nuvemax.srv.br`, `dispositivos.nuvemax.srv.br`) podem ser
 adicionados trocando as variáveis `API_DOMAIN` / `WS_DOMAIN` / `TRACCAR_DOMAIN`
