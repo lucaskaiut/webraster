@@ -65,4 +65,9 @@ php artisan migrate --force || echo "WARNING: migrations failed — container wi
 php artisan storage:link --no-interaction >/dev/null 2>&1 || true
 php artisan optimize:clear --no-interaction >/dev/null 2>&1 || true
 
+# Flag de saúde servida pelo nginx em /healthz (dreno do blue-green remove este
+# arquivo para o Traefik parar de enviar tráfego novo antes da troca de slot).
+printf 'ok' > public/healthz.txt
+chown www-data:www-data public/healthz.txt
+
 exec /usr/bin/supervisord -c /etc/supervisord.conf

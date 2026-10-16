@@ -141,10 +141,20 @@ fi
 log "Checagem HTTP via Traefik OK (${HTTP_CODE})."
 
 # ---------------------------------------------------------------------------
-# 5) Remove o slot antigo e registra o ativo
+# 5) Drena o slot antigo e remove
 # ---------------------------------------------------------------------------
 if [ -n "$ACTIVE" ] && [ "$ACTIVE" != "$TARGET" ]; then
+  OLD_CID="$("${COMPOSE[@]}" --profile "$ACTIVE" ps -q "app-${ACTIVE}" 2>/dev/null || true)"
+  if [ -n "$OLD_CID" ]; then
+    log "Drenando slot antigo (app-${ACTIVE}): retirando a flag /healthz..."
+    docker exec "$OLD_CID" rm -f /var/www/html/public/healthz.txt >/dev/null 2>&1 || true
+    # O LB do Traefik checa a cada 5s (timeout 4s) → DOWN em ≤ ~10s.
+    # A partir do DOWN, nenhuma requisição NOVA chega ao slot antigo, mas ele
+    # continua atendendo normalmente até ser parado.
+    sleep 15
+  fi
   log "Removendo slot antigo (app-${ACTIVE})..."
+  "${COMPOSE[@]}" --profile "$ACTIVE" stop -t 30 "app-${ACTIVE}" >/dev/null 2>&1 || true
   "${COMPOSE[@]}" --profile "$ACTIVE" rm -sf "app-${ACTIVE}" >/dev/null 2>&1 || true
 fi
 echo "$TARGET" > "$STATE_FILE"

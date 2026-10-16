@@ -126,6 +126,13 @@ a checagem `https://<API_DOMAIN>/up` via Traefik e só então remove o slot
 antigo — o tráfego HTTP nunca fica sem backend. Se qualquer etapa falhar, o
 slot antigo permanece no ar e o deploy aborta sem trocar tráfego.
 
+Antes de remover o slot antigo, ele é **drenado**: o script remove a flag
+`public/healthz.txt` (servida em `/healthz`, usada no healthcheck do Traefik),
+espera o Traefik marcá-lo como DOWN (~10s) e só então para o container —
+nenhuma requisição nova é roteada para ele nesse intervalo e as requisições em
+andamento terminam normalmente (por isso o endpoint `/healthz` é separado do
+`/up` da aplicação).
+
 ```bash
 cd /opt/nuvemax/panel && bash scripts/deploy.sh
 ```
