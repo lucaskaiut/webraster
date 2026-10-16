@@ -121,6 +121,23 @@ docker compose --env-file docker/traccar/.env -f docker/traccar/docker-compose.y
   (rede interna) com o header `X-Traccar-Webhook-Token` — o mesmo valor de
   `TRACCAR_WEBHOOK_SECRET` no `.env.prod`.
 
+## Monitoramento (Glances)
+
+Painel web + **API REST** de recursos (CPU, RAM, disco, rede e containers) da
+VPS, atrás de basicAuth no Traefik:
+
+```bash
+cd /opt/nuvemax/panel
+cp docker/monitoring/.env.example docker/monitoring/.env    # MONITOR_DOMAIN
+printf 'usuario:%s\n' "$(openssl passwd -apr1 'SUA_SENHA')" \
+  > docker/gateway/traefik/dynamic/monitor.htpasswd          # não versionado
+docker compose --env-file docker/monitoring/.env -f docker/monitoring/docker-compose.yml up -d
+```
+
+API: `/api/4/cpu`, `/api/4/mem`, `/api/4/fs`, `/api/4/all` (JSON).
+O DNS de `MONITOR_DOMAIN` deve apontar para `185.194.219.192`; o certificado é
+emitido automaticamente pelo Traefik.
+
 ## Deploy (blue-green, sem downtime)
 
 O painel roda em **dois slots** (`app-a` / `app-b`). O script sobe o slot

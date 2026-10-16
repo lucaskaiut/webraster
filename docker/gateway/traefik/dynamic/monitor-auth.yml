@@ -1,0 +1,7 @@
+# Autenticação do painel/API de monitoramento (Glances).
+# O arquivo de usuários (monitor.htpasswd) não é versionado — gerado no servidor.
+http:
+  middlewares:
+    monitor-auth:
+      basicAuth:
+        usersFile: /etc/traefik/dynamic/monitor.htpasswd
