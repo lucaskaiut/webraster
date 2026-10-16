@@ -1,0 +1,85 @@
+# Traccar na VPS nuvemax.
+#
+# Usa a imagem local com o decoder EasyTrack corrigido (frames CC do E3+4G),
+# transferida do servidor contabo (docker save/load — ver docs/deploy-nuvemax.md).
+#
+# Pré-requisitos:
+#   - Redes nuvemax_edge e nuvemax_shared (scripts/install-server.sh)
+#   - MySQL do painel rodando (stack nuvemax-panel) com a base "traccar" criada
+#   - Gateway (Traefik) rodando
+#
+# Uso:
+#   cp .env.example .env   # defina as senhas/domínio
+#   docker compose --env-file .env -f docker/traccar/docker-compose.yml up -d
+
+name: nuvemax-traccar
+
+services:
+  traccar:
+    image: ${TRACCAR_IMAGE:-local/traccar:6.15.3-easytrack-cc}
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      CONFIG_USE_ENVIRONMENT_VARIABLES: "true"
+      WEB_URL: ${WEB_URL:?defina WEB_URL no .env}
+      DATABASE_DRIVER: com.mysql.cj.jdbc.Driver
+      DATABASE_URL: jdbc:mysql://mysql:3306/traccar?zeroDateTimeBehavior=round&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false&allowMultiQueries=true&autoReconnect=true&useUnicode=yes&characterEncoding=UTF-8&sessionVariables=sql_mode=''
+      DATABASE_USER: traccar
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:?defina DATABASE_PASSWORD no .env}
+      EASYTRACK_PORT: "5135"
+      SIWI_PORT: "0"
+      FORWARD_TYPE: json
+      FORWARD_URL: ${FORWARD_URL:-http://webraster-app/api/webhooks/traccar}
+      FORWARD_HEADER: "X-Traccar-Webhook-Token: ${TRACCAR_WEBHOOK_SECRET:?defina TRACCAR_WEBHOOK_SECRET no .env}"
+      GEOCODER_ENABLE: "true"
+      GEOCODER_IGNORE_POSITIONS: "false"
+      GEOCODER_LANGUAGE: pt
+      GEOCODER_REUSE_DISTANCE: "200"
+      GEOCODER_TYPE: nominatim
+      GEOCODER_URL: https://nominatim.openstreetmap.org/reverse
+    ports:
+      # Portas dos protocolos GPS publicadas direto no host (não passam pelo Traefik).
+      - "5011:5011/tcp"
+      - "5023:5023/tcp"
+      - "5130-5131:5130-5131/tcp"
+      - "5135:5135/tcp"
+    volumes:
+      - traccar_logs:/opt/traccar/logs
+    networks:
+      edge:
+        aliases:
+          - traccar
+      shared:
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8082/api/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 5m
+      retries: 5
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=nuvemax_edge
+      - traefik.http.routers.traccar.rule=Host(`${TRACCAR_DOMAIN:?defina TRACCAR_DOMAIN no .env}`)
+      - traefik.http.routers.traccar.entrypoints=websecure
+      - traefik.http.routers.traccar.tls=true
+      - traefik.http.routers.traccar.tls.certresolver=letsencrypt
+      - traefik.http.services.traccar.loadbalancer.server.port=8082
+      - traefik.http.services.traccar.loadbalancer.healthcheck.path=/api/health
+      - traefik.http.services.traccar.loadbalancer.healthcheck.interval=30s
+      - traefik.http.services.traccar.loadbalancer.healthcheck.timeout=5s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  edge:
+    external: true
+    name: nuvemax_edge
+  shared:
+    external: true
+    name: nuvemax_shared
+
+volumes:
+  traccar_logs:

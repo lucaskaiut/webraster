@@ -1,0 +1,51 @@
+# Gateway da VPS nuvemax: Traefik (TLS Let's Encrypt + discovery via labels).
+#
+# Pré-requisito (criado uma única vez — ver scripts/install-server.sh):
+#   docker network create --subnet 172.31.0.0/24 nuvemax_edge
+#
+# Uso:
+#   cp .env.example .env   # defina ACME_EMAIL
+#   docker compose --env-file .env -f docker/gateway/docker-compose.yml up -d
+
+name: nuvemax-gateway
+
+services:
+  traefik:
+    image: traefik:v3.6
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_EMAIL: ${ACME_EMAIL:?defina ACME_EMAIL no .env}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/static/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+      - traefik_letsencrypt:/letsencrypt
+    networks:
+      - edge
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  edge:
+    external: true
+    name: nuvemax_edge
+
+volumes:
+  traefik_letsencrypt:
