@@ -180,7 +180,7 @@ run_nuvemax stop-services <<EOS
 set -Eeuo pipefail
 cd $PANEL_DIR
 docker compose --env-file .env.prod -f docker-compose.prod.yml --profile $ACTIVE stop app-$ACTIVE worker scheduler reverb
-docker compose --env-file docker/traccar/.env -f docker/traccar/docker-compose.yml stop traccar
+docker compose --env-file /opt/nuvemax/traccar/.env -f /opt/nuvemax/traccar/docker-compose.yml stop traccar
 EOS
 
 # ---------------------------------------------------------------------------
@@ -277,7 +277,7 @@ log "Subindo aplicação e Traccar na nuvemax..."
 run_nuvemax start-services <<EOS
 set -Eeuo pipefail
 cd $PANEL_DIR
-docker compose --env-file docker/traccar/.env -f docker/traccar/docker-compose.yml start traccar
+docker compose --env-file /opt/nuvemax/traccar/.env -f /opt/nuvemax/traccar/docker-compose.yml start traccar
 docker compose --env-file .env.prod -f docker-compose.prod.yml --profile $ACTIVE start app-$ACTIVE reverb
 EOS
 log "worker e scheduler ficaram PARADOS de propósito (o contabo continua"
@@ -310,7 +310,7 @@ Próximos passos (quando decidir a virada — ver docs/migracao-dados-contabo.md
   1. Rodar este script de novo para levar os dados mais recentes.
   2. Validar painel/traccar na nuvemax (login, mapa, posições, arquivos).
   3. Virar o DNS: webraster-api, webraster-ws e dispositivos -> 185.194.219.192.
-  4. Ajustar domínios no .env.prod e no docker/traccar/.env e rodar: bash scripts/deploy.sh
+  4. Ajustar domínios no .env.prod e no /opt/nuvemax/traccar/.env e rodar: bash scripts/deploy.sh
   5. Atualizar os VITE_* na Vercel e rebuildar o frontend.
   6. Ativar o processamento na nuvemax (só quando o contabo deixar de processar
      estes dados):

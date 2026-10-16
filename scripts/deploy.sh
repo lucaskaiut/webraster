@@ -13,7 +13,7 @@
 #   6. recria worker/scheduler/reverb com a imagem nova
 #
 # O roteamento da API NÃO usa labels nos containers: vive em um arquivo
-# dinâmico do Traefik gerado aqui (docker/gateway/traefik/dynamic/webraster-api.yml).
+# dinâmico do Traefik gerado aqui (/opt/nuvemax/gateway/traefik/dynamic/webraster-api.yml).
 # Isso evita o erro "Service defined multiple times with different
 # configurations" quando containers antigo/novo coexistem com labels diferentes.
 #
@@ -32,7 +32,10 @@ fi
 
 COMPOSE=(docker compose --env-file .env.prod -f docker-compose.prod.yml)
 STATE_FILE=.deploy-active
-ROUTE_FILE=docker/gateway/traefik/dynamic/webraster-api.yml
+# A infraestrutura do servidor (gateway/traccar/monitoring) vive fora do repo,
+# em /opt/nuvemax — a rota gerada é lida pelo Traefik do diretório dinâmico dele.
+ROUTE_FILE="${ROUTE_FILE:-/opt/nuvemax/gateway/traefik/dynamic/webraster-api.yml}"
+TRACCAR_ENV_FILE="${TRACCAR_ENV_FILE:-/opt/nuvemax/traccar/.env}"
 WORKER_REPLICAS="${WORKER_REPLICAS:-2}"
 
 log() { echo "[deploy] $*"; }
@@ -137,8 +140,8 @@ log "Subindo MySQL..."
 log "Garantindo base + usuário do Traccar no MySQL..."
 MYSQL_ROOT_PASSWORD="$(env_get MYSQL_ROOT_PASSWORD)"
 TRACCAR_DB_PASSWORD=""
-if [ -f docker/traccar/.env ]; then
-  TRACCAR_DB_PASSWORD="$(env_get_file docker/traccar/.env DATABASE_PASSWORD)"
+if [ -f "$TRACCAR_ENV_FILE" ]; then
+  TRACCAR_DB_PASSWORD="$(env_get_file "$TRACCAR_ENV_FILE" DATABASE_PASSWORD)"
 fi
 if [ -n "${TRACCAR_DB_PASSWORD:-}" ]; then
   "${COMPOSE[@]}" exec -T -e MYSQL_PWD="${MYSQL_ROOT_PASSWORD}" mysql mysql -uroot -e "
