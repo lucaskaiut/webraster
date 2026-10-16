@@ -120,18 +120,21 @@ docker compose --env-file docker/traccar/.env -f docker/traccar/docker-compose.y
 
 ## Deploy (blue-green, sem downtime)
 
-O painel roda em **dois slots** (`app-a` / `app-b`), com os mesmos labels do
-Traefik. O script sobe o slot inativo com a imagem nova, espera o healthcheck e
-a checagem `https://<API_DOMAIN>/up` via Traefik e só então remove o slot
-antigo — o tráfego HTTP nunca fica sem backend. Se qualquer etapa falhar, o
-slot antigo permanece no ar e o deploy aborta sem trocar tráfego.
+O painel roda em **dois slots** (`app-a` / `app-b`). O script sobe o slot
+inativo com a imagem nova, espera ficar `healthy`, faz o **flip atômico da
+rota** da API no Traefik e valida `https://<API_DOMAIN>/up` de ponta a ponta.
+Só então encerra o slot antigo, após 10s de graça para as requisições em
+andamento. Se qualquer etapa falhar (build, healthcheck ou validação), a rota
+volta para o slot antigo (ou nunca sai dele) e o deploy aborta.
 
-Antes de remover o slot antigo, ele é **drenado**: o script remove a flag
-`public/healthz.txt` (servida em `/healthz`, usada no healthcheck do Traefik),
-espera o Traefik marcá-lo como DOWN (~10s) e só então para o container —
-nenhuma requisição nova é roteada para ele nesse intervalo e as requisições em
-andamento terminam normalmente (por isso o endpoint `/healthz` é separado do
-`/up` da aplicação).
+A rota da API vive em um arquivo dinâmico do Traefik gerado pelo deploy
+(`docker/gateway/traefik/dynamic/webraster-api.yml`, fora do versionamento,
+com o host lido de `API_DOMAIN` no `.env.prod`) e **não** em labels dos
+containers: labels com configurações diferentes entre os containers
+antigo/novo fariam o Traefik recusar o serviço ("Service defined multiple
+times…"), derrubando o roteamento. O endpoint `/healthz` (arquivo
+`public/healthz.txt`, criado no boot) alimenta o healthcheck do container e do
+loadbalancer.
 
 ```bash
 cd /opt/nuvemax/panel && bash scripts/deploy.sh

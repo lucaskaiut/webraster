@@ -2,3 +2,5 @@
 .env.prod
 *.log
 .DS_Store
+docker/gateway/traefik/dynamic/webraster-api.yml
+docker/gateway/traefik/dynamic/*.tmp

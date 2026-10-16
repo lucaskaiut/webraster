@@ -5,14 +5,17 @@
 # Fluxo:
 #   1. git pull + build da imagem (tag :latest + :<sha>)
 #   2. garante MySQL e a base do Traccar
-#   3. sobe o slot INATIVO (app-a/app-b) com a imagem nova, ao lado do ativo
-#      — o Traefik balanceia entre os dois enquanto ambos estão de pé
-#   4. espera o healthcheck do container + checagem HTTP /up via Traefik
-#   5. só então remove o slot antigo
+#   3. sobe o slot INATIVO (app-a/app-b) e espera ficar healthy
+#   4. flip atômico da rota da API no Traefik (arquivo dinâmico) para o slot
+#      novo + validação de ponta a ponta; em caso de falha, a rota volta para
+#      o slot antigo e o deploy aborta
+#   5. após 10s de graça (requisições em andamento), encerra o slot antigo
 #   6. recria worker/scheduler/reverb com a imagem nova
 #
-# Em caso de falha (build, healthcheck ou checagem HTTP), o slot antigo
-# continua no ar — o deploy aborta sem trocar o tráfego.
+# O roteamento da API NÃO usa labels nos containers: vive em um arquivo
+# dinâmico do Traefik gerado aqui (docker/gateway/traefik/dynamic/webraster-api.yml).
+# Isso evita o erro "Service defined multiple times with different
+# configurations" quando containers antigo/novo coexistem com labels diferentes.
 #
 # Uso (no servidor, na raiz do clone do repo):
 #   bash scripts/deploy.sh
@@ -29,6 +32,7 @@ fi
 
 COMPOSE=(docker compose --env-file .env.prod -f docker-compose.prod.yml)
 STATE_FILE=.deploy-active
+ROUTE_FILE=docker/gateway/traefik/dynamic/webraster-api.yml
 WORKER_REPLICAS="${WORKER_REPLICAS:-2}"
 
 log() { echo "[deploy] $*"; }
@@ -41,7 +45,7 @@ env_get_file() {
   grep -E "^$2=" "$1" | tail -n1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" || true
 }
 
-slot_status() { # $1 = a|b  → healthy|starting|unhealthy|missing|...
+slot_status() { # $1 = a|b → healthy|starting|unhealthy|missing|…
   local cid status
   cid="$("${COMPOSE[@]}" --profile "$1" ps -q "app-$1" 2>/dev/null || true)"
   if [ -z "$cid" ]; then
@@ -50,6 +54,42 @@ slot_status() { # $1 = a|b  → healthy|starting|unhealthy|missing|...
   fi
   status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid" 2>/dev/null || echo missing)"
   echo "$status"
+}
+
+render_route() { # $1 = a|b — aponta a rota da API para o slot (escrita atômica)
+  local domain tmp
+  domain="$(env_get API_DOMAIN)"
+  tmp="${ROUTE_FILE}.tmp"
+  cat > "$tmp" <<YAML
+# GERADO POR scripts/deploy.sh — não editar à mão.
+http:
+  routers:
+    webraster-api:
+      rule: Host(\`${domain}\`)
+      entryPoints:
+        - websecure
+      service: webraster-api
+      priority: 1000
+      tls:
+        certResolver: letsencrypt
+  services:
+    webraster-api:
+      loadBalancer:
+        healthCheck:
+          path: /healthz
+          interval: 5s
+          timeout: 4s
+        servers:
+          - url: http://app-$1:80
+YAML
+  mv "$tmp" "$ROUTE_FILE"
+}
+
+check_up() {
+  local domain code
+  domain="$(env_get API_DOMAIN)"
+  code="$(curl -sk -o /dev/null -m 10 -w '%{http_code}' --resolve "${domain}:443:127.0.0.1" "https://${domain}/up" || true)"
+  echo "$code"
 }
 
 # ---------------------------------------------------------------------------
@@ -107,7 +147,7 @@ if [ "$ACTIVE" = "a" ]; then TARGET="b"; else TARGET="a"; fi
 log "Slot ativo: ${ACTIVE:-nenhum} → deploy no slot ${TARGET}"
 
 # ---------------------------------------------------------------------------
-# 4) Sobe o slot novo (o antigo continua atendendo)
+# 4) Sobe o slot novo (a rota atual continua atendendo)
 # ---------------------------------------------------------------------------
 "${COMPOSE[@]}" --profile "$TARGET" rm -sf "app-${TARGET}" >/dev/null 2>&1 || true
 "${COMPOSE[@]}" --profile "$TARGET" up -d "app-${TARGET}"
@@ -119,7 +159,7 @@ for _ in $(seq 1 90); do
   case "$status" in
     healthy) break ;;
     unhealthy)
-      log "ERRO: app-${TARGET} ficou unhealthy — deploy abortado (slot antigo segue no ar)."
+      log "ERRO: app-${TARGET} ficou unhealthy — deploy abortado (nada foi alterado)."
       exit 1
       ;;
   esac
@@ -131,36 +171,37 @@ if [ "$status" != "healthy" ]; then
 fi
 log "app-${TARGET} healthy."
 
-# Checagem de ponta a ponta via Traefik (independe do DNS público).
-API_DOMAIN="$(env_get API_DOMAIN)"
-HTTP_CODE="$(curl -sk -o /dev/null -m 10 -w '%{http_code}' --resolve "${API_DOMAIN}:443:127.0.0.1" "https://${API_DOMAIN}/up" || true)"
+# ---------------------------------------------------------------------------
+# 5) Flip atômico da rota + validação (com rollback)
+# ---------------------------------------------------------------------------
+log "Apontando a rota da API para app-${TARGET}..."
+render_route "$TARGET"
+sleep 2
+
+HTTP_CODE="$(check_up)"
 if [ "$HTTP_CODE" != "200" ]; then
-  log "ERRO: checagem https://${API_DOMAIN}/up retornou ${HTTP_CODE} — deploy abortado (slot antigo segue no ar)."
+  if [ -n "$ACTIVE" ] && [ "$ACTIVE" != "$TARGET" ]; then
+    log "ERRO: /up retornou ${HTTP_CODE} — revertendo a rota para app-${ACTIVE}."
+    render_route "$ACTIVE"
+  fi
+  log "Deploy abortado."
   exit 1
 fi
-log "Checagem HTTP via Traefik OK (${HTTP_CODE})."
+log "Checagem HTTP via Traefik OK (${HTTP_CODE}) após a troca de rota."
 
 # ---------------------------------------------------------------------------
-# 5) Drena o slot antigo e remove
+# 6) Encerra o slot antigo (após graça para requisições em andamento)
 # ---------------------------------------------------------------------------
 if [ -n "$ACTIVE" ] && [ "$ACTIVE" != "$TARGET" ]; then
-  OLD_CID="$("${COMPOSE[@]}" --profile "$ACTIVE" ps -q "app-${ACTIVE}" 2>/dev/null || true)"
-  if [ -n "$OLD_CID" ]; then
-    log "Drenando slot antigo (app-${ACTIVE}): retirando a flag /healthz..."
-    docker exec "$OLD_CID" rm -f /var/www/html/public/healthz.txt >/dev/null 2>&1 || true
-    # O LB do Traefik checa a cada 5s (timeout 4s) → DOWN em ≤ ~10s.
-    # A partir do DOWN, nenhuma requisição NOVA chega ao slot antigo, mas ele
-    # continua atendendo normalmente até ser parado.
-    sleep 15
-  fi
-  log "Removendo slot antigo (app-${ACTIVE})..."
+  log "Aguardando 10s antes de encerrar app-${ACTIVE}..."
+  sleep 10
   "${COMPOSE[@]}" --profile "$ACTIVE" stop -t 30 "app-${ACTIVE}" >/dev/null 2>&1 || true
   "${COMPOSE[@]}" --profile "$ACTIVE" rm -sf "app-${ACTIVE}" >/dev/null 2>&1 || true
 fi
 echo "$TARGET" > "$STATE_FILE"
 
 # ---------------------------------------------------------------------------
-# 6) Worker / scheduler / reverb com a imagem nova
+# 7) Worker / scheduler / reverb com a imagem nova
 # ---------------------------------------------------------------------------
 log "Recriando worker (x${WORKER_REPLICAS}), scheduler e reverb..."
 "${COMPOSE[@]}" up -d --force-recreate --scale worker="${WORKER_REPLICAS}" worker scheduler reverb

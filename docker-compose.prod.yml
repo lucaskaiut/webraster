@@ -1,9 +1,9 @@
 # Stack de produção do painel na VPS nuvemax.
 #
-# Deploy BLUE-GREEN: os serviços app-a/app-b são dois slots com os mesmos
-# labels do Traefik (mesmo router/serviço, balanceados como pool). O deploy
-# sobe o slot inativo, espera ficar healthy e só então remove o antigo —
-# ver scripts/deploy.sh. Em uso normal, apenas UM slot roda por vez.
+# Deploy BLUE-GREEN: os serviços app-a/app-b são dois slots alternados pelo
+# deploy (scripts/deploy.sh) — sobe o slot inativo, valida e faz o flip da rota
+# no Traefik. A rota da API vive em um arquivo dinâmico do Traefik gerado no
+# deploy (docker/gateway/traefik/dynamic/webraster-api.yml), não em labels.
 #
 # Pré-requisitos (criados uma única vez — ver scripts/install-server.sh):
 #   docker network create --subnet 172.31.0.0/24 nuvemax_edge
@@ -33,6 +33,10 @@ x-logging: &logging
       max-file: "3"
 
 # Definição compartilhada dos slots blue-green (web).
+# O roteamento da API NÃO usa labels: é um arquivo dinâmico do Traefik gerado
+# pelo deploy (docker/gateway/traefik/dynamic/webraster-api.yml). Rota por
+# label com configuração diferente entre containers antigo/novo faz o Traefik
+# recusar o merge do serviço ("Service defined multiple times...").
 x-app-service: &app-service
   image: local/webraster-api:latest
   build:
@@ -50,28 +54,12 @@ x-app-service: &app-service
   depends_on:
     mysql:
       condition: service_healthy
-  networks:
-    edge:
-      aliases:
-        - webraster-app
-    shared:
   healthcheck:
     test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/healthz || exit 1"]
     interval: 15s
     timeout: 5s
     retries: 10
     start_period: 120s
-  labels:
-    - traefik.enable=true
-    - traefik.docker.network=nuvemax_edge
-    - traefik.http.routers.webraster-api.rule=Host(`${API_DOMAIN:?defina API_DOMAIN no .env.prod}`)
-    - traefik.http.routers.webraster-api.entrypoints=websecure
-    - traefik.http.routers.webraster-api.tls=true
-    - traefik.http.routers.webraster-api.tls.certresolver=letsencrypt
-    - traefik.http.services.webraster-api.loadbalancer.server.port=80
-    - traefik.http.services.webraster-api.loadbalancer.healthcheck.path=/healthz
-    - traefik.http.services.webraster-api.loadbalancer.healthcheck.interval=5s
-    - traefik.http.services.webraster-api.loadbalancer.healthcheck.timeout=4s
   logging:
     driver: json-file
     options:
@@ -110,10 +98,22 @@ services:
   app-a:
     <<: *app-service
     profiles: ["a"]
+    networks:
+      edge:
+        aliases:
+          - webraster-app
+          - app-a
+      shared:
 
   app-b:
     <<: *app-service
     profiles: ["b"]
+    networks:
+      edge:
+        aliases:
+          - webraster-app
+          - app-b
+      shared:
 
   reverb:
     <<: [*app-image, *logging]
