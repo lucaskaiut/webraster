@@ -62,18 +62,18 @@ nenhum momento.
      `bash scripts/deploy.sh`.
 3. **Virar o DNS** (no seu provedor), apontando para `185.194.219.192`:
 
-   | Domínio |
-   |---|
-   | `webraster-api.nuvemax.srv.br` |
-   | `webraster-ws.nuvemax.srv.br` |
-   | `dispositivos.nuvemax.srv.br` |
+   | Domínio | Observação |
+   |---|---|
+   | `webraster-api.nuvemax.srv.br` | usado pelos frontends ao vivo |
+   | `webraster-ws.nuvemax.srv.br` | **ainda não existe — criar junto com a virada** |
+   | `dispositivos.nuvemax.srv.br` | rastreadores |
 
 4. **Ajustar domínios na nuvemax e aplicar**
    ```bash
    ssh nuvemax
    cd /opt/nuvemax/panel
-   sed -i 's/^API_DOMAIN=.*/API_DOMAIN=webraster-api.nuvemax.srv.br/' .env.prod
-   sed -i 's/^WS_DOMAIN=.*/WS_DOMAIN=webraster-ws.nuvemax.srv.br/' .env.prod
+   sed -i 's/^API_DOMAIN=.*/API_DOMAIN=new-webraster-api.nuvemax.srv.br,webraster-api.nuvemax.srv.br/' .env.prod
+   sed -i 's/^WS_DOMAIN=.*/WS_DOMAIN=new-webraster-ws.nuvemax.srv.br,webraster-ws.nuvemax.srv.br/' .env.prod
    sed -i 's/^APP_URL=.*/APP_URL=https:\/\/webraster-api.nuvemax.srv.br/' .env.prod
    sed -i 's/^TRACCAR_SERVER_DNS=.*/TRACCAR_SERVER_DNS=dispositivos.nuvemax.srv.br/' .env.prod
    sed -i 's/^WEB_URL=.*/WEB_URL=https:\/\/dispositivos.nuvemax.srv.br/' docker/traccar/.env
@@ -81,7 +81,11 @@ nenhum momento.
    bash scripts/deploy.sh
    docker compose --env-file docker/traccar/.env -f docker/traccar/docker-compose.yml up -d
    ```
-   O deploy regera a rota a partir de `API_DOMAIN` e o Traefik emite os
+   `API_DOMAIN` e `WS_DOMAIN` aceitam **lista separada por vírgula** (o Traefik
+   roteia todos os hosts): mantemos os `new-*` ativos junto com os definitivos
+   durante a transição. Se o app mobile ainda usar os domínios antigos, inclua
+   `,webraster-api.noxtecnologias.com.br` / `,webraster-ws.noxtecnologias.com.br`.
+   O deploy regera as rotas a partir dessas variáveis e o Traefik emite os
    certificados definitivos.
 5. **Frontend (Vercel)**: atualizar e **rebuildar**:
    ```env

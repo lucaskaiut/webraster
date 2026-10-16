@@ -56,19 +56,38 @@ slot_status() { # $1 = a|b → healthy|starting|unhealthy|missing|…
   echo "$status"
 }
 
-render_route() { # $1 = a|b — aponta a rota da API para o slot (escrita atômica)
-  local domain tmp
-  domain="$(env_get API_DOMAIN)"
+host_rule() { # lista separada por vírgula/espaço -> Host(`a`) || Host(`b`) || …
+  local list="$1" out="" h
+  list="${list//,/ }"
+  for h in $list; do
+    [ -z "$h" ] && continue
+    if [ -z "$out" ]; then out="Host(\`$h\`)"; else out="$out || Host(\`$h\`)"; fi
+  done
+  printf '%s' "$out"
+}
+
+render_route() { # $1 = a|b — aponta API + WebSocket para o slot ativo (escrita atômica)
+  local tmp api_rule ws_rule
   tmp="${ROUTE_FILE}.tmp"
+  api_rule="$(host_rule "$(env_get API_DOMAIN)")"
+  ws_rule="$(host_rule "$(env_get WS_DOMAIN)")"
   cat > "$tmp" <<YAML
 # GERADO POR scripts/deploy.sh — não editar à mão.
 http:
   routers:
     webraster-api:
-      rule: Host(\`${domain}\`)
+      rule: ${api_rule}
       entryPoints:
         - websecure
       service: webraster-api
+      priority: 1000
+      tls:
+        certResolver: letsencrypt
+    webraster-ws:
+      rule: ${ws_rule}
+      entryPoints:
+        - websecure
+      service: webraster-ws
       priority: 1000
       tls:
         certResolver: letsencrypt
@@ -81,6 +100,10 @@ http:
           timeout: 4s
         servers:
           - url: http://app-$1:80
+    webraster-ws:
+      loadBalancer:
+        servers:
+          - url: http://reverb:8080
 YAML
   mv "$tmp" "$ROUTE_FILE"
 }
@@ -88,6 +111,7 @@ YAML
 check_up() {
   local domain code
   domain="$(env_get API_DOMAIN)"
+  domain="${domain%%,*}"; domain="${domain%% *}"
   code="$(curl -sk -o /dev/null -m 10 -w '%{http_code}' --resolve "${domain}:443:127.0.0.1" "https://${domain}/up" || true)"
   echo "$code"
 }

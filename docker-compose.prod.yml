@@ -133,14 +133,8 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=nuvemax_edge
-      - traefik.http.routers.webraster-reverb.rule=Host(`${WS_DOMAIN:?defina WS_DOMAIN no .env.prod}`)
-      - traefik.http.routers.webraster-reverb.entrypoints=websecure
-      - traefik.http.routers.webraster-reverb.tls=true
-      - traefik.http.routers.webraster-reverb.tls.certresolver=letsencrypt
-      - traefik.http.services.webraster-reverb.loadbalancer.server.port=8080
+    # Rota do WebSocket (webraster-ws) é gerada no arquivo dinâmico do Traefik
+    # pelo deploy (scripts/deploy.sh) — os hosts vêm de WS_DOMAIN no .env.prod.
 
   worker:
     <<: [*app-image, *logging]
