@@ -13,7 +13,7 @@ Internet
 nuvemax-gateway (Traefik v3.6 + Let's Encrypt)   rede: nuvemax_edge (172.31.0.0/24)
   ├── new-webraster-api…  → app   (Nginx + PHP-FPM, migra no boot)
   ├── new-webraster-ws…   → reverb (WebSocket :8080)
-  └── new-traccar…        → traccar (:8082;  rastreadores entram pelas portas GPS)
+  └── new-dispositivos…  → traccar (:8082;  rastreadores entram pelas portas GPS)
 
 nuvemax-panel (docker-compose.prod.yml)          rede: nuvemax_shared (172.31.1.0/24)
   ├── mysql:8.4 (bases webraster + traccar)
@@ -38,7 +38,7 @@ Registros `A` apontando para `185.194.219.192`:
 |-------------------------------------------|------------------------------|
 | `new-webraster-api.nuvemax.srv.br`        | API do painel                |
 | `new-webraster-ws.nuvemax.srv.br`         | WebSocket (Reverb)           |
-| `new-traccar.nuvemax.srv.br`              | Interface do Traccar         |
+| `new-dispositivos.nuvemax.srv.br`              | Interface do Traccar         |
 
 O TLS é emitido automaticamente pelo Traefik (HTTP-01) assim que o DNS
 resolver. Sem DNS, os hosts respondem 404 e o certificado fica pendente.
@@ -108,7 +108,7 @@ docker compose --env-file docker/traccar/.env -f docker/traccar/docker-compose.y
 
 - Config por variáveis de ambiente (`CONFIG_USE_ENVIRONMENT_VARIABLES=true`);
   nada de `traccar.xml` em disco.
-- Primeiro acesso: abra `https://new-traccar.nuvemax.srv.br` e registre o
+- Primeiro acesso: abra `https://new-dispositivos.nuvemax.srv.br` e registre o
   usuário administrador (a base está vazia).
 - O webhook de posições vai para `http://webraster-app/api/webhooks/traccar`
   (rede interna) com o header `X-Traccar-Webhook-Token` — o mesmo valor de
