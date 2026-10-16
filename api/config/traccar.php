@@ -41,10 +41,16 @@ return [
     'webhook_secret' => env('TRACCAR_WEBHOOK_SECRET'),
 
     /*
-    | Reconciliação periódica: job a cada 5 minutos puxa do Traccar as posições
+    | Reconciliação periódica: job (fila sync) puxa do Traccar as posições
     | que o webhook não entregou. Desligue para não gerar tráfego extra.
     */
     'sync_enabled' => (bool) env('TRACCAR_SYNC_ENABLED', true),
+
+    /** Fila de processamento em tempo real (webhook → posição/alertas). */
+    'queue' => env('TRACCAR_QUEUE', 'tracking'),
+
+    /** Fila de jobs pesados de reconciliação com a API do Traccar. */
+    'sync_queue' => env('TRACCAR_SYNC_QUEUE', 'sync'),
 
     /*
     | Janela de tolerância para considerar o dispositivo online no painel quando

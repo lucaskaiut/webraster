@@ -8,6 +8,7 @@ use App\Modules\Tracking\Contracts\TraccarGateway;
 use App\Modules\Tracking\Models\GpsPosition;
 use App\Modules\Tracking\Services\TrackingService;
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Collection;
@@ -18,9 +19,23 @@ use Throwable;
  * Reconciliação: busca no Traccar as posições que o webhook não entregou
  * (ou entregou com id=0) e persiste pelo mesmo pipeline idempotente.
  */
-class SyncTraccarPositionsJob implements ShouldQueue
+class SyncTraccarPositionsJob implements ShouldBeUnique, ShouldQueue
 {
     use Queueable;
+
+    public int $timeout = 900;
+
+    public int $uniqueFor = 300;
+
+    public function __construct()
+    {
+        $this->onQueue((string) config('traccar.sync_queue', 'sync'));
+    }
+
+    public function uniqueId(): string
+    {
+        return 'sync-traccar-positions';
+    }
 
     public function handle(TraccarGateway $gateway, TrackingService $tracking): void
     {

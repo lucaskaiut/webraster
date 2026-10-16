@@ -38,6 +38,9 @@ done
 log "MySQL disponível. Iniciando scheduler + queue worker..."
 
 CHAT_QUEUE="$(env_get CHAT_QUEUE chat)"
+TRACKING_QUEUE="$(env_get TRACCAR_QUEUE tracking)"
+SYNC_QUEUE="$(env_get TRACCAR_SYNC_QUEUE sync)"
+QUEUE_LIST="${TRACKING_QUEUE},${CHAT_QUEUE},broadcasts,default,${SYNC_QUEUE}"
 
 php artisan schedule:work &
-exec php artisan queue:work --queue="${CHAT_QUEUE},default" --sleep=3 --tries=3 --max-time=3600
+exec php artisan queue:work --queue="${QUEUE_LIST}" --sleep=1 --tries=3 --timeout=900 --max-time=3600

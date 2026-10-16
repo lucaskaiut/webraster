@@ -35,7 +35,7 @@ Schedule::command(ReconcileContractEvidenceCommand::class)->everyFiveMinutes()->
 
 Schedule::job(new DispatchPendingTraccarEventsJob)->everyMinute()->withoutOverlapping();
 Schedule::job(new SyncTraccarPositionsJob)
-    ->everyMinute()
+    ->everyFiveMinutes()
     ->withoutOverlapping()
     ->when(fn (): bool => (bool) config('traccar.enabled') && (bool) config('traccar.sync_enabled'));
 

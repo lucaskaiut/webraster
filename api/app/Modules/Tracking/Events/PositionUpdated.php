@@ -44,6 +44,11 @@ class PositionUpdated implements ShouldBroadcast
         return 'position.updated';
     }
 
+    public function broadcastQueue(): string
+    {
+        return 'broadcasts';
+    }
+
     /**
      * @return array<string, mixed>
      */

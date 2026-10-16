@@ -15,6 +15,11 @@ class DispatchPendingTraccarEventsJob implements ShouldQueue
 {
     use Queueable;
 
+    public function __construct()
+    {
+        $this->onQueue((string) config('traccar.queue', 'tracking'));
+    }
+
     public function handle(): void
     {
         $staleBefore = now()->subMinutes(5);
