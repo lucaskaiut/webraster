@@ -18,14 +18,17 @@
 #      de domínios antigos nos dados + cópia para a nuvemax
 #   3. backup de segurança do estado atual da nuvemax (bases + volumes)
 #   4. janela: para os serviços na nuvemax (nunca no contabo)
-#   5. restore das bases + sincronização dos volumes de storage
-#   6. re-sobe a aplicação e valida contagens de linhas tabela a tabela
+#   5. restore das bases + validação estrutural (falha se o restore não subir
+#      as tabelas) + sincronização dos volumes de storage
+#   6. re-sobe a aplicação e valida as contagens de linhas (origem x destino)
 #
 # Worker e scheduler da nuvemax ficam PARADOS ao final (o contabo segue
 # processando em produção — evita rotinas agendadas duplicadas). Ative-os
 # quando decidir a virada (ver docs/migracao-dados-contabo.md).
 #
-# Artefatos locais ficam em /tmp/nuvemax-migration (sobrescreva com MIGRATION_TMP).
+# NOTA TÉCNICA: os passos remotos rodam a partir de ARQUIVO (scp + bash arquivo),
+# nunca por stdin — `docker compose exec` consome o stdin do shell remoto e
+# truncaria scripts alimentados por heredoc.
 
 set -Eeuo pipefail
 
@@ -35,25 +38,47 @@ BACKUP_DIR=/opt/nuvemax/backups
 REMOTE_TMP=/tmp/nuvemax-migration
 TS="$(date +%Y%m%d-%H%M%S)"
 
+TMP_SCRIPTS="$(mktemp -d)"
+trap 'rm -rf "$TMP_SCRIPTS"' EXIT
+
 log()  { echo "[migracao] $*"; }
 fail() { echo "[migracao] ERRO: $*" >&2; exit 1; }
 
 mkdir -p "$LOCAL_TMP"
 chmod 700 "$LOCAL_TMP"
 
+# Roda um script no contabo (conteúdo via heredoc; executa a partir de arquivo).
+run_contabo() { # $1 = nome do script
+  local name="$1"
+  local f="$TMP_SCRIPTS/$name"
+  cat > "$f"
+  scp -q "$f" "contabo:/tmp/$name"
+  ssh contabo "bash /tmp/$name" </dev/null
+}
+
+# Roda um script na nuvemax (TS disponível como variável de ambiente).
+run_nuvemax() { # $1 = nome do script
+  local name="$1"
+  local f="$TMP_SCRIPTS/$name"
+  cat > "$f"
+  ssh nuvemax "mkdir -p $REMOTE_TMP && chmod 700 $REMOTE_TMP" </dev/null
+  scp -q "$f" "nuvemax:$REMOTE_TMP/$name"
+  ssh nuvemax "TS='$TS' bash $REMOTE_TMP/$name" </dev/null
+}
+
 # ---------------------------------------------------------------------------
 # 1) Pré-checagem
 # ---------------------------------------------------------------------------
 log "Pré-checagem: conectividade..."
-ssh -o ConnectTimeout=10 -o BatchMode=yes contabo true || fail "sem acesso ssh ao contabo"
-ssh -o ConnectTimeout=10 -o BatchMode=yes nuvemax true || fail "sem acesso ssh à nuvemax"
+ssh -o ConnectTimeout=10 -o BatchMode=yes contabo true </dev/null || fail "sem acesso ssh ao contabo"
+ssh -o ConnectTimeout=10 -o BatchMode=yes nuvemax true </dev/null || fail "sem acesso ssh à nuvemax"
 
 log "Pré-checagem: espaço em disco na nuvemax..."
-FREE_MB=$(ssh nuvemax "df -m / | awk 'NR==2{print \$4}'")
+FREE_MB=$(ssh nuvemax "df -m / | awk 'NR==2{print \$4}'" </dev/null)
 [ "${FREE_MB:-0}" -gt 8192 ] || fail "pouco espaço na nuvemax (${FREE_MB}MB livres; precisa de >8GB)"
 
 log "Origem (contabo):"
-ssh contabo 'bash -s' <<'EOS'
+run_contabo sizes <<'EOS'
 set -Eeuo pipefail
 SHARED=$(docker ps -q -f name=infra-shared_mysql)
 TRC=$(docker ps -q -f name=infra-app-traccar_database)
@@ -66,7 +91,7 @@ EOS
 # 2) Dumps do contabo -> arquivos locais (somente leitura no contabo)
 # ---------------------------------------------------------------------------
 log "Dump webraster (contabo)..."
-ssh contabo 'bash -s' <<'EOS' | gzip -1 > "$LOCAL_TMP/webraster-$TS.sql.gz"
+run_contabo dump-webraster <<'EOS' | gzip -1 > "$LOCAL_TMP/webraster-$TS.sql.gz"
 set -Eeuo pipefail
 SHARED=$(docker ps -q -f name=infra-shared_mysql)
 docker exec "$SHARED" sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysqldump -uroot --single-transaction --routines --triggers --events --default-character-set=utf8mb4 webraster'
@@ -74,7 +99,7 @@ EOS
 ls -lh "$LOCAL_TMP/webraster-$TS.sql.gz"
 
 log "Dump traccar (contabo)..."
-ssh contabo 'bash -s' <<'EOS' | gzip -1 > "$LOCAL_TMP/traccar-$TS.sql.gz"
+run_contabo dump-traccar <<'EOS' | gzip -1 > "$LOCAL_TMP/traccar-$TS.sql.gz"
 set -Eeuo pipefail
 TRC=$(docker ps -q -f name=infra-app-traccar_database)
 PW=$(docker service inspect infra-app-traccar_traccar --format '{{range .Spec.TaskTemplate.ContainerSpec.Env}}{{println .}}{{end}}' | grep '^DATABASE_PASSWORD=' | cut -d= -f2-)
@@ -82,125 +107,8 @@ docker exec "$TRC" sh -c "MYSQL_PWD='$PW' mysqldump -utraccar --single-transacti
 EOS
 ls -lh "$LOCAL_TMP/traccar-$TS.sql.gz"
 
-log "Auditoria: referências aos domínios antigos dentro dos dados (manter/revisar depois)..."
-for f in webraster traccar; do
-  {
-    echo "  == $f: ocorrências =="
-    zgrep -aoh -iE "noxtecnologias\.com\.br|dispositivos\.nuvemax|webraster\.nuvemax" "$LOCAL_TMP/$f-$TS.sql.gz" 2>/dev/null | sort | uniq -c | sort -rn | head -5 || echo "    (nenhuma)"
-  } | sed 's/^/  /'
-done
-
-log "Backup dos volumes de storage (contabo)..."
-ssh contabo 'bash -s' <<'EOS' | gzip -1 > "$LOCAL_TMP/storage-$TS.tar.gz"
-set -Eeuo pipefail
-docker run --rm -v webraster_webraster_storage:/data:ro alpine tar cf - -C /data .
-EOS
-ssh contabo 'bash -s' <<'EOS' | gzip -1 > "$LOCAL_TMP/private-$TS.tar.gz"
-set -Eeuo pipefail
-docker run --rm -v webraster_webraster_private:/data:ro alpine tar cf - -C /data .
-EOS
-ls -lh "$LOCAL_TMP"/*.tar.gz
-
-log "Enviando artefatos para a nuvemax..."
-ssh nuvemax "mkdir -p $REMOTE_TMP && chmod 700 $REMOTE_TMP"
-scp -q "$LOCAL_TMP/webraster-$TS.sql.gz" "$LOCAL_TMP/traccar-$TS.sql.gz" \
-       "$LOCAL_TMP/storage-$TS.tar.gz" "$LOCAL_TMP/private-$TS.tar.gz" \
-       "nuvemax:$REMOTE_TMP/"
-
-# ---------------------------------------------------------------------------
-# 3) Backup de segurança do estado atual da nuvemax
-# ---------------------------------------------------------------------------
-log "Backup de segurança (pré-migração) das bases e volumes da nuvemax..."
-ssh nuvemax "TS='$TS' bash -s" <<'EOS'
-set -Eeuo pipefail
-cd /opt/nuvemax/panel
-mkdir -p /opt/nuvemax/backups
-PW=$(grep -E '^MYSQL_ROOT_PASSWORD=' .env.prod | tail -n1 | cut -d= -f2-)
-docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T -e MYSQL_PWD="$PW" mysql sh -c 'mysqldump -uroot --single-transaction webraster' | gzip -1 > "/opt/nuvemax/backups/pre-migration-$TS-webraster.sql.gz"
-docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T -e MYSQL_PWD="$PW" mysql sh -c 'mysqldump -uroot --single-transaction traccar' | gzip -1 > "/opt/nuvemax/backups/pre-migration-$TS-traccar.sql.gz"
-docker run --rm -v nuvemax-panel_webraster_storage:/data:ro alpine tar czf - -C /data . > "/opt/nuvemax/backups/pre-migration-$TS-storage.tar.gz"
-docker run --rm -v nuvemax-panel_webraster_private:/data:ro alpine tar czf - -C /data . > "/opt/nuvemax/backups/pre-migration-$TS-private.tar.gz"
-ls -lh /opt/nuvemax/backups/ | grep "pre-migration-$TS"
-EOS
-
-# ---------------------------------------------------------------------------
-# 4) Janela: para os serviços na nuvemax
-# ---------------------------------------------------------------------------
-ACTIVE=$(ssh nuvemax "cat $PANEL_DIR/.deploy-active 2>/dev/null || echo a")
-log "Slot ativo na nuvemax: ${ACTIVE}. Parando serviços (janela de migração)..."
-log "AVISO: o monitor (Uptime Kuma) vai acusar indisponibilidade durante a janela."
-ssh nuvemax "cd $PANEL_DIR && \
-  docker compose --env-file .env.prod -f docker-compose.prod.yml --profile $ACTIVE stop app-$ACTIVE worker scheduler reverb && \
-  docker compose --env-file docker/traccar/.env -f docker/traccar/docker-compose.yml stop traccar"
-
-# ---------------------------------------------------------------------------
-# 5) Restore das bases na nuvemax
-# ---------------------------------------------------------------------------
-log "Restaurando base webraster na nuvemax..."
-ssh nuvemax "TS='$TS' bash -s" <<'EOS'
-set -Eeuo pipefail
-cd /opt/nuvemax/panel
-PW=$(grep -E '^MYSQL_ROOT_PASSWORD=' .env.prod | tail -n1 | cut -d= -f2-)
-docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T -e MYSQL_PWD="$PW" mysql \
-  mysql -uroot -e "DROP DATABASE IF EXISTS webraster; CREATE DATABASE webraster CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-gunzip -c "/tmp/nuvemax-migration/webraster-$TS.sql.gz" | \
-  docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T -e MYSQL_PWD="$PW" mysql \
-  mysql -uroot webraster
-echo "  webraster restaurado."
-EOS
-
-log "Restaurando base traccar na nuvemax..."
-ssh nuvemax "TS='$TS' bash -s" <<'EOS'
-set -Eeuo pipefail
-cd /opt/nuvemax/panel
-PW=$(grep -E '^MYSQL_ROOT_PASSWORD=' .env.prod | tail -n1 | cut -d= -f2-)
-docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T -e MYSQL_PWD="$PW" mysql \
-  mysql -uroot -e "DROP DATABASE IF EXISTS traccar; CREATE DATABASE traccar CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-gunzip -c "/tmp/nuvemax-migration/traccar-$TS.sql.gz" | \
-  docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T -e MYSQL_PWD="$PW" mysql \
-  mysql -uroot traccar
-echo "  traccar restaurado."
-EOS
-
-# ---------------------------------------------------------------------------
-# 6) Sincronização dos volumes de storage
-# ---------------------------------------------------------------------------
-log "Sincronizando volumes de storage (public + private)..."
-ssh nuvemax "TS='$TS' bash -s" <<'EOS'
-set -Eeuo pipefail
-for pair in "nuvemax-panel_webraster_storage:storage" "nuvemax-panel_webraster_private:private"; do
-  VOL="${pair%%:*}"; FILE="${pair##*:}"
-  docker volume inspect "$VOL" >/dev/null 2>&1 || { echo "volume $VOL não existe" >&2; exit 1; }
-  gunzip -c "/tmp/nuvemax-migration/$FILE-$TS.tar.gz" | \
-    docker run --rm -i -v "$VOL:/data" alpine sh -c 'find /data -mindepth 1 -delete; tar xf - -C /data'
-  echo "  $VOL sincronizado."
-done
-EOS
-
-# ---------------------------------------------------------------------------
-# 7) Sobe os serviços na nuvemax
-# ---------------------------------------------------------------------------
-log "Subindo aplicação e Traccar na nuvemax..."
-ssh nuvemax "cd $PANEL_DIR && \
-  docker compose --env-file docker/traccar/.env -f docker/traccar/docker-compose.yml start traccar && \
-  docker compose --env-file .env.prod -f docker-compose.prod.yml --profile $ACTIVE start app-$ACTIVE reverb"
-log "worker e scheduler ficaram PARADOS de propósito (o contabo continua"
-log "processando em produção — evita rotinas agendadas duplicadas)."
-ssh nuvemax "touch $PANEL_DIR/.workers-paused"
-
-log "Aguardando o app e o traccar ficarem saudáveis..."
-for _ in $(seq 1 60); do
-  OK=1
-  ssh nuvemax "docker inspect -f '{{.State.Health.Status}}' nuvemax-panel-app-$ACTIVE-1 nuvemax-traccar-traccar-1 2>/dev/null" | grep -qv healthy && OK=0
-  [ "$OK" = 1 ] && break
-  sleep 3
-done
-
-# ---------------------------------------------------------------------------
-# 8) Validação: contagens por tabela (origem x destino)
-# ---------------------------------------------------------------------------
-log "Coletando contagens do contabo (origem)..."
-ssh contabo 'bash -s' <<'EOS' > "$LOCAL_TMP/counts-$TS-source.txt"
+log "Contagens do contabo (referência para validação)..."
+run_contabo counts-source <<'EOS' > "$LOCAL_TMP/counts-$TS-source.txt"
 set -Eeuo pipefail
 SHARED=$(docker ps -q -f name=infra-shared_mysql)
 TRC=$(docker ps -q -f name=infra-app-traccar_database)
@@ -221,8 +129,97 @@ counts "$TRC" traccar "$TPW" traccar
 EOS
 sort -o "$LOCAL_TMP/counts-$TS-source.txt" "$LOCAL_TMP/counts-$TS-source.txt"
 
-log "Coletando contagens da nuvemax (destino)..."
-ssh nuvemax 'bash -s' <<'EOS' > "$LOCAL_TMP/counts-$TS-target.txt"
+log "Auditoria: referências aos domínios antigos dentro dos dados (manter/revisar depois)..."
+for f in webraster traccar; do
+  {
+    echo "  == $f: ocorrências =="
+    zgrep -aoh -iE "noxtecnologias\.com\.br|dispositivos\.nuvemax|webraster\.nuvemax" "$LOCAL_TMP/$f-$TS.sql.gz" 2>/dev/null | sort | uniq -c | sort -rn | head -5 || echo "    (nenhuma)"
+  } | sed 's/^/  /'
+done
+
+log "Backup dos volumes de storage (contabo)..."
+run_contabo tar-storage <<'EOS' | gzip -1 > "$LOCAL_TMP/storage-$TS.tar.gz"
+set -Eeuo pipefail
+docker run --rm -v webraster_webraster_storage:/data:ro alpine tar cf - -C /data .
+EOS
+run_contabo tar-private <<'EOS' | gzip -1 > "$LOCAL_TMP/private-$TS.tar.gz"
+set -Eeuo pipefail
+docker run --rm -v webraster_webraster_private:/data:ro alpine tar cf - -C /data .
+EOS
+ls -lh "$LOCAL_TMP"/*.tar.gz
+
+log "Enviando artefatos para a nuvemax..."
+ssh nuvemax "mkdir -p $REMOTE_TMP && chmod 700 $REMOTE_TMP" </dev/null
+scp -q "$LOCAL_TMP/webraster-$TS.sql.gz" "$LOCAL_TMP/traccar-$TS.sql.gz" \
+       "$LOCAL_TMP/storage-$TS.tar.gz" "$LOCAL_TMP/private-$TS.tar.gz" \
+       "nuvemax:$REMOTE_TMP/"
+
+# ---------------------------------------------------------------------------
+# 3) Backup de segurança do estado atual da nuvemax
+# ---------------------------------------------------------------------------
+log "Backup de segurança (pré-migração) das bases e volumes da nuvemax..."
+run_nuvemax backup-current <<'EOS'
+set -Eeuo pipefail
+cd /opt/nuvemax/panel
+mkdir -p /opt/nuvemax/backups
+PW=$(grep -E '^MYSQL_ROOT_PASSWORD=' .env.prod | tail -n1 | cut -d= -f2-)
+docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T -e MYSQL_PWD="$PW" mysql sh -c 'mysqldump -uroot --single-transaction webraster' | gzip -1 > "/opt/nuvemax/backups/pre-migration-$TS-webraster.sql.gz"
+docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T -e MYSQL_PWD="$PW" mysql sh -c 'mysqldump -uroot --single-transaction traccar' | gzip -1 > "/opt/nuvemax/backups/pre-migration-$TS-traccar.sql.gz"
+docker run --rm -v nuvemax-panel_webraster_storage:/data:ro alpine tar czf - -C /data . > "/opt/nuvemax/backups/pre-migration-$TS-storage.tar.gz"
+docker run --rm -v nuvemax-panel_webraster_private:/data:ro alpine tar czf - -C /data . > "/opt/nuvemax/backups/pre-migration-$TS-private.tar.gz"
+ls -lh /opt/nuvemax/backups/ | grep "pre-migration-$TS"
+EOS
+
+# ---------------------------------------------------------------------------
+# 4) Janela: para os serviços na nuvemax
+# ---------------------------------------------------------------------------
+ACTIVE=$(ssh nuvemax "cat $PANEL_DIR/.deploy-active 2>/dev/null || echo a" </dev/null)
+log "Slot ativo na nuvemax: ${ACTIVE}. Parando serviços (janela de migração)..."
+log "AVISO: o monitor (Uptime Kuma) vai acusar indisponibilidade durante a janela."
+run_nuvemax stop-services <<EOS
+set -Eeuo pipefail
+cd $PANEL_DIR
+docker compose --env-file .env.prod -f docker-compose.prod.yml --profile $ACTIVE stop app-$ACTIVE worker scheduler reverb
+docker compose --env-file docker/traccar/.env -f docker/traccar/docker-compose.yml stop traccar
+EOS
+
+# ---------------------------------------------------------------------------
+# 5) Restore das bases na nuvemax + validação estrutural
+# ---------------------------------------------------------------------------
+log "Restaurando base webraster na nuvemax..."
+run_nuvemax restore-webraster <<'EOS'
+set -Eeuo pipefail
+cd /opt/nuvemax/panel
+PW=$(grep -E '^MYSQL_ROOT_PASSWORD=' .env.prod | tail -n1 | cut -d= -f2-)
+docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T -e MYSQL_PWD="$PW" mysql \
+  mysql -uroot -e "DROP DATABASE IF EXISTS webraster; CREATE DATABASE webraster CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+gunzip -c "/tmp/nuvemax-migration/webraster-$TS.sql.gz" | \
+  docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T -e MYSQL_PWD="$PW" mysql \
+  mysql -uroot webraster
+count=$(docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T -e MYSQL_PWD="$PW" mysql \
+  mysql -uroot -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'webraster' AND table_type = 'BASE TABLE'")
+echo "  webraster restaurado (${count} tabelas)."
+[ "$count" -gt 0 ] || { echo "ERRO: import do webraster não criou tabelas" >&2; exit 1; }
+EOS
+
+log "Restaurando base traccar na nuvemax..."
+run_nuvemax restore-traccar <<'EOS'
+set -Eeuo pipefail
+cd /opt/nuvemax/panel
+PW=$(grep -E '^MYSQL_ROOT_PASSWORD=' .env.prod | tail -n1 | cut -d= -f2-)
+docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T -e MYSQL_PWD="$PW" mysql \
+  mysql -uroot -e "DROP DATABASE IF EXISTS traccar; CREATE DATABASE traccar CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+gunzip -c "/tmp/nuvemax-migration/traccar-$TS.sql.gz" | \
+  docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T -e MYSQL_PWD="$PW" mysql \
+  mysql -uroot traccar
+count=$(docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T -e MYSQL_PWD="$PW" mysql \
+  mysql -uroot -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'traccar' AND table_type = 'BASE TABLE'")
+echo "  traccar restaurado (${count} tabelas)."
+[ "$count" -gt 0 ] || { echo "ERRO: import do traccar não criou tabelas" >&2; exit 1; }
+EOS
+
+log "Coletando contagens da nuvemax (destino) e comparando..."
+run_nuvemax counts-target <<'EOS' > "$LOCAL_TMP/counts-$TS-target.txt"
 set -Eeuo pipefail
 cd /opt/nuvemax/panel
 RPW=$(grep -E '^MYSQL_ROOT_PASSWORD=' .env.prod | tail -n1 | cut -d= -f2-)
@@ -242,20 +239,64 @@ counts traccar
 EOS
 sort -o "$LOCAL_TMP/counts-$TS-target.txt" "$LOCAL_TMP/counts-$TS-target.txt"
 
-log "Comparando contagens tabela a tabela..."
+if ! diff <(cut -f1 "$LOCAL_TMP/counts-$TS-source.txt") <(cut -f1 "$LOCAL_TMP/counts-$TS-target.txt") > "$LOCAL_TMP/counts-$TS-tables.diff"; then
+  log "ERRO DE ESTRUTURA: o conjunto de tabelas do destino difere da origem!"
+  head -20 "$LOCAL_TMP/counts-$TS-tables.diff"
+  fail "restore incompleto. A nuvemax ficou com os serviços PARADOS; backups pré-migração em $BACKUP_DIR."
+fi
+log "Estrutura OK: mesmas tabelas na origem e no destino."
+
 if diff -u "$LOCAL_TMP/counts-$TS-source.txt" "$LOCAL_TMP/counts-$TS-target.txt" > "$LOCAL_TMP/counts-$TS.diff"; then
   TABLES=$(wc -l < "$LOCAL_TMP/counts-$TS-source.txt")
-  log "OK: contagens idênticas em $TABLES tabelas."
+  log "Contagens idênticas em $TABLES tabelas."
 else
-  log "ATENÇÃO: diferenças encontradas (revisar $LOCAL_TMP/counts-$TS.diff):"
-  head -30 "$LOCAL_TMP/counts-$TS.diff"
+  log "AVISO: diferenças de linhas encontradas (esperado apenas drift das escritas"
+  log "no contabo durante a migração). Revisar: $LOCAL_TMP/counts-$TS.diff"
+  head -20 "$LOCAL_TMP/counts-$TS.diff"
 fi
 
-log "Checando /up na nuvemax..."
-ssh nuvemax 'curl -sk -o /dev/null -m 10 -w "  /up -> %{http_code}\n" --resolve new-webraster-api.nuvemax.srv.br:443:127.0.0.1 https://new-webraster-api.nuvemax.srv.br/up'
+# ---------------------------------------------------------------------------
+# 6) Sincronização dos volumes de storage
+# ---------------------------------------------------------------------------
+log "Sincronizando volumes de storage (public + private)..."
+run_nuvemax sync-volumes <<'EOS'
+set -Eeuo pipefail
+for pair in "nuvemax-panel_webraster_storage:storage" "nuvemax-panel_webraster_private:private"; do
+  VOL="${pair%%:*}"; FILE="${pair##*:}"
+  docker volume inspect "$VOL" >/dev/null 2>&1 || { echo "volume $VOL não existe" >&2; exit 1; }
+  gunzip -c "/tmp/nuvemax-migration/$FILE-$TS.tar.gz" | \
+    docker run --rm -i -v "$VOL:/data" alpine sh -c 'find /data -mindepth 1 -delete; tar xf - -C /data'
+  echo "  $VOL sincronizado."
+done
+EOS
 
 # ---------------------------------------------------------------------------
-# 9) Resumo + próximos passos
+# 7) Sobe os serviços na nuvemax
+# ---------------------------------------------------------------------------
+log "Subindo aplicação e Traccar na nuvemax..."
+run_nuvemax start-services <<EOS
+set -Eeuo pipefail
+cd $PANEL_DIR
+docker compose --env-file docker/traccar/.env -f docker/traccar/docker-compose.yml start traccar
+docker compose --env-file .env.prod -f docker-compose.prod.yml --profile $ACTIVE start app-$ACTIVE reverb
+EOS
+log "worker e scheduler ficaram PARADOS de propósito (o contabo continua"
+log "processando em produção — evita rotinas agendadas duplicadas)."
+ssh nuvemax "touch $PANEL_DIR/.workers-paused" </dev/null
+
+log "Aguardando o app e o traccar ficarem saudáveis..."
+for _ in $(seq 1 60); do
+  OK=1
+  ssh nuvemax "docker inspect -f '{{.State.Health.Status}}' nuvemax-panel-app-$ACTIVE-1 nuvemax-traccar-traccar-1 2>/dev/null" </dev/null | grep -qv healthy && OK=0
+  [ "$OK" = 1 ] && break
+  sleep 3
+done
+
+log "Checando /up na nuvemax..."
+ssh nuvemax 'curl -sk -o /dev/null -m 10 -w "  /up -> %{http_code}\n" --resolve new-webraster-api.nuvemax.srv.br:443:127.0.0.1 https://new-webraster-api.nuvemax.srv.br/up' </dev/null
+
+# ---------------------------------------------------------------------------
+# 8) Resumo + próximos passos
 # ---------------------------------------------------------------------------
 cat <<SUMMARY
 
