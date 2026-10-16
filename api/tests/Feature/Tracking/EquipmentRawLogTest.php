@@ -20,7 +20,8 @@ class EquipmentRawLogTest extends TestCase
 
     public function test_tail_returns_lines_after_cursor(): void
     {
-        [$user, $tenant] = $this->createOperationalChild();
+        [, $tenant] = $this->createOperationalChild();
+        $user = $this->createAdmin($tenant);
         $client = Client::factory()->for($tenant)->create();
         $vehicle = Vehicle::factory()->forClient($client)->create();
         $equipment = Equipment::factory()->assignedTo($vehicle)->create(['imei' => '359633100000001']);
@@ -56,7 +57,8 @@ class EquipmentRawLogTest extends TestCase
 
     public function test_forbidden_without_equipment_details_permission(): void
     {
-        [$user, $tenant] = $this->createOperationalChild();
+        [, $tenant] = $this->createOperationalChild();
+        $user = $this->createAdmin($tenant);
         $user->roles()->firstOrFail()->revokePermissions(Permission::EQUIPMENT_DETAILS_READ);
 
         $client = Client::factory()->for($tenant)->create();

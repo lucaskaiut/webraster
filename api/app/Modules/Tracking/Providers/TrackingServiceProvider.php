@@ -2,6 +2,7 @@
 
 namespace App\Modules\Tracking\Providers;
 
+use App\Modules\Tracking\Console\Commands\PruneTrackingDataCommand;
 use App\Modules\Tracking\Console\Commands\SimulatePositionCommand;
 use App\Modules\Tracking\Contracts\TraccarGateway;
 use App\Modules\Tracking\Gateways\HttpTraccarGateway;
@@ -24,6 +25,7 @@ class TrackingServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 SimulatePositionCommand::class,
+                PruneTrackingDataCommand::class,
             ]);
         }
     }
