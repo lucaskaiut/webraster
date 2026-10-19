@@ -41,10 +41,11 @@ readonly class TraccarPosition
         }
 
         $battery = null;
-        if (isset($attributes['battery'])) {
-            $battery = (float) $attributes['battery'];
-        } elseif (isset($attributes['batteryLevel'])) {
+        if (isset($attributes['batteryLevel']) && is_numeric($attributes['batteryLevel'])) {
+            // Protocolos como o BWS enviam battery em volts e batteryLevel em %.
             $battery = (float) $attributes['batteryLevel'];
+        } elseif (isset($attributes['battery'])) {
+            $battery = (float) $attributes['battery'];
         } elseif (isset($attributes['power']) && is_numeric($attributes['power'])) {
             $protocol = isset($payload['protocol']) && $payload['protocol'] !== ''
                 ? (string) $payload['protocol']

@@ -25,6 +25,18 @@ class TraccarPositionTest extends TestCase
     }
 
     #[Test]
+    public function prefers_battery_level_over_battery_voltage(): void
+    {
+        $position = TraccarPosition::fromArray($this->payload([
+            'battery' => 3.8,
+            'batteryLevel' => 95.0,
+            'power' => 15.4,
+        ]));
+
+        $this->assertSame(95.0, $position->battery);
+    }
+
+    #[Test]
     public function ignores_power_voltage_values_for_battery(): void
     {
         $position = TraccarPosition::fromArray($this->payload(['power' => 12.6]));
