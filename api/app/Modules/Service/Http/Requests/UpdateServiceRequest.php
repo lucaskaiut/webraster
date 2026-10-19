@@ -25,6 +25,7 @@ class UpdateServiceRequest extends FormRequest
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'amount_cents' => ['sometimes', 'required', 'integer', 'min:0'],
+            'estimated_minutes' => ['sometimes', 'integer', 'min:1', 'max:1440'],
             ...$this->linkedServiceRules($service instanceof Service ? $service->getKey() : null),
         ];
     }

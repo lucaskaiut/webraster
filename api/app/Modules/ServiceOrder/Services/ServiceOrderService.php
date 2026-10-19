@@ -7,6 +7,9 @@ use App\Modules\Client\Models\Client;
 use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Finance\Models\FinanceBilling;
 use App\Modules\Finance\Services\FinanceBillingService;
+use App\Modules\Scheduling\Services\SchedulingService;
+use App\Modules\Scheduling\Support\Coordinates;
+use App\Modules\Scheduling\Support\TimeGrid;
 use App\Modules\Service\Models\Service;
 use App\Modules\ServiceOrder\Enums\ServiceOrderHistoryAction;
 use App\Modules\ServiceOrder\Enums\ServiceOrderPriority;
@@ -34,6 +37,7 @@ class ServiceOrderService
         private readonly ServiceOrderHistoryService $history,
         private readonly ServiceOrderNotificationService $notifications,
         private readonly FinanceBillingService $billings,
+        private readonly SchedulingService $scheduling,
     ) {}
 
     /**
@@ -105,6 +109,7 @@ class ServiceOrderService
     {
         $payload = $this->payload($data);
         $this->assertRelations($payload);
+        $payload = array_merge($payload, $this->deriveScheduling($payload, $data));
         $this->assertScheduleConflict($payload, ignore: (bool) ($data['ignore_schedule_conflict'] ?? false));
 
         $items = is_array($data['items'] ?? null) ? $data['items'] : [];
@@ -127,7 +132,10 @@ class ServiceOrderService
             return $order;
         });
 
-        $order->load(['client', 'vehicle', 'equipment', 'technician', 'creator', 'items.service', 'photos', 'billings']);
+        $this->syncTravelLegsFor($order);
+        $order->refresh();
+
+        $order->load(['client', 'vehicle', 'equipment', 'technician', 'creator', 'items.service', 'photos', 'attachments', 'billings']);
 
         if ($order->technician_id) {
             $this->notifications->notifyAssigned($order);
@@ -149,7 +157,12 @@ class ServiceOrderService
 
         $payload = $this->payload($data, $order);
         $this->assertRelations($payload, $order);
-        $this->assertScheduleConflict($payload, $order, (bool) ($data['ignore_schedule_conflict'] ?? false));
+        $derived = $this->deriveScheduling($payload, $data, $order);
+        $this->assertScheduleConflict(array_merge($payload, $derived), $order, (bool) ($data['ignore_schedule_conflict'] ?? false));
+
+        $previousTechnicianId = $order->technician_id ? (int) $order->technician_id : null;
+        $previousStart = $order->scheduled_start_at?->toIso8601String();
+        $previousAddress = $order->address;
 
         $nextStatus = isset($data['status'])
             ? ServiceOrderStatus::from((string) $data['status'])
@@ -184,7 +197,7 @@ class ServiceOrderService
             }
         }
 
-        $order->fill($payload);
+        $order->fill(array_merge($payload, $derived));
         $order->save();
 
         foreach ($changes as $field => $change) {
@@ -237,11 +250,13 @@ class ServiceOrderService
             );
         }
 
-        if (isset($changes['technician_id']) && $order->technician_id) {
-            $this->notifications->notifyAssigned($order->fresh() ?? $order);
-        }
+        $this->syncTravelLegsForReference($previousTechnicianId, $previousStart);
+        $this->syncTravelLegsFor($order);
+        $order->refresh();
 
-        return $order->refresh()->load(['client', 'vehicle', 'equipment', 'technician', 'creator', 'items.service', 'photos', 'billings']);
+        $this->notifyScheduleChanges($order->refresh(), $previousTechnicianId, $previousStart, $previousAddress);
+
+        return $order->load(['client', 'vehicle', 'equipment', 'technician', 'creator', 'items.service', 'photos', 'attachments', 'billings']);
     }
 
     public function changeStatus(
@@ -253,7 +268,10 @@ class ServiceOrderService
     ): ServiceOrder {
         $this->applyStatusChange($order, $next, $actor, $cancellationReason, $executionNotes);
 
-        return $order->refresh()->load(['client', 'vehicle', 'equipment', 'technician', 'creator', 'completer', 'canceller', 'items.service', 'photos', 'billings']);
+        $this->syncTravelLegsFor($order);
+        $order->refresh();
+
+        return $order->load(['client', 'vehicle', 'equipment', 'technician', 'creator', 'completer', 'canceller', 'items.service', 'photos', 'attachments', 'billings']);
     }
 
     private function applyStatusChange(
@@ -440,6 +458,27 @@ class ServiceOrderService
         $order->unsetRelation('items');
     }
 
+    private function syncTravelLegsFor(ServiceOrder $order): void
+    {
+        if (! $order->technician_id || ! $order->scheduled_start_at) {
+            return;
+        }
+
+        $this->scheduling->syncDayLegs(
+            (int) $order->technician_id,
+            CarbonImmutable::parse($order->scheduled_start_at),
+        );
+    }
+
+    private function syncTravelLegsForReference(?int $technicianId, ?string $start): void
+    {
+        if (! $technicianId || ! $start) {
+            return;
+        }
+
+        $this->scheduling->syncDayLegs($technicianId, CarbonImmutable::parse($start));
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -461,7 +500,12 @@ class ServiceOrderService
             ]);
         }
 
+        $technicianId = $order->technician_id ? (int) $order->technician_id : null;
+        $start = $order->scheduled_start_at?->toIso8601String();
+
         $order->delete();
+
+        $this->syncTravelLegsForReference($technicianId, $start);
     }
 
     /**
@@ -520,12 +564,18 @@ class ServiceOrderService
             'vehicle_id',
             'equipment_id',
             'technician_id',
+            'address',
             'scheduled_start_at',
             'scheduled_end_at',
+            'estimated_duration_minutes',
             'description',
             'notes',
             'execution_notes',
         ]);
+
+        if (array_key_exists('address', $payload)) {
+            $payload['address'] = filled($payload['address']) ? trim((string) $payload['address']) : null;
+        }
 
         if (isset($payload['priority'])) {
             $payload['priority'] = ServiceOrderPriority::from((string) $payload['priority']);
@@ -607,46 +657,147 @@ class ServiceOrderService
     }
 
     /**
+     * Campos calculados do agendamento: endereço e coordenadas do atendimento,
+     * duração pelos serviços, deslocamento a partir da base do técnico, fim
+     * previsto e reinício do lembrete quando o horário muda.
+     *
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function deriveScheduling(array $payload, array $data, ?ServiceOrder $existing = null): array
+    {
+        $derived = [];
+        $clientId = $payload['client_id'] ?? $existing?->client_id;
+        $clientChanged = $existing !== null && array_key_exists('client_id', $payload)
+            && (int) $payload['client_id'] !== (int) $existing->client_id;
+        $coordinates = $existing ? Coordinates::tryFrom($existing->latitude, $existing->longitude) : null;
+        $locationChanged = false;
+
+        if (array_key_exists('address', $payload) && $payload['address'] !== null) {
+            if ($payload['address'] !== $existing?->address) {
+                $coordinates = $this->scheduling->geocode($payload['address']);
+                $locationChanged = true;
+            }
+        } elseif ($existing === null || $clientChanged || array_key_exists('address', $payload)) {
+            $client = $clientId ? Client::query()->find($clientId) : null;
+            $location = $client ? $this->scheduling->clientLocation($client) : ['address' => '', 'coordinates' => null];
+            $derived['address'] = $location['address'] !== '' ? $location['address'] : null;
+            $coordinates = $location['coordinates'];
+            $locationChanged = true;
+        }
+
+        if ($locationChanged) {
+            $derived['latitude'] = $coordinates?->latitude;
+            $derived['longitude'] = $coordinates?->longitude;
+        }
+
+        $duration = ! empty($payload['estimated_duration_minutes'])
+            ? TimeGrid::minutes((int) $payload['estimated_duration_minutes'])
+            : null;
+
+        if ($duration === null && is_array($data['items'] ?? null)) {
+            $duration = $this->scheduling->durationForItems($data['items']);
+        }
+
+        $duration ??= $existing?->estimated_duration_minutes;
+        $duration = $duration !== null ? TimeGrid::minutes((int) $duration) : null;
+        $derived['estimated_duration_minutes'] = $duration;
+
+        $startInput = $payload['scheduled_start_at'] ?? null;
+        $start = $startInput
+            ? TimeGrid::ceil(CarbonImmutable::parse($startInput))
+            : $existing?->scheduled_start_at;
+
+        if ($startInput !== null && $start !== null) {
+            $derived['scheduled_start_at'] = $start->toIso8601String();
+        }
+
+        $startChanged = array_key_exists('scheduled_start_at', $payload)
+            && $start?->toIso8601String() !== $existing?->scheduled_start_at?->toIso8601String();
+
+        $endInput = $payload['scheduled_end_at'] ?? null;
+        $endProvided = ! empty($endInput);
+
+        if ($endProvided) {
+            $derived['scheduled_end_at'] = TimeGrid::ceil(CarbonImmutable::parse($endInput));
+        } elseif ($start && $duration && ($existing?->scheduled_end_at === null || $startChanged)) {
+            $derived['scheduled_end_at'] = $start->addMinutes($duration);
+        }
+
+        if ($existing !== null && $startChanged) {
+            $derived['reminder_sent_at'] = null;
+        }
+
+        return $derived;
+    }
+
+    /**
      * @param  array<string, mixed>  $payload
      */
     private function assertScheduleConflict(array $payload, ?ServiceOrder $existing = null, bool $ignore = false): void
     {
-        $technicianId = $payload['technician_id'] ?? $existing?->technician_id;
+        if ($ignore) {
+            return;
+        }
+
+        $technicianId = array_key_exists('technician_id', $payload) ? $payload['technician_id'] : $existing?->technician_id;
         $start = $payload['scheduled_start_at'] ?? $existing?->scheduled_start_at;
-        $end = $payload['scheduled_end_at'] ?? $existing?->scheduled_end_at;
 
         if (! $technicianId || ! $start) {
             return;
         }
 
         $startAt = CarbonImmutable::parse($start);
-        $endAt = $end ? CarbonImmutable::parse($end) : $startAt->addHour();
+        $end = $payload['scheduled_end_at'] ?? $existing?->scheduled_end_at;
+        $duration = $payload['estimated_duration_minutes'] ?? $existing?->estimated_duration_minutes;
+        $endAt = $end
+            ? CarbonImmutable::parse($end)
+            : $startAt->addMinutes($duration ?: (int) config('scheduling.default_duration_minutes', 60));
+        $latitude = array_key_exists('latitude', $payload) ? $payload['latitude'] : $existing?->latitude;
+        $longitude = array_key_exists('longitude', $payload) ? $payload['longitude'] : $existing?->longitude;
+        $coordinates = Coordinates::tryFrom($latitude, $longitude);
 
-        $conflict = ServiceOrder::query()
-            ->where('technician_id', $technicianId)
-            ->whereNotIn('status', [ServiceOrderStatus::CANCELLED->value, ServiceOrderStatus::COMPLETED->value])
-            ->when($existing, fn ($q) => $q->where('id', '!=', $existing->getKey()))
-            ->whereNotNull('scheduled_start_at')
-            ->where(function ($query) use ($startAt, $endAt): void {
-                $query->where(function ($q) use ($startAt, $endAt): void {
-                    $q->where('scheduled_start_at', '<', $endAt)
-                        ->where(function ($inner) use ($startAt): void {
-                            $inner->whereNull('scheduled_end_at')
-                                ->orWhere('scheduled_end_at', '>', $startAt);
-                        });
-                });
-            })
-            ->with('client')
-            ->first();
+        $issues = $this->scheduling->availabilityIssues(
+            (int) $technicianId,
+            $startAt,
+            $endAt,
+            $coordinates,
+            $existing?->getKey(),
+        );
 
-        if ($conflict && ! $ignore) {
+        if ($issues !== []) {
             throw ValidationException::withMessages([
-                'scheduled_start_at' => [sprintf(
-                    'Conflito de agenda com %s (%s). Ajuste o horário ou confirme o conflito.',
-                    $conflict->code,
-                    $conflict->client?->name ?? 'OS',
-                )],
+                'scheduled_start_at' => [implode(' ', $issues).' Ajuste o horário ou confirme o conflito.'],
             ]);
+        }
+    }
+
+    private function notifyScheduleChanges(
+        ServiceOrder $order,
+        ?int $previousTechnicianId,
+        ?string $previousStart,
+        ?string $previousAddress,
+    ): void {
+        $currentTechnicianId = $order->technician_id ? (int) $order->technician_id : null;
+
+        if ($currentTechnicianId !== $previousTechnicianId) {
+            if ($previousTechnicianId !== null) {
+                $this->notifications->notifyUnassigned($order, $previousTechnicianId);
+            }
+
+            if ($currentTechnicianId !== null) {
+                $this->notifications->notifyAssigned($order);
+            }
+
+            return;
+        }
+
+        if (
+            $currentTechnicianId !== null
+            && ($order->scheduled_start_at?->toIso8601String() !== $previousStart || $order->address !== $previousAddress)
+        ) {
+            $this->notifications->notifyRescheduled($order);
         }
     }
 

@@ -33,6 +33,8 @@ class ClientResource extends JsonResource
             'city' => $this->city,
             'state' => $this->state,
             'zip' => $this->zip,
+            'latitude' => $this->latitude,
+            'longitude' => $this->longitude,
             'is_active' => (bool) $this->is_active,
             'without_contract' => (bool) $this->without_contract,
             'plan_id' => $this->plan?->uuid,

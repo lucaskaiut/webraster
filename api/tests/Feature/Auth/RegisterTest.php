@@ -62,7 +62,8 @@ class RegisterTest extends TestCase
             'role_permissions',
             count(Permission::cases())
                 + count(DefaultRole::OPERATOR->permissions())
-                + count(DefaultRole::CLIENT->permissions()),
+                + count(DefaultRole::CLIENT->permissions())
+                + count(DefaultRole::TECHNICIAN->permissions()),
         );
         $this->assertDatabaseCount('user_roles', 1);
 

@@ -22,12 +22,14 @@ class Service extends Model
     protected $fillable = [
         'name',
         'amount_cents',
+        'estimated_minutes',
     ];
 
     protected function casts(): array
     {
         return [
             'amount_cents' => 'integer',
+            'estimated_minutes' => 'integer',
         ];
     }
 

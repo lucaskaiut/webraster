@@ -71,7 +71,11 @@ export default function ServiceOrdersCalendarPage() {
             value={technicianId}
             onChange={(value) => setTechnicianId(value)}
             loadOptions={async (search) => {
-              const response = await usersService.list({ search: search || undefined, per_page: 20 })
+              const response = await usersService.list({
+                search: search || undefined,
+                type: 'technician',
+                per_page: 20,
+              })
               return [
                 { value: '', label: 'Todos os técnicos' },
                 ...response.data.map((user) => ({ value: user.id, label: user.name })),

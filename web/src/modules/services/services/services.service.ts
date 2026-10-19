@@ -7,6 +7,7 @@ export type ServiceListParams = ListParams
 export interface ServicePayload {
   name: string
   amount_cents: number
+  estimated_minutes: number
   linked_service_ids?: string[]
 }
 

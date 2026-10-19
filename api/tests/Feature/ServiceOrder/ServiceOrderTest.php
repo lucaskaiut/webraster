@@ -5,6 +5,7 @@ namespace Tests\Feature\ServiceOrder;
 use App\Modules\Client\Models\Client;
 use App\Modules\ServiceOrder\Enums\ServiceOrderStatus;
 use App\Modules\ServiceOrder\Models\ServiceOrder;
+use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -21,6 +22,7 @@ class ServiceOrderTest extends TestCase
         [, $tenant] = $this->createOperationalChild();
         $client = Client::factory()->for($tenant)->create();
         $admin = $this->createAdmin($tenant);
+        $technician = User::factory()->for($tenant)->technician()->create();
 
         Sanctum::actingAs($admin);
 
@@ -30,7 +32,7 @@ class ServiceOrderTest extends TestCase
             'description' => 'Instalar rastreador',
             'scheduled_start_at' => now()->addDay()->setTime(9, 0)->toIso8601String(),
             'scheduled_end_at' => now()->addDay()->setTime(11, 0)->toIso8601String(),
-            'technician_id' => $admin->uuid,
+            'technician_id' => $technician->uuid,
         ])
             ->assertCreated()
             ->assertJsonPath('data.code', 'OS-000001')
@@ -155,6 +157,7 @@ class ServiceOrderTest extends TestCase
         [, $tenant] = $this->createOperationalChild();
         $client = Client::factory()->for($tenant)->create();
         $admin = $this->createAdmin($tenant);
+        $technician = User::factory()->for($tenant)->technician()->create();
         Sanctum::actingAs($admin);
 
         $start = now()->addDay()->setTime(10, 0);
@@ -162,7 +165,7 @@ class ServiceOrderTest extends TestCase
 
         ServiceOrder::factory()->forClient($client)->create([
             'number' => 20,
-            'technician_id' => $admin->getKey(),
+            'technician_id' => $technician->getKey(),
             'scheduled_start_at' => $start,
             'scheduled_end_at' => $end,
             'status' => ServiceOrderStatus::OPEN,
@@ -170,14 +173,14 @@ class ServiceOrderTest extends TestCase
 
         $this->postJson('/api/service-orders', [
             'client_id' => $client->uuid,
-            'technician_id' => $admin->uuid,
+            'technician_id' => $technician->uuid,
             'scheduled_start_at' => $start->copy()->addHour()->toIso8601String(),
             'scheduled_end_at' => $end->copy()->addHour()->toIso8601String(),
         ])->assertUnprocessable();
 
         $this->postJson('/api/service-orders', [
             'client_id' => $client->uuid,
-            'technician_id' => $admin->uuid,
+            'technician_id' => $technician->uuid,
             'scheduled_start_at' => $start->copy()->addHour()->toIso8601String(),
             'scheduled_end_at' => $end->copy()->addHour()->toIso8601String(),
             'ignore_schedule_conflict' => true,

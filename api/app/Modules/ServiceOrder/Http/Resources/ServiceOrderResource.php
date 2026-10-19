@@ -51,8 +51,16 @@ class ServiceOrderResource extends JsonResource
                 'id' => $this->technician->uuid,
                 'name' => $this->technician->name,
             ] : null),
+            'address' => $this->address,
+            'latitude' => $this->latitude,
+            'longitude' => $this->longitude,
             'scheduled_start_at' => $this->scheduled_start_at?->toIso8601String(),
             'scheduled_end_at' => $this->scheduled_end_at?->toIso8601String(),
+            'estimated_duration_minutes' => $this->estimated_duration_minutes,
+            'estimated_travel_minutes' => $this->estimated_travel_minutes,
+            'estimated_return_travel_minutes' => $this->estimated_return_travel_minutes,
+            'travel_distance_meters' => $this->travel_distance_meters,
+            'return_travel_distance_meters' => $this->return_travel_distance_meters,
             'description' => $this->description,
             'notes' => $this->notes,
             'execution_notes' => $this->execution_notes,
@@ -78,6 +86,7 @@ class ServiceOrderResource extends JsonResource
                 fn () => number_format($this->itemsTotalCents() / 100, 2, '.', ''),
             ),
             'photos' => ServiceOrderPhotoResource::collection($this->whenLoaded('photos')),
+            'attachments' => ServiceOrderAttachmentResource::collection($this->whenLoaded('attachments')),
             'billing' => $this->whenLoaded('billings', function () {
                 $billing = $this->billings->first();
 

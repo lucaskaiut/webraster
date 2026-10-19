@@ -64,6 +64,26 @@ return [
             ]) : [],
         ],
 
+        /*
+        | Banco do gateway Traccar (mesmo MySQL, base separada). Usado somente
+        | pela limpeza agendada de tc_positions — ver config/pruning.php.
+        | Sem TRACCAR_DB_PASSWORD a etapa é pulada.
+        */
+        'traccar' => [
+            'driver' => 'mysql',
+            'host' => env('TRACCAR_DB_HOST', 'mysql'),
+            'port' => env('TRACCAR_DB_PORT', '3306'),
+            'database' => env('TRACCAR_DB_DATABASE', 'traccar'),
+            'username' => env('TRACCAR_DB_USERNAME', 'traccar'),
+            'password' => env('TRACCAR_DB_PASSWORD', ''),
+            'charset' => env('DB_CHARSET', 'utf8mb4'),
+            'collation' => env('DB_COLLATION', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+        ],
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),

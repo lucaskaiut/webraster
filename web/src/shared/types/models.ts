@@ -7,15 +7,31 @@ export interface Role {
   permissions?: Permission[]
 }
 
+export type UserType = 'staff' | 'technician' | 'client'
+
 export interface User {
   id: string
   name: string
   email: string
   phone: string | null
   document: string | null
+  type: UserType
+  type_label?: string
   is_master: boolean
   is_primary?: boolean
   client_id?: string | null
+  zip?: string | null
+  street?: string | null
+  number?: string | null
+  complement?: string | null
+  neighborhood?: string | null
+  city?: string | null
+  state?: string | null
+  base_address?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  technician_active?: boolean
+  work_hours?: UserWorkHour[]
   roles?: Role[]
   created_at: string | null
   updated_at: string | null
@@ -298,6 +314,7 @@ export interface LinkedCatalogService {
   name: string
   amount_cents: number
   amount: string
+  estimated_minutes: number
 }
 
 export interface CatalogService {
@@ -305,6 +322,8 @@ export interface CatalogService {
   name: string
   amount_cents: number
   amount: string
+  /** Tempo estimado de execução, usado no agendamento da OS. */
+  estimated_minutes: number
   /** Serviços sugeridos na OS quando este serviço é contratado no pedido do cliente. */
   linked_services?: LinkedCatalogService[]
   created_at: string | null
@@ -937,6 +956,21 @@ export interface ServiceOrderPhoto {
   sort_order: number
 }
 
+export interface ServiceOrderAttachment {
+  id: string
+  name: string
+  mime_type: string | null
+  size_bytes: number
+  uploaded_by?: Pick<User, 'id' | 'name'> | null
+  created_at: string | null
+}
+
+export interface UserWorkHour {
+  weekday: number
+  starts_at: string
+  ends_at: string
+}
+
 export interface ServiceOrder {
   id: string
   number: number
@@ -953,8 +987,16 @@ export interface ServiceOrder {
   equipment?: Pick<Equipment, 'id' | 'imei' | 'model'> | null
   technician_id?: string | null
   technician?: Pick<User, 'id' | 'name'> | null
+  address?: string | null
+  latitude?: number | null
+  longitude?: number | null
   scheduled_start_at: string | null
   scheduled_end_at: string | null
+  estimated_duration_minutes?: number | null
+  estimated_travel_minutes?: number | null
+  estimated_return_travel_minutes?: number | null
+  travel_distance_meters?: number | null
+  return_travel_distance_meters?: number | null
   description: string | null
   notes: string | null
   execution_notes: string | null
@@ -963,6 +1005,7 @@ export interface ServiceOrder {
   items_total_cents?: number
   items_total?: string
   photos?: ServiceOrderPhoto[]
+  attachments?: ServiceOrderAttachment[]
   billing?: FinanceBilling | null
   created_by?: Pick<User, 'id' | 'name'> | null
   completed_by?: Pick<User, 'id' | 'name'> | null

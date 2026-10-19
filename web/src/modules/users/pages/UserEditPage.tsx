@@ -81,8 +81,18 @@ export default function UserEditPage() {
               document: query.data.document ?? '',
               password: '',
               password_confirmation: '',
+              type: query.data.type === 'technician' ? 'technician' : 'staff',
               role_ids: query.data.roles?.map((role) => role.id) ?? [],
+              technician_active: query.data.technician_active ?? true,
+              zip: query.data.zip ?? '',
+              street: query.data.street ?? '',
+              number: query.data.number ?? '',
+              complement: query.data.complement ?? '',
+              neighborhood: query.data.neighborhood ?? '',
+              city: query.data.city ?? '',
+              state: query.data.state ?? '',
             }}
+            initialWorkHours={query.data.work_hours}
             submitting={updateUser.isPending}
             onSubmit={async (payload) => {
               await updateUser.mutateAsync(payload)

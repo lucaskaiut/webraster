@@ -1,0 +1,49 @@
+name: Deploy Nuvemax (painel)
+
+# Deploy automático do painel na VPS nuvemax com zero downtime (blue-green).
+# Fluxo: push na main → runner da GitHub Actions → SSH → scripts/ci-deploy.sh
+# → scripts/deploy.sh (build + troca de slot + worker/scheduler/reverb).
+#
+# Secrets necessários (Settings → Secrets and variables → Actions):
+#   NUVEMAX_HOST      → 185.194.219.192
+#   NUVEMAX_SSH_KEY   → chave privada de CI (ver docs/deploy-nuvemax.md)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - 'docker-compose.prod.yml'
+      - 'docker/prod/**'
+      - 'scripts/**'
+      - '.github/workflows/deploy-nuvemax.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-nuvemax
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Blue-green deploy na VPS nuvemax
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Deploy via SSH
+        env:
+          SSH_KEY: ${{ secrets.NUVEMAX_SSH_KEY }}
+          SSH_HOST: ${{ secrets.NUVEMAX_HOST }}
+        run: |
+          set -Eeuo pipefail
+          if [ -z "${SSH_KEY:-}" ] || [ -z "${SSH_HOST:-}" ]; then
+            echo "::error::Configure os secrets NUVEMAX_SSH_KEY e NUVEMAX_HOST neste repositório."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/nuvemax_deploy
+          chmod 600 ~/.ssh/nuvemax_deploy
+          ssh -i ~/.ssh/nuvemax_deploy \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=20 \
+            -o ServerAliveInterval=30 \
+            "root@${SSH_HOST}"

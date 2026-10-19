@@ -1,27 +1,25 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Wrench } from 'lucide-react'
 import {
   Button,
   ButtonLink,
   Card,
   CardContent,
-  CheckboxField,
   Field,
   Form,
   Input,
   SearchSelect,
   SearchSelectField,
-  Section,
   SelectField,
   TextareaField,
-  TextField,
   type SearchSelectOption,
 } from '@/shared/design-system'
 import { isApiError } from '@/shared/api/errors'
 import { applyApiErrorsToForm } from '@/shared/utils/forms'
 import { formatCurrency } from '@/shared/utils/format'
+import { formatDisplayDateTime, parseLocalDateTime, toLocalDateTimeValue } from '@/shared/utils/date'
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import { clientsService } from '@/modules/clients/services/clients.service'
@@ -29,6 +27,8 @@ import { vehiclesService } from '@/modules/vehicles/services/vehicles.service'
 import { equipmentsService } from '@/modules/equipments/services/equipments.service'
 import { usersService } from '@/modules/users/services/users.service'
 import { servicesService } from '@/modules/services/services/services.service'
+import { ServiceOrderSchedulingPanel } from './ServiceOrderSchedulingPanel'
+import { formatMinutes } from '../lib/duration'
 import type { ServiceOrder } from '@/shared/types/models'
 import type { ServiceOrderItemPayload, ServiceOrderPayload } from '../services/service-orders.service'
 import { serviceOrderSchema, type ServiceOrderFormValues } from '../schemas/service-order.schema'
@@ -36,10 +36,19 @@ import {
   SERVICE_ORDER_INITIAL_STATUSES,
   SERVICE_ORDER_PRIORITY_OPTIONS,
   SERVICE_ORDER_STATUS_TRANSITIONS,
+  priorityLabel,
   serviceOrderStatusOptions,
+  statusLabel,
 } from '../lib/labels'
-
-import { parseLocalDateTime, toLocalDateTimeValue } from '@/shared/utils/date'
+import {
+  centsToReaisInput,
+  itemLineTotalCents,
+  itemQuantity,
+  itemsTotalCents as calculateItemsTotal,
+  reaisInputToCents,
+  validateServiceOrderItems,
+  type ServiceOrderItemDraft,
+} from '../lib/items'
 
 function toFormDateTime(value: string | null | undefined): string {
   if (!value) return ''
@@ -55,15 +64,6 @@ function fromFormDateTime(value: string): string | null {
   return date.toISOString()
 }
 
-function reaisInputToCents(value: string): number {
-  const parsed = Number(value.replace(',', '.'))
-  return Number.isFinite(parsed) ? Math.round(parsed * 100) : 0
-}
-
-function centsToReaisInput(cents: number): string {
-  return (cents / 100).toFixed(2)
-}
-
 interface ServiceOption extends SearchSelectOption {
   amount_cents: number
 }
@@ -73,7 +73,12 @@ async function loadServiceOptions(search: string): Promise<ServiceOption[]> {
   return response.data.map((service) => ({
     value: service.id,
     label: service.name,
-    description: formatCurrency(service.amount_cents / 100),
+    description: [
+      formatCurrency(service.amount_cents / 100),
+      service.estimated_minutes ? formatMinutes(service.estimated_minutes) : null,
+    ]
+      .filter(Boolean)
+      .join(' · '),
     amount_cents: service.amount_cents,
   }))
 }
@@ -131,8 +136,18 @@ async function resolveEquipmentLabel(value: string) {
 }
 
 async function loadTechnicianOptions(search: string) {
-  const response = await usersService.list({ search: search || undefined, per_page: 20 })
-  return response.data.map((user) => ({ value: user.id, label: user.name }))
+  const response = await usersService.list({
+    search: search || undefined,
+    type: 'technician',
+    technician_active: true,
+    per_page: 20,
+  })
+
+  return response.data.map((user) => ({
+    value: user.id,
+    label: user.name,
+    description: user.base_address ?? undefined,
+  }))
 }
 
 async function resolveTechnicianLabel(value: string) {
@@ -144,14 +159,8 @@ async function resolveTechnicianLabel(value: string) {
   }
 }
 
-interface FormItemRow {
+interface FormItemRow extends ServiceOrderItemDraft {
   key: string
-  service_id: string
-  name: string
-  quantity: string
-  amount: string
-  /** Serviço excluído do catálogo: mantém o histórico visual, mas sai no próximo salvamento. */
-  missing?: boolean
 }
 
 function rowFromOrderItem(item: NonNullable<ServiceOrder['items']>[number]): FormItemRow {
@@ -163,6 +172,46 @@ function rowFromOrderItem(item: NonNullable<ServiceOrder['items']>[number]): For
     amount: centsToReaisInput(item.unit_amount_cents),
     missing: !item.service_id,
   }
+}
+
+function FormStep({
+  step,
+  title,
+  description,
+  actions,
+  children,
+}: {
+  step: number
+  title: string
+  description?: string
+  actions?: ReactNode
+  children: ReactNode
+}) {
+  const titleId = `service-order-step-${step}`
+
+  return (
+    <section aria-labelledby={titleId} className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <span
+            aria-hidden="true"
+            className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-semibold text-primary">
+            {step}
+          </span>
+          <div className="min-w-0">
+            <h2 id={titleId} className="text-base font-semibold text-foreground">
+              {title}
+            </h2>
+            {description && (
+              <p className="mt-0.5 max-w-3xl text-[13px] text-muted">{description}</p>
+            )}
+          </div>
+        </div>
+        {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      </div>
+      {children}
+    </section>
+  )
 }
 
 export interface ServiceOrderFormDefaultItem {
@@ -190,7 +239,7 @@ interface ServiceOrderFormProps {
   cancelLabel?: string
   /** Sem `onCancel`, o botão de cancelar volta para a lista de OS. */
   onCancel?: () => void
-  /** Conteúdo extra exibido acima dos botões de ação. */
+  /** Conteúdo extra exibido antes do resumo de conclusão. */
   footer?: ReactNode
   onSubmit: (payload: ServiceOrderPayload) => Promise<unknown>
 }
@@ -221,6 +270,10 @@ export function ServiceOrderForm({
       technician_id: initial?.technician_id ?? '',
       scheduled_start_at: toFormDateTime(initial?.scheduled_start_at),
       scheduled_end_at: toFormDateTime(initial?.scheduled_end_at),
+      address: initial?.address ?? '',
+      estimated_duration_minutes: initial?.estimated_duration_minutes
+        ? String(initial.estimated_duration_minutes)
+        : '',
       description: initial?.description ?? defaults?.description ?? '',
       notes: initial?.notes ?? '',
       cancellation_reason: initial?.cancellation_reason ?? '',
@@ -230,6 +283,9 @@ export function ServiceOrderForm({
 
   const clientId = useWatch({ control: form.control, name: 'client_id' })
   const statusValue = useWatch({ control: form.control, name: 'status' })
+  const priorityValue = useWatch({ control: form.control, name: 'priority' })
+  const scheduledStartAt = useWatch({ control: form.control, name: 'scheduled_start_at' })
+  const scheduledEndAt = useWatch({ control: form.control, name: 'scheduled_end_at' })
 
   const [items, setItems] = useState<FormItemRow[]>(() => {
     if (initial) {
@@ -256,17 +312,23 @@ export function ServiceOrderForm({
     return serviceOrderStatusOptions(SERVICE_ORDER_STATUS_TRANSITIONS[initial?.status ?? 'open'])
   }, [mode, initial])
 
-  const itemsTotalCents = items.reduce((total, item) => {
-    if (item.missing) return total
-    const quantity = Math.max(0, Math.floor(Number(item.quantity) || 0))
-    return total + reaisInputToCents(item.amount) * quantity
-  }, 0)
+  const itemsTotalCents = useMemo(() => calculateItemsTotal(items), [items])
+  const activeItemsCount = items.filter((item) => !item.missing).length
+  const scheduleSummary = scheduledStartAt
+    ? `${formatDisplayDateTime(scheduledStartAt)}${
+        scheduledEndAt ? ` – ${formatDisplayDateTime(scheduledEndAt)}` : ''
+      }`
+    : 'Sem agendamento'
+  const formHasErrors =
+    Object.keys(form.formState.errors).length > 0 || Boolean(itemsError)
 
   const updateItem = (key: string, patch: Partial<FormItemRow>) => {
+    setItemsError(null)
     setItems((current) => current.map((item) => (item.key === key ? { ...item, ...patch } : item)))
   }
 
   const addItem = () => {
+    setItemsError(null)
     setItems((current) => [
       ...current,
       {
@@ -280,34 +342,24 @@ export function ServiceOrderForm({
   }
 
   const removeItem = (key: string) => {
+    setItemsError(null)
     setItems((current) => current.filter((item) => item.key !== key))
   }
 
   const handleSubmit = async (values: ServiceOrderFormValues) => {
-    const itemsPayload: ServiceOrderItemPayload[] = []
-
-    for (const item of items) {
-      if (item.missing) {
-        continue
-      }
-
-      if (!item.service_id) {
-        setItemsError('Selecione o serviço em todas as linhas ou remova as linhas vazias.')
-        return
-      }
-
-      const quantity = Math.floor(Number(item.quantity))
-      if (!Number.isFinite(quantity) || quantity < 1) {
-        setItemsError('Informe uma quantidade válida (mínimo 1) nos serviços realizados.')
-        return
-      }
-
-      itemsPayload.push({
-        service_id: item.service_id,
-        quantity,
-        unit_amount_cents: reaisInputToCents(item.amount),
-      })
+    const validationError = validateServiceOrderItems(items)
+    if (validationError) {
+      setItemsError(validationError)
+      return
     }
+
+    const itemsPayload: ServiceOrderItemPayload[] = items
+      .filter((item) => !item.missing)
+      .map((item) => ({
+        service_id: item.service_id,
+        quantity: itemQuantity(item.quantity),
+        unit_amount_cents: reaisInputToCents(item.amount),
+      }))
 
     setItemsError(null)
 
@@ -319,6 +371,10 @@ export function ServiceOrderForm({
       technician_id: values.technician_id || null,
       scheduled_start_at: fromFormDateTime(values.scheduled_start_at ?? ''),
       scheduled_end_at: fromFormDateTime(values.scheduled_end_at ?? ''),
+      address: values.address?.trim() || null,
+      estimated_duration_minutes: values.estimated_duration_minutes
+        ? Number(values.estimated_duration_minutes)
+        : null,
       description: values.description || null,
       notes: values.notes || null,
       items: itemsPayload,
@@ -335,6 +391,14 @@ export function ServiceOrderForm({
       await onSubmit(payload)
     } catch (error) {
       if (isApiError(error) && error.status === 422) {
+        const itemError = Object.entries(error.fieldErrors).find(([field]) =>
+          field.startsWith('items'),
+        )
+
+        if (itemError) {
+          setItemsError(itemError[1]?.[0] ?? 'Revise os serviços informados.')
+        }
+
         applyApiErrorsToForm(form, error)
       }
     }
@@ -343,38 +407,12 @@ export function ServiceOrderForm({
   return (
     <Card>
       <CardContent>
-        <Form form={form} onSubmit={handleSubmit} className="space-y-8">
-          <Section title="Dados da OS">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <SelectField
-                name="priority"
-                label="Prioridade"
-                required
-                options={SERVICE_ORDER_PRIORITY_OPTIONS}
-              />
-              {showStatusField && (
-                <SelectField
-                  name="status"
-                  label="Situação"
-                  required
-                  className="sm:col-span-2"
-                  options={statusOptions}
-                  hint={
-                    mode === 'edit'
-                      ? 'A situação no kanban é atualizada conforme o fluxo permitido.'
-                      : 'A OS entra direto no fluxo com a situação escolhida.'
-                  }
-                />
-              )}
-              {showStatusField && statusValue === 'cancelled' && (
-                <TextareaField
-                  name="cancellation_reason"
-                  label="Motivo do cancelamento"
-                  required
-                  className="sm:col-span-2"
-                  placeholder="Descreva o motivo do cancelamento"
-                />
-              )}
+        <Form form={form} onSubmit={handleSubmit} className="space-y-9">
+          <FormStep
+            step={1}
+            title="Dados essenciais da OS"
+            description="Identifique o atendimento e defina quem executa. Campos com * são obrigatórios.">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <SearchSelectField
                 name="client_id"
                 label="Cliente"
@@ -387,12 +425,13 @@ export function ServiceOrderForm({
                 resolveLabel={resolveClientLabel}
                 onSelectOption={() => {
                   form.setValue('vehicle_id', '')
+                  form.setValue('address', '')
                 }}
               />
               <SearchSelectField
                 name="vehicle_id"
                 label="Veículo"
-                hint="Opcional"
+                hint="Opcional · filtrado pelo cliente"
                 placeholder="Buscar veículo..."
                 emptyMessage="Nenhum veículo encontrado"
                 loadOptions={(search) => loadVehicleOptions(search, clientId)}
@@ -410,34 +449,105 @@ export function ServiceOrderForm({
               <SearchSelectField
                 name="technician_id"
                 label="Técnico responsável"
+                hint="Opcional · usado na agenda e no deslocamento"
                 className="sm:col-span-2"
-                placeholder="Buscar usuário..."
-                emptyMessage="Nenhum técnico encontrado"
+                placeholder="Buscar técnico..."
+                emptyMessage="Nenhum técnico ativo encontrado"
                 loadOptions={loadTechnicianOptions}
                 resolveLabel={resolveTechnicianLabel}
               />
+              <SelectField
+                name="priority"
+                label="Prioridade"
+                required
+                options={SERVICE_ORDER_PRIORITY_OPTIONS}
+              />
+              {showStatusField && (
+                <SelectField
+                  name="status"
+                  label="Situação"
+                  required
+                  options={statusOptions}
+                  hint={
+                    mode === 'edit'
+                      ? 'A situação no kanban segue as transições permitidas.'
+                      : 'A OS entra direto no fluxo com a situação escolhida.'
+                  }
+                />
+              )}
+              {showStatusField && statusValue === 'cancelled' && (
+                <TextareaField
+                  name="cancellation_reason"
+                  label="Motivo do cancelamento"
+                  required
+                  className="sm:col-span-2 xl:col-span-4"
+                  placeholder="Descreva o motivo do cancelamento"
+                />
+              )}
             </div>
-          </Section>
+          </FormStep>
 
-          <Section
-            title="Serviços realizados"
-            description="Selecione os serviços do catálogo e ajuste quantidade e valor. A cobrança do cliente é gerada depois, na tela da OS."
-          >
+          <FormStep
+            step={2}
+            title="Serviços e valores"
+            description="Selecione os serviços do catálogo e ajuste quantidade e valor. A soma dos tempos estimados define a duração automática do agendamento; a cobrança do cliente é gerada depois, na tela da OS."
+            actions={
+              items.length > 0 ? (
+                <Button type="button" variant="secondary" size="sm" onClick={addItem}>
+                  <Plus className="size-4" />
+                  Adicionar serviço
+                </Button>
+              ) : undefined
+            }>
             {items.length === 0 ? (
-              <p className="text-sm text-muted">Nenhum serviço lançado.</p>
+              <div className="flex flex-col items-start gap-4 rounded-xl bg-surface-2/60 p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface text-muted">
+                    <Wrench className="size-5" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      Nenhum serviço adicionado
+                    </p>
+                    <p className="mt-0.5 text-[13px] text-muted">
+                      Inclua os serviços realizados para calcular o total e a duração automática.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="bg-surface shadow-card"
+                  onClick={addItem}>
+                  <Plus className="size-4" />
+                  Adicionar serviço
+                </Button>
+              </div>
             ) : (
-              <div className="space-y-3">
-                {items.map((item) => {
-                  const quantity = Math.max(0, Math.floor(Number(item.quantity) || 0))
-                  const lineTotalCents = item.missing
-                    ? 0
-                    : reaisInputToCents(item.amount) * quantity
+              <>
+                <div className="hidden gap-3 px-1 pb-2 text-xs font-medium text-muted lg:grid lg:grid-cols-[minmax(0,1fr)_6rem_9rem_8rem_2.5rem]">
+                  <span>
+                    Serviço <span className="text-danger" aria-hidden="true">*</span>
+                  </span>
+                  <span>Qtd.</span>
+                  <span>Valor unit. (R$)</span>
+                  <span className="text-right">Total</span>
+                  <span />
+                </div>
 
-                  return (
-                    <div key={item.key} className="space-y-3 rounded-xl bg-surface-2/60 p-3">
-                      <div className="grid gap-3 sm:grid-cols-12 sm:items-end">
+                <div className="space-y-2">
+                  {items.map((item) => {
+                    const quantityId = `item-${item.key}-quantity`
+                    const amountId = `item-${item.key}-amount`
+                    const serviceId = `item-${item.key}-service`
+
+                    return (
+                      <div
+                        key={item.key}
+                        className="grid grid-cols-2 gap-3 rounded-xl bg-surface-2/50 p-3 lg:grid-cols-[minmax(0,1fr)_6rem_9rem_8rem_2.5rem] lg:items-start lg:rounded-none lg:bg-transparent lg:p-0 lg:py-1">
                         <SearchSelect
-                          className="sm:col-span-6"
+                          id={serviceId}
+                          className="col-span-2 min-w-0 lg:col-span-1 lg:space-y-0 lg:[&>label]:sr-only"
                           label="Serviço"
                           required
                           value={item.service_id}
@@ -459,70 +569,78 @@ export function ServiceOrderForm({
                             })
                           }}
                         />
-                        <Field label="Qtd." className="sm:col-span-2">
+                        <Field
+                          label="Qtd."
+                          htmlFor={quantityId}
+                          className="lg:space-y-0 lg:[&>label]:sr-only">
                           <Input
+                            id={quantityId}
                             type="number"
                             min={1}
                             step={1}
                             value={item.quantity}
-                            aria-label="Quantidade"
+                            aria-label={`Quantidade de ${item.name || 'serviço'}`}
                             onChange={(event) =>
                               updateItem(item.key, { quantity: event.target.value })
                             }
                           />
                         </Field>
-                        <Field label="Valor unit. (R$)" className="sm:col-span-3">
+                        <Field
+                          label="Valor unit. (R$)"
+                          htmlFor={amountId}
+                          className="lg:space-y-0 lg:[&>label]:sr-only">
                           <Input
+                            id={amountId}
                             type="number"
                             min={0}
                             step="0.01"
                             value={item.amount}
-                            aria-label="Valor unitário"
+                            aria-label={`Valor unitário de ${item.name || 'serviço'}`}
                             onChange={(event) =>
                               updateItem(item.key, { amount: event.target.value })
                             }
                           />
                         </Field>
-                        <div className="flex justify-end sm:col-span-1">
+                        <div className="flex h-10 items-center justify-between gap-2 lg:justify-end">
+                          <span className="text-xs text-muted lg:sr-only">Total</span>
+                          <span className="text-sm font-semibold text-foreground">
+                            {formatCurrency(itemLineTotalCents(item) / 100)}
+                          </span>
+                        </div>
+                        <div className="flex justify-end">
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
                             onClick={() => removeItem(item.key)}
                             aria-label={`Remover ${item.name || 'serviço'}`}
-                            className="text-danger hover:bg-danger-soft hover:text-danger"
-                          >
+                            className="text-danger hover:bg-danger-soft hover:text-danger">
                             <Trash2 className="size-4" />
                           </Button>
                         </div>
-                      </div>
-                      <div className="flex flex-wrap items-center justify-between gap-2">
                         {item.missing && (
-                          <p className="text-xs text-warning">
+                          <p className="col-span-2 text-xs text-warning lg:col-span-5">
                             Serviço removido do catálogo; será excluído ao salvar.
                           </p>
                         )}
-                        <p className="ml-auto text-xs text-muted">
-                          Total da linha:{' '}
-                          <span className="font-medium text-foreground">
-                            {formatCurrency(lineTotalCents / 100)}
-                          </span>
-                        </p>
                       </div>
-                    </div>
-                  )
-                })}
-              </div>
+                    )
+                  })}
+                </div>
+              </>
             )}
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <Button type="button" variant="secondary" onClick={addItem}>
-                <Plus className="size-4" />
-                Adicionar serviço
-              </Button>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-surface-2/60 px-4 py-3">
               <p className="text-sm text-muted">
-                Total dos serviços:{' '}
-                <span className="text-base font-semibold text-foreground">
+                {activeItemsCount === 0
+                  ? 'Nenhum serviço lançado'
+                  : `${activeItemsCount} serviço${activeItemsCount === 1 ? '' : 's'} lançado${
+                      activeItemsCount === 1 ? '' : 's'
+                    }`}
+              </p>
+              <p className="text-sm text-muted">
+                Total dos serviços:
+                <span className="ml-2 text-lg font-semibold text-foreground">
                   {formatCurrency(itemsTotalCents / 100)}
                 </span>
               </p>
@@ -533,42 +651,110 @@ export function ServiceOrderForm({
                 {itemsError}
               </p>
             )}
-          </Section>
+          </FormStep>
 
-          <Section title="Agendamento">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <TextField name="scheduled_start_at" label="Início" type="datetime-local" />
-              <TextField name="scheduled_end_at" label="Fim" type="datetime-local" />
-              <CheckboxField
-                name="ignore_schedule_conflict"
-                label="Ignorar conflito de agenda (se houver)"
-                className="sm:col-span-2"
+          <FormStep
+            step={3}
+            title="Agendamento e disponibilidade"
+            description="Confirme o endereço e a duração, escolha a data e selecione um horário livre. O cálculo considera a jornada, o deslocamento e as OS anteriores e posteriores do técnico.">
+            <ServiceOrderSchedulingPanel items={items} serviceOrderId={initial?.id} />
+          </FormStep>
+
+          <FormStep
+            step={4}
+            title="Descrição e observações"
+            description="Registre o trabalho a executar e as informações de apoio para a equipe.">
+            <div className="grid gap-4 lg:grid-cols-2">
+              <TextareaField
+                name="description"
+                label="Descrição do serviço"
+                rows={5}
+                placeholder="Detalhe o trabalho a realizar"
+                hint="Opcional · o que será executado no atendimento."
+              />
+              <TextareaField
+                name="notes"
+                label="Observações"
+                rows={5}
+                placeholder="Opcional"
+                hint="Opcional · informações de apoio para a equipe."
               />
             </div>
-          </Section>
+          </FormStep>
 
-          <Section title="Descrição">
-            <div className="grid gap-4">
-              <TextareaField name="description" label="Descrição do serviço" placeholder="Detalhe o trabalho a realizar" />
-              <TextareaField name="notes" label="Observações" placeholder="Opcional" />
+          <FormStep
+            step={5}
+            title="Revisão e gravação"
+            description="Confira o resumo abaixo e conclua o lançamento. Você também pode voltar e ajustar qualquer etapa.">
+            {footer}
+
+            <dl className="grid gap-4 rounded-xl bg-surface-2/60 p-4 sm:grid-cols-3">
+              <div className="min-w-0">
+                <dt className="text-xs text-muted">Serviços</dt>
+                <dd className="mt-1 font-semibold text-foreground">
+                  {activeItemsCount} serviço{activeItemsCount === 1 ? '' : 's'}
+                </dd>
+                <dd className="text-xs text-muted">
+                  Total {formatCurrency(itemsTotalCents / 100)}
+                </dd>
+              </div>
+              <div className="min-w-0">
+                <dt className="text-xs text-muted">Agendamento</dt>
+                <dd className="mt-1 text-sm text-foreground">{scheduleSummary}</dd>
+                <dd className="text-xs text-muted">
+                  {scheduledStartAt ? 'Horário definido em Início/Fim' : 'Opcional'}
+                </dd>
+              </div>
+              <div className="min-w-0">
+                <dt className="text-xs text-muted">Prioridade e situação</dt>
+                <dd className="mt-1 text-sm text-foreground">
+                  {priorityLabel(priorityValue)} · {statusLabel(statusValue)}
+                </dd>
+              </div>
+            </dl>
+          </FormStep>
+
+          <div className="sticky bottom-0 z-20 -mx-5 -mb-5 rounded-b-xl bg-surface px-5 py-4 shadow-[0_-12px_24px_-18px_rgb(15_18_25/0.45)]">
+            <div className="flex flex-col gap-2">
+              {formHasErrors && (
+                <p className="text-xs text-danger" role="alert">
+                  Revise os campos destacados antes de salvar.
+                </p>
+              )}
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="min-w-0 text-xs text-muted sm:text-sm">
+                  <span>
+                    {activeItemsCount} serviço{activeItemsCount === 1 ? '' : 's'} ·{' '}
+                    {formatCurrency(itemsTotalCents / 100)}
+                  </span>
+                  <span className="hidden md:inline"> · {scheduleSummary}</span>
+                </p>
+                <div className="flex flex-col-reverse gap-2 sm:flex-row">
+                  {onCancel ? (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="w-full sm:w-auto"
+                      onClick={onCancel}>
+                      {cancelLabel}
+                    </Button>
+                  ) : (
+                    <ButtonLink
+                      to="/service-orders"
+                      variant="secondary"
+                      className="w-full sm:w-auto">
+                      {cancelLabel}
+                    </ButtonLink>
+                  )}
+                  <Button
+                    type="submit"
+                    loading={submitting}
+                    className="w-full sm:w-auto">
+                    {submitLabel ?? (mode === 'create' ? 'Criar OS' : 'Salvar alterações')}
+                  </Button>
+                </div>
+              </div>
             </div>
-          </Section>
-
-          {footer}
-
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            {onCancel ? (
-              <Button type="button" variant="secondary" onClick={onCancel}>
-                {cancelLabel}
-              </Button>
-            ) : (
-              <ButtonLink to="/service-orders" variant="secondary">
-                {cancelLabel}
-              </ButtonLink>
-            )}
-            <Button type="submit" loading={submitting}>
-              {submitLabel ?? (mode === 'create' ? 'Criar OS' : 'Salvar alterações')}
-            </Button>
           </div>
         </Form>
       </CardContent>

@@ -68,6 +68,8 @@ class Client extends Model
         return [
             'is_active' => 'boolean',
             'without_contract' => 'boolean',
+            'latitude' => 'float',
+            'longitude' => 'float',
         ];
     }
 

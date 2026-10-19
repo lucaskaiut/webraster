@@ -32,6 +32,7 @@ export function ServiceForm({ mode, serviceId, defaultValues, submitting, onSubm
     defaultValues: {
       name: '',
       amount: 0,
+      estimated_minutes: 60,
       linked_service_ids: [],
       ...defaultValues,
     },
@@ -54,6 +55,7 @@ export function ServiceForm({ mode, serviceId, defaultValues, submitting, onSubm
     const payload: ServicePayload = {
       name: values.name,
       amount_cents: reaisToCents(values.amount),
+      estimated_minutes: values.estimated_minutes,
       linked_service_ids: values.linked_service_ids,
     }
 
@@ -74,6 +76,15 @@ export function ServiceForm({ mode, serviceId, defaultValues, submitting, onSubm
             <div className="grid gap-4 sm:grid-cols-2">
               <TextField name="name" label="Nome" required className="sm:col-span-2" />
               <TextField name="amount" label="Valor (R$)" type="number" step="0.01" required />
+              <TextField
+                name="estimated_minutes"
+                label="Tempo estimado (min)"
+                type="number"
+                min={1}
+                step={1}
+                required
+                hint="Duração da execução, usada para agendar a OS."
+              />
             </div>
           </Section>
 

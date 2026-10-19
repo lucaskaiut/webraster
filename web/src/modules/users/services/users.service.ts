@@ -1,6 +1,11 @@
 import { http } from '@/shared/api/http'
 import type { ApiResponse, ListParams, PaginatedResponse } from '@/shared/types/api'
-import type { User } from '@/shared/types/models'
+import type { User, UserType, UserWorkHour } from '@/shared/types/models'
+
+export interface UserListParams extends ListParams {
+  type?: Exclude<UserType, 'client'>
+  technician_active?: boolean
+}
 
 export interface UserPayload {
   name: string
@@ -8,12 +13,28 @@ export interface UserPayload {
   phone?: string | null
   document?: string | null
   password?: string
+  type: Exclude<UserType, 'client'>
   role_ids: number[]
+  technician_active?: boolean
+  zip?: string | null
+  street?: string | null
+  number?: string | null
+  complement?: string | null
+  neighborhood?: string | null
+  city?: string | null
+  state?: string | null
+  work_hours?: UserWorkHour[]
 }
 
 export const usersService = {
-  async list(params: ListParams): Promise<PaginatedResponse<User>> {
-    const response = await http.get<PaginatedResponse<User>>('/users', { params })
+  async list(params: UserListParams): Promise<PaginatedResponse<User>> {
+    const response = await http.get<PaginatedResponse<User>>('/users', {
+      params: {
+        ...params,
+        technician_active:
+          params.technician_active === undefined ? undefined : Number(params.technician_active),
+      },
+    })
 
     return response.data
   },

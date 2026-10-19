@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { Check, ChevronDown, Loader2, X } from 'lucide-react'
 import { cn } from '@/shared/utils/cn'
 import { Field } from './Field'
@@ -24,6 +24,9 @@ interface SearchSelectProps {
   emptyMessage?: string
   disabled?: boolean
   className?: string
+  id?: string
+  /** Nome acessível quando o rótulo visual é omitido. */
+  ariaLabel?: string
   /** Rótulo conhecido (ex.: vindo da URL) enquanto resolveLabel carrega ou como fallback. */
   defaultOption?: SearchSelectOption | null
 }
@@ -41,8 +44,13 @@ export function SearchSelect({
   emptyMessage = 'Nenhum resultado encontrado',
   disabled = false,
   className,
+  id,
+  ariaLabel,
   defaultOption = null,
 }: SearchSelectProps) {
+  const generatedId = useId()
+  const inputId = id ?? `search-select-${generatedId}`
+  const listboxId = `${inputId}-listbox`
   const containerRef = useRef<HTMLDivElement>(null)
   const loadOptionsRef = useRef(loadOptions)
   const requestIdRef = useRef(0)
@@ -198,13 +206,22 @@ export function SearchSelect({
   const displayValue = open ? input : (selected?.label ?? '')
 
   return (
-    <Field label={label} hint={hint} error={error} required={required} className={className}>
+    <Field
+      label={label}
+      hint={hint}
+      error={error}
+      required={required}
+      htmlFor={inputId}
+      className={className}>
       <div ref={containerRef} className="relative">
         <input
+          id={inputId}
           type="text"
           role="combobox"
+          aria-label={ariaLabel ?? label}
           aria-expanded={open}
-          aria-controls="search-select-listbox"
+          aria-controls={listboxId}
+          aria-autocomplete="list"
           autoComplete="off"
           disabled={disabled}
           value={displayValue}
@@ -240,7 +257,7 @@ export function SearchSelect({
 
         {open && (
           <ul
-            id="search-select-listbox"
+            id={listboxId}
             role="listbox"
             className="absolute top-full left-0 z-40 mt-1 max-h-60 w-full overflow-auto rounded-xl bg-surface p-1.5 shadow-pop"
           >

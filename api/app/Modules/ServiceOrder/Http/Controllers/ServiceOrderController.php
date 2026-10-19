@@ -8,24 +8,34 @@ use App\Modules\Finance\Http\Resources\FinanceBillingResource;
 use App\Modules\ServiceOrder\Enums\ServiceOrderStatus;
 use App\Modules\ServiceOrder\Http\Requests\ChangeServiceOrderStatusRequest;
 use App\Modules\ServiceOrder\Http\Requests\GenerateServiceOrderBillingRequest;
+use App\Modules\ServiceOrder\Http\Requests\StoreServiceOrderAttachmentRequest;
 use App\Modules\ServiceOrder\Http\Requests\StoreServiceOrderPhotoRequest;
 use App\Modules\ServiceOrder\Http\Requests\StoreServiceOrderRequest;
 use App\Modules\ServiceOrder\Http\Requests\UpdateServiceOrderRequest;
+use App\Modules\ServiceOrder\Http\Resources\ServiceOrderAttachmentResource;
 use App\Modules\ServiceOrder\Http\Resources\ServiceOrderHistoryResource;
 use App\Modules\ServiceOrder\Http\Resources\ServiceOrderPhotoResource;
 use App\Modules\ServiceOrder\Http\Resources\ServiceOrderResource;
 use App\Modules\ServiceOrder\Models\ServiceOrder;
+use App\Modules\ServiceOrder\Models\ServiceOrderAttachment;
 use App\Modules\ServiceOrder\Models\ServiceOrderPhoto;
+use App\Modules\ServiceOrder\Services\ServiceOrderAttachmentService;
+use App\Modules\ServiceOrder\Services\ServiceOrderPdfService;
 use App\Modules\ServiceOrder\Services\ServiceOrderService;
 use App\Modules\Shared\Http\Controllers\ApiController;
 use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ServiceOrderController extends ApiController
 {
-    public function __construct(private readonly ServiceOrderService $service) {}
+    public function __construct(
+        private readonly ServiceOrderService $service,
+        private readonly ServiceOrderAttachmentService $attachments,
+        private readonly ServiceOrderPdfService $pdf,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -73,6 +83,7 @@ class ServiceOrderController extends ApiController
             'canceller',
             'items.service',
             'photos',
+            'attachments.uploader',
             'billings',
             'histories.user',
         ]);
@@ -161,6 +172,38 @@ class ServiceOrderController extends ApiController
         $this->service->removePhoto($serviceOrder, $photo);
 
         return $this->success(null, 'Foto removida.');
+    }
+
+    public function pdf(ServiceOrder $serviceOrder): StreamedResponse
+    {
+        $this->authorize('view', $serviceOrder);
+
+        return $this->pdf->download($serviceOrder);
+    }
+
+    public function storeAttachment(StoreServiceOrderAttachmentRequest $request, ServiceOrder $serviceOrder): JsonResponse
+    {
+        $this->authorize('update', $serviceOrder);
+
+        $attachment = $this->attachments->store($serviceOrder, $request->file('file'), $request->user());
+
+        return $this->created(ServiceOrderAttachmentResource::make($attachment), 'Anexo adicionado.');
+    }
+
+    public function downloadAttachment(ServiceOrder $serviceOrder, ServiceOrderAttachment $attachment): StreamedResponse
+    {
+        $this->authorize('view', $serviceOrder);
+
+        return $this->attachments->download($serviceOrder, $attachment);
+    }
+
+    public function destroyAttachment(ServiceOrder $serviceOrder, ServiceOrderAttachment $attachment): JsonResponse
+    {
+        $this->authorize('update', $serviceOrder);
+
+        $this->attachments->delete($serviceOrder, $attachment);
+
+        return $this->success(null, 'Anexo removido.');
     }
 
     /**

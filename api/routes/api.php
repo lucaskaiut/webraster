@@ -52,8 +52,10 @@ use App\Modules\Notification\Http\Controllers\NotificationLogController;
 use App\Modules\Notification\Http\Controllers\NotificationSendController;
 use App\Modules\Poi\Http\Controllers\PoiController;
 use App\Modules\Report\Http\Controllers\ReportController;
+use App\Modules\Scheduling\Http\Controllers\ScheduleEstimateController;
 use App\Modules\Service\Http\Controllers\ServiceController;
 use App\Modules\ServiceOrder\Http\Controllers\ServiceOrderController;
+use App\Modules\ServiceOrder\Http\Controllers\TechnicianServiceOrderController;
 use App\Modules\Shared\Http\Controllers\FileUploadController;
 use App\Modules\Tenant\Http\Controllers\BuildTenantController;
 use App\Modules\Tenant\Http\Controllers\PublicTenantController;
@@ -240,6 +242,23 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::post('service-orders/{serviceOrder}/photos', [ServiceOrderController::class, 'storePhoto'])->middleware('permission:service-order.update');
     Route::delete('service-orders/{serviceOrder}/photos/{photo}', [ServiceOrderController::class, 'destroyPhoto'])->middleware('permission:service-order.update');
     Route::get('service-orders/{serviceOrder}/history', [ServiceOrderController::class, 'history'])->middleware('permission:service-order.read');
+    Route::get('service-orders/{serviceOrder}/pdf', [ServiceOrderController::class, 'pdf'])->middleware('permission:service-order.read');
+    Route::post('service-orders/{serviceOrder}/attachments', [ServiceOrderController::class, 'storeAttachment'])->middleware('permission:service-order.update');
+    Route::get('service-orders/{serviceOrder}/attachments/{attachment}', [ServiceOrderController::class, 'downloadAttachment'])->middleware('permission:service-order.read');
+    Route::delete('service-orders/{serviceOrder}/attachments/{attachment}', [ServiceOrderController::class, 'destroyAttachment'])->middleware('permission:service-order.update');
+
+    Route::post('scheduling/estimate', ScheduleEstimateController::class)->middleware('permission:service-order.read');
+
+    Route::prefix('technician/service-orders')->middleware('permission:service-order.execute')->group(function (): void {
+        Route::get('/', [TechnicianServiceOrderController::class, 'index']);
+        Route::get('dashboard', [TechnicianServiceOrderController::class, 'dashboard']);
+        Route::get('day', [TechnicianServiceOrderController::class, 'day']);
+        Route::get('{serviceOrder}', [TechnicianServiceOrderController::class, 'show']);
+        Route::patch('{serviceOrder}/status', [TechnicianServiceOrderController::class, 'changeStatus']);
+        Route::get('{serviceOrder}/pdf', [TechnicianServiceOrderController::class, 'pdf']);
+        Route::post('{serviceOrder}/attachments', [TechnicianServiceOrderController::class, 'storeAttachment']);
+        Route::get('{serviceOrder}/attachments/{attachment}', [TechnicianServiceOrderController::class, 'downloadAttachment']);
+    });
 
     Route::get('finance/plans', [FinancePlanController::class, 'index'])->middleware('permission:finance-plan.read');
     Route::post('finance/plans', [FinancePlanController::class, 'store'])->middleware('permission:finance-plan.create');

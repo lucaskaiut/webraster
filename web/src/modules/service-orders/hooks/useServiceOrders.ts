@@ -147,3 +147,27 @@ export function useRemoveServiceOrderPhoto(id: string) {
     },
   })
 }
+
+export function useUploadServiceOrderAttachment(id: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (file: File) => serviceOrdersService.uploadAttachment(id, file),
+    onSuccess: () => {
+      invalidateAll(queryClient)
+    },
+  })
+}
+
+export function useRemoveServiceOrderAttachment(id: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (attachmentId: string) => serviceOrdersService.removeAttachment(id, attachmentId),
+    onSuccess: () => {
+      invalidateAll(queryClient)
+      toast.success('Anexo removido')
+    },
+    onError: (error) => {
+      if (isApiError(error)) toast.error(error.message)
+    },
+  })
+}

@@ -5,6 +5,7 @@ namespace App\Modules\User\Http\Controllers;
 use App\Modules\Shared\Http\Controllers\ApiController;
 use App\Modules\User\Http\Requests\StoreUserRequest;
 use App\Modules\User\Http\Requests\UpdateUserRequest;
+use App\Modules\User\Enums\UserType;
 use App\Modules\User\Http\Resources\UserResource;
 use App\Modules\User\Models\User;
 use App\Modules\User\Services\UserService;
@@ -23,6 +24,8 @@ class UserController extends ApiController
             (int) $request->integer('per_page', 15),
             $request->string('search')->toString() ?: null,
             $request->string('sort')->toString() ?: null,
+            UserType::tryFrom($request->string('type')->toString()),
+            $request->has('technician_active') ? $request->boolean('technician_active') : null,
         );
 
         return $this->paginated(UserResource::collection($users));
@@ -32,7 +35,7 @@ class UserController extends ApiController
     {
         $this->authorize('view', $user);
 
-        return $this->success(UserResource::make($user->load('roles.permissions')));
+        return $this->success(UserResource::make($user->load(['roles.permissions', 'workHours'])));
     }
 
     public function store(StoreUserRequest $request): JsonResponse

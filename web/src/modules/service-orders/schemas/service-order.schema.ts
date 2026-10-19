@@ -11,6 +11,13 @@ export const serviceOrderSchema = z
     technician_id: z.string().optional().or(z.literal('')),
     scheduled_start_at: z.string().optional().or(z.literal('')),
     scheduled_end_at: z.string().optional().or(z.literal('')),
+    address: z.string().max(500, 'Máximo de 500 caracteres').optional().or(z.literal('')),
+    estimated_duration_minutes: z
+      .string()
+      .regex(/^\d*$/, 'Informe um número inteiro de minutos')
+      .refine((value) => !value || (Number(value) >= 1 && Number(value) <= 1440), 'Entre 1 e 1440 minutos')
+      .optional()
+      .or(z.literal('')),
     description: z.string().max(5000).optional().or(z.literal('')),
     notes: z.string().max(5000).optional().or(z.literal('')),
     cancellation_reason: z.string().max(2000).optional().or(z.literal('')),

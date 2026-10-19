@@ -5,13 +5,17 @@ namespace App\Modules\User\Models;
 use App\Modules\ACL\Models\Concerns\HasRoles;
 use App\Modules\Auth\Notifications\ResetPasswordNotification;
 use App\Modules\Client\Models\Concerns\BelongsToClient;
+use App\Modules\Scheduling\Services\Geocoder;
+use App\Modules\Scheduling\Support\Coordinates;
 use App\Modules\Shared\Models\Concerns\HasUuid;
 use App\Modules\Tenant\Models\Concerns\BelongsToTenant;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Tenant\Services\MasterTenantAccessService;
+use App\Modules\User\Enums\UserType;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -40,6 +44,21 @@ class User extends Authenticatable
         'is_master',
         'is_primary',
         'client_id',
+        'type',
+        'zip',
+        'street',
+        'number',
+        'complement',
+        'neighborhood',
+        'city',
+        'state',
+        'latitude',
+        'longitude',
+        'technician_active',
+    ];
+
+    protected $attributes = [
+        'type' => UserType::STAFF->value,
     ];
 
     protected $hidden = [
@@ -52,7 +71,35 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_master' => 'boolean',
             'is_primary' => 'boolean',
+            'type' => UserType::class,
+            'latitude' => 'float',
+            'longitude' => 'float',
+            'technician_active' => 'boolean',
         ];
+    }
+
+    public function workHours(): HasMany
+    {
+        return $this->hasMany(UserWorkHour::class)
+            ->orderBy('weekday')
+            ->orderBy('starts_at');
+    }
+
+    public function baseAddress(): string
+    {
+        return Geocoder::formatAddress($this->only([
+            'street',
+            'number',
+            'neighborhood',
+            'city',
+            'state',
+            'zip',
+        ]));
+    }
+
+    public function baseCoordinates(): ?Coordinates
+    {
+        return Coordinates::tryFrom($this->latitude, $this->longitude);
     }
 
     public function canAccessTenant(Tenant|int $tenant): bool
@@ -63,6 +110,11 @@ class User extends Authenticatable
     public function isClientUser(): bool
     {
         return $this->client_id !== null;
+    }
+
+    public function isTechnician(): bool
+    {
+        return $this->type === UserType::TECHNICIAN;
     }
 
     /**

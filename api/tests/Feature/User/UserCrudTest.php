@@ -3,6 +3,8 @@
 namespace Tests\Feature\User;
 
 use App\Modules\ACL\Enums\DefaultRole;
+use App\Modules\ACL\Enums\Permission;
+use App\Modules\User\Enums\UserType;
 use App\Modules\User\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -79,7 +81,59 @@ class UserCrudTest extends TestCase
         $this->assertDatabaseHas('users', [
             'email' => 'novo@empresa.com',
             'tenant_id' => $tenant->getKey(),
+            'type' => UserType::STAFF->value,
         ]);
+    }
+
+    public function test_store_and_update_user_type(): void
+    {
+        $tenant = $this->createTenantWithRoles();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $roleId = $this->roleFor($tenant, DefaultRole::OPERATOR)->getKey();
+
+        $id = $this->postJson('/api/users', [
+            'name' => 'Técnico de Campo',
+            'email' => 'tecnico@empresa.com',
+            'password' => '12345678',
+            'type' => UserType::TECHNICIAN->value,
+            'role_ids' => [$roleId],
+            'city' => 'Curitiba',
+            'state' => 'PR',
+            'work_hours' => [
+                ['weekday' => 1, 'starts_at' => '08:00', 'ends_at' => '12:00'],
+            ],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.type', UserType::TECHNICIAN->value)
+            ->assertJsonPath('data.city', 'Curitiba')
+            ->assertJsonCount(1, 'data.work_hours')
+            ->json('data.id');
+
+        $user = User::query()->where('uuid', $id)->firstOrFail();
+
+        $this->assertDatabaseHas('users', [
+            'id' => $user->getKey(),
+            'type' => UserType::TECHNICIAN->value,
+        ]);
+        $this->assertTrue($user->hasPermission(Permission::SERVICE_ORDER_EXECUTE));
+        $this->assertDatabaseHas('user_work_hours', [
+            'user_id' => $user->getKey(),
+            'weekday' => 1,
+        ]);
+
+        $this->putJson("/api/users/{$id}", ['type' => UserType::STAFF->value])
+            ->assertOk()
+            ->assertJsonPath('data.type', UserType::STAFF->value);
+
+        $this->postJson('/api/users', [
+            'name' => 'Cliente indevido',
+            'email' => 'cliente@empresa.com',
+            'password' => '12345678',
+            'type' => UserType::CLIENT->value,
+            'role_ids' => [$roleId],
+        ])->assertUnprocessable()->assertJsonValidationErrors(['type']);
     }
 
     public function test_store_requires_at_least_one_role_from_current_tenant(): void

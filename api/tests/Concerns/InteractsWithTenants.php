@@ -9,6 +9,7 @@ use App\Modules\Billing\Models\Plan;
 use App\Modules\Billing\Models\Subscription;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Tenant\Support\CurrentTenant;
+use App\Modules\User\Enums\UserType;
 use App\Modules\User\Models\User;
 
 trait InteractsWithTenants
@@ -41,6 +42,7 @@ trait InteractsWithTenants
     protected function createClient(Tenant $tenant, array $attributes = []): User
     {
         $user = User::factory()->for($tenant)->create($attributes);
+        $user->forceFill(['type' => UserType::CLIENT->value])->save();
         $user->assignRole($this->roleFor($tenant, DefaultRole::CLIENT));
 
         return $user;

@@ -33,6 +33,7 @@ class LoginTest extends TestCase
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.user.email', 'admin@empresa.com')
+            ->assertJsonPath('data.user.type', 'staff')
             ->assertJsonPath('data.tenant.id', $tenant->uuid)
             ->assertJsonPath('data.tenant.app_name', 'Rastreio Fácil')
             ->assertJsonPath('data.tenant.app_logo_url', asset('storage/uploads/app-logo.png'))

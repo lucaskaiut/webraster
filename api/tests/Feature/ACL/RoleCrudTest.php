@@ -30,7 +30,7 @@ class RoleCrudTest extends TestCase
 
         $names = collect($response->json('data'))->pluck('name');
 
-        $this->assertSame(4, $response->json('meta.total'));
+        $this->assertSame(count(DefaultRole::cases()) + 1, $response->json('meta.total'));
         $this->assertTrue($names->contains('Suporte'));
         $this->assertFalse($names->contains('Financeiro'));
     }

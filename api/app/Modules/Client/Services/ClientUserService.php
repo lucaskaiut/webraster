@@ -6,6 +6,7 @@ use App\Modules\ACL\Enums\DefaultRole;
 use App\Modules\ACL\Models\Role;
 use App\Modules\Client\Models\Client;
 use App\Modules\Shared\Support\QuerySort;
+use App\Modules\User\Enums\UserType;
 use App\Modules\User\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
@@ -50,6 +51,7 @@ class ClientUserService
                 'phone' => $client->phone,
                 'client_id' => $client->getKey(),
                 'is_primary' => true,
+                'type' => UserType::CLIENT->value,
                 'password' => substr($digits, 0, 6),
             ]);
 
@@ -97,6 +99,7 @@ class ClientUserService
         $user = User::query()->create([
             ...Arr::only($data, ['name', 'email', 'phone', 'document', 'password']),
             'client_id' => $client->getKey(),
+            'type' => UserType::CLIENT->value,
         ]);
 
         $user->syncRoles($roleIds);

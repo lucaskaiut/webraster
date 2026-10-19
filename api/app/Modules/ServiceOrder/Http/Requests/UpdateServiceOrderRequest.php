@@ -33,6 +33,8 @@ class UpdateServiceOrderRequest extends FormRequest
             'technician_id' => ['nullable', 'integer', Rule::exists('users', 'id')->whereNull('deleted_at')],
             'scheduled_start_at' => ['nullable', 'date'],
             'scheduled_end_at' => ['nullable', 'date', 'after:scheduled_start_at'],
+            'address' => ['nullable', 'string', 'max:500'],
+            'estimated_duration_minutes' => ['nullable', 'integer', 'min:1', 'max:1440'],
             'description' => ['nullable', 'string', 'max:5000'],
             'notes' => ['nullable', 'string', 'max:5000'],
             'execution_notes' => ['nullable', 'string', 'max:5000'],

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useParams } from 'react-router'
-import { ImagePlus, Trash2 } from 'lucide-react'
+import { FileDown, ImagePlus, Trash2 } from 'lucide-react'
 import {
   Badge,
   Button,
@@ -26,6 +26,7 @@ import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL, uploadFile } from '@/shared/api/upl
 import { toast } from '@/shared/stores/toast.store'
 import { formatCurrency, formatDate, formatDateTime, toLocalIsoDate } from '@/shared/utils/format'
 import { billingStatusBadgeVariant, billingStatusLabel } from '@/modules/finance/lib/labels'
+import { downloadBlob } from '@/shared/utils/report-export'
 import type { ReactNode } from 'react'
 import type { ServiceOrder, ServiceOrderStatus } from '@/shared/types/models'
 import {
@@ -46,6 +47,9 @@ import {
   statusBadgeVariant,
   statusLabel,
 } from '../lib/labels'
+import { serviceOrdersService } from '../services/service-orders.service'
+import { ServiceOrderAttachmentsCard } from '../components/ServiceOrderAttachmentsCard'
+import { formatMinutes } from '../lib/duration'
 
 export default function ServiceOrderDetailPage() {
   const { id } = useParams()
@@ -60,6 +64,7 @@ export default function ServiceOrderDetailPage() {
   const [cancelReason, setCancelReason] = useState('')
   const [executionNotes, setExecutionNotes] = useState('')
   const [billingDueDate, setBillingDueDate] = useState(toLocalIsoDate())
+  const [downloadingPdf, setDownloadingPdf] = useState(false)
 
   if (query.isLoading) {
     return (
@@ -126,6 +131,18 @@ export default function ServiceOrderDetailPage() {
     )
   }
 
+  const handleDownloadPdf = async () => {
+    setDownloadingPdf(true)
+
+    try {
+      downloadBlob(await serviceOrdersService.pdf(order.id), `${order.code}.pdf`)
+    } catch {
+      toast.error('Não foi possível gerar o PDF da OS.')
+    } finally {
+      setDownloadingPdf(false)
+    }
+  }
+
   return (
     <Page>
       <PageHeader
@@ -137,6 +154,10 @@ export default function ServiceOrderDetailPage() {
         ]}
         actions={
           <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" loading={downloadingPdf} onClick={() => void handleDownloadPdf()}>
+              <FileDown className="size-4" />
+              PDF
+            </Button>
             {canEdit && (
               <ButtonLink to={`/service-orders/${order.id}/edit`} variant="secondary">
                 Editar
@@ -205,6 +226,36 @@ export default function ServiceOrderDetailPage() {
             <Row
               label="Fim"
               value={order.scheduled_end_at ? formatDateTime(order.scheduled_end_at) : '—'}
+            />
+            <Row label="Endereço" value={order.address || '—'} />
+            <Row
+              label="Duração estimada"
+              value={
+                order.estimated_duration_minutes
+                  ? formatMinutes(order.estimated_duration_minutes)
+                  : '—'
+              }
+            />
+            <Row
+              label="Deslocamento total"
+              value={
+                order.estimated_travel_minutes !== null && order.estimated_travel_minutes !== undefined
+                  ? `${formatMinutes(
+                      order.estimated_travel_minutes +
+                        (order.estimated_return_travel_minutes ??
+                          order.estimated_travel_minutes),
+                    )}${
+                      order.travel_distance_meters
+                        ? ` · ${(
+                            (order.travel_distance_meters +
+                              (order.return_travel_distance_meters ??
+                                order.travel_distance_meters)) /
+                            1000
+                          ).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} km`
+                        : ''
+                    }`
+                  : '—'
+              }
             />
             <Row label="Descrição" value={order.description || '—'} />
             <Row label="Observações" value={order.notes || '—'} />
@@ -277,6 +328,8 @@ export default function ServiceOrderDetailPage() {
         </Card>
 
         <ServiceOrderPhotosCard order={order} />
+
+        <ServiceOrderAttachmentsCard order={order} />
 
         <ServiceOrderExecutionNotesCard order={order} canEdit={canEdit} />
 

@@ -76,6 +76,7 @@ export default function ServiceEditPage() {
             defaultValues={{
               name: query.data.name,
               amount: centsToReais(query.data.amount_cents),
+              estimated_minutes: query.data.estimated_minutes,
               linked_service_ids: (query.data.linked_services ?? []).map((service) => service.id),
             }}
             submitting={updateService.isPending}

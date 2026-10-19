@@ -22,6 +22,7 @@ class StoreServiceRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'amount_cents' => ['required', 'integer', 'min:0'],
+            'estimated_minutes' => ['sometimes', 'integer', 'min:1', 'max:1440'],
             ...$this->linkedServiceRules(),
         ];
     }

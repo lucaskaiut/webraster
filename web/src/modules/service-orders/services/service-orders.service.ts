@@ -3,6 +3,7 @@ import type { ApiResponse, ListParams, PaginatedResponse } from '@/shared/types/
 import type {
   FinanceBilling,
   ServiceOrder,
+  ServiceOrderAttachment,
   ServiceOrderHistory,
   ServiceOrderKanban,
   ServiceOrderPhoto,
@@ -35,12 +36,93 @@ export interface ServiceOrderPayload {
   technician_id?: string | null
   scheduled_start_at?: string | null
   scheduled_end_at?: string | null
+  address?: string | null
+  estimated_duration_minutes?: number | null
   description?: string | null
   notes?: string | null
   execution_notes?: string | null
   cancellation_reason?: string | null
   items?: ServiceOrderItemPayload[]
   ignore_schedule_conflict?: boolean
+}
+
+export interface ScheduleEstimatePayload {
+  date: string
+  /** Horário específico para o qual a prévia/mapa deve ser calculada. */
+  scheduled_start_at?: string | null
+  client_id?: string | null
+  address?: string | null
+  technician_id?: string | null
+  service_order_id?: string | null
+  duration_minutes?: number | null
+  items?: Array<{ service_id: string; quantity: number }>
+}
+
+export interface ScheduleTravel {
+  minutes: number
+  distance_meters: number
+  source: 'osrm' | 'estimate'
+}
+
+export interface ScheduleRoundTrip {
+  minutes: number
+  distance_meters: number
+  source: 'osrm' | 'estimate'
+}
+
+export interface ScheduleRoutePoint {
+  latitude: number
+  longitude: number
+  address: string | null
+  kind: 'base' | 'order' | 'destination'
+  order_code: string | null
+}
+
+/** Pontos no formato [latitude, longitude]. */
+export type ScheduleRouteGeometry = Array<[number, number]>
+
+export interface ScheduleRoute {
+  origin: ScheduleRoutePoint | null
+  destination: ScheduleRoutePoint | null
+  return_to: ScheduleRoutePoint | null
+  outbound: ScheduleRouteGeometry
+  return: ScheduleRouteGeometry
+}
+
+export interface ScheduleEstimate {
+  address: string | null
+  latitude: number | null
+  longitude: number | null
+  duration_minutes: number
+  duration_source: 'manual' | 'services' | 'default'
+  travel: ScheduleTravel | null
+  travel_return: ScheduleTravel | null
+  travel_round_trip: ScheduleRoundTrip | null
+  travel_origin: string | null
+  travel_origin_kind: 'base' | 'order'
+  travel_origin_order_code: string | null
+  travel_return_address: string | null
+  travel_return_kind: 'base' | 'order'
+  travel_return_order_code: string | null
+  route: ScheduleRoute | null
+  date: string
+  timezone: string
+  slots: Array<{
+    start: string
+    end: string
+    available: boolean
+    reason: string | null
+    blocked_by: {
+      id: string
+      code: string
+      client: string | null
+      service_start: string | null
+      service_end: string | null
+      blocked_start: string
+      blocked_end: string
+    } | null
+  }>
+  warnings: string[]
 }
 
 export interface ChangeStatusPayload {
@@ -120,5 +202,36 @@ export const serviceOrdersService = {
 
   async removePhoto(id: string, photoId: string): Promise<void> {
     await http.delete(`/service-orders/${id}/photos/${photoId}`)
+  },
+
+  async estimate(payload: ScheduleEstimatePayload): Promise<ScheduleEstimate> {
+    const response = await http.post<ApiResponse<ScheduleEstimate>>('/scheduling/estimate', payload)
+    return response.data.data
+  },
+
+  async pdf(id: string): Promise<Blob> {
+    const response = await http.get<Blob>(`/service-orders/${id}/pdf`, { responseType: 'blob' })
+    return response.data
+  },
+
+  async uploadAttachment(id: string, file: File): Promise<ServiceOrderAttachment> {
+    const body = new FormData()
+    body.append('file', file)
+    const response = await http.post<ApiResponse<ServiceOrderAttachment>>(
+      `/service-orders/${id}/attachments`,
+      body,
+    )
+    return response.data.data
+  },
+
+  async downloadAttachment(id: string, attachmentId: string): Promise<Blob> {
+    const response = await http.get<Blob>(`/service-orders/${id}/attachments/${attachmentId}`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  async removeAttachment(id: string, attachmentId: string): Promise<void> {
+    await http.delete(`/service-orders/${id}/attachments/${attachmentId}`)
   },
 }

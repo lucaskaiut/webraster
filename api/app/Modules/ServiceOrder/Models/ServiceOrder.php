@@ -36,8 +36,19 @@ class ServiceOrder extends Model
         'vehicle_id',
         'equipment_id',
         'technician_id',
+        'travel_from_order_id',
+        'travel_to_order_id',
+        'address',
+        'latitude',
+        'longitude',
         'scheduled_start_at',
         'scheduled_end_at',
+        'estimated_duration_minutes',
+        'estimated_travel_minutes',
+        'estimated_return_travel_minutes',
+        'travel_distance_meters',
+        'return_travel_distance_meters',
+        'reminder_sent_at',
         'description',
         'notes',
         'execution_notes',
@@ -57,6 +68,14 @@ class ServiceOrder extends Model
             'number' => 'integer',
             'scheduled_start_at' => 'datetime',
             'scheduled_end_at' => 'datetime',
+            'latitude' => 'float',
+            'longitude' => 'float',
+            'estimated_duration_minutes' => 'integer',
+            'estimated_travel_minutes' => 'integer',
+            'estimated_return_travel_minutes' => 'integer',
+            'travel_distance_meters' => 'integer',
+            'return_travel_distance_meters' => 'integer',
+            'reminder_sent_at' => 'datetime',
             'completed_at' => 'datetime',
             'cancelled_at' => 'datetime',
         ];
@@ -80,6 +99,16 @@ class ServiceOrder extends Model
     public function technician(): BelongsTo
     {
         return $this->belongsTo(User::class, 'technician_id');
+    }
+
+    public function travelFrom(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'travel_from_order_id');
+    }
+
+    public function travelTo(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'travel_to_order_id');
     }
 
     public function creator(): BelongsTo
@@ -110,6 +139,11 @@ class ServiceOrder extends Model
     public function photos(): HasMany
     {
         return $this->hasMany(ServiceOrderPhoto::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(ServiceOrderAttachment::class)->orderBy('id');
     }
 
     public function billings(): HasMany

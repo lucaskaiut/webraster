@@ -11,7 +11,7 @@ export default function ServiceOrderCreatePage() {
     <Page>
       <PageHeader
         title="Nova ordem de serviço"
-        description="Defina tipo, cliente, técnico e agendamento."
+        description="Defina cliente, serviços, técnico e agendamento."
         breadcrumb={[
           { label: 'Ordens de serviço', to: '/service-orders' },
           { label: 'Nova' },

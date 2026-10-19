@@ -9,6 +9,7 @@ use App\Modules\Finance\Models\FinancePlan;
 use App\Modules\Finance\Models\FinanceSubscription;
 use App\Modules\Shared\Subscription\Enums\BillingStatus;
 use App\Modules\Shared\Support\Document;
+use App\Modules\User\Enums\UserType;
 use App\Modules\User\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -130,13 +131,16 @@ class ClientCrudTest extends TestCase
             'email' => 'portal@cliente.com',
             'password' => '12345678',
             'role_ids' => [$roleId],
-        ])->assertCreated();
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.type', UserType::CLIENT->value);
 
         $userId = $response->json('data.id');
 
         $this->assertDatabaseHas('users', [
             'email' => 'portal@cliente.com',
             'client_id' => $client->getKey(),
+            'type' => UserType::CLIENT->value,
         ]);
 
         $this->getJson('/api/users')
@@ -307,6 +311,7 @@ class ClientCrudTest extends TestCase
             'email' => 'contato@silva.com',
             'phone' => '41999998888',
             'is_primary' => true,
+            'type' => UserType::CLIENT->value,
         ]);
 
         $this->getJson("/api/clients/{$client->uuid}/users")

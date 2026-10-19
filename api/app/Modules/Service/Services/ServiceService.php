@@ -34,7 +34,7 @@ class ServiceService
                 $service->linkedServices()->sync($data['linked_service_ids'] ?? []);
             }
 
-            return $service->load('linkedServices');
+            return $service->refresh()->load('linkedServices');
         });
     }
 
@@ -69,6 +69,7 @@ class ServiceService
         return Arr::only($data, [
             'name',
             'amount_cents',
+            'estimated_minutes',
         ]);
     }
 }

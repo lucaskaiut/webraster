@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Modules\Shared\Support\Document;
 use App\Modules\Tenant\Models\Tenant;
+use App\Modules\User\Enums\UserType;
 use App\Modules\User\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -35,6 +36,8 @@ class UserFactory extends Factory
             'document' => Document::fakeCpf(),
             'password' => static::$password ??= Hash::make('password'),
             'is_master' => false,
+            'type' => UserType::STAFF->value,
+            'technician_active' => true,
         ];
     }
 
@@ -42,6 +45,20 @@ class UserFactory extends Factory
     {
         return $this->state(fn (): array => [
             'is_master' => true,
+        ]);
+    }
+
+    public function technician(): static
+    {
+        return $this->state(fn (): array => [
+            'type' => UserType::TECHNICIAN->value,
+        ]);
+    }
+
+    public function client(): static
+    {
+        return $this->state(fn (): array => [
+            'type' => UserType::CLIENT->value,
         ]);
     }
 }

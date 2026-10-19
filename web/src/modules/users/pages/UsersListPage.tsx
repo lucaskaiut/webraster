@@ -25,10 +25,16 @@ import { useTableSort } from '@/shared/hooks/useTableSort'
 import { useSessionStore } from '@/shared/stores/session.store'
 import { formatDate } from '@/shared/utils/format'
 import { formatDocument } from '@/shared/utils/document'
-import type { User } from '@/shared/types/models'
+import type { User, UserType } from '@/shared/types/models'
 import { useDeleteUser, useUsersQuery } from '../hooks/useUsers'
 
 const PER_PAGE = 10
+
+const USER_TYPE_LABELS: Record<UserType, string> = {
+  staff: 'Equipe',
+  technician: 'Técnico',
+  client: 'Cliente',
+}
 
 export default function UsersListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -99,6 +105,15 @@ export default function UsersListPage() {
       key: 'document',
       header: 'CPF',
       render: (user) => <span className="text-muted">{formatDocument(user.document)}</span>,
+    },
+    {
+      key: 'type',
+      header: 'Tipo',
+      render: (user) => (
+        <Badge variant={user.type === 'technician' ? 'primary' : 'neutral'}>
+          {user.type_label ?? USER_TYPE_LABELS[user.type]}
+        </Badge>
+      ),
     },
     {
       key: 'roles',

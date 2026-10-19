@@ -105,6 +105,10 @@ enum Permission: string
     case SERVICE_ORDER_UPDATE = 'service-order.update';
     case SERVICE_ORDER_DELETE = 'service-order.delete';
     case SERVICE_ORDER_CHANGE_STATUS = 'service-order.change-status';
+    case SERVICE_ORDER_EXECUTE = 'service-order.execute';
+
+    case TECHNICIAN_READ = 'technician.read';
+    case TECHNICIAN_MANAGE = 'technician.manage';
 
     case FINANCE_PLAN_CREATE = 'finance-plan.create';
     case FINANCE_PLAN_READ = 'finance-plan.read';

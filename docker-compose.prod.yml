@@ -1,0 +1,174 @@
+# Stack de produção do painel na VPS nuvemax.
+#
+# Deploy BLUE-GREEN: os serviços app-a/app-b são dois slots alternados pelo
+# deploy (scripts/deploy.sh) — sobe o slot inativo, valida e faz o flip da rota
+# no Traefik. A rota da API vive em um arquivo dinâmico do Traefik gerado no
+# deploy (docker/gateway/traefik/dynamic/webraster-api.yml), não em labels.
+#
+# Pré-requisitos (criados uma única vez — ver scripts/install-server.sh):
+#   docker network create --subnet 172.31.0.0/24 nuvemax_edge
+#   docker network create --subnet 172.31.1.0/24 nuvemax_shared
+#
+# Uso:
+#   Deploy oficial:            bash scripts/deploy.sh
+#   Subir infra sem o app:     docker compose --env-file .env.prod -f docker-compose.prod.yml up -d mysql worker scheduler reverb
+#   Subir um slot manualmente: docker compose --env-file .env.prod -f docker-compose.prod.yml --profile a up -d app-a
+
+name: nuvemax-panel
+
+x-app-image: &app-image
+  image: local/webraster-api:latest
+  build:
+    context: .
+    dockerfile: docker/prod/Dockerfile
+  restart: unless-stopped
+  env_file:
+    - .env.prod
+
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+# Definição compartilhada dos slots blue-green (web).
+# O roteamento da API NÃO usa labels: é um arquivo dinâmico do Traefik gerado
+# pelo deploy (docker/gateway/traefik/dynamic/webraster-api.yml). Rota por
+# label com configuração diferente entre containers antigo/novo faz o Traefik
+# recusar o merge do serviço ("Service defined multiple times...").
+x-app-service: &app-service
+  image: local/webraster-api:latest
+  build:
+    context: .
+    dockerfile: docker/prod/Dockerfile
+  restart: unless-stopped
+  env_file:
+    - .env.prod
+  environment:
+    CONTAINER_ROLE: web
+  volumes:
+    - webraster_storage:/var/www/html/storage/app/public
+    - webraster_private:/var/www/html/storage/app/private
+  stop_grace_period: 45s
+  depends_on:
+    mysql:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/healthz || exit 1"]
+    interval: 15s
+    timeout: 5s
+    retries: 10
+    start_period: 120s
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?defina MYSQL_ROOT_PASSWORD no .env.prod}
+      MYSQL_DATABASE: ${DB_DATABASE:-webraster}
+      MYSQL_USER: ${DB_USERNAME:-webraster}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env.prod}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --max-connections=300
+      - --innodb-buffer-pool-size=2G
+      - --innodb-flush-log-at-trx-commit=2
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      shared:
+        aliases:
+          - mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    <<: *logging
+
+  app-a:
+    <<: *app-service
+    profiles: ["a"]
+    networks:
+      edge:
+        aliases:
+          - webraster-app
+          - app-a
+      shared:
+
+  app-b:
+    <<: *app-service
+    profiles: ["b"]
+    networks:
+      edge:
+        aliases:
+          - webraster-app
+          - app-b
+      shared:
+
+  reverb:
+    <<: [*app-image, *logging]
+    environment:
+      CONTAINER_ROLE: reverb
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      edge:
+        aliases:
+          - reverb
+      shared:
+    healthcheck:
+      test: ["CMD-SHELL", "php -r \"exit(@fsockopen('127.0.0.1', 8080) ? 0 : 1);\""]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    # Rota do WebSocket (webraster-ws) é gerada no arquivo dinâmico do Traefik
+    # pelo deploy (scripts/deploy.sh) — os hosts vêm de WS_DOMAIN no .env.prod.
+
+  worker:
+    <<: [*app-image, *logging]
+    environment:
+      CONTAINER_ROLE: worker
+    volumes:
+      - webraster_private:/var/www/html/storage/app/private
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      shared:
+
+  scheduler:
+    <<: [*app-image, *logging]
+    environment:
+      CONTAINER_ROLE: scheduler
+    volumes:
+      - webraster_private:/var/www/html/storage/app/private
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      shared:
+
+networks:
+  edge:
+    external: true
+    name: nuvemax_edge
+  shared:
+    external: true
+    name: nuvemax_shared
+
+volumes:
+  mysql_data:
+  webraster_storage:
+  webraster_private:

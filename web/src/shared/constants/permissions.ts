@@ -83,6 +83,9 @@ export const Permission = {
   SERVICE_ORDER_UPDATE: 'service-order.update',
   SERVICE_ORDER_DELETE: 'service-order.delete',
   SERVICE_ORDER_CHANGE_STATUS: 'service-order.change-status',
+  SERVICE_ORDER_EXECUTE: 'service-order.execute',
+  TECHNICIAN_READ: 'technician.read',
+  TECHNICIAN_MANAGE: 'technician.manage',
 
   GEOFENCE_CREATE: 'geofence.create',
   GEOFENCE_READ: 'geofence.read',
@@ -314,6 +317,14 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { value: Permission.SERVICE_ORDER_UPDATE, label: 'Editar ordens de serviço' },
       { value: Permission.SERVICE_ORDER_DELETE, label: 'Remover ordens de serviço' },
       { value: Permission.SERVICE_ORDER_CHANGE_STATUS, label: 'Alterar status de OS' },
+      { value: Permission.SERVICE_ORDER_EXECUTE, label: 'Executar OS como técnico (app)' },
+    ],
+  },
+  {
+    label: 'Técnicos',
+    permissions: [
+      { value: Permission.TECHNICIAN_READ, label: 'Visualizar técnicos' },
+      { value: Permission.TECHNICIAN_MANAGE, label: 'Gerenciar técnicos e jornadas' },
     ],
   },
   {

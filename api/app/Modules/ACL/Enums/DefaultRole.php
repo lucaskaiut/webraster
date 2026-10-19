@@ -7,6 +7,7 @@ enum DefaultRole: string
     case ADMINISTRATOR = 'Administrador';
     case OPERATOR = 'Operador';
     case CLIENT = 'Cliente';
+    case TECHNICIAN = 'Técnico';
 
     public function description(): string
     {
@@ -14,6 +15,7 @@ enum DefaultRole: string
             self::ADMINISTRATOR => 'Acesso completo ao tenant.',
             self::OPERATOR => 'Acesso operacional para gestão do dia a dia.',
             self::CLIENT => 'Acesso limitado do cliente final.',
+            self::TECHNICIAN => 'Técnico instalador: consulta e executa as próprias OS pelo app.',
         };
     }
 
@@ -80,6 +82,8 @@ enum DefaultRole: string
                 Permission::SERVICE_ORDER_UPDATE,
                 Permission::SERVICE_ORDER_DELETE,
                 Permission::SERVICE_ORDER_CHANGE_STATUS,
+                Permission::TECHNICIAN_READ,
+                Permission::TECHNICIAN_MANAGE,
                 Permission::FINANCE_PLAN_CREATE,
                 Permission::FINANCE_PLAN_READ,
                 Permission::FINANCE_PLAN_UPDATE,
@@ -118,6 +122,10 @@ enum DefaultRole: string
                 Permission::NOTIFICATION_READ,
                 Permission::SERVICE_ORDER_READ,
                 Permission::FINANCE_PORTAL_VIEW,
+            ],
+            self::TECHNICIAN => [
+                Permission::NOTIFICATION_READ,
+                Permission::SERVICE_ORDER_EXECUTE,
             ],
         };
     }
