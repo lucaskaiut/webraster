@@ -71,6 +71,13 @@ class TraccarWebhookTest extends TestCase
             'latitude' => -25.4284,
             'address' => 'Rua XV de Novembro',
         ]);
+
+        $equipment = Equipment::query()->where('traccar_device_id', 42)->firstOrFail();
+        $this->assertSame('online', $equipment->traccar_status);
+        $this->assertSame(
+            '2026-09-14 21:00:00',
+            $equipment->traccar_last_update?->utc()->format('Y-m-d H:i:s'),
+        );
     }
 
     public function test_webhook_is_idempotent(): void

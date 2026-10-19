@@ -501,6 +501,8 @@ class TrackingService
         // reentrega do webhook) fazia posições antigas de um dispositivo parado
         // dispararem "dispositivo online" a cada varredura.
         if ($gpsPosition->wasRecentlyCreated) {
+            $this->refreshEquipmentLastConnection($equipment, $position);
+
             if ($vehicle !== null) {
                 try {
                     $this->geofenceDetection->process($gpsPosition);
@@ -536,5 +538,29 @@ class TrackingService
         }
 
         return $gpsPosition;
+    }
+
+    /**
+     * Mantém {@see Equipment::$traccar_last_update} alinhado ao ingest de posição,
+     * para não ficar atrás de {@see GpsPosition::$recorded_at} entre syncs do Traccar.
+     */
+    private function refreshEquipmentLastConnection(Equipment $equipment, TraccarPosition $position): void
+    {
+        $signalAt = $position->recordedAt;
+
+        if ($position->serverTime !== null && $position->serverTime->greaterThan($signalAt)) {
+            $signalAt = $position->serverTime;
+        }
+
+        $current = $equipment->traccar_last_update;
+
+        if ($current !== null && $current->greaterThanOrEqualTo($signalAt)) {
+            return;
+        }
+
+        $equipment->forceFill([
+            'traccar_last_update' => $signalAt,
+            'traccar_status' => 'online',
+        ])->save();
     }
 }
