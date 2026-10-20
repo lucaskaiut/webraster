@@ -20,6 +20,7 @@ use App\Modules\ServiceOrder\Models\ServiceOrder;
 use App\Modules\ServiceOrder\Models\ServiceOrderAttachment;
 use App\Modules\ServiceOrder\Models\ServiceOrderPhoto;
 use App\Modules\ServiceOrder\Services\ServiceOrderAttachmentService;
+use App\Modules\ServiceOrder\Services\ServiceOrderLoanAcceptanceService;
 use App\Modules\ServiceOrder\Services\ServiceOrderPdfService;
 use App\Modules\ServiceOrder\Services\ServiceOrderService;
 use App\Modules\Shared\Http\Controllers\ApiController;
@@ -35,6 +36,7 @@ class ServiceOrderController extends ApiController
         private readonly ServiceOrderService $service,
         private readonly ServiceOrderAttachmentService $attachments,
         private readonly ServiceOrderPdfService $pdf,
+        private readonly ServiceOrderLoanAcceptanceService $loanAcceptance,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -85,7 +87,15 @@ class ServiceOrderController extends ApiController
             'photos',
             'attachments.uploader',
             'billings',
+            'commission',
+            'equipmentTests.user',
+            'equipmentTests.equipment',
+            'loanTermCollectedBy',
             'histories.user',
+            'checklists.completedBy',
+            'checklists.questions.options',
+            'checklists.questions.answer.selectedOptions',
+            'checklists.questions.answer.photos',
         ]);
 
         return $this->success(ServiceOrderResource::make($serviceOrder));
@@ -179,6 +189,13 @@ class ServiceOrderController extends ApiController
         $this->authorize('view', $serviceOrder);
 
         return $this->pdf->download($serviceOrder);
+    }
+
+    public function loanAcceptanceSignature(ServiceOrder $serviceOrder): StreamedResponse
+    {
+        $this->authorize('view', $serviceOrder);
+
+        return $this->loanAcceptance->signature($serviceOrder);
     }
 
     public function storeAttachment(StoreServiceOrderAttachmentRequest $request, ServiceOrder $serviceOrder): JsonResponse

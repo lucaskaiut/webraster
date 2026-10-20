@@ -1,12 +1,18 @@
 import { http } from '@/shared/api/http'
 import type { ApiResponse, ListParams, PaginatedResponse } from '@/shared/types/api'
-import type { Equipment, EquipmentAssignmentEvent } from '@/shared/types/models'
+import type {
+  Equipment,
+  EquipmentAssignmentEvent,
+  EquipmentStockMovement,
+} from '@/shared/types/models'
 
 export interface EquipmentListParams extends Omit<ListParams, 'per_page'> {
   per_page?: number | 'all'
   available?: boolean
   is_active?: boolean
   vehicle_id?: string
+  stock_id?: string
+  technician_id?: string
   /** Ordenação multi-coluna no formato `coluna:asc,coluna2:desc`. */
   sort?: string
 }
@@ -17,6 +23,7 @@ export interface EquipmentPayload {
   line_number?: string | null
   carrier?: string | null
   is_active?: boolean
+  stock_id?: string | null
 }
 
 export const equipmentsService = {
@@ -51,6 +58,14 @@ export const equipmentsService = {
   async history(id: string): Promise<EquipmentAssignmentEvent[]> {
     const response = await http.get<ApiResponse<EquipmentAssignmentEvent[]>>(
       `/equipments/${id}/assignment-history`,
+    )
+
+    return response.data.data
+  },
+
+  async stockMovements(id: string): Promise<EquipmentStockMovement[]> {
+    const response = await http.get<ApiResponse<EquipmentStockMovement[]>>(
+      `/equipments/${id}/stock-movements`,
     )
 
     return response.data.data

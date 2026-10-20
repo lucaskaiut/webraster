@@ -9,6 +9,7 @@ const baseUserSchema = {
   type: z.enum(['staff', 'technician']),
   role_ids: z.array(z.number()).min(1, 'Selecione ao menos um perfil'),
   technician_active: z.boolean(),
+  stock_id: z.string(),
   zip: z.string(),
   street: z.string(),
   number: z.string(),

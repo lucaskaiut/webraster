@@ -56,6 +56,10 @@ enum DefaultRole: string
                 Permission::VEHICLE_READ,
                 Permission::VEHICLE_UPDATE,
                 Permission::VEHICLE_DELETE,
+                Permission::STOCK_CREATE,
+                Permission::STOCK_READ,
+                Permission::STOCK_UPDATE,
+                Permission::STOCK_DELETE,
                 Permission::EQUIPMENT_CREATE,
                 Permission::EQUIPMENT_READ,
                 Permission::EQUIPMENT_UPDATE,
@@ -82,6 +86,12 @@ enum DefaultRole: string
                 Permission::SERVICE_ORDER_UPDATE,
                 Permission::SERVICE_ORDER_DELETE,
                 Permission::SERVICE_ORDER_CHANGE_STATUS,
+                Permission::COMMISSION_READ,
+                Permission::COMMISSION_VIEW_OTHERS,
+                Permission::CHECKLIST_CREATE,
+                Permission::CHECKLIST_READ,
+                Permission::CHECKLIST_UPDATE,
+                Permission::CHECKLIST_DELETE,
                 Permission::TECHNICIAN_READ,
                 Permission::TECHNICIAN_MANAGE,
                 Permission::FINANCE_PLAN_CREATE,
@@ -126,6 +136,7 @@ enum DefaultRole: string
             self::TECHNICIAN => [
                 Permission::NOTIFICATION_READ,
                 Permission::SERVICE_ORDER_EXECUTE,
+                Permission::COMMISSION_READ,
             ],
         };
     }

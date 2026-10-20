@@ -1,6 +1,6 @@
 import { http } from '@/shared/api/http'
 import type { ApiResponse, ListParams, PaginatedResponse } from '@/shared/types/api'
-import type { CatalogService } from '@/shared/types/models'
+import type { CatalogService, ServiceCommissionType } from '@/shared/types/models'
 
 export type ServiceListParams = ListParams
 
@@ -8,6 +8,9 @@ export interface ServicePayload {
   name: string
   amount_cents: number
   estimated_minutes: number
+  commission_type?: ServiceCommissionType | null
+  /** Percentual em centésimos de ponto (100 = 1%) ou valor fixo em centavos. */
+  commission_value?: number | null
   linked_service_ids?: string[]
 }
 

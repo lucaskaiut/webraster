@@ -2,6 +2,7 @@
 
 namespace App\Modules\Equipment\Http\Requests;
 
+use App\Modules\Stock\Models\Stock;
 use App\Modules\Tenant\Support\Facades\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -40,6 +41,32 @@ class StoreEquipmentRequest extends FormRequest
             'line_number' => ['nullable', 'string', 'max:30'],
             'carrier' => ['nullable', 'string', 'max:100'],
             'is_active' => ['sometimes', 'boolean'],
+            'stock_id' => [
+                'sometimes',
+                'nullable',
+                'integer',
+                Rule::exists('stocks', 'id')->where(
+                    fn ($query) => $query->where('tenant_id', TenantContext::tenantId()),
+                ),
+            ],
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if (! $this->has('stock_id')) {
+            return;
+        }
+
+        if ($this->input('stock_id') === '') {
+            $this->merge(['stock_id' => null]);
+
+            return;
+        }
+
+        if ($this->filled('stock_id') && ! is_numeric($this->input('stock_id'))) {
+            $stock = Stock::query()->where('uuid', (string) $this->input('stock_id'))->first();
+            $this->merge(['stock_id' => $stock?->getKey() ?? 'invalid']);
+        }
     }
 }

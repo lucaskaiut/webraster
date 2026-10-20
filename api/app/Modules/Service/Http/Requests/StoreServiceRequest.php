@@ -3,11 +3,13 @@
 namespace App\Modules\Service\Http\Requests;
 
 use App\Modules\Service\Http\Requests\Concerns\ResolvesLinkedServices;
+use App\Modules\Service\Http\Requests\Concerns\ValidatesCommission;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreServiceRequest extends FormRequest
 {
     use ResolvesLinkedServices;
+    use ValidatesCommission;
 
     public function authorize(): bool
     {
@@ -23,6 +25,7 @@ class StoreServiceRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'amount_cents' => ['required', 'integer', 'min:0'],
             'estimated_minutes' => ['sometimes', 'integer', 'min:1', 'max:1440'],
+            ...$this->commissionRules(),
             ...$this->linkedServiceRules(),
         ];
     }

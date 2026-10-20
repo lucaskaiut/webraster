@@ -3,9 +3,9 @@
 namespace App\Modules\User\Http\Controllers;
 
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\User\Enums\UserType;
 use App\Modules\User\Http\Requests\StoreUserRequest;
 use App\Modules\User\Http\Requests\UpdateUserRequest;
-use App\Modules\User\Enums\UserType;
 use App\Modules\User\Http\Resources\UserResource;
 use App\Modules\User\Models\User;
 use App\Modules\User\Services\UserService;
@@ -35,7 +35,7 @@ class UserController extends ApiController
     {
         $this->authorize('view', $user);
 
-        return $this->success(UserResource::make($user->load(['roles.permissions', 'workHours'])));
+        return $this->success(UserResource::make($user->load(['roles.permissions', 'workHours', 'stock'])));
     }
 
     public function store(StoreUserRequest $request): JsonResponse

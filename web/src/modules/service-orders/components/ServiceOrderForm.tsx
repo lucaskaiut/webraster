@@ -9,11 +9,13 @@ import {
   CardContent,
   Field,
   Form,
+  ImageUploader,
   Input,
   SearchSelect,
   SearchSelectField,
   SelectField,
   TextareaField,
+  type ImageValue,
   type SearchSelectOption,
 } from '@/shared/design-system'
 import { isApiError } from '@/shared/api/errors'
@@ -118,11 +120,18 @@ async function resolveVehicleLabel(value: string) {
   }
 }
 
-async function loadEquipmentOptions(search: string) {
-  const response = await equipmentsService.list({ search: search || undefined, per_page: 20 })
+async function loadEquipmentOptions(search: string, technicianId?: string) {
+  const response = await equipmentsService.list({
+    search: search || undefined,
+    per_page: 20,
+    available: true,
+    technician_id: technicianId || undefined,
+  })
+
   return response.data.map((item) => ({
     value: item.id,
     label: [item.imei, item.model].filter(Boolean).join(' · ') || 'Equipamento',
+    description: item.stock?.name ?? (item.is_assigned ? undefined : 'Sem estoque'),
   }))
 }
 
@@ -146,7 +155,10 @@ async function loadTechnicianOptions(search: string) {
   return response.data.map((user) => ({
     value: user.id,
     label: user.name,
-    description: user.base_address ?? undefined,
+    description:
+      [user.stock?.name ? `Estoque ${user.stock.name}` : null, user.base_address]
+        .filter(Boolean)
+        .join(' · ') || undefined,
   }))
 }
 
@@ -276,12 +288,14 @@ export function ServiceOrderForm({
         : '',
       description: initial?.description ?? defaults?.description ?? '',
       notes: initial?.notes ?? '',
+      installation_location: initial?.installation_location ?? '',
       cancellation_reason: initial?.cancellation_reason ?? '',
       ignore_schedule_conflict: false,
     },
   })
 
   const clientId = useWatch({ control: form.control, name: 'client_id' })
+  const technicianId = useWatch({ control: form.control, name: 'technician_id' })
   const statusValue = useWatch({ control: form.control, name: 'status' })
   const priorityValue = useWatch({ control: form.control, name: 'priority' })
   const scheduledStartAt = useWatch({ control: form.control, name: 'scheduled_start_at' })
@@ -301,6 +315,15 @@ export function ServiceOrderForm({
     }))
   })
   const [itemsError, setItemsError] = useState<string | null>(null)
+  const [installationPhoto, setInstallationPhoto] = useState<ImageValue | null>(() =>
+    initial?.installation_location_photo_url
+      ? {
+          url: initial.installation_location_photo_url,
+          path: initial.installation_location_photo_path ?? undefined,
+          alt: 'Local de instalação',
+        }
+      : null,
+  )
 
   const showStatusField = mode === 'create' || canChangeStatus
 
@@ -377,6 +400,8 @@ export function ServiceOrderForm({
         : null,
       description: values.description || null,
       notes: values.notes || null,
+      installation_location: values.installation_location?.trim() || null,
+      installation_location_photo_path: installationPhoto?.path ?? null,
       items: itemsPayload,
       ignore_schedule_conflict: values.ignore_schedule_conflict ?? false,
     }
@@ -440,21 +465,30 @@ export function ServiceOrderForm({
               <SearchSelectField
                 name="equipment_id"
                 label="Dispositivo"
-                hint="Opcional"
+                hint={
+                  technicianId
+                    ? 'Opcional · disponibilidade conforme o estoque do técnico'
+                    : 'Opcional · selecione o técnico para filtrar pelo estoque'
+                }
                 placeholder="Buscar equipamento..."
-                emptyMessage="Nenhum equipamento encontrado"
-                loadOptions={loadEquipmentOptions}
+                emptyMessage={
+                  technicianId
+                    ? 'Nenhum equipamento disponível para este técnico'
+                    : 'Nenhum equipamento disponível'
+                }
+                loadOptions={(search) => loadEquipmentOptions(search, technicianId)}
                 resolveLabel={resolveEquipmentLabel}
               />
               <SearchSelectField
                 name="technician_id"
                 label="Técnico responsável"
-                hint="Opcional · usado na agenda e no deslocamento"
+                hint="Opcional · agenda, deslocamento e estoque de equipamentos"
                 className="sm:col-span-2"
                 placeholder="Buscar técnico..."
                 emptyMessage="Nenhum técnico ativo encontrado"
                 loadOptions={loadTechnicianOptions}
                 resolveLabel={resolveTechnicianLabel}
+                onSelectOption={() => form.setValue('equipment_id', '')}
               />
               <SelectField
                 name="priority"
@@ -470,7 +504,7 @@ export function ServiceOrderForm({
                   options={statusOptions}
                   hint={
                     mode === 'edit'
-                      ? 'A situação no kanban segue as transições permitidas.'
+                      ? 'A situação no kanban segue as transições permitidas. Ao concluir, o equipamento é instalado no veículo quando ambos estiverem definidos.'
                       : 'A OS entra direto no fluxo com a situação escolhida.'
                   }
                 />
@@ -662,9 +696,22 @@ export function ServiceOrderForm({
 
           <FormStep
             step={4}
-            title="Descrição e observações"
-            description="Registre o trabalho a executar e as informações de apoio para a equipe.">
+            title="Local de instalação, descrição e observações"
+            description="Informe onde o equipamento será instalado, registre o trabalho a executar e as informações de apoio para a equipe.">
             <div className="grid gap-4 lg:grid-cols-2">
+              <TextareaField
+                name="installation_location"
+                label="Local de instalação do equipamento"
+                rows={5}
+                placeholder="Ex.: atrás do painel, central elétrica, console central, porta-fusíveis..."
+                hint="Opcional · descreva o local exato onde o equipamento será instalado."
+              />
+              <ImageUploader
+                label="Foto do local de instalação"
+                hint="Opcional · imagem do ponto onde o equipamento será instalado."
+                value={installationPhoto}
+                onChange={setInstallationPhoto}
+              />
               <TextareaField
                 name="description"
                 label="Descrição do serviço"

@@ -5,8 +5,8 @@ namespace App\Modules\Tracking\Services;
 use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Tracking\Contracts\TraccarGateway;
 use App\Modules\Tracking\DTOs\TraccarDevice;
+use Exception;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 class TraccarDeviceService
@@ -15,31 +15,34 @@ class TraccarDeviceService
 
     /**
      * Garante que o equipamento exista no Traccar (cria ou vincula pelo IMEI).
+     *
+     * Falhas do Traccar são registradas no log e não impedem o cadastro do
+     * equipamento no sistema. Nesse caso, o vínculo pode ser refeito depois.
      */
-    public function sync(Equipment $equipment, bool $identityChanged = true): void
+    public function sync(Equipment $equipment, bool $identityChanged = true): bool
     {
         if (! $this->traccar->isConfigured() || ! $identityChanged) {
-            return;
+            return false;
         }
 
         $name = filled($equipment->model) ? (string) $equipment->model : $equipment->imei;
 
         try {
             $device = $this->resolveDevice($equipment, $name);
-        } catch (RuntimeException $exception) {
+        } catch (Exception $exception) {
             Log::warning('traccar.device_sync_failed', [
                 'imei' => $equipment->imei,
                 'message' => $exception->getMessage(),
             ]);
 
-            throw ValidationException::withMessages([
-                'imei' => ['Não foi possível sincronizar o dispositivo no Traccar. Verifique a conexão e o IMEI.'],
-            ]);
+            return false;
         }
 
         if ((int) $equipment->traccar_device_id !== $device->id) {
             $equipment->forceFill(['traccar_device_id' => $device->id])->save();
         }
+
+        return true;
     }
 
     private function resolveDevice(Equipment $equipment, string $name): TraccarDevice

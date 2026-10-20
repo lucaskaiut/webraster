@@ -11,7 +11,7 @@ export default function EquipmentCreatePage() {
     <Page>
       <PageHeader
         title="Novo equipamento"
-        description="Cadastre um rastreador para associação à frota."
+        description="Cadastre um rastreador e vincule-o ao estoque da operação."
         breadcrumb={[
           { label: 'Dashboard', to: '/dashboard' },
           { label: 'Equipamentos', to: '/equipments' },

@@ -22,6 +22,9 @@ class ServiceResource extends JsonResource
             'amount_cents' => $this->amount_cents,
             'amount' => number_format($this->amount_cents / 100, 2, '.', ''),
             'estimated_minutes' => $this->estimated_minutes,
+            'commission_type' => $this->commission_type?->value,
+            'commission_type_label' => $this->commission_type?->label(),
+            'commission_value' => $this->commission_value,
             'linked_services' => $this->whenLoaded('linkedServices', fn () => $this->linkedServices
                 ->map(fn (Service $linked) => [
                     'id' => $linked->uuid,

@@ -49,6 +49,19 @@ class ServiceOrderPdfService
         $logo = $this->logoDataUri($tenant);
         $logoHtml = $logo ? "<img src=\"{$logo}\" style=\"max-height:48px;max-width:180px\" />" : '';
 
+        $technicianSignature = $this->localImageDataUri($order->technician?->signature_path);
+        $technicianSignatureHtml = $technicianSignature
+            ? "<img src=\"{$technicianSignature}\" class=\"signature-image\" alt=\"Assinatura do técnico\" />"
+            : '';
+
+        $clientSignature = $this->localImageDataUri($order->loan_term_signature_path);
+        $clientSignatureHtml = $clientSignature
+            ? "<img src=\"{$clientSignature}\" class=\"signature-image\" alt=\"Assinatura do cliente\" />"
+            : '';
+        $loanAcceptanceHtml = $order->loan_term_accepted_at
+            ? '<div class="muted">Aceite do termo de comodato em '.$this->localDateTime($order->loan_term_accepted_at).'</div>'
+            : '';
+
         $itemsRows = $order->items->map(fn (ServiceOrderItem $item) => sprintf(
             '<tr><td>%s</td><td class="num">%d</td><td class="num">%s</td><td class="num">%s</td></tr>',
             $e($item->name),
@@ -131,6 +144,7 @@ class ServiceOrderPdfService
           .num { text-align: right; }
           .signatures { width: 100%; margin-top: 48px; }
           .signatures td { width: 50%; text-align: center; padding: 0 16px; }
+          .signature-image { max-height: 56px; max-width: 190px; margin: 0 auto 2px; }
           .line { border-top: 1px solid #111827; padding-top: 4px; }
         </style>
         </head>
@@ -167,8 +181,8 @@ class ServiceOrderPdfService
           {$attachments}
 
           <table class="signatures"><tr>
-            <td><div class="line">Técnico responsável</div></td>
-            <td><div class="line">Cliente</div></td>
+            <td>{$technicianSignatureHtml}<div class="line">Técnico responsável</div></td>
+            <td>{$clientSignatureHtml}<div class="line">Cliente</div>{$loanAcceptanceHtml}</td>
           </tr></table>
         </body>
         </html>
@@ -186,6 +200,17 @@ class ServiceOrderPdfService
         $mime = Storage::disk('public')->mimeType($path) ?: 'image/png';
 
         return 'data:'.$mime.';base64,'.base64_encode((string) Storage::disk('public')->get($path));
+    }
+
+    private function localImageDataUri(?string $path): ?string
+    {
+        if (! $path || ! Storage::disk('local')->exists($path)) {
+            return null;
+        }
+
+        $mime = Storage::disk('local')->mimeType($path) ?: 'image/png';
+
+        return 'data:'.$mime.';base64,'.base64_encode((string) Storage::disk('local')->get($path));
     }
 
     private function money(int $cents): string

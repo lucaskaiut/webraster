@@ -39,6 +39,8 @@ class TenantResource extends JsonResource
             'app_logo_url' => $this->appLogoUrl(),
             'app_primary_color' => $this->app_primary_color,
             'app_secondary_color' => $this->app_secondary_color,
+            'require_equipment_loan_acceptance' => (bool) $this->require_equipment_loan_acceptance,
+            'equipment_loan_term' => $this->equipment_loan_term,
             'vehicle_alert_defaults' => $this->vehicle_alert_defaults,
             'traccar_server_ip' => config('traccar.server_ip'),
             'traccar_server_dns' => config('traccar.server_dns'),

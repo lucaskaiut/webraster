@@ -8,6 +8,7 @@ use App\Modules\Client\Models\Concerns\BelongsToClient;
 use App\Modules\Scheduling\Services\Geocoder;
 use App\Modules\Scheduling\Support\Coordinates;
 use App\Modules\Shared\Models\Concerns\HasUuid;
+use App\Modules\Stock\Models\Stock;
 use App\Modules\Tenant\Models\Concerns\BelongsToTenant;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Tenant\Services\MasterTenantAccessService;
@@ -15,6 +16,7 @@ use App\Modules\User\Enums\UserType;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -55,6 +57,8 @@ class User extends Authenticatable
         'latitude',
         'longitude',
         'technician_active',
+        'stock_id',
+        'signature_path',
     ];
 
     protected $attributes = [
@@ -76,6 +80,11 @@ class User extends Authenticatable
             'longitude' => 'float',
             'technician_active' => 'boolean',
         ];
+    }
+
+    public function stock(): BelongsTo
+    {
+        return $this->belongsTo(Stock::class);
     }
 
     public function workHours(): HasMany

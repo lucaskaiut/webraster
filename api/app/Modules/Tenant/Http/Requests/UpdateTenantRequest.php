@@ -8,6 +8,7 @@ use App\Modules\Tenant\Support\Facades\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class UpdateTenantRequest extends FormRequest
 {
@@ -50,6 +51,8 @@ class UpdateTenantRequest extends FormRequest
             'app_logo_path' => ['sometimes', 'nullable', 'string', 'max:255'],
             'app_primary_color' => ['sometimes', 'nullable', 'string', 'max:9', 'regex:/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/'],
             'app_secondary_color' => ['sometimes', 'nullable', 'string', 'max:9', 'regex:/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/'],
+            'require_equipment_loan_acceptance' => ['sometimes', 'boolean'],
+            'equipment_loan_term' => ['sometimes', 'nullable', 'string', 'max:20000'],
             'vehicle_alert_defaults' => ['sometimes', 'nullable', 'array'],
             'vehicle_alert_defaults.*.type' => ['required', 'string', Rule::in($configurableTypes)],
             'vehicle_alert_defaults.*.alarm_code' => ['nullable', 'string', 'max:40'],
@@ -59,6 +62,30 @@ class UpdateTenantRequest extends FormRequest
             'vehicle_alert_defaults.*.notify_push' => ['required', 'boolean'],
             'vehicle_alert_defaults.*.notify_email' => ['required', 'boolean'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if (! $this->has('require_equipment_loan_acceptance')) {
+                return;
+            }
+
+            $tenant = TenantContext::tenant();
+            $term = $this->input('equipment_loan_term', $tenant?->equipment_loan_term);
+            $termText = trim((string) preg_replace(
+                '/\s+/u',
+                ' ',
+                html_entity_decode(strip_tags((string) $term), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+            ));
+
+            if ($this->boolean('require_equipment_loan_acceptance') && $termText === '') {
+                $validator->errors()->add(
+                    'equipment_loan_term',
+                    'Informe o termo de comodato para exigir o aceite na conclusão da OS.',
+                );
+            }
+        });
     }
 
     protected function prepareForValidation(): void
@@ -73,6 +100,12 @@ class UpdateTenantRequest extends FormRequest
             $this->merge([
                 'document' => (string) preg_replace('/\D+/', '', (string) $this->input('document')),
             ]);
+        }
+
+        if ($this->has('equipment_loan_term')) {
+            $term = trim((string) $this->input('equipment_loan_term'));
+
+            $this->merge(['equipment_loan_term' => $term !== '' ? $term : null]);
         }
 
         if ($this->has('vehicle_alert_defaults')) {

@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { Outlet } from 'react-router'
-import { Bell, BellRing, Building2, Car, ChartColumn, ClipboardList, Cog, Columns3, Contact, Cpu, CreditCard, Database, FileBarChart, FileText, Hammer, Handshake, Hexagon, History, IdCard, Inbox, Kanban, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, MessageCircle, Package, Receipt, Repeat, ScrollText, Search, Send, Settings, ShieldCheck, Terminal, Users, Wallet, Wrench } from 'lucide-react'
+import { Bell, BellRing, Building2, Car, ChartColumn, CircleDollarSign, ClipboardCheck, ClipboardList, Cog, Columns3, Contact, Cpu, CreditCard, Database, FileBarChart, FileText, Hammer, Handshake, Hexagon, History, IdCard, Inbox, Kanban, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, MessageCircle, Package, Receipt, Repeat, ScrollText, Search, Send, Settings, ShieldCheck, Terminal, Users, Wallet, Warehouse, Wrench } from 'lucide-react'
 import { AppLogo } from '@/shared/brand/AppLogo'
 import { useActiveTenant } from '@/shared/brand/useActiveTenant'
 import { TenantSelector } from '@/modules/auth/components/TenantSelector'
@@ -75,6 +75,7 @@ function SidebarNavigation({
   const showVehicles = isOperatingTenant && can(Permission.VEHICLE_READ)
   const showVehicleDataConfig = isOperatingTenant && can(Permission.VEHICLE_DATA_CONFIG_READ)
   const showEquipments = isOperatingTenant && can(Permission.EQUIPMENT_READ)
+  const showStocks = isOperatingTenant && can(Permission.STOCK_READ)
   const showTracking = isOperatingTenant && can(Permission.TRACKING_READ)
   const showDeviceRawLogs = showTracking && can(Permission.EQUIPMENT_DETAILS_READ)
   const showReports = isOperatingTenant && can(Permission.REPORT_VIEW)
@@ -84,6 +85,8 @@ function SidebarNavigation({
   const showAlertPreferences = showAlerts && user?.client_id != null
   const showNotificationSend = isOperatingTenant && can(Permission.NOTIFICATION_SEND)
   const showServiceOrders = isOperatingTenant && can(Permission.SERVICE_ORDER_READ)
+  const showCommissions = isOperatingTenant && can(Permission.COMMISSION_READ)
+  const showChecklists = isOperatingTenant && can(Permission.CHECKLIST_READ)
   const showCadastrosGroup =
     showClients ||
     showDrivers ||
@@ -92,6 +95,7 @@ function SidebarNavigation({
     showVehicles ||
     showVehicleDataConfig ||
     showEquipments ||
+    showStocks ||
     showGeofences ||
     showPois
   const showAlertsGroup = showAlerts || showNotificationSend
@@ -180,6 +184,9 @@ function SidebarNavigation({
           {showEquipments && (
             <SidebarItem to="/equipments" icon={Cpu} label="Equipamentos" onNavigate={onNavigate} />
           )}
+          {showStocks && (
+            <SidebarItem to="/stocks" icon={Warehouse} label="Estoques" onNavigate={onNavigate} />
+          )}
           {showGeofences && (
             <SidebarItem to="/geofences" icon={Hexagon} label="Geocercas" onNavigate={onNavigate} />
           )}
@@ -267,14 +274,32 @@ function SidebarNavigation({
         </SidebarGroup>
       )}
 
-      {showServiceOrders && (
+      {(showServiceOrders || showCommissions || showChecklists) && (
         <SidebarGroup label="Ordens de Serviço" icon={Hammer} collapsible>
-          <SidebarItem
-            to="/service-orders"
-            icon={ClipboardList}
-            label="Ordens de serviço"
-            onNavigate={onNavigate}
-          />
+          {showServiceOrders && (
+            <SidebarItem
+              to="/service-orders"
+              icon={ClipboardList}
+              label="Ordens de serviço"
+              onNavigate={onNavigate}
+            />
+          )}
+          {showChecklists && (
+            <SidebarItem
+              to="/checklists"
+              icon={ClipboardCheck}
+              label="Checklists"
+              onNavigate={onNavigate}
+            />
+          )}
+          {showCommissions && (
+            <SidebarItem
+              to="/commissions"
+              icon={CircleDollarSign}
+              label="Comissões"
+              onNavigate={onNavigate}
+            />
+          )}
         </SidebarGroup>
       )}
 

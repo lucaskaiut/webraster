@@ -17,6 +17,7 @@ import { isApiError } from '@/shared/api/errors'
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import { useSessionStore } from '@/shared/stores/session.store'
+import { stocksService } from '@/modules/stocks/services/stocks.service'
 import { applyApiErrorsToForm } from '@/shared/utils/forms'
 import type { EquipmentPayload } from '../services/equipments.service'
 import { EQUIPMENT_MODELS } from '../lib/equipment-models'
@@ -24,6 +25,30 @@ import { searchEquipmentModels } from '../lib/model-search'
 import { equipmentSchema, type EquipmentFormValues } from '../schemas/equipment.schema'
 
 const MODEL_RESULT_LIMIT = 100
+
+async function loadStockOptions(search: string): Promise<SearchSelectOption[]> {
+  const response = await stocksService.list({
+    search: search || undefined,
+    per_page: 20,
+    is_active: true,
+  })
+
+  return response.data.map((stock) => ({
+    value: stock.id,
+    label: stock.name,
+    description: stock.is_active ? undefined : 'Inativo',
+  }))
+}
+
+async function resolveStockLabel(value: string): Promise<SearchSelectOption | null> {
+  try {
+    const stock = await stocksService.get(value)
+
+    return { value: stock.id, label: stock.name }
+  } catch {
+    return null
+  }
+}
 
 function loadModelOptions(search: string): Promise<SearchSelectOption[]> {
   return Promise.resolve(searchEquipmentModels(search, MODEL_RESULT_LIMIT))
@@ -39,10 +64,18 @@ interface EquipmentFormProps {
   mode: 'create' | 'edit'
   defaultValues?: Partial<EquipmentFormValues>
   submitting: boolean
+  /** Equipamento instalado: o estoque é controlado pelo fluxo de veículo. */
+  stockLocked?: boolean
   onSubmit: (payload: EquipmentPayload) => Promise<unknown>
 }
 
-export function EquipmentForm({ mode, defaultValues, submitting, onSubmit }: EquipmentFormProps) {
+export function EquipmentForm({
+  mode,
+  defaultValues,
+  submitting,
+  stockLocked = false,
+  onSubmit,
+}: EquipmentFormProps) {
   const form = useForm<EquipmentFormValues>({
     resolver: zodResolver(equipmentSchema),
     defaultValues: {
@@ -51,6 +84,7 @@ export function EquipmentForm({ mode, defaultValues, submitting, onSubmit }: Equ
       line_number: '',
       carrier: '',
       is_active: true,
+      stock_id: '',
       ...defaultValues,
     },
   })
@@ -61,6 +95,7 @@ export function EquipmentForm({ mode, defaultValues, submitting, onSubmit }: Equ
 
   const { can } = usePermissions()
   const canViewDetails = can(Permission.EQUIPMENT_DETAILS_READ)
+  const canReadStocks = can(Permission.STOCK_READ)
 
   const handleSubmit = async (values: EquipmentFormValues) => {
     const payload: EquipmentPayload = {
@@ -73,6 +108,7 @@ export function EquipmentForm({ mode, defaultValues, submitting, onSubmit }: Equ
           }
         : {}),
       is_active: values.is_active,
+      ...(canReadStocks && !stockLocked ? { stock_id: values.stock_id || null } : {}),
     }
 
     try {
@@ -131,6 +167,23 @@ export function EquipmentForm({ mode, defaultValues, submitting, onSubmit }: Equ
                   <TextField name="carrier" label="Operadora" />
                   <TextField name="line_number" label="Número da Linha" className="sm:col-span-2" />
                 </>
+              )}
+              {canReadStocks && (
+                <SearchSelectField
+                  name="stock_id"
+                  label="Estoque"
+                  className="sm:col-span-2"
+                  disabled={stockLocked}
+                  placeholder="Buscar estoque..."
+                  emptyMessage="Nenhum estoque ativo encontrado"
+                  loadOptions={loadStockOptions}
+                  resolveLabel={resolveStockLabel}
+                  hint={
+                    stockLocked
+                      ? 'Equipamento instalado. O estoque é atualizado automaticamente ao remover ou trocar no veículo.'
+                      : 'Opcional. Sem estoque, o equipamento não aparece para técnicos com estoque vinculado.'
+                  }
+                />
               )}
               <SwitchField name="is_active" label="Equipamento ativo" />
             </div>

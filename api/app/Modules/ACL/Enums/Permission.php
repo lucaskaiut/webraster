@@ -70,6 +70,11 @@ enum Permission: string
     case VEHICLE_DATA_CONFIG_READ = 'vehicle-data-config.read';
     case VEHICLE_DATA_CONFIG_UPDATE = 'vehicle-data-config.update';
 
+    case STOCK_CREATE = 'stock.create';
+    case STOCK_READ = 'stock.read';
+    case STOCK_UPDATE = 'stock.update';
+    case STOCK_DELETE = 'stock.delete';
+
     case EQUIPMENT_CREATE = 'equipment.create';
     case EQUIPMENT_READ = 'equipment.read';
     case EQUIPMENT_UPDATE = 'equipment.update';
@@ -106,6 +111,14 @@ enum Permission: string
     case SERVICE_ORDER_DELETE = 'service-order.delete';
     case SERVICE_ORDER_CHANGE_STATUS = 'service-order.change-status';
     case SERVICE_ORDER_EXECUTE = 'service-order.execute';
+
+    case COMMISSION_READ = 'commission.read';
+    case COMMISSION_VIEW_OTHERS = 'commission.view-others';
+
+    case CHECKLIST_CREATE = 'checklist.create';
+    case CHECKLIST_READ = 'checklist.read';
+    case CHECKLIST_UPDATE = 'checklist.update';
+    case CHECKLIST_DELETE = 'checklist.delete';
 
     case TECHNICIAN_READ = 'technician.read';
     case TECHNICIAN_MANAGE = 'technician.manage';

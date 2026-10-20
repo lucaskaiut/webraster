@@ -2,6 +2,7 @@
 
 namespace App\Modules\Service\Models;
 
+use App\Modules\Service\Enums\CommissionType;
 use App\Modules\Shared\Models\Concerns\HasUuid;
 use App\Modules\Tenant\Models\Concerns\BelongsToTenant;
 use Database\Factories\ServiceFactory;
@@ -23,6 +24,8 @@ class Service extends Model
         'name',
         'amount_cents',
         'estimated_minutes',
+        'commission_type',
+        'commission_value',
     ];
 
     protected function casts(): array
@@ -30,6 +33,8 @@ class Service extends Model
         return [
             'amount_cents' => 'integer',
             'estimated_minutes' => 'integer',
+            'commission_type' => CommissionType::class,
+            'commission_value' => 'integer',
         ];
     }
 

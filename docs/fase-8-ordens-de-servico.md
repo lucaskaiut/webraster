@@ -20,6 +20,18 @@ in_progress → cancelled
 
 Sequencial por tenant: `OS-000001`, `OS-000002`, …
 
+## Estoque de equipamentos
+
+- Cada equipamento é um item único e pertence a um estoque (`equipments.stock_id`).
+- Cada técnico pode ter um estoque de uso (`users.stock_id`).
+- Na OS, o seletor de equipamentos usa o estoque do técnico quando houver; sem
+  estoque vinculado, o técnico pode usar qualquer equipamento disponível.
+- Entradas, transferências, instalações e retornos são registrados no livro de
+  movimentações do equipamento (`equipment_stock_movements`) com usuário e data/hora.
+- Ao concluir uma OS com equipamento e veículo, o equipamento é instalado no veículo;
+  se já houver outro instalado, ocorre a troca e o anterior retorna ao estoque.
+- Consulte `docs/estoque-equipamentos.md`.
+
 ## Serviços realizados
 
 - Cada OS pode ter uma lista de serviços do catálogo (`service_order_items`), com quantidade e
@@ -74,4 +86,5 @@ Sequencial por tenant: `OS-000001`, `OS-000002`, …
 ```bash
 docker compose exec api php artisan test --filter=ServiceOrderTest
 docker compose exec api php artisan test --filter=ServiceOrderItemsTest
+docker compose exec api php artisan test --filter=StockTest
 ```

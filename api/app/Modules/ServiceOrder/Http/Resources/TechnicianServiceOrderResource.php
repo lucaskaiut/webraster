@@ -15,7 +15,12 @@ class TechnicianServiceOrderResource extends ServiceOrderResource
      */
     public function toArray(Request $request): array
     {
-        return array_merge(parent::toArray($request), [
+        $data = parent::toArray($request);
+
+        // O técnico não recebe o valor total da OS.
+        unset($data['items_total_cents'], $data['items_total']);
+
+        return array_merge($data, [
             'client' => $this->whenLoaded('client', fn () => $this->client ? [
                 'id' => $this->client->uuid,
                 'name' => $this->client->name,

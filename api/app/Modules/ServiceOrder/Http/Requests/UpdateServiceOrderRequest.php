@@ -37,6 +37,13 @@ class UpdateServiceOrderRequest extends FormRequest
             'estimated_duration_minutes' => ['nullable', 'integer', 'min:1', 'max:1440'],
             'description' => ['nullable', 'string', 'max:5000'],
             'notes' => ['nullable', 'string', 'max:5000'],
+            'installation_location' => ['nullable', 'string', 'max:2000'],
+            'installation_location_photo_path' => [
+                'nullable',
+                'string',
+                'max:255',
+                'regex:/^uploads\/[A-Za-z0-9][A-Za-z0-9._-]*$/',
+            ],
             'execution_notes' => ['nullable', 'string', 'max:5000'],
             'cancellation_reason' => ['nullable', 'string', 'max:2000'],
             'items' => ['sometimes', 'array', 'max:50'],

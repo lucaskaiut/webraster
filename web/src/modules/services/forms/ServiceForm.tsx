@@ -7,6 +7,7 @@ import {
   Checkbox,
   Form,
   Section,
+  SelectField,
   TextField,
 } from '@/shared/design-system'
 import { isApiError } from '@/shared/api/errors'
@@ -33,11 +34,14 @@ export function ServiceForm({ mode, serviceId, defaultValues, submitting, onSubm
       name: '',
       amount: 0,
       estimated_minutes: 60,
+      commission_type: '',
+      commission_value: 0,
       linked_service_ids: [],
       ...defaultValues,
     },
   })
 
+  const commissionType = useWatch({ control: form.control, name: 'commission_type' })
   const servicesQuery = useServicesQuery({ per_page: 100 })
   const linkableServices = (servicesQuery.data?.data ?? []).filter((service) => service.id !== serviceId)
   const linkedIds = useWatch({ control: form.control, name: 'linked_service_ids' }) ?? []
@@ -56,6 +60,12 @@ export function ServiceForm({ mode, serviceId, defaultValues, submitting, onSubm
       name: values.name,
       amount_cents: reaisToCents(values.amount),
       estimated_minutes: values.estimated_minutes,
+      commission_type: values.commission_type || null,
+      commission_value: values.commission_type
+        ? values.commission_type === 'percentage'
+          ? Math.round(Number(values.commission_value) * 100)
+          : reaisToCents(values.commission_value)
+        : null,
       linked_service_ids: values.linked_service_ids,
     }
 
@@ -85,6 +95,31 @@ export function ServiceForm({ mode, serviceId, defaultValues, submitting, onSubm
                 required
                 hint="Duração da execução, usada para agendar a OS."
               />
+              <SelectField
+                name="commission_type"
+                label="Tipo de comissão"
+                options={[
+                  { value: '', label: 'Sem comissão' },
+                  { value: 'percentage', label: 'Percentual (%)' },
+                  { value: 'fixed', label: 'Valor fixo (R$)' },
+                ]}
+                hint="A comissão é gravada na OS no momento do lançamento e não é recalculada depois."
+              />
+              {commissionType !== '' && (
+                <TextField
+                  name="commission_value"
+                  label={commissionType === 'percentage' ? 'Comissão (%)' : 'Comissão (R$)'}
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  required
+                  hint={
+                    commissionType === 'percentage'
+                      ? 'Percentual aplicado sobre o total dos itens do serviço.'
+                      : 'Valor fixo por unidade do serviço lançada na OS.'
+                  }
+                />
+              )}
             </div>
           </Section>
 

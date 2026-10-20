@@ -19,11 +19,14 @@ use App\Modules\Chat\Http\Controllers\ChatConversationController;
 use App\Modules\Chat\Http\Controllers\ChatMessageController;
 use App\Modules\Chat\Http\Controllers\EvolutionWebhookController;
 use App\Modules\Chat\Http\Controllers\MessagingConnectionController;
+use App\Modules\Checklist\Http\Controllers\ChecklistController;
+use App\Modules\Checklist\Http\Controllers\TechnicianChecklistController;
 use App\Modules\Client\Http\Controllers\ClientContractController;
 use App\Modules\Client\Http\Controllers\ClientController;
 use App\Modules\Client\Http\Controllers\ClientOrderController;
 use App\Modules\Client\Http\Controllers\ClientUserController;
 use App\Modules\Client\Http\Controllers\ClientVehicleShareController;
+use App\Modules\Commission\Http\Controllers\CommissionController;
 use App\Modules\Contract\Http\Controllers\ContractController;
 use App\Modules\ContractEvidence\Http\Controllers\ContractEvidenceController;
 use App\Modules\ContractEvidence\Http\Controllers\PortalSigningController;
@@ -57,6 +60,8 @@ use App\Modules\Service\Http\Controllers\ServiceController;
 use App\Modules\ServiceOrder\Http\Controllers\ServiceOrderController;
 use App\Modules\ServiceOrder\Http\Controllers\TechnicianServiceOrderController;
 use App\Modules\Shared\Http\Controllers\FileUploadController;
+use App\Modules\Stock\Http\Controllers\EquipmentStockMovementController;
+use App\Modules\Stock\Http\Controllers\StockController;
 use App\Modules\Tenant\Http\Controllers\BuildTenantController;
 use App\Modules\Tenant\Http\Controllers\PublicTenantController;
 use App\Modules\Tenant\Http\Controllers\TenantController;
@@ -80,6 +85,9 @@ Route::prefix('auth')->group(function (): void {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::post('change-password', [AuthController::class, 'changePassword'])->middleware('throttle:auth');
         Route::get('me', [AuthController::class, 'me']);
+        Route::get('signature/image', [AuthController::class, 'signatureImage']);
+        Route::post('signature', [AuthController::class, 'storeSignature']);
+        Route::delete('signature', [AuthController::class, 'destroySignature']);
         Route::post('select-tenant', [AuthController::class, 'selectTenant']);
     });
 });
@@ -209,12 +217,19 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::get('vehicle-data/config', [VehicleDataConfigController::class, 'show'])->middleware('permission:vehicle-data-config.read');
     Route::match(['put', 'patch'], 'vehicle-data/config', [VehicleDataConfigController::class, 'update'])->middleware('permission:vehicle-data-config.update');
 
+    Route::get('stocks', [StockController::class, 'index'])->middleware('permission:stock.read');
+    Route::post('stocks', [StockController::class, 'store'])->middleware('permission:stock.create');
+    Route::get('stocks/{stock}', [StockController::class, 'show'])->middleware('permission:stock.read');
+    Route::match(['put', 'patch'], 'stocks/{stock}', [StockController::class, 'update'])->middleware('permission:stock.update');
+    Route::delete('stocks/{stock}', [StockController::class, 'destroy'])->middleware('permission:stock.delete');
+
     Route::get('equipments', [EquipmentController::class, 'index'])->middleware('permission:equipment.read');
     Route::post('equipments', [EquipmentController::class, 'store'])->middleware('permission:equipment.create');
     Route::get('equipments/{equipment}', [EquipmentController::class, 'show'])->middleware('permission:equipment.read');
     Route::match(['put', 'patch'], 'equipments/{equipment}', [EquipmentController::class, 'update'])->middleware('permission:equipment.update');
     Route::delete('equipments/{equipment}', [EquipmentController::class, 'destroy'])->middleware('permission:equipment.delete');
     Route::get('equipments/{equipment}/assignment-history', [EquipmentController::class, 'assignmentHistory'])->middleware('permission:equipment.read');
+    Route::get('equipments/{equipment}/stock-movements', [EquipmentStockMovementController::class, 'index'])->middleware('permission:equipment.read');
     Route::get('equipments/{equipment}/raw-logs', EquipmentRawLogController::class)->middleware('permission:equipment.details.read');
 
     Route::get('devices/{device}/commands', [DeviceCommandController::class, 'index'])->middleware('permission:device.commands.send');
@@ -230,6 +245,14 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::get('reports/trips', [ReportController::class, 'trips'])->middleware('permission:report.view');
     Route::get('reports/events', [ReportController::class, 'events'])->middleware('permission:report.view');
 
+    Route::get('checklists', [ChecklistController::class, 'index'])->middleware('permission:checklist.read');
+    Route::post('checklists', [ChecklistController::class, 'store'])->middleware('permission:checklist.create');
+    Route::get('checklists/{checklist}', [ChecklistController::class, 'show'])->middleware('permission:checklist.read');
+    Route::match(['put', 'patch'], 'checklists/{checklist}', [ChecklistController::class, 'update'])->middleware('permission:checklist.update');
+    Route::delete('checklists/{checklist}', [ChecklistController::class, 'destroy'])->middleware('permission:checklist.delete');
+
+    Route::get('commissions', [CommissionController::class, 'index'])->middleware('permission:commission.read');
+
     Route::get('service-orders', [ServiceOrderController::class, 'index'])->middleware('permission:service-order.read');
     Route::get('service-orders/kanban', [ServiceOrderController::class, 'kanban'])->middleware('permission:service-order.read');
     Route::get('service-orders/calendar', [ServiceOrderController::class, 'calendar'])->middleware('permission:service-order.read');
@@ -243,8 +266,10 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::delete('service-orders/{serviceOrder}/photos/{photo}', [ServiceOrderController::class, 'destroyPhoto'])->middleware('permission:service-order.update');
     Route::get('service-orders/{serviceOrder}/history', [ServiceOrderController::class, 'history'])->middleware('permission:service-order.read');
     Route::get('service-orders/{serviceOrder}/pdf', [ServiceOrderController::class, 'pdf'])->middleware('permission:service-order.read');
+    Route::get('service-orders/{serviceOrder}/loan-acceptance/signature', [ServiceOrderController::class, 'loanAcceptanceSignature'])->middleware('permission:service-order.read');
     Route::post('service-orders/{serviceOrder}/attachments', [ServiceOrderController::class, 'storeAttachment'])->middleware('permission:service-order.update');
     Route::get('service-orders/{serviceOrder}/attachments/{attachment}', [ServiceOrderController::class, 'downloadAttachment'])->middleware('permission:service-order.read');
+    Route::get('service-orders/{serviceOrder}/checklists/{checklist}/questions/{question}/photos/{photo}', [ChecklistController::class, 'downloadPhoto'])->middleware('permission:service-order.read');
     Route::delete('service-orders/{serviceOrder}/attachments/{attachment}', [ServiceOrderController::class, 'destroyAttachment'])->middleware('permission:service-order.update');
 
     Route::post('scheduling/estimate', ScheduleEstimateController::class)->middleware('permission:service-order.read');
@@ -255,10 +280,22 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
         Route::get('day', [TechnicianServiceOrderController::class, 'day']);
         Route::get('{serviceOrder}', [TechnicianServiceOrderController::class, 'show']);
         Route::patch('{serviceOrder}/status', [TechnicianServiceOrderController::class, 'changeStatus']);
+        Route::get('{serviceOrder}/available-equipments', [TechnicianServiceOrderController::class, 'availableEquipments']);
+        Route::put('{serviceOrder}/equipment', [TechnicianServiceOrderController::class, 'updateEquipment']);
+        Route::post('{serviceOrder}/equipment-tests', [TechnicianServiceOrderController::class, 'storeEquipmentTest']);
+        Route::post('{serviceOrder}/loan-acceptance', [TechnicianServiceOrderController::class, 'storeLoanAcceptance']);
+        Route::get('{serviceOrder}/loan-acceptance/signature', [TechnicianServiceOrderController::class, 'loanAcceptanceSignature']);
+        Route::put('{serviceOrder}/installation-location', [TechnicianServiceOrderController::class, 'updateInstallationLocation']);
+        Route::put('{serviceOrder}/checklists/{checklist}/answers', [TechnicianChecklistController::class, 'submit']);
+        Route::post('{serviceOrder}/checklists/{checklist}/questions/{question}/photos', [TechnicianChecklistController::class, 'storePhoto']);
+        Route::delete('{serviceOrder}/checklists/{checklist}/questions/{question}/photos/{photo}', [TechnicianChecklistController::class, 'destroyPhoto']);
         Route::get('{serviceOrder}/pdf', [TechnicianServiceOrderController::class, 'pdf']);
         Route::post('{serviceOrder}/attachments', [TechnicianServiceOrderController::class, 'storeAttachment']);
         Route::get('{serviceOrder}/attachments/{attachment}', [TechnicianServiceOrderController::class, 'downloadAttachment']);
     });
+
+    Route::get('technician/checklist-photos/{photo}', [TechnicianChecklistController::class, 'downloadPhoto'])
+        ->middleware('permission:service-order.execute');
 
     Route::get('finance/plans', [FinancePlanController::class, 'index'])->middleware('permission:finance-plan.read');
     Route::post('finance/plans', [FinancePlanController::class, 'store'])->middleware('permission:finance-plan.create');

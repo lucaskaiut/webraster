@@ -124,12 +124,25 @@ export const queryKeys = {
     config: () => ['vehicle-data', 'config'] as const,
   },
 
+  stocks: {
+    all: ['stocks'] as const,
+    list: (params: Omit<ListParams, 'per_page'> & { per_page?: number | 'all'; is_active?: boolean }) =>
+      ['stocks', 'list', params] as const,
+    detail: (id: string) => ['stocks', 'detail', id] as const,
+  },
+
   equipments: {
     all: ['equipments'] as const,
-    list: (params: Omit<ListParams, 'per_page'> & { per_page?: number | 'all'; available?: boolean; vehicle_id?: string }) =>
-      ['equipments', 'list', params] as const,
+    list: (params: Omit<ListParams, 'per_page'> & {
+      per_page?: number | 'all'
+      available?: boolean
+      vehicle_id?: string
+      stock_id?: string
+      technician_id?: string
+    }) => ['equipments', 'list', params] as const,
     detail: (id: string) => ['equipments', 'detail', id] as const,
     history: (id: string) => ['equipments', 'history', id] as const,
+    stockMovements: (id: string) => ['equipments', 'stock-movements', id] as const,
   },
 
   tracking: {
@@ -223,6 +236,24 @@ export const queryKeys = {
         to?: string
       },
     ) => ['notifications', 'sent', params] as const,
+  },
+
+  checklists: {
+    all: ['checklists'] as const,
+    list: (params: ListParams & { type?: string; is_active?: boolean }) =>
+      ['checklists', 'list', params] as const,
+    detail: (id: string) => ['checklists', 'detail', id] as const,
+  },
+
+  commissions: {
+    all: ['commissions'] as const,
+    list: (
+      params: ListParams & {
+        status?: string
+        technician_id?: string
+        sort?: string
+      },
+    ) => ['commissions', 'list', params] as const,
   },
 
   serviceOrders: {

@@ -4,6 +4,7 @@ namespace App\Modules\Equipment\Services;
 
 use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Shared\Support\QuerySort;
+use App\Modules\Stock\Services\EquipmentStockMovementService;
 use App\Modules\Tracking\Services\TraccarDeviceService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
@@ -12,7 +13,10 @@ use Illuminate\Validation\ValidationException;
 
 class EquipmentService
 {
-    public function __construct(private readonly TraccarDeviceService $traccarDevices) {}
+    public function __construct(
+        private readonly TraccarDeviceService $traccarDevices,
+        private readonly EquipmentStockMovementService $stockMovements,
+    ) {}
 
     public function paginate(
         int|string $perPage = 15,
@@ -21,6 +25,7 @@ class EquipmentService
         ?int $vehicleId = null,
         ?bool $isActive = null,
         ?string $sort = null,
+        ?int $stockId = null,
     ): LengthAwarePaginator {
         // Compatibilidade com o antigo seletor de ordenação por data.
         $sort = match ($sort) {
@@ -30,10 +35,11 @@ class EquipmentService
         };
 
         $query = Equipment::query()
-            ->with('vehicle.client')
+            ->with(['vehicle.client', 'stock'])
             ->when($availableOnly === true, fn ($query) => $query->whereNull('vehicle_id'))
             ->when($availableOnly === false, fn ($query) => $query->whereNotNull('vehicle_id'))
             ->when($vehicleId !== null, fn ($query) => $query->where('vehicle_id', $vehicleId))
+            ->when($stockId !== null, fn ($query) => $query->where('stock_id', $stockId))
             ->when($isActive !== null, fn ($query) => $query->where('is_active', $isActive))
             ->when(filled($search), function ($query) use ($search): void {
                 $query->where(function ($query) use ($search): void {
@@ -71,9 +77,14 @@ class EquipmentService
     {
         return DB::transaction(function () use ($data): Equipment {
             $equipment = Equipment::query()->create($this->payload($data));
+
+            if ($equipment->stock_id !== null) {
+                $this->stockMovements->recordChange($equipment, null, (int) $equipment->stock_id);
+            }
+
             $this->traccarDevices->sync($equipment);
 
-            return $equipment->load('vehicle.client');
+            return $equipment->load(['vehicle.client', 'stock']);
         });
     }
 
@@ -83,12 +94,28 @@ class EquipmentService
     public function update(Equipment $equipment, array $data): Equipment
     {
         return DB::transaction(function () use ($equipment, $data): Equipment {
+            $previousStockId = $equipment->stock_id !== null ? (int) $equipment->stock_id : null;
+            $nextStockId = array_key_exists('stock_id', $data)
+                ? ($data['stock_id'] !== null ? (int) $data['stock_id'] : null)
+                : $previousStockId;
+
+            if ($equipment->isAssigned() && $nextStockId !== $previousStockId) {
+                throw ValidationException::withMessages([
+                    'stock_id' => ['Não é possível alterar o estoque de um equipamento instalado. Remova-o do veículo antes da transferência.'],
+                ]);
+            }
+
             $identityChanged = $this->identityChanged($equipment, $data);
             $equipment->fill($this->payload($data));
             $equipment->save();
+
+            if ($nextStockId !== $previousStockId) {
+                $this->stockMovements->recordChange($equipment, $previousStockId, $nextStockId);
+            }
+
             $this->traccarDevices->sync($equipment, $identityChanged || blank($equipment->traccar_device_id));
 
-            return $equipment->refresh()->load('vehicle.client');
+            return $equipment->refresh()->load(['vehicle.client', 'stock']);
         });
     }
 
@@ -115,6 +142,7 @@ class EquipmentService
             'line_number',
             'carrier',
             'is_active',
+            'stock_id',
         ]);
     }
 

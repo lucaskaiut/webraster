@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Modules\Equipment\Models\Equipment;
+use App\Modules\Stock\Models\Stock;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -19,6 +20,7 @@ class EquipmentFactory extends Factory
         return [
             'tenant_id' => Tenant::factory(),
             'vehicle_id' => null,
+            'stock_id' => null,
             'imei' => fake()->unique()->numerify('###############'),
             'model' => fake()->randomElement(['GT06N', 'TK103', 'FMB920', 'GV55']),
             'line_number' => fake()->numerify('###########'),
@@ -39,6 +41,15 @@ class EquipmentFactory extends Factory
         return $this->state(fn (): array => [
             'tenant_id' => $vehicle->tenant_id,
             'vehicle_id' => $vehicle->getKey(),
+            'stock_id' => null,
+        ]);
+    }
+
+    public function forStock(Stock $stock): static
+    {
+        return $this->state(fn (): array => [
+            'tenant_id' => $stock->tenant_id,
+            'stock_id' => $stock->getKey(),
         ]);
     }
 }

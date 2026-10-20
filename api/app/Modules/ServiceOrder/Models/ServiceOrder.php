@@ -2,7 +2,10 @@
 
 namespace App\Modules\ServiceOrder\Models;
 
+use App\Modules\Checklist\Models\ServiceOrderChecklist;
 use App\Modules\Client\Models\Concerns\BelongsToClient;
+use App\Modules\Commission\Models\Commission;
+use App\Modules\DeviceCommand\Models\DeviceCommandLog;
 use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Finance\Models\FinanceBilling;
 use App\Modules\ServiceOrder\Enums\ServiceOrderPriority;
@@ -16,6 +19,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ServiceOrder extends Model
@@ -51,7 +55,14 @@ class ServiceOrder extends Model
         'reminder_sent_at',
         'description',
         'notes',
+        'installation_location',
+        'installation_location_photo_path',
         'execution_notes',
+        'loan_term_accepted_at',
+        'loan_term_signature_path',
+        'loan_term_collected_by',
+        'loan_term_text',
+        'loan_term_text_hash',
         'cancellation_reason',
         'created_by',
         'completed_by',
@@ -78,6 +89,7 @@ class ServiceOrder extends Model
             'reminder_sent_at' => 'datetime',
             'completed_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            'loan_term_accepted_at' => 'datetime',
         ];
     }
 
@@ -126,6 +138,17 @@ class ServiceOrder extends Model
         return $this->belongsTo(User::class, 'cancelled_by');
     }
 
+    public function loanTermCollectedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'loan_term_collected_by');
+    }
+
+    public function hasAcceptedLoanTerm(): bool
+    {
+        return $this->loan_term_accepted_at !== null
+            && filled($this->loan_term_signature_path);
+    }
+
     public function histories(): HasMany
     {
         return $this->hasMany(ServiceOrderHistory::class)->orderByDesc('created_at');
@@ -149,6 +172,27 @@ class ServiceOrder extends Model
     public function billings(): HasMany
     {
         return $this->hasMany(FinanceBilling::class, 'service_order_id')->orderByDesc('id');
+    }
+
+    public function commission(): HasOne
+    {
+        return $this->hasOne(Commission::class);
+    }
+
+    public function checklists(): HasMany
+    {
+        return $this->hasMany(ServiceOrderChecklist::class)->orderBy('id');
+    }
+
+    /**
+     * Comandos de teste (bloqueio/desbloqueio) enviados ao equipamento
+     * selecionado e vinculados a esta OS para auditoria.
+     */
+    public function equipmentTests(): HasMany
+    {
+        return $this->hasMany(DeviceCommandLog::class, 'service_order_id')
+            ->orderByDesc('requested_at')
+            ->orderByDesc('id');
     }
 
     public function itemsTotalCents(): int

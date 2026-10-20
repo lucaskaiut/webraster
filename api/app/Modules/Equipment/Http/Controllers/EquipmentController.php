@@ -7,7 +7,9 @@ use App\Modules\Equipment\Http\Requests\UpdateEquipmentRequest;
 use App\Modules\Equipment\Http\Resources\EquipmentResource;
 use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Equipment\Services\EquipmentService;
+use App\Modules\Stock\Models\Stock;
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Http\Resources\EquipmentAssignmentEventResource;
 use App\Modules\Vehicle\Models\Vehicle;
 use App\Modules\Vehicle\Services\EquipmentAssignmentService;
@@ -36,6 +38,21 @@ class EquipmentController extends ApiController
             ? $request->boolean('available')
             : null;
 
+        // O seletor de equipamento da OS envia technician_id: o resultado fica
+        // restrito ao estoque do técnico. Técnico sem estoque não aplica filtro.
+        $stockId = null;
+        if ($request->filled('technician_id')) {
+            $stockId = User::query()
+                ->where('uuid', $request->string('technician_id')->toString())
+                ->value('stock_id');
+        }
+
+        if ($request->filled('stock_id')) {
+            $stockId = Stock::query()
+                ->where('uuid', $request->string('stock_id')->toString())
+                ->value('id');
+        }
+
         $isActive = $request->has('is_active')
             ? $request->boolean('is_active')
             : null;
@@ -53,6 +70,7 @@ class EquipmentController extends ApiController
             $vehicleId,
             $isActive,
             $sort,
+            $stockId !== null ? (int) $stockId : null,
         );
 
         return $this->paginated(EquipmentResource::collection($equipments));
@@ -62,7 +80,7 @@ class EquipmentController extends ApiController
     {
         $this->authorize('view', $equipment);
 
-        return $this->success(EquipmentResource::make($equipment->load('vehicle.client')));
+        return $this->success(EquipmentResource::make($equipment->load(['vehicle.client', 'stock'])));
     }
 
     public function store(StoreEquipmentRequest $request): JsonResponse

@@ -3,7 +3,9 @@
 namespace App\Modules\ServiceOrder\Services;
 
 use App\Modules\ACL\Enums\Permission;
+use App\Modules\Checklist\Services\ChecklistService;
 use App\Modules\Client\Models\Client;
+use App\Modules\Commission\Services\CommissionService;
 use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Finance\Models\FinanceBilling;
 use App\Modules\Finance\Services\FinanceBillingService;
@@ -18,9 +20,11 @@ use App\Modules\ServiceOrder\Models\ServiceOrder;
 use App\Modules\ServiceOrder\Models\ServiceOrderItem;
 use App\Modules\ServiceOrder\Models\ServiceOrderPhoto;
 use App\Modules\Shared\Subscription\Enums\BillingStatus;
+use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Tenant\Support\Facades\TenantContext;
 use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Models\Vehicle;
+use App\Modules\Vehicle\Services\EquipmentAssignmentService;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -38,6 +42,9 @@ class ServiceOrderService
         private readonly ServiceOrderNotificationService $notifications,
         private readonly FinanceBillingService $billings,
         private readonly SchedulingService $scheduling,
+        private readonly EquipmentAssignmentService $assignments,
+        private readonly CommissionService $commissions,
+        private readonly ChecklistService $checklists,
     ) {}
 
     /**
@@ -128,6 +135,19 @@ class ServiceOrderService
             }
 
             $this->history->record($order, ServiceOrderHistoryAction::CREATED, $actor);
+            $this->commissions->syncForOrder($order);
+            $this->checklists->ensureInstancesForOrder($order);
+
+            if ($order->status === ServiceOrderStatus::IN_PROGRESS) {
+                // Não é possível nascer "em andamento" pulando o checklist inicial.
+                if ($this->checklists->hasActiveInitialTemplates()) {
+                    throw ValidationException::withMessages([
+                        'checklists' => ['Preencha o checklist inicial antes de iniciar o atendimento.'],
+                    ]);
+                }
+
+                $this->checklists->assertReadyToStart($order);
+            }
 
             return $order;
         });
@@ -135,7 +155,7 @@ class ServiceOrderService
         $this->syncTravelLegsFor($order);
         $order->refresh();
 
-        $order->load(['client', 'vehicle', 'equipment', 'technician', 'creator', 'items.service', 'photos', 'attachments', 'billings']);
+        $order->load(['client', 'vehicle', 'equipment', 'technician', 'creator', 'items.service', 'photos', 'attachments', 'billings', 'commission', 'equipmentTests.user', 'equipmentTests.equipment', 'loanTermCollectedBy']);
 
         if ($order->technician_id) {
             $this->notifications->notifyAssigned($order);
@@ -163,6 +183,7 @@ class ServiceOrderService
         $previousTechnicianId = $order->technician_id ? (int) $order->technician_id : null;
         $previousStart = $order->scheduled_start_at?->toIso8601String();
         $previousAddress = $order->address;
+        $previousInstallationPhoto = $order->installation_location_photo_path;
 
         $nextStatus = isset($data['status'])
             ? ServiceOrderStatus::from((string) $data['status'])
@@ -199,6 +220,8 @@ class ServiceOrderService
 
         $order->fill(array_merge($payload, $derived));
         $order->save();
+
+        $this->deleteReplacedInstallationPhoto($previousInstallationPhoto, $order->installation_location_photo_path);
 
         foreach ($changes as $field => $change) {
             $action = match ($field) {
@@ -240,7 +263,9 @@ class ServiceOrderService
             }
         }
 
-        if ($nextStatus !== null && $nextStatus !== $order->status) {
+        $statusChanged = $nextStatus !== null && $nextStatus !== $order->status;
+
+        if ($statusChanged) {
             $this->applyStatusChange(
                 $order,
                 $nextStatus,
@@ -254,9 +279,63 @@ class ServiceOrderService
         $this->syncTravelLegsFor($order);
         $order->refresh();
 
+        // Mudanças de itens ou técnico também precisam refletir no snapshot.
+        if (! $statusChanged) {
+            $this->commissions->syncForOrder($order);
+        }
+
         $this->notifyScheduleChanges($order->refresh(), $previousTechnicianId, $previousStart, $previousAddress);
 
-        return $order->load(['client', 'vehicle', 'equipment', 'technician', 'creator', 'items.service', 'photos', 'attachments', 'billings']);
+        return $order->load(['client', 'vehicle', 'equipment', 'technician', 'creator', 'items.service', 'photos', 'attachments', 'billings', 'commission', 'equipmentTests.user', 'equipmentTests.equipment', 'loanTermCollectedBy']);
+    }
+
+    /**
+     * Técnico seleciona o equipamento que será instalado durante o atendimento.
+     */
+    public function assignEquipment(ServiceOrder $order, Equipment $equipment, User $actor): ServiceOrder
+    {
+        if ($order->status !== ServiceOrderStatus::IN_PROGRESS) {
+            throw ValidationException::withMessages([
+                'equipment_id' => ['O equipamento só pode ser selecionado com a OS em andamento.'],
+            ]);
+        }
+
+        if (! $equipment->is_active || $equipment->vehicle_id !== null) {
+            throw ValidationException::withMessages([
+                'equipment_id' => ['Este equipamento não está disponível para instalação.'],
+            ]);
+        }
+
+        if (
+            $actor->stock_id !== null
+            && (int) $equipment->stock_id !== (int) $actor->stock_id
+        ) {
+            throw ValidationException::withMessages([
+                'equipment_id' => ['O equipamento não pertence ao seu estoque.'],
+            ]);
+        }
+
+        if ((int) $order->equipment_id === (int) $equipment->getKey()) {
+            return $order;
+        }
+
+        DB::transaction(function () use ($order, $equipment, $actor): void {
+            $previous = $order->equipment_id;
+
+            $order->equipment_id = $equipment->getKey();
+            $order->save();
+
+            $this->history->record(
+                $order,
+                ServiceOrderHistoryAction::UPDATED,
+                $actor,
+                'equipment_id',
+                $previous,
+                $equipment->getKey(),
+            );
+        });
+
+        return $order->refresh();
     }
 
     public function changeStatus(
@@ -271,7 +350,7 @@ class ServiceOrderService
         $this->syncTravelLegsFor($order);
         $order->refresh();
 
-        return $order->load(['client', 'vehicle', 'equipment', 'technician', 'creator', 'completer', 'canceller', 'items.service', 'photos', 'attachments', 'billings']);
+        return $order->load(['client', 'vehicle', 'equipment', 'technician', 'creator', 'completer', 'canceller', 'items.service', 'photos', 'attachments', 'billings', 'commission', 'equipmentTests.user', 'equipmentTests.equipment', 'loanTermCollectedBy']);
     }
 
     private function applyStatusChange(
@@ -281,64 +360,148 @@ class ServiceOrderService
         ?string $cancellationReason = null,
         ?string $executionNotes = null,
     ): void {
-        if (! $order->status->canTransitionTo($next)) {
-            throw ValidationException::withMessages([
-                'status' => [sprintf(
-                    'Transição inválida: %s → %s.',
-                    $order->status->label(),
-                    $next->label(),
-                )],
-            ]);
-        }
-
-        if ($next === ServiceOrderStatus::CANCELLED && blank($cancellationReason)) {
-            throw ValidationException::withMessages([
-                'cancellation_reason' => ['Informe o motivo do cancelamento.'],
-            ]);
-        }
-
-        $previous = $order->status;
-        $order->status = $next;
-
-        if ($next === ServiceOrderStatus::COMPLETED) {
-            $order->completed_at = now();
-            $order->completed_by = $actor->getKey();
-            if ($executionNotes !== null) {
-                $order->execution_notes = $executionNotes;
+        DB::transaction(function () use ($order, $next, $actor, $cancellationReason, $executionNotes): void {
+            if (! $order->status->canTransitionTo($next)) {
+                throw ValidationException::withMessages([
+                    'status' => [sprintf(
+                        'Transição inválida: %s → %s.',
+                        $order->status->label(),
+                        $next->label(),
+                    )],
+                ]);
             }
+
+            if ($next === ServiceOrderStatus::CANCELLED && blank($cancellationReason)) {
+                throw ValidationException::withMessages([
+                    'cancellation_reason' => ['Informe o motivo do cancelamento.'],
+                ]);
+            }
+
+            if ($next === ServiceOrderStatus::IN_PROGRESS) {
+                $this->checklists->assertReadyToStart($order);
+            }
+
+            if ($next === ServiceOrderStatus::COMPLETED) {
+                $this->checklists->assertReadyToComplete($order);
+                $this->assertLoanTermAccepted($order);
+            }
+
+            // A conclusão é o ponto em que o equipamento realmente sai do
+            // estoque e entra no veículo selecionado na OS, se ambos existirem.
+            if ($next === ServiceOrderStatus::COMPLETED) {
+                $this->installEquipmentOnCompletion($order);
+            }
+
+            $previous = $order->status;
+            $order->status = $next;
+
+            if ($next === ServiceOrderStatus::COMPLETED) {
+                $order->completed_at = now();
+                $order->completed_by = $actor->getKey();
+                if ($executionNotes !== null) {
+                    $order->execution_notes = $executionNotes;
+                }
+            }
+
+            if ($next === ServiceOrderStatus::CANCELLED) {
+                $order->cancelled_at = now();
+                $order->cancelled_by = $actor->getKey();
+                $order->cancellation_reason = $cancellationReason;
+            }
+
+            $order->save();
+
+            $action = match ($next) {
+                ServiceOrderStatus::COMPLETED => ServiceOrderHistoryAction::COMPLETED,
+                ServiceOrderStatus::CANCELLED => ServiceOrderHistoryAction::CANCELLED,
+                default => ServiceOrderHistoryAction::STATUS_CHANGED,
+            };
+
+            $this->history->record(
+                $order,
+                $action,
+                $actor,
+                'status',
+                $previous,
+                $next,
+                $next === ServiceOrderStatus::CANCELLED
+                    ? ['cancellation_reason' => $cancellationReason]
+                    : null,
+            );
+
+            $this->commissions->syncForOrder($order);
+
+            $this->notifications->notifyStatusChanged(
+                $order,
+                $previous->label(),
+                $next->label(),
+            );
+        });
+    }
+
+    /**
+     * Quando a empresa exige comodato, a OS só pode ser concluída com a
+     * assinatura de aceite do cliente registrada.
+     */
+    private function assertLoanTermAccepted(ServiceOrder $order): void
+    {
+        $tenant = TenantContext::tenant();
+
+        if ($tenant === null || (int) $tenant->getKey() !== (int) $order->tenant_id) {
+            $tenant = Tenant::query()->find($order->tenant_id);
         }
 
-        if ($next === ServiceOrderStatus::CANCELLED) {
-            $order->cancelled_at = now();
-            $order->cancelled_by = $actor->getKey();
-            $order->cancellation_reason = $cancellationReason;
+        if (! $tenant?->require_equipment_loan_acceptance) {
+            return;
         }
 
-        $order->save();
+        if (! $order->hasAcceptedLoanTerm()) {
+            throw ValidationException::withMessages([
+                'loan_term_acceptance' => [
+                    'É necessário coletar a assinatura de aceite do termo de comodato antes de concluir a OS.',
+                ],
+            ]);
+        }
+    }
 
-        $action = match ($next) {
-            ServiceOrderStatus::COMPLETED => ServiceOrderHistoryAction::COMPLETED,
-            ServiceOrderStatus::CANCELLED => ServiceOrderHistoryAction::CANCELLED,
-            default => ServiceOrderHistoryAction::STATUS_CHANGED,
-        };
+    /**
+     * Instala no veículo o equipamento selecionado na OS ao concluí-la.
+     *
+     * Se o veículo já tiver o mesmo equipamento, nada é feito. Se tiver outro,
+     * a troca é registrada pelo fluxo de instalação/troca existente, que devolve
+     * o equipamento anterior ao estoque e audita as duas movimentações.
+     */
+    private function installEquipmentOnCompletion(ServiceOrder $order): void
+    {
+        $order->load(['equipment', 'vehicle']);
+        $equipment = $order->equipment;
+        $vehicle = $order->vehicle;
 
-        $this->history->record(
-            $order,
-            $action,
-            $actor,
-            'status',
-            $previous,
-            $next,
-            $next === ServiceOrderStatus::CANCELLED
-                ? ['cancellation_reason' => $cancellationReason]
-                : null,
-        );
+        if ($equipment === null || $vehicle === null) {
+            return;
+        }
 
-        $this->notifications->notifyStatusChanged(
-            $order,
-            $previous->label(),
-            $next->label(),
-        );
+        if ($equipment->vehicle_id !== null && (int) $equipment->vehicle_id === (int) $vehicle->getKey()) {
+            return;
+        }
+
+        $vehicle->load('equipment');
+        $notes = sprintf('Concluída pela OS %s.', $order->code);
+
+        if (
+            $vehicle->equipment !== null
+            && (int) $vehicle->equipment->getKey() === (int) $equipment->getKey()
+        ) {
+            return;
+        }
+
+        if ($vehicle->equipment !== null) {
+            $this->assignments->swap($vehicle, $equipment, $notes);
+
+            return;
+        }
+
+        $this->assignments->install($vehicle, $equipment, $notes);
     }
 
     /**
@@ -452,6 +615,8 @@ class ServiceOrderService
                 'name' => $service->name,
                 'quantity' => max(1, (int) ($item['quantity'] ?? 1)),
                 'unit_amount_cents' => max(0, (int) ($item['unit_amount_cents'] ?? 0)),
+                'commission_type' => $service->commission_type,
+                'commission_value' => $service->commission_value,
             ]);
         }
 
@@ -519,7 +684,8 @@ class ServiceOrderService
             $search = (string) $filters['search'];
             $query->where(function ($builder) use ($search): void {
                 $builder->where('description', 'like', "%{$search}%")
-                    ->orWhere('notes', 'like', "%{$search}%");
+                    ->orWhere('notes', 'like', "%{$search}%")
+                    ->orWhere('installation_location', 'like', "%{$search}%");
 
                 if (preg_match('/^OS-?0*(\d+)$/i', $search, $matches)) {
                     $builder->orWhere('number', (int) $matches[1]);
@@ -552,6 +718,13 @@ class ServiceOrderService
         return $query;
     }
 
+    private function deleteReplacedInstallationPhoto(?string $previous, ?string $current): void
+    {
+        if ($previous !== null && $previous !== '' && $previous !== $current) {
+            Storage::disk('public')->delete($previous);
+        }
+    }
+
     /**
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
@@ -570,11 +743,19 @@ class ServiceOrderService
             'estimated_duration_minutes',
             'description',
             'notes',
+            'installation_location',
+            'installation_location_photo_path',
             'execution_notes',
         ]);
 
         if (array_key_exists('address', $payload)) {
             $payload['address'] = filled($payload['address']) ? trim((string) $payload['address']) : null;
+        }
+
+        foreach (['installation_location', 'installation_location_photo_path'] as $field) {
+            if (array_key_exists($field, $payload)) {
+                $payload[$field] = filled($payload[$field]) ? trim((string) $payload[$field]) : null;
+            }
         }
 
         if (isset($payload['priority'])) {
@@ -616,6 +797,8 @@ class ServiceOrderService
         $vehicleId = array_key_exists('vehicle_id', $payload) ? $payload['vehicle_id'] : $existing?->vehicle_id;
         $equipmentId = array_key_exists('equipment_id', $payload) ? $payload['equipment_id'] : $existing?->equipment_id;
         $technicianId = array_key_exists('technician_id', $payload) ? $payload['technician_id'] : $existing?->technician_id;
+        $equipment = null;
+        $technician = null;
 
         if ($clientId) {
             $client = Client::query()->find($clientId);
@@ -653,6 +836,20 @@ class ServiceOrderService
                     'technician_id' => ['Técnico inválido.'],
                 ]);
             }
+        }
+
+        // O técnico com estoque vinculado só pode receber equipamentos desse
+        // estoque. Técnico sem estoque mantém o comportamento anterior e pode
+        // usar qualquer equipamento disponível.
+        if (
+            $equipment !== null
+            && $technician !== null
+            && $technician->stock_id !== null
+            && (int) $equipment->stock_id !== (int) $technician->stock_id
+        ) {
+            throw ValidationException::withMessages([
+                'equipment_id' => ['O equipamento não pertence ao estoque do técnico responsável.'],
+            ]);
         }
     }
 

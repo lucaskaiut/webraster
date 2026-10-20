@@ -77,6 +77,13 @@ export default function ServiceEditPage() {
               name: query.data.name,
               amount: centsToReais(query.data.amount_cents),
               estimated_minutes: query.data.estimated_minutes,
+              commission_type: query.data.commission_type ?? '',
+              commission_value:
+                query.data.commission_type === 'percentage'
+                  ? query.data.commission_value / 100
+                  : query.data.commission_type === 'fixed'
+                    ? centsToReais(query.data.commission_value)
+                    : 0,
               linked_service_ids: (query.data.linked_services ?? []).map((service) => service.id),
             }}
             submitting={updateService.isPending}

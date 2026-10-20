@@ -66,10 +66,19 @@ class ServiceService
      */
     private function payload(array $data): array
     {
-        return Arr::only($data, [
+        $payload = Arr::only($data, [
             'name',
             'amount_cents',
             'estimated_minutes',
+            'commission_type',
+            'commission_value',
         ]);
+
+        if (array_key_exists('commission_type', $payload) && blank($payload['commission_type'])) {
+            $payload['commission_type'] = null;
+            $payload['commission_value'] = 0;
+        }
+
+        return $payload;
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Modules\User\Http\Resources;
 
 use App\Modules\ACL\Http\Resources\RoleResource;
+use App\Modules\Stock\Http\Resources\StockResource;
 use App\Modules\User\Enums\UserType;
 use App\Modules\User\Models\User;
 use App\Modules\User\Models\UserWorkHour;
@@ -47,6 +48,12 @@ class UserResource extends JsonResource
             'latitude' => $this->latitude,
             'longitude' => $this->longitude,
             'technician_active' => (bool) $this->technician_active,
+            'stock_id' => $this->whenLoaded('stock', fn () => $this->stock?->uuid),
+            'stock' => StockResource::make($this->whenLoaded('stock')),
+            'has_signature' => $this->signature_path !== null,
+            'signature_url' => $request->user()?->is($this->resource) && $this->signature_path
+                ? '/auth/signature/image?v='.substr(md5($this->signature_path), 0, 12)
+                : null,
             'work_hours' => $this->whenLoaded('workHours', fn () => $this->workHours
                 ->map(fn (UserWorkHour $hour) => [
                     'weekday' => $hour->weekday,

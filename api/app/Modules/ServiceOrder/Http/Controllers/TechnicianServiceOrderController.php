@@ -2,16 +2,28 @@
 
 namespace App\Modules\ServiceOrder\Http\Controllers;
 
+use App\Modules\Checklist\Services\ChecklistService;
+use App\Modules\DeviceCommand\Enums\DeviceCommandStatus;
+use App\Modules\Equipment\Http\Resources\TechnicianAvailableEquipmentResource;
+use App\Modules\Equipment\Models\Equipment;
+use App\Modules\Equipment\Services\EquipmentService;
+use App\Modules\Scheduling\Services\SchedulingService;
+use App\Modules\Scheduling\Support\Coordinates;
 use App\Modules\ServiceOrder\Enums\ServiceOrderStatus;
 use App\Modules\ServiceOrder\Http\Requests\StoreServiceOrderAttachmentRequest;
+use App\Modules\ServiceOrder\Http\Requests\StoreServiceOrderLoanAcceptanceRequest;
+use App\Modules\ServiceOrder\Http\Requests\StoreTechnicianServiceOrderEquipmentTestRequest;
 use App\Modules\ServiceOrder\Http\Requests\TechnicianChangeStatusRequest;
+use App\Modules\ServiceOrder\Http\Requests\UpdateTechnicianServiceOrderEquipmentRequest;
+use App\Modules\ServiceOrder\Http\Requests\UpdateTechnicianServiceOrderInstallationLocationRequest;
 use App\Modules\ServiceOrder\Http\Resources\ServiceOrderAttachmentResource;
+use App\Modules\ServiceOrder\Http\Resources\ServiceOrderEquipmentTestResource;
 use App\Modules\ServiceOrder\Http\Resources\TechnicianServiceOrderResource;
 use App\Modules\ServiceOrder\Models\ServiceOrder;
 use App\Modules\ServiceOrder\Models\ServiceOrderAttachment;
 use App\Modules\ServiceOrder\Services\ServiceOrderAttachmentService;
-use App\Modules\Scheduling\Services\SchedulingService;
-use App\Modules\Scheduling\Support\Coordinates;
+use App\Modules\ServiceOrder\Services\ServiceOrderEquipmentTestService;
+use App\Modules\ServiceOrder\Services\ServiceOrderLoanAcceptanceService;
 use App\Modules\ServiceOrder\Services\ServiceOrderPdfService;
 use App\Modules\ServiceOrder\Services\ServiceOrderService;
 use App\Modules\Shared\Http\Controllers\ApiController;
@@ -19,6 +31,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -26,13 +39,32 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class TechnicianServiceOrderController extends ApiController
 {
-    private const RELATIONS = ['client', 'vehicle', 'equipment', 'technician', 'items', 'attachments.uploader'];
+    private const RELATIONS = [
+        'client',
+        'vehicle',
+        'equipment',
+        'technician',
+        'items',
+        'attachments.uploader',
+        'commission',
+        'equipmentTests.user',
+        'equipmentTests.equipment',
+        'loanTermCollectedBy',
+        'checklists.completedBy',
+        'checklists.questions.options',
+        'checklists.questions.answer.selectedOptions',
+        'checklists.questions.answer.photos',
+    ];
 
     public function __construct(
         private readonly ServiceOrderService $service,
         private readonly ServiceOrderAttachmentService $attachments,
         private readonly ServiceOrderPdfService $pdf,
         private readonly SchedulingService $scheduling,
+        private readonly ChecklistService $checklists,
+        private readonly EquipmentService $equipment,
+        private readonly ServiceOrderEquipmentTestService $equipmentTests,
+        private readonly ServiceOrderLoanAcceptanceService $loanAcceptance,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -294,6 +326,7 @@ class TechnicianServiceOrderController extends ApiController
     public function show(Request $request, ServiceOrder $serviceOrder): JsonResponse
     {
         $this->assertOwn($request, $serviceOrder);
+        $this->checklists->ensureInstancesForOrder($serviceOrder);
 
         return $this->success(TechnicianServiceOrderResource::make($serviceOrder->load(self::RELATIONS)));
     }
@@ -312,6 +345,122 @@ class TechnicianServiceOrderController extends ApiController
         );
 
         return $this->success(TechnicianServiceOrderResource::make($order->load(self::RELATIONS)), 'Status atualizado.');
+    }
+
+    public function availableEquipments(Request $request, ServiceOrder $serviceOrder): JsonResponse
+    {
+        $this->assertOwn($request, $serviceOrder);
+        $this->assertInProgress($serviceOrder);
+
+        $technician = $request->user();
+
+        $equipments = $this->equipment->paginate(
+            100,
+            $request->string('search')->toString() ?: null,
+            availableOnly: true,
+            isActive: true,
+            sort: 'imei:asc',
+            stockId: $technician->stock_id !== null ? (int) $technician->stock_id : null,
+        );
+
+        return $this->paginated(TechnicianAvailableEquipmentResource::collection($equipments));
+    }
+
+    public function updateEquipment(
+        UpdateTechnicianServiceOrderEquipmentRequest $request,
+        ServiceOrder $serviceOrder,
+    ): JsonResponse {
+        $this->assertOwn($request, $serviceOrder);
+
+        $equipment = Equipment::query()
+            ->where('uuid', $request->validated('equipment_id'))
+            ->first();
+
+        if ($equipment === null) {
+            throw ValidationException::withMessages([
+                'equipment_id' => ['Equipamento inválido.'],
+            ]);
+        }
+
+        $order = $this->service->assignEquipment($serviceOrder, $equipment, $request->user());
+
+        return $this->success(
+            TechnicianServiceOrderResource::make($order->load(self::RELATIONS)),
+            'Equipamento atualizado.',
+        );
+    }
+
+    public function storeEquipmentTest(
+        StoreTechnicianServiceOrderEquipmentTestRequest $request,
+        ServiceOrder $serviceOrder,
+    ): JsonResponse {
+        $this->assertOwn($request, $serviceOrder);
+        $this->assertInProgress(
+            $serviceOrder,
+            'A OS precisa estar em andamento para testar o equipamento.',
+        );
+
+        $log = $this->equipmentTests->run(
+            $serviceOrder,
+            (string) $request->validated('action'),
+            $request->user(),
+        );
+
+        $log->loadMissing(['user', 'equipment']);
+
+        $successful = $log->status === DeviceCommandStatus::SUCCESS;
+
+        return $this->success(
+            ServiceOrderEquipmentTestResource::make($log),
+            $successful
+                ? 'Teste realizado com sucesso.'
+                : 'Teste registrado, mas o comando falhou.',
+        );
+    }
+
+    public function updateInstallationLocation(
+        UpdateTechnicianServiceOrderInstallationLocationRequest $request,
+        ServiceOrder $serviceOrder,
+    ): JsonResponse {
+        $this->assertOwn($request, $serviceOrder);
+
+        $order = $this->service->update($serviceOrder, $request->validated(), $request->user());
+
+        return $this->success(
+            TechnicianServiceOrderResource::make($order->load(self::RELATIONS)),
+            'Local de instalação atualizado.',
+        );
+    }
+
+    public function storeLoanAcceptance(
+        StoreServiceOrderLoanAcceptanceRequest $request,
+        ServiceOrder $serviceOrder,
+    ): JsonResponse {
+        $this->assertOwn($request, $serviceOrder);
+        $this->assertInProgress(
+            $serviceOrder,
+            'A OS precisa estar em andamento para coletar o aceite do termo de comodato.',
+        );
+
+        $order = $this->loanAcceptance->store(
+            $serviceOrder,
+            $request->file('image'),
+            $request->user(),
+        );
+
+        return $this->success(
+            TechnicianServiceOrderResource::make($order->load(self::RELATIONS)),
+            'Aceite do termo de comodato registrado.',
+        );
+    }
+
+    public function loanAcceptanceSignature(
+        Request $request,
+        ServiceOrder $serviceOrder,
+    ): StreamedResponse {
+        $this->assertOwn($request, $serviceOrder);
+
+        return $this->loanAcceptance->signature($serviceOrder);
     }
 
     public function pdf(Request $request, ServiceOrder $serviceOrder): StreamedResponse
@@ -344,6 +493,17 @@ class TechnicianServiceOrderController extends ApiController
     {
         if ((int) $order->technician_id !== (int) $request->user()->getKey()) {
             throw (new ModelNotFoundException)->setModel(ServiceOrder::class, [$order->uuid]);
+        }
+    }
+
+    private function assertInProgress(
+        ServiceOrder $order,
+        string $message = 'A OS precisa estar em andamento para selecionar o equipamento.',
+    ): void {
+        if ($order->status !== ServiceOrderStatus::IN_PROGRESS) {
+            throw ValidationException::withMessages([
+                'status' => [$message],
+            ]);
         }
     }
 }

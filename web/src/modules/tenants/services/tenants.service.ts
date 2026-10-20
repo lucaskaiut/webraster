@@ -41,6 +41,8 @@ export interface UpdateTenantPayload {
   app_logo_path?: string | null
   app_primary_color?: string | null
   app_secondary_color?: string | null
+  require_equipment_loan_acceptance?: boolean
+  equipment_loan_term?: string | null
   vehicle_alert_defaults?: TenantVehicleAlertDefault[]
 }
 

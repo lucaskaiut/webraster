@@ -3,6 +3,7 @@
 namespace App\Modules\Equipment\Models;
 
 use App\Modules\Shared\Models\Concerns\HasUuid;
+use App\Modules\Stock\Models\Stock;
 use App\Modules\Tenant\Models\Concerns\BelongsToTenant;
 use App\Modules\Vehicle\Models\EquipmentAssignmentEvent;
 use App\Modules\Vehicle\Models\Vehicle;
@@ -26,6 +27,7 @@ class Equipment extends Model
 
     protected $fillable = [
         'vehicle_id',
+        'stock_id',
         'imei',
         'traccar_device_id',
         'traccar_status',
@@ -54,6 +56,11 @@ class Equipment extends Model
     public function vehicle(): BelongsTo
     {
         return $this->belongsTo(Vehicle::class);
+    }
+
+    public function stock(): BelongsTo
+    {
+        return $this->belongsTo(Stock::class);
     }
 
     public function assignmentEvents(): HasMany

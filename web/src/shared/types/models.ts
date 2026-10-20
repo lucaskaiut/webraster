@@ -31,6 +31,8 @@ export interface User {
   latitude?: number | null
   longitude?: number | null
   technician_active?: boolean
+  stock_id?: string | null
+  stock?: Stock | null
   work_hours?: UserWorkHour[]
   roles?: Role[]
   created_at: string | null
@@ -69,6 +71,8 @@ export interface Tenant {
   app_logo_url: string | null
   app_primary_color: string | null
   app_secondary_color: string | null
+  require_equipment_loan_acceptance: boolean
+  equipment_loan_term: string | null
   vehicle_alert_defaults?: TenantVehicleAlertDefault[] | null
   traccar_server_ip: string | null
   traccar_server_dns: string | null
@@ -317,6 +321,8 @@ export interface LinkedCatalogService {
   estimated_minutes: number
 }
 
+export type ServiceCommissionType = 'percentage' | 'fixed'
+
 export interface CatalogService {
   id: string
   name: string
@@ -324,6 +330,11 @@ export interface CatalogService {
   amount: string
   /** Tempo estimado de execução, usado no agendamento da OS. */
   estimated_minutes: number
+  /** Tipo de comissão: percentual ou valor fixo. */
+  commission_type: ServiceCommissionType | null
+  commission_type_label?: string | null
+  /** Percentual em centésimos de ponto (100 = 1%) ou valor fixo em centavos. */
+  commission_value: number
   /** Serviços sugeridos na OS quando este serviço é contratado no pedido do cliente. */
   linked_services?: LinkedCatalogService[]
   created_at: string | null
@@ -416,10 +427,42 @@ export interface ClientContract {
   updated_at: string | null
 }
 
+export interface Stock {
+  id: string
+  name: string
+  description: string | null
+  is_active: boolean
+  equipments_count?: number
+  technicians_count?: number
+  created_at: string | null
+  updated_at: string | null
+}
+
+export type EquipmentStockMovementType =
+  | 'entry'
+  | 'transfer'
+  | 'exit'
+  | 'installation'
+  | 'return'
+
+export interface EquipmentStockMovement {
+  id: string
+  from_stock: Pick<Stock, 'id' | 'name'> | null
+  to_stock: Pick<Stock, 'id' | 'name'> | null
+  type: EquipmentStockMovementType
+  type_label: string
+  description: string
+  moved_by: Pick<User, 'id' | 'name'> | null
+  occurred_at: string
+  created_at: string | null
+}
+
 export interface Equipment {
   id: string
   vehicle_id: string | null
   vehicle?: Vehicle
+  stock_id?: string | null
+  stock?: Pick<Stock, 'id' | 'name'> | null
   imei: string | null
   model: string | null
   line_number: string | null
@@ -971,6 +1014,24 @@ export interface UserWorkHour {
   ends_at: string
 }
 
+export type ServiceOrderEquipmentTestAction = 'block' | 'unblock'
+export type ServiceOrderEquipmentTestStatus = 'pending' | 'success' | 'failed'
+
+export interface ServiceOrderEquipmentTest {
+  id: string
+  action: ServiceOrderEquipmentTestAction | string
+  action_label?: string
+  command_type: string
+  status: ServiceOrderEquipmentTestStatus
+  status_label?: string
+  requested_at: string | null
+  executed_at: string | null
+  response?: Record<string, unknown> | null
+  user?: Pick<User, 'id' | 'name'> | null
+  equipment?: Pick<Equipment, 'id' | 'imei' | 'model'> | null
+  created_at: string | null
+}
+
 export interface ServiceOrder {
   id: string
   number: number
@@ -999,6 +1060,15 @@ export interface ServiceOrder {
   return_travel_distance_meters?: number | null
   description: string | null
   notes: string | null
+  installation_location: string | null
+  installation_location_photo_path: string | null
+  installation_location_photo_url: string | null
+  loan_term_required: boolean
+  loan_term_text: string | null
+  loan_term_accepted_at: string | null
+  loan_term_accepted_text: string | null
+  loan_term_signature_available: boolean
+  loan_term_collected_by?: Pick<User, 'id' | 'name'> | null
   execution_notes: string | null
   cancellation_reason: string | null
   items?: ServiceOrderItem[]
@@ -1015,9 +1085,122 @@ export interface ServiceOrder {
   created_at: string | null
   updated_at: string | null
   histories?: ServiceOrderHistory[]
+  checklists?: ServiceOrderChecklist[]
+  equipment_tests?: ServiceOrderEquipmentTest[]
 }
 
 export type ServiceOrderKanban = Record<ServiceOrderStatus, ServiceOrder[]>
+
+export type ChecklistType = 'initial' | 'final'
+export type ChecklistAnswerType = 'text' | 'single_choice' | 'multiple_choice'
+export type ChecklistPhotoRule = 'required' | 'optional' | 'none'
+export type ServiceOrderChecklistStatus = 'pending' | 'completed'
+
+export interface ChecklistQuestionOption {
+  id: string
+  label: string
+  position: number
+}
+
+export interface ChecklistQuestion {
+  id: string
+  prompt: string
+  answer_type: ChecklistAnswerType
+  answer_type_label?: string
+  photo_rule: ChecklistPhotoRule
+  photo_rule_label?: string
+  position: number
+  options: ChecklistQuestionOption[]
+}
+
+export interface Checklist {
+  id: string
+  name: string
+  description: string | null
+  type: ChecklistType
+  type_label?: string
+  is_active: boolean
+  questions_count?: number
+  questions?: ChecklistQuestion[]
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface ServiceOrderChecklistPhoto {
+  id: string
+  original_name: string
+  mime_type: string | null
+  size_bytes: number
+  created_at: string | null
+}
+
+export interface ServiceOrderChecklistAnswer {
+  text_answer: string | null
+  option_ids: string[]
+  photos: ServiceOrderChecklistPhoto[]
+  answered_at: string | null
+  answered_by?: Pick<User, 'id' | 'name'> | null
+}
+
+export interface ServiceOrderChecklistQuestion {
+  id: string
+  prompt: string
+  answer_type: ChecklistAnswerType
+  answer_type_label?: string
+  photo_rule: ChecklistPhotoRule
+  photo_rule_label?: string
+  position: number
+  options: ChecklistQuestionOption[]
+  answer: ServiceOrderChecklistAnswer | null
+}
+
+export interface ServiceOrderChecklist {
+  id: string
+  type: ChecklistType
+  type_label?: string
+  name: string
+  description: string | null
+  status: ServiceOrderChecklistStatus
+  status_label?: string
+  completed_at: string | null
+  completed_by?: Pick<User, 'id' | 'name'> | null
+  questions: ServiceOrderChecklistQuestion[]
+}
+
+export type CommissionStatus = 'forecast' | 'finalized' | 'cancelled'
+
+export interface CommissionBreakdownItem {
+  service_id: string | null
+  service_name: string
+  quantity: number
+  base_amount_cents: number
+  commission_type: ServiceCommissionType | null
+  commission_value: number
+  amount_cents: number
+}
+
+export interface Commission {
+  id: string
+  status: CommissionStatus
+  status_label?: string
+  base_amount_cents: number
+  base_amount: string
+  amount_cents: number
+  amount: string
+  breakdown?: CommissionBreakdownItem[]
+  finalized_at: string | null
+  service_order: {
+    id: string
+    number: number
+    code: string
+    status: ServiceOrderStatus
+    status_label?: string
+    client: Pick<Client, 'id' | 'name'> | null
+  } | null
+  technician?: Pick<User, 'id' | 'name'> | null
+  created_at: string | null
+  updated_at: string | null
+}
 
 export type BillingPeriodicity = 'monthly' | 'bimonthly' | 'quarterly' | 'semiannual' | 'annual'
 export type FinanceSubscriptionStatus = 'active' | 'past_due' | 'suspended' | 'cancelled'

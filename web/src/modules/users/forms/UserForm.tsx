@@ -11,16 +11,21 @@ import {
   Field,
   Form,
   Input,
+  SearchSelectField,
   Section,
   SelectField,
   SwitchField,
   TextField,
+  type SearchSelectOption,
 } from '@/shared/design-system'
 import { isApiError } from '@/shared/api/errors'
+import { Permission } from '@/shared/constants/permissions'
+import { usePermissions } from '@/shared/hooks/usePermissions'
 import { applyApiErrorsToForm } from '@/shared/utils/forms'
 import { onlyDigits } from '@/shared/utils/document'
 import { maskCep, maskCpf, maskPhone } from '@/shared/utils/mask'
 import { fetchAddressByCep } from '@/shared/services/viacep'
+import { stocksService } from '@/modules/stocks/services/stocks.service'
 import type { UserWorkHour } from '@/shared/types/models'
 import { RolesField } from '../components/RolesField'
 import { DEFAULT_WORK_HOURS, WEEKDAYS } from '../lib/work-hours'
@@ -33,6 +38,26 @@ interface WorkHourRow extends UserWorkHour {
 
 function toRows(hours: UserWorkHour[]): WorkHourRow[] {
   return hours.map((hour) => ({ ...hour, key: crypto.randomUUID() }))
+}
+
+async function loadStockOptions(search: string): Promise<SearchSelectOption[]> {
+  const response = await stocksService.list({
+    search: search || undefined,
+    per_page: 20,
+    is_active: true,
+  })
+
+  return response.data.map((stock) => ({ value: stock.id, label: stock.name }))
+}
+
+async function resolveStockLabel(value: string): Promise<SearchSelectOption | null> {
+  try {
+    const stock = await stocksService.get(value)
+
+    return { value: stock.id, label: stock.name }
+  } catch {
+    return null
+  }
 }
 
 interface UserFormProps {
@@ -60,6 +85,7 @@ export function UserForm({
       type: 'staff',
       role_ids: [],
       technician_active: true,
+      stock_id: '',
       street: '',
       number: '',
       complement: '',
@@ -73,8 +99,10 @@ export function UserForm({
     },
   })
 
+  const { can } = usePermissions()
   const selectedType = useWatch({ control: form.control, name: 'type' })
   const isTechnician = selectedType === 'technician'
+  const canReadStocks = can(Permission.STOCK_READ)
 
   const [hours, setHours] = useState<WorkHourRow[]>(() =>
     toRows(initialWorkHours ?? (mode === 'create' ? DEFAULT_WORK_HOURS : [])),
@@ -147,6 +175,10 @@ export function UserForm({
         starts_at,
         ends_at,
       }))
+
+      if (canReadStocks) {
+        payload.stock_id = values.stock_id || null
+      }
     }
 
     if (values.password) {
@@ -211,6 +243,18 @@ export function UserForm({
                     label="Disponível para agendamento"
                     hint="Técnicos inativos não aparecem na seleção de novas ordens de serviço."
                   />
+
+                  {canReadStocks && (
+                    <SearchSelectField
+                      name="stock_id"
+                      label="Estoque de uso"
+                      placeholder="Buscar estoque..."
+                      emptyMessage="Nenhum estoque ativo encontrado"
+                      loadOptions={loadStockOptions}
+                      resolveLabel={resolveStockLabel}
+                      hint="Opcional. Nas OS, o técnico só poderá selecionar equipamentos deste estoque. Sem estoque, ele pode usar qualquer equipamento disponível."
+                    />
+                  )}
 
                   <div className="grid gap-4 sm:grid-cols-6">
                     <TextField

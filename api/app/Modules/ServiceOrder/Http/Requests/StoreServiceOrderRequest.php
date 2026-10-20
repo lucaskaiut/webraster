@@ -40,6 +40,13 @@ class StoreServiceOrderRequest extends FormRequest
             'estimated_duration_minutes' => ['nullable', 'integer', 'min:1', 'max:1440'],
             'description' => ['nullable', 'string', 'max:5000'],
             'notes' => ['nullable', 'string', 'max:5000'],
+            'installation_location' => ['nullable', 'string', 'max:2000'],
+            'installation_location_photo_path' => [
+                'nullable',
+                'string',
+                'max:255',
+                'regex:/^uploads\/[A-Za-z0-9][A-Za-z0-9._-]*$/',
+            ],
             'items' => ['sometimes', 'array', 'max:50'],
             'items.*.service_id' => ['required', 'integer', Rule::exists('services', 'id')->whereNull('deleted_at')],
             'items.*.quantity' => ['sometimes', 'integer', 'min:1', 'max:9999'],

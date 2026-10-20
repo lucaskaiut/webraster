@@ -26,6 +26,7 @@ const ACTION_LABELS: Record<string, { label: string; variant: 'neutral' | 'prima
   contract_signed: { label: 'Contrato assinado', variant: 'success' },
   contract_signature_updated: { label: 'Assinatura do contrato alterada', variant: 'warning' },
   contract_document_uploaded: { label: 'Contrato importado', variant: 'primary' },
+  equipment_stock_moved: { label: 'Movimentação de estoque', variant: 'warning' },
 }
 
 export default function AuditPage() {

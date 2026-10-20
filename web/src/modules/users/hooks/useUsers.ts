@@ -27,6 +27,7 @@ export function useCreateUser() {
     mutationFn: (payload: UserPayload) => usersService.create(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.users.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.stocks.all })
       toast.success('Usuário criado', 'O usuário foi cadastrado com sucesso.')
     },
   })
@@ -39,6 +40,7 @@ export function useUpdateUser(id: string) {
     mutationFn: (payload: UserPayload) => usersService.update(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.users.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.stocks.all })
       toast.success('Usuário atualizado', 'As alterações foram salvas.')
     },
   })
@@ -51,6 +53,7 @@ export function useDeleteUser() {
     mutationFn: (id: string) => usersService.remove(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.users.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.stocks.all })
       toast.success('Usuário removido', 'O usuário foi excluído com sucesso.')
     },
   })

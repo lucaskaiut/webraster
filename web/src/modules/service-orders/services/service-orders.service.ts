@@ -40,6 +40,8 @@ export interface ServiceOrderPayload {
   estimated_duration_minutes?: number | null
   description?: string | null
   notes?: string | null
+  installation_location?: string | null
+  installation_location_photo_path?: string | null
   execution_notes?: string | null
   cancellation_reason?: string | null
   items?: ServiceOrderItemPayload[]
@@ -214,6 +216,13 @@ export const serviceOrdersService = {
     return response.data
   },
 
+  async loanAcceptanceSignature(id: string): Promise<Blob> {
+    const response = await http.get<Blob>(`/service-orders/${id}/loan-acceptance/signature`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
   async uploadAttachment(id: string, file: File): Promise<ServiceOrderAttachment> {
     const body = new FormData()
     body.append('file', file)
@@ -233,5 +242,18 @@ export const serviceOrdersService = {
 
   async removeAttachment(id: string, attachmentId: string): Promise<void> {
     await http.delete(`/service-orders/${id}/attachments/${attachmentId}`)
+  },
+
+  async checklistPhoto(
+    orderId: string,
+    checklistId: string,
+    questionId: string,
+    photoId: string,
+  ): Promise<Blob> {
+    const response = await http.get<Blob>(
+      `/service-orders/${orderId}/checklists/${checklistId}/questions/${questionId}/photos/${photoId}`,
+      { responseType: 'blob' },
+    )
+    return response.data
   },
 }

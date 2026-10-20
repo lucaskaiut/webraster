@@ -2,6 +2,7 @@
 
 namespace App\Modules\ServiceOrder\Models;
 
+use App\Modules\Service\Enums\CommissionType;
 use App\Modules\Service\Models\Service;
 use App\Modules\Shared\Models\Concerns\HasUuid;
 use App\Modules\Tenant\Models\Concerns\BelongsToTenant;
@@ -24,6 +25,8 @@ class ServiceOrderItem extends Model
         'name',
         'quantity',
         'unit_amount_cents',
+        'commission_type',
+        'commission_value',
     ];
 
     protected function casts(): array
@@ -31,6 +34,8 @@ class ServiceOrderItem extends Model
         return [
             'quantity' => 'integer',
             'unit_amount_cents' => 'integer',
+            'commission_type' => CommissionType::class,
+            'commission_value' => 'integer',
         ];
     }
 

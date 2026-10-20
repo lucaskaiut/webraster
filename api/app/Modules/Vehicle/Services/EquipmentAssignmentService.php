@@ -3,6 +3,7 @@
 namespace App\Modules\Vehicle\Services;
 
 use App\Modules\Equipment\Models\Equipment;
+use App\Modules\Stock\Services\EquipmentStockMovementService;
 use App\Modules\Vehicle\Enums\AssignmentEventType;
 use App\Modules\Vehicle\Models\EquipmentAssignmentEvent;
 use App\Modules\Vehicle\Models\Vehicle;
@@ -13,6 +14,8 @@ use Illuminate\Validation\ValidationException;
 
 class EquipmentAssignmentService
 {
+    public function __construct(private readonly EquipmentStockMovementService $stockMovements) {}
+
     public function install(Vehicle $vehicle, Equipment $equipment, ?string $notes = null, ?string $occurredAt = null): EquipmentAssignmentEvent
     {
         $this->assertSameTenant($vehicle, $equipment);
@@ -20,16 +23,29 @@ class EquipmentAssignmentService
         $this->assertVehicleHasNoEquipment($vehicle);
 
         return DB::transaction(function () use ($vehicle, $equipment, $notes, $occurredAt): EquipmentAssignmentEvent {
+            $fromStockId = $equipment->stock_id !== null ? (int) $equipment->stock_id : null;
+
             $equipment->vehicle_id = $vehicle->getKey();
+            $equipment->stock_id = null;
             $equipment->save();
 
-            return $this->record(
+            $event = $this->record(
                 vehicle: $vehicle,
                 equipment: $equipment,
                 event: AssignmentEventType::INSTALLATION,
                 notes: $notes,
                 occurredAt: $occurredAt,
             );
+
+            $this->stockMovements->recordInstallation(
+                $equipment,
+                $vehicle,
+                $fromStockId,
+                $notes,
+                $occurredAt,
+            );
+
+            return $event;
         });
     }
 
@@ -44,16 +60,29 @@ class EquipmentAssignmentService
         }
 
         return DB::transaction(function () use ($vehicle, $equipment, $notes, $occurredAt): EquipmentAssignmentEvent {
+            $returnStock = $this->stockMovements->returnStockFor($equipment);
+
             $equipment->vehicle_id = null;
+            $equipment->stock_id = $returnStock?->getKey();
             $equipment->save();
 
-            return $this->record(
+            $event = $this->record(
                 vehicle: $vehicle,
                 equipment: $equipment,
                 event: AssignmentEventType::REMOVAL,
                 notes: $notes,
                 occurredAt: $occurredAt,
             );
+
+            $this->stockMovements->recordReturn(
+                $equipment,
+                $vehicle,
+                $returnStock,
+                $notes,
+                $occurredAt,
+            );
+
+            return $event;
         });
     }
 
@@ -81,13 +110,18 @@ class EquipmentAssignmentService
         }
 
         return DB::transaction(function () use ($vehicle, $current, $newEquipment, $notes, $occurredAt): EquipmentAssignmentEvent {
+            $returnStock = $this->stockMovements->returnStockFor($current);
+            $fromStockId = $newEquipment->stock_id !== null ? (int) $newEquipment->stock_id : null;
+
             $current->vehicle_id = null;
+            $current->stock_id = $returnStock?->getKey();
             $current->save();
 
             $newEquipment->vehicle_id = $vehicle->getKey();
+            $newEquipment->stock_id = null;
             $newEquipment->save();
 
-            return $this->record(
+            $event = $this->record(
                 vehicle: $vehicle,
                 equipment: $newEquipment,
                 event: AssignmentEventType::SWAP,
@@ -95,6 +129,26 @@ class EquipmentAssignmentService
                 occurredAt: $occurredAt,
                 previousEquipment: $current,
             );
+
+            $this->stockMovements->recordReturn(
+                $current,
+                $vehicle,
+                $returnStock,
+                $notes,
+                $occurredAt,
+                swap: true,
+            );
+
+            $this->stockMovements->recordInstallation(
+                $newEquipment,
+                $vehicle,
+                $fromStockId,
+                $notes,
+                $occurredAt,
+                replacedEquipment: $current,
+            );
+
+            return $event;
         });
     }
 

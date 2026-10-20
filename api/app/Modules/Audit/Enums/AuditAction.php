@@ -12,4 +12,5 @@ enum AuditAction: string
     case ContractSigned = 'contract_signed';
     case ContractSignatureUpdated = 'contract_signature_updated';
     case ContractDocumentUploaded = 'contract_document_uploaded';
+    case EquipmentStockMoved = 'equipment_stock_moved';
 }

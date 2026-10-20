@@ -23,6 +23,14 @@ export function useEquipmentQuery(id: string | undefined) {
   })
 }
 
+export function useEquipmentStockMovementsQuery(id: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.equipments.stockMovements(id ?? ''),
+    queryFn: () => equipmentsService.stockMovements(id!),
+    enabled: !!id,
+  })
+}
+
 export function useCreateEquipment() {
   const queryClient = useQueryClient()
 
@@ -30,6 +38,7 @@ export function useCreateEquipment() {
     mutationFn: (payload: EquipmentPayload) => equipmentsService.create(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.equipments.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.stocks.all })
       toast.success('Equipamento criado', 'O equipamento foi cadastrado com sucesso.')
     },
   })
@@ -42,6 +51,7 @@ export function useUpdateEquipment(id: string) {
     mutationFn: (payload: EquipmentPayload) => equipmentsService.update(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.equipments.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.stocks.all })
       toast.success('Equipamento atualizado', 'As alterações foram salvas.')
     },
   })
@@ -54,6 +64,7 @@ export function useDeleteEquipment() {
     mutationFn: (id: string) => equipmentsService.remove(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.equipments.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.stocks.all })
       toast.success('Equipamento removido', 'O equipamento foi excluído com sucesso.')
     },
   })

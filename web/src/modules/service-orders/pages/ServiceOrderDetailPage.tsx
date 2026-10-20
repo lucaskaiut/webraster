@@ -11,6 +11,7 @@ import {
   ConfirmDialog,
   DatePicker,
   Field,
+  ImageUploader,
   Loading,
   Modal,
   Page,
@@ -18,6 +19,7 @@ import {
   PageHeader,
   Spinner,
   Textarea,
+  type ImageValue,
 } from '@/shared/design-system'
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
@@ -49,6 +51,7 @@ import {
 } from '../lib/labels'
 import { serviceOrdersService } from '../services/service-orders.service'
 import { ServiceOrderAttachmentsCard } from '../components/ServiceOrderAttachmentsCard'
+import { ServiceOrderChecklistsCard } from '../components/ServiceOrderChecklistsCard'
 import { formatMinutes } from '../lib/duration'
 
 export default function ServiceOrderDetailPage() {
@@ -265,6 +268,12 @@ export default function ServiceOrderDetailPage() {
           </CardContent>
         </Card>
 
+        <ServiceOrderInstallationLocationCard order={order} canEdit={canEdit} />
+
+        <ServiceOrderEquipmentTestsCard order={order} />
+
+        <ServiceOrderLoanAcceptanceCard order={order} />
+
         <Card className="lg:col-span-2">
           <CardHeader
             title="Serviços e cobrança"
@@ -332,6 +341,8 @@ export default function ServiceOrderDetailPage() {
         <ServiceOrderAttachmentsCard order={order} />
 
         <ServiceOrderExecutionNotesCard order={order} canEdit={canEdit} />
+
+        <ServiceOrderChecklistsCard order={order} />
 
         <Card>
           <CardHeader title="Auditoria" />
@@ -455,6 +466,33 @@ export default function ServiceOrderDetailPage() {
         description={
           <div className="space-y-3">
             <p>Deseja marcar esta OS como concluída?</p>
+
+            {order.equipment && order.vehicle && (
+              <div className="rounded-xl bg-surface-2 px-3 py-2.5 text-[13px] text-muted">
+                <p>
+                  Ao concluir, o equipamento{' '}
+                  <strong className="text-foreground">
+                    {[order.equipment.imei, order.equipment.model].filter(Boolean).join(' · ') ||
+                      'selecionado'}
+                  </strong>{' '}
+                  será instalado no veículo{' '}
+                  <strong className="text-foreground">{order.vehicle.plate}</strong> e a
+                  movimentação de estoque será registrada.
+                </p>
+                <p className="mt-1">
+                  Se o veículo já possuir outro equipamento, ele será substituído e devolvido ao
+                  estoque.
+                </p>
+              </div>
+            )}
+
+            {order.equipment && !order.vehicle && (
+              <p className="rounded-xl bg-surface-2 px-3 py-2.5 text-[13px] text-muted">
+                Esta OS possui equipamento selecionado, mas não possui veículo. Nenhuma instalação
+                será realizada ao concluir.
+              </p>
+            )}
+
             <Textarea
               value={executionNotes}
               onChange={(event) => setExecutionNotes(event.target.value)}
@@ -467,6 +505,234 @@ export default function ServiceOrderDetailPage() {
         variant="primary"
       />
     </Page>
+  )
+}
+
+function ServiceOrderInstallationLocationCard({
+  order,
+  canEdit,
+}: {
+  order: ServiceOrder
+  canEdit: boolean
+}) {
+  const [editing, setEditing] = useState(false)
+  const [location, setLocation] = useState(order.installation_location ?? '')
+  const [photo, setPhoto] = useState<ImageValue | null>(() =>
+    order.installation_location_photo_url
+      ? {
+          url: order.installation_location_photo_url,
+          path: order.installation_location_photo_path ?? undefined,
+          alt: 'Local de instalação',
+        }
+      : null,
+  )
+  const update = useUpdateServiceOrder(order.id)
+
+  const startEditing = () => {
+    setLocation(order.installation_location ?? '')
+    setPhoto(
+      order.installation_location_photo_url
+        ? {
+            url: order.installation_location_photo_url,
+            path: order.installation_location_photo_path ?? undefined,
+            alt: 'Local de instalação',
+          }
+        : null,
+    )
+    setEditing(true)
+  }
+
+  const cancelEditing = () => {
+    setEditing(false)
+  }
+
+  const save = () => {
+    update.mutate(
+      {
+        installation_location: location.trim() || null,
+        installation_location_photo_path: photo?.path ?? null,
+      },
+      { onSuccess: () => setEditing(false) },
+    )
+  }
+
+  const dirty =
+    location.trim() !== (order.installation_location ?? '') ||
+    (photo?.path ?? null) !== (order.installation_location_photo_path ?? null)
+
+  return (
+    <Card className="lg:col-span-2">
+      <CardHeader
+        title="Local de instalação"
+        description="Local exato e imagem de referência para a instalação do equipamento."
+        actions={
+          canEdit && !editing ? (
+            <Button variant="secondary" size="sm" onClick={startEditing}>
+              Editar local
+            </Button>
+          ) : undefined
+        }
+      />
+      <CardContent className="space-y-4">
+        {editing ? (
+          <>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <Field label="Descrição do local">
+                <Textarea
+                  value={location}
+                  onChange={(event) => setLocation(event.target.value)}
+                  placeholder="Ex.: atrás do painel, central elétrica, console central, porta-fusíveis..."
+                  rows={5}
+                />
+              </Field>
+              <ImageUploader
+                label="Foto do local de instalação"
+                hint="Envie uma imagem do ponto onde o equipamento será instalado."
+                value={photo}
+                onChange={setPhoto}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" size="sm" onClick={cancelEditing}>
+                Cancelar
+              </Button>
+              <Button size="sm" onClick={save} loading={update.isPending} disabled={!dirty}>
+                Salvar local
+              </Button>
+            </div>
+          </>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <p className="text-sm whitespace-pre-line text-foreground">
+              {order.installation_location || 'Local não informado.'}
+            </p>
+            {order.installation_location_photo_url ? (
+              <img
+                src={order.installation_location_photo_url}
+                alt="Local de instalação"
+                className="max-h-64 w-full rounded-xl bg-surface-2 object-cover"
+              />
+            ) : (
+              <p className="text-sm text-muted">Nenhuma imagem enviada.</p>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function ServiceOrderEquipmentTestsCard({ order }: { order: ServiceOrder }) {
+  const tests = order.equipment_tests ?? []
+
+  return (
+    <Card className="lg:col-span-2">
+      <CardHeader
+        title="Testes do equipamento"
+        description="Testes de bloqueio e desbloqueio enviados ao rastreador durante esta OS."
+      />
+      <CardContent>
+        {tests.length === 0 ? (
+          <p className="text-sm text-muted">Nenhum teste de equipamento registrado.</p>
+        ) : (
+          <ul className="space-y-2">
+            {tests.map((test) => {
+              const statusVariant: 'success' | 'danger' | 'warning' =
+                test.status === 'success'
+                  ? 'success'
+                  : test.status === 'failed'
+                    ? 'danger'
+                    : 'warning'
+
+              return (
+                <li
+                  key={test.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-surface-2/60 px-3 py-2 text-sm"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground">
+                      {test.action_label ?? test.action}
+                    </p>
+                    <p className="text-xs text-muted">
+                      {formatDateTime(test.executed_at ?? test.requested_at)}
+                      {test.user?.name ? ` · ${test.user.name}` : ''}
+                      {test.equipment?.imei ? ` · ${test.equipment.imei}` : ''}
+                    </p>
+                  </div>
+                  <Badge variant={statusVariant}>
+                    {test.status_label ?? test.status}
+                  </Badge>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function ServiceOrderLoanAcceptanceCard({ order }: { order: ServiceOrder }) {
+  const [downloading, setDownloading] = useState(false)
+
+  if (!order.loan_term_required && !order.loan_term_accepted_at) {
+    return null
+  }
+
+  const handleDownload = async () => {
+    setDownloading(true)
+
+    try {
+      downloadBlob(
+        await serviceOrdersService.loanAcceptanceSignature(order.id),
+        `comodato-${order.code}.png`,
+      )
+    } catch {
+      toast.error('Não foi possível baixar a assinatura do comodato.')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  return (
+    <Card className="lg:col-span-2">
+      <CardHeader
+        title="Aceite do termo de comodato"
+        description="Aceite e assinatura do cliente registrados na conclusão da OS."
+      />
+      <CardContent className="space-y-3 text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-surface-2/60 px-3 py-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={order.loan_term_accepted_at ? 'success' : 'warning'}>
+              {order.loan_term_accepted_at ? 'Aceite registrado' : 'Aguardando aceite'}
+            </Badge>
+            {order.loan_term_accepted_at && (
+              <span className="text-foreground">
+                {formatDateTime(order.loan_term_accepted_at)}
+                {order.loan_term_collected_by?.name
+                  ? ` · coletado por ${order.loan_term_collected_by.name}`
+                  : ''}
+              </span>
+            )}
+          </div>
+          {order.loan_term_signature_available && (
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={downloading}
+              onClick={() => void handleDownload()}
+            >
+              Baixar assinatura
+            </Button>
+          )}
+        </div>
+        {!order.loan_term_accepted_at && (
+          <p className="text-muted">
+            A conclusão da OS está condicionada à assinatura do cliente no aplicativo.
+          </p>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 

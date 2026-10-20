@@ -9,6 +9,7 @@ export const equipmentSchema = z.object({
   line_number: z.string(),
   carrier: z.string(),
   is_active: z.boolean(),
+  stock_id: z.string(),
 })
 
 export type EquipmentFormValues = z.infer<typeof equipmentSchema>

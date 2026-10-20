@@ -52,7 +52,9 @@ export function useCreateServiceOrder() {
       toast.success('Ordem de serviço criada')
     },
     onError: (error) => {
-      if (isApiError(error)) toast.error(error.message)
+      if (isApiError(error)) {
+        toast.error(error.fieldErrors?.checklists?.[0] ?? error.message)
+      }
     },
   })
 }
@@ -66,7 +68,9 @@ export function useUpdateServiceOrder(id: string) {
       toast.success('Ordem de serviço atualizada')
     },
     onError: (error) => {
-      if (isApiError(error)) toast.error(error.message)
+      if (isApiError(error)) {
+        toast.error(error.fieldErrors?.checklists?.[0] ?? error.message)
+      }
     },
   })
 }
@@ -93,7 +97,12 @@ export function useChangeServiceOrderStatus() {
     },
     onError: (error) => {
       if (isApiError(error)) {
-        const msg = error.fieldErrors?.status?.[0] ?? error.fieldErrors?.cancellation_reason?.[0] ?? error.message
+        const msg =
+          error.fieldErrors?.status?.[0] ??
+          error.fieldErrors?.cancellation_reason?.[0] ??
+          error.fieldErrors?.checklists?.[0] ??
+          error.fieldErrors?.loan_term_acceptance?.[0] ??
+          error.message
         toast.error(msg)
       }
     },

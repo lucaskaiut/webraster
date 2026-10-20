@@ -21,6 +21,7 @@ import { VehicleStatusIndicators } from '@/modules/tracking/components/VehicleSt
 import { useTrackingLiveEquipmentsQuery, useTrackingLiveQuery } from '@/modules/tracking/hooks/useTracking'
 import type { TrackingLiveVehicle } from '@/shared/types/models'
 import { EquipmentForm } from '../forms/EquipmentForm'
+import { EquipmentStockMovementsCard } from '../components/EquipmentStockMovementsCard'
 import { useEquipmentQuery, useUpdateEquipment } from '../hooks/useEquipments'
 import { equipmentLiveAsVehicle } from '../lib/live'
 
@@ -116,13 +117,17 @@ export default function EquipmentEditPage() {
                 line_number: query.data.line_number ?? '',
                 carrier: query.data.carrier ?? '',
                 is_active: query.data.is_active,
+                stock_id: query.data.stock_id ?? '',
               }}
+              stockLocked={query.data.is_assigned}
               submitting={updateEquipment.isPending}
               onSubmit={async (payload) => {
                 await updateEquipment.mutateAsync(payload)
                 navigate('/equipments')
               }}
             />
+
+            <EquipmentStockMovementsCard equipmentId={query.data.id} />
 
             {canTrack && (
               <Card>

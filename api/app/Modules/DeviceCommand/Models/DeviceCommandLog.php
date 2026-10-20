@@ -4,6 +4,7 @@ namespace App\Modules\DeviceCommand\Models;
 
 use App\Modules\DeviceCommand\Enums\DeviceCommandStatus;
 use App\Modules\Equipment\Models\Equipment;
+use App\Modules\ServiceOrder\Models\ServiceOrder;
 use App\Modules\Shared\Models\Concerns\HasUuid;
 use App\Modules\Tenant\Models\Concerns\BelongsToTenant;
 use App\Modules\User\Models\User;
@@ -24,6 +25,7 @@ class DeviceCommandLog extends Model
     protected $fillable = [
         'vehicle_id',
         'equipment_id',
+        'service_order_id',
         'traccar_device_id',
         'user_id',
         'command_type',
@@ -54,6 +56,11 @@ class DeviceCommandLog extends Model
     public function equipment(): BelongsTo
     {
         return $this->belongsTo(Equipment::class);
+    }
+
+    public function serviceOrder(): BelongsTo
+    {
+        return $this->belongsTo(ServiceOrder::class);
     }
 
     public function user(): BelongsTo

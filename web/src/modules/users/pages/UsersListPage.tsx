@@ -115,6 +115,19 @@ export default function UsersListPage() {
         </Badge>
       ),
     },
+    ...(can(Permission.STOCK_READ)
+      ? [
+          {
+            key: 'stock',
+            header: 'Estoque',
+            render: (user: User) => (
+              <span className="text-muted">
+                {user.type === 'technician' ? (user.stock?.name ?? 'Sem estoque') : '—'}
+              </span>
+            ),
+          } satisfies Column<User>,
+        ]
+      : []),
     {
       key: 'roles',
       header: 'Perfis',

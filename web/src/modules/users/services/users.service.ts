@@ -5,6 +5,7 @@ import type { User, UserType, UserWorkHour } from '@/shared/types/models'
 export interface UserListParams extends ListParams {
   type?: Exclude<UserType, 'client'>
   technician_active?: boolean
+  stock_id?: string | null
 }
 
 export interface UserPayload {
@@ -16,6 +17,7 @@ export interface UserPayload {
   type: Exclude<UserType, 'client'>
   role_ids: number[]
   technician_active?: boolean
+  stock_id?: string | null
   zip?: string | null
   street?: string | null
   number?: string | null

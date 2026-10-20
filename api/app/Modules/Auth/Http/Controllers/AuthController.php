@@ -13,6 +13,7 @@ use App\Modules\Auth\Http\Requests\LoginRequest;
 use App\Modules\Auth\Http\Requests\RegisterRequest;
 use App\Modules\Auth\Http\Requests\ResetPasswordRequest;
 use App\Modules\Auth\Http\Requests\SelectTenantRequest;
+use App\Modules\Auth\Http\Requests\StoreUserSignatureRequest;
 use App\Modules\Auth\Services\AuthService;
 use App\Modules\Billing\Http\Resources\InvoiceResource;
 use App\Modules\Shared\Http\Controllers\ApiController;
@@ -25,6 +26,9 @@ use App\Modules\User\Http\Resources\UserResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AuthController extends ApiController
 {
@@ -115,6 +119,64 @@ class AuthController extends ApiController
                 $this->service->availableTenantsFor($user),
             ),
         ]);
+    }
+
+    public function storeSignature(StoreUserSignatureRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $previous = $user->signature_path;
+
+        $path = $request->file('image')->store("users/{$user->uuid}", 'local');
+
+        if ($path === false) {
+            throw ValidationException::withMessages([
+                'image' => ['Não foi possível salvar a assinatura.'],
+            ]);
+        }
+
+        $user->forceFill(['signature_path' => $path])->save();
+
+        if ($previous !== null && $previous !== $path) {
+            Storage::disk('local')->delete($previous);
+        }
+
+        return $this->success(UserResource::make($user->refresh()), 'Assinatura atualizada com sucesso.');
+    }
+
+    public function destroySignature(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $path = $user->signature_path;
+
+        $user->forceFill(['signature_path' => null])->save();
+
+        if ($path !== null) {
+            Storage::disk('local')->delete($path);
+        }
+
+        return $this->success(UserResource::make($user->refresh()), 'Assinatura removida com sucesso.');
+    }
+
+    public function signatureImage(Request $request): StreamedResponse
+    {
+        $path = $request->user()->signature_path;
+
+        if ($path === null) {
+            abort(404);
+        }
+
+        $disk = Storage::disk('local');
+
+        if (! $disk->exists($path)) {
+            abort(404);
+        }
+
+        return $disk->response(
+            $path,
+            'assinatura.png',
+            ['Content-Type' => $disk->mimeType($path) ?: 'image/png'],
+            'inline',
+        );
     }
 
     public function selectTenant(SelectTenantRequest $request): JsonResponse

@@ -20,6 +20,7 @@ export const serviceOrderSchema = z
       .or(z.literal('')),
     description: z.string().max(5000).optional().or(z.literal('')),
     notes: z.string().max(5000).optional().or(z.literal('')),
+    installation_location: z.string().max(2000).optional().or(z.literal('')),
     cancellation_reason: z.string().max(2000).optional().or(z.literal('')),
     ignore_schedule_conflict: z.boolean().optional(),
   })

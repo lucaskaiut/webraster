@@ -44,6 +44,8 @@ const HISTORY_ACTION_LABELS: Record<string, string> = {
   completed: 'Concluída',
   cancelled: 'Cancelada',
   billing_generated: 'Cobrança gerada',
+  equipment_tested: 'Teste de equipamento',
+  loan_term_accepted: 'Aceite de comodato',
 }
 
 const HISTORY_FIELD_LABELS: Record<string, string> = {
@@ -59,6 +61,10 @@ const HISTORY_FIELD_LABELS: Record<string, string> = {
   scheduled_end_at: 'Fim',
   description: 'Descrição',
   notes: 'Observações',
+  installation_location: 'Local de instalação',
+  installation_location_photo_path: 'Foto do local de instalação',
+  equipment_test: 'Tipo de teste',
+  loan_term_acceptance: 'Aceite do termo de comodato',
   execution_notes: 'Observações da execução',
 }
 

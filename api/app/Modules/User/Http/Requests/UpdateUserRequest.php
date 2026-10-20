@@ -3,6 +3,7 @@
 namespace App\Modules\User\Http\Requests;
 
 use App\Modules\Shared\Rules\Cpf;
+use App\Modules\Stock\Models\Stock;
 use App\Modules\Tenant\Support\Facades\TenantContext;
 use App\Modules\User\Enums\UserType;
 use App\Modules\User\Models\User;
@@ -40,6 +41,14 @@ class UpdateUserRequest extends FormRequest
                 Rule::exists('roles', 'id')->where(fn ($query) => $query->where('tenant_id', TenantContext::tenantId())),
             ],
             'technician_active' => ['sometimes', 'boolean'],
+            'stock_id' => [
+                'sometimes',
+                'nullable',
+                'integer',
+                Rule::exists('stocks', 'id')->where(
+                    fn ($query) => $query->where('tenant_id', TenantContext::tenantId()),
+                ),
+            ],
             'zip' => ['sometimes', 'nullable', 'string', 'max:9'],
             'street' => ['sometimes', 'nullable', 'string', 'max:255'],
             'number' => ['sometimes', 'nullable', 'string', 'max:20'],
@@ -97,6 +106,15 @@ class UpdateUserRequest extends FormRequest
 
         if ($this->filled('state')) {
             $data['state'] = mb_strtoupper((string) $this->input('state'));
+        }
+
+        if ($this->has('stock_id')) {
+            if ($this->input('stock_id') === '') {
+                $data['stock_id'] = null;
+            } elseif ($this->filled('stock_id') && ! is_numeric($this->input('stock_id'))) {
+                $stock = Stock::query()->where('uuid', (string) $this->input('stock_id'))->first();
+                $data['stock_id'] = $stock?->getKey() ?? 'invalid';
+            }
         }
 
         if ($data !== []) {

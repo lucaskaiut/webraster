@@ -73,6 +73,7 @@ function invalidateFleet(queryClient: ReturnType<typeof useQueryClient>, vehicle
   queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.detail(vehicleId) })
   queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.history(vehicleId) })
   queryClient.invalidateQueries({ queryKey: queryKeys.equipments.all })
+  queryClient.invalidateQueries({ queryKey: queryKeys.stocks.all })
 }
 
 export function useInstallEquipment(vehicleId: string) {

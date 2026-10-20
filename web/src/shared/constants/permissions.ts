@@ -65,6 +65,11 @@ export const Permission = {
   VEHICLE_DATA_CONFIG_READ: 'vehicle-data-config.read',
   VEHICLE_DATA_CONFIG_UPDATE: 'vehicle-data-config.update',
 
+  STOCK_CREATE: 'stock.create',
+  STOCK_READ: 'stock.read',
+  STOCK_UPDATE: 'stock.update',
+  STOCK_DELETE: 'stock.delete',
+
   EQUIPMENT_CREATE: 'equipment.create',
   EQUIPMENT_READ: 'equipment.read',
   EQUIPMENT_UPDATE: 'equipment.update',
@@ -84,6 +89,15 @@ export const Permission = {
   SERVICE_ORDER_DELETE: 'service-order.delete',
   SERVICE_ORDER_CHANGE_STATUS: 'service-order.change-status',
   SERVICE_ORDER_EXECUTE: 'service-order.execute',
+
+  COMMISSION_READ: 'commission.read',
+  COMMISSION_VIEW_OTHERS: 'commission.view-others',
+
+  CHECKLIST_CREATE: 'checklist.create',
+  CHECKLIST_READ: 'checklist.read',
+  CHECKLIST_UPDATE: 'checklist.update',
+  CHECKLIST_DELETE: 'checklist.delete',
+
   TECHNICIAN_READ: 'technician.read',
   TECHNICIAN_MANAGE: 'technician.manage',
 
@@ -265,6 +279,15 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     ],
   },
   {
+    label: 'Estoques',
+    permissions: [
+      { value: Permission.STOCK_READ, label: 'Visualizar estoques' },
+      { value: Permission.STOCK_CREATE, label: 'Criar estoques' },
+      { value: Permission.STOCK_UPDATE, label: 'Editar estoques' },
+      { value: Permission.STOCK_DELETE, label: 'Remover estoques' },
+    ],
+  },
+  {
     label: 'Equipamentos',
     permissions: [
       { value: Permission.EQUIPMENT_READ, label: 'Visualizar equipamentos' },
@@ -318,6 +341,25 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { value: Permission.SERVICE_ORDER_DELETE, label: 'Remover ordens de serviço' },
       { value: Permission.SERVICE_ORDER_CHANGE_STATUS, label: 'Alterar status de OS' },
       { value: Permission.SERVICE_ORDER_EXECUTE, label: 'Executar OS como técnico (app)' },
+    ],
+  },
+  {
+    label: 'Comissões',
+    permissions: [
+      { value: Permission.COMMISSION_READ, label: 'Visualizar comissões' },
+      {
+        value: Permission.COMMISSION_VIEW_OTHERS,
+        label: 'Visualizar comissões de outros usuários',
+      },
+    ],
+  },
+  {
+    label: 'Checklists de OS',
+    permissions: [
+      { value: Permission.CHECKLIST_READ, label: 'Visualizar modelos de checklist' },
+      { value: Permission.CHECKLIST_CREATE, label: 'Criar modelos de checklist' },
+      { value: Permission.CHECKLIST_UPDATE, label: 'Editar modelos de checklist' },
+      { value: Permission.CHECKLIST_DELETE, label: 'Remover modelos de checklist' },
     ],
   },
   {

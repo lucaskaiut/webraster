@@ -28,6 +28,7 @@ import { formatDateTimeWithSeconds } from '@/shared/utils/format'
 import { useTrackingLiveEquipmentsQuery, useTrackingLiveQuery } from '@/modules/tracking/hooks/useTracking'
 import { VehicleStatusIndicators } from '@/modules/tracking/components/VehicleStatusIndicators'
 import { useDeleteEquipment, useEquipmentsQuery } from '../hooks/useEquipments'
+import { useStocksQuery } from '@/modules/stocks/hooks/useStocks'
 import { EquipmentTestModal } from '../components/EquipmentTestModal'
 import { equipmentLiveAsVehicle } from '../lib/live'
 
@@ -40,6 +41,7 @@ export default function EquipmentsListPage() {
   const { sort, sortParam, toggleSort } = useTableSort()
   const availableParam = searchParams.get('available')
   const statusParam = searchParams.get('is_active')
+  const stockParam = searchParams.get('stock_id') ?? ''
 
   const vehicleFilter =
     availableParam === '1' ? 'available' : availableParam === '0' ? 'assigned' : ''
@@ -47,6 +49,11 @@ export default function EquipmentsListPage() {
 
   const navigate = useNavigate()
   const { can } = usePermissions()
+  const canReadStocks = can(Permission.STOCK_READ)
+  const stocksQuery = useStocksQuery(
+    { per_page: 'all', is_active: true, sort: 'name:asc' },
+    { enabled: canReadStocks },
+  )
 
   const [equipmentToDelete, setEquipmentToDelete] = useState<Equipment | null>(null)
   const [equipmentToTest, setEquipmentToTest] = useState<Equipment | null>(null)
@@ -58,6 +65,7 @@ export default function EquipmentsListPage() {
     search: debouncedSearch || undefined,
     available: availableParam === null ? undefined : availableParam === '1',
     is_active: statusParam === null ? undefined : statusParam === '1',
+    stock_id: stockParam || undefined,
     sort: sortParam,
   })
 
@@ -98,6 +106,7 @@ export default function EquipmentsListPage() {
     search?: string
     available?: string
     status?: string
+    stock?: string
     perPage?: string
   }) => {
     setSearchParams(
@@ -123,6 +132,14 @@ export default function EquipmentsListPage() {
             params.set('is_active', next.status)
           } else {
             params.delete('is_active')
+          }
+          params.delete('page')
+        }
+        if (next.stock !== undefined) {
+          if (next.stock) {
+            params.set('stock_id', next.stock)
+          } else {
+            params.delete('stock_id')
           }
           params.delete('page')
         }
@@ -192,6 +209,19 @@ export default function EquipmentsListPage() {
         <span className="text-muted">{equipment.vehicle?.plate ?? 'Disponível'}</span>
       ),
     },
+    ...(canReadStocks
+      ? [
+          {
+            key: 'stock',
+            header: 'Estoque',
+            render: (equipment: Equipment) => (
+              <span className="text-muted">
+                {equipment.is_assigned ? 'Em campo' : (equipment.stock?.name ?? 'Sem estoque')}
+              </span>
+            ),
+          } satisfies Column<Equipment>,
+        ]
+      : []),
     {
       key: 'last_connection',
       header: 'Última conexão',
@@ -367,6 +397,21 @@ export default function EquipmentsListPage() {
               { value: 'available', label: 'Sem veículo' },
             ]}
           />
+          {canReadStocks && (
+            <Select
+              aria-label="Filtrar por estoque"
+              className="w-48"
+              value={stockParam}
+              onChange={(event) => updateParams({ stock: event.target.value })}
+              options={[
+                { value: '', label: 'Todos os estoques' },
+                ...(stocksQuery.data?.data ?? []).map((stock) => ({
+                  value: stock.id,
+                  label: stock.name,
+                })),
+              ]}
+            />
+          )}
           <Select
             aria-label="Filtrar por status"
             className="w-40"

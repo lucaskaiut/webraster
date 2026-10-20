@@ -26,7 +26,7 @@ class UserService
         ?bool $technicianActive = null,
     ): LengthAwarePaginator {
         $query = User::query()
-            ->with('roles.permissions')
+            ->with(['roles.permissions', 'stock'])
             ->whereNull('client_id')
             ->when($type !== null, fn ($query) => $query->where('type', $type->value))
             ->when($technicianActive !== null, fn ($query) => $query->where('technician_active', $technicianActive))
@@ -51,6 +51,10 @@ class UserService
             $workHours = $data['work_hours'] ?? [];
             $attributes = Arr::except($data, ['role_ids', 'work_hours']);
 
+            if (($attributes['type'] ?? UserType::STAFF->value) !== UserType::TECHNICIAN->value) {
+                $attributes['stock_id'] = null;
+            }
+
             $user = User::query()->create($attributes);
             $user->syncRoles($roleIds);
 
@@ -60,7 +64,7 @@ class UserService
                 $this->geocodeBase($user);
             }
 
-            return $user->refresh()->load(['roles.permissions', 'workHours']);
+            return $user->refresh()->load(['roles.permissions', 'workHours', 'stock']);
         });
     }
 
@@ -94,6 +98,11 @@ class UserService
             unset($data['work_hours']);
 
             $user->fill($data);
+
+            if (! $user->isTechnician()) {
+                $user->stock_id = null;
+            }
+
             $user->save();
 
             if ($user->isTechnician()) {
@@ -108,7 +117,7 @@ class UserService
                 }
             }
 
-            return $user->refresh()->load(['roles.permissions', 'workHours']);
+            return $user->refresh()->load(['roles.permissions', 'workHours', 'stock']);
         });
     }
 

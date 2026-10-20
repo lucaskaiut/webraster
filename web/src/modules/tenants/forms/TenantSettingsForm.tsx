@@ -1,12 +1,14 @@
 import { useState } from 'react'
-import { Controller, useForm, useFormContext } from 'react-hook-form'
+import { Controller, useForm, useFormContext, useWatch } from 'react-hook-form'
 import {
   Button,
   Card,
   CardContent,
   Form,
   ImageUploader,
+  RichTextEditor,
   Section,
+  SwitchField,
   TextField,
   type ImageValue,
 } from '@/shared/design-system'
@@ -43,10 +45,23 @@ export function TenantSettingsForm({ tenant, submitting, onSubmit }: TenantSetti
       late_fine_percent: tenant.late_fine_percent != null ? Number(tenant.late_fine_percent) : 0,
       late_interest_percent:
         tenant.late_interest_percent != null ? Number(tenant.late_interest_percent) : 0,
+      require_equipment_loan_acceptance: tenant.require_equipment_loan_acceptance ?? false,
+      equipment_loan_term: tenant.equipment_loan_term ?? '',
     },
   })
 
+  const requiresLoanTerm = useWatch({
+    control: form.control,
+    name: 'require_equipment_loan_acceptance',
+  })
+
   const handleSubmit = async (values: TenantSettingsFormValues) => {
+    const term = values.equipment_loan_term?.trim() ?? ''
+    const termText = term
+      .replace(/<[^>]*>/g, '')
+      .replace(/&(?:nbsp|#160);/gi, ' ')
+      .trim()
+
     const payload: UpdateTenantPayload = {
       name: values.name,
       identifier: values.identifier.trim().toLowerCase(),
@@ -58,6 +73,8 @@ export function TenantSettingsForm({ tenant, submitting, onSubmit }: TenantSetti
       signature_path: values.signature_path,
       late_fine_percent: values.late_fine_percent,
       late_interest_percent: values.late_interest_percent,
+      require_equipment_loan_acceptance: values.require_equipment_loan_acceptance,
+      equipment_loan_term: termText ? term : null,
     }
 
     try {
@@ -129,6 +146,35 @@ export function TenantSettingsForm({ tenant, submitting, onSubmit }: TenantSetti
             description="Assinatura aplicada automaticamente nos contratos que usam a variável {{ASSINATURA_EMPRESA}}."
           >
             <SignatureField initialUrl={tenant.signature_url} />
+          </Section>
+
+          <Section
+            title="Termo de comodato"
+            description="Defina se a conclusão da OS exige a assinatura de aceite do termo de comodato pelo cliente."
+          >
+            <div className="space-y-4">
+              <SwitchField
+                name="require_equipment_loan_acceptance"
+                label="Exigir aceite do termo de comodato na conclusão da OS"
+                hint="Quando habilitado, o técnico deverá coletar a assinatura do cliente no aplicativo antes de concluir a OS."
+              />
+              {requiresLoanTerm && (
+                <Controller
+                  control={form.control}
+                  name="equipment_loan_term"
+                  render={({ field, fieldState }) => (
+                    <RichTextEditor
+                      label="Termo de comodato"
+                      value={field.value ?? ''}
+                      onChange={field.onChange}
+                      error={fieldState.error?.message}
+                      placeholder="Digite o texto completo do termo de comodato que será exibido ao cliente..."
+                      hint="Aceita formatação HTML (negrito, títulos, listas, links etc.). O texto será exibido no aplicativo e ficará registrado na OS no momento do aceite."
+                    />
+                  )}
+                />
+              )}
+            </div>
           </Section>
 
           <Section

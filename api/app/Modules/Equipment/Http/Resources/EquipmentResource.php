@@ -4,6 +4,7 @@ namespace App\Modules\Equipment\Http\Resources;
 
 use App\Modules\ACL\Enums\Permission;
 use App\Modules\Equipment\Models\Equipment;
+use App\Modules\Stock\Http\Resources\StockResource;
 use App\Modules\Vehicle\Http\Resources\VehicleResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -24,6 +25,8 @@ class EquipmentResource extends JsonResource
             'id' => $this->uuid,
             'vehicle_id' => $this->vehicle?->uuid,
             'vehicle' => VehicleResource::make($this->whenLoaded('vehicle')),
+            'stock_id' => $this->whenLoaded('stock', fn () => $this->stock?->uuid),
+            'stock' => StockResource::make($this->whenLoaded('stock')),
             'imei' => $canViewDetails ? $this->imei : null,
             'model' => $canViewDetails ? $this->model : null,
             'line_number' => $canViewDetails ? $this->line_number : null,

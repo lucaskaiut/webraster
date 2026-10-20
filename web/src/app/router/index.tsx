@@ -62,6 +62,9 @@ const VehicleDataConfigPage = lazy(() => import('@/modules/vehicles/pages/Vehicl
 const EquipmentsListPage = lazy(() => import('@/modules/equipments/pages/EquipmentsListPage'))
 const EquipmentCreatePage = lazy(() => import('@/modules/equipments/pages/EquipmentCreatePage'))
 const EquipmentEditPage = lazy(() => import('@/modules/equipments/pages/EquipmentEditPage'))
+const StocksListPage = lazy(() => import('@/modules/stocks/pages/StocksListPage'))
+const StockCreatePage = lazy(() => import('@/modules/stocks/pages/StockCreatePage'))
+const StockEditPage = lazy(() => import('@/modules/stocks/pages/StockEditPage'))
 const MonitoringPage = lazy(() => import('@/modules/tracking/pages/MonitoringPage'))
 const DeviceRawLogsPage = lazy(() => import('@/modules/tracking/pages/DeviceRawLogsPage'))
 const GeofencesListPage = lazy(() => import('@/modules/geofences/pages/GeofencesListPage'))
@@ -81,6 +84,11 @@ const ServiceOrderEditPage = lazy(() => import('@/modules/service-orders/pages/S
 const ServiceOrderDetailPage = lazy(() => import('@/modules/service-orders/pages/ServiceOrderDetailPage'))
 const ServiceOrdersKanbanPage = lazy(() => import('@/modules/service-orders/pages/ServiceOrdersKanbanPage'))
 const ServiceOrdersCalendarPage = lazy(() => import('@/modules/service-orders/pages/ServiceOrdersCalendarPage'))
+const CommissionsListPage = lazy(() => import('@/modules/commissions/pages/CommissionsListPage'))
+const ChecklistsListPage = lazy(() => import('@/modules/checklists/pages/ChecklistsListPage'))
+const ChecklistCreatePage = lazy(() => import('@/modules/checklists/pages/ChecklistCreatePage'))
+const ChecklistEditPage = lazy(() => import('@/modules/checklists/pages/ChecklistEditPage'))
+const ChecklistDetailPage = lazy(() => import('@/modules/checklists/pages/ChecklistDetailPage'))
 const ReportsPage = lazy(() => import('@/modules/reports/pages/ReportsPage'))
 const CrmInboxPage = lazy(() => import('@/modules/crm/pages/CrmInboxPage'))
 const CrmKanbanPage = lazy(() => import('@/modules/crm/pages/CrmKanbanPage'))
@@ -480,6 +488,30 @@ export const router = createBrowserRouter([
             ),
           },
           {
+            path: '/stocks',
+            element: (
+              <PermissionGuard permission={Permission.STOCK_READ} requiresChildTenant>
+                <StocksListPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/stocks/create',
+            element: (
+              <PermissionGuard permission={Permission.STOCK_CREATE} requiresChildTenant>
+                <StockCreatePage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/stocks/:id/edit',
+            element: (
+              <PermissionGuard permission={Permission.STOCK_UPDATE} requiresChildTenant>
+                <StockEditPage />
+              </PermissionGuard>
+            ),
+          },
+          {
             path: '/equipments/create',
             element: (
               <PermissionGuard permission={Permission.EQUIPMENT_CREATE} requiresChildTenant>
@@ -588,6 +620,46 @@ export const router = createBrowserRouter([
             element: (
               <PermissionGuard permission={Permission.SERVICE_ORDER_READ} requiresChildTenant>
                 <ServiceOrdersListPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/commissions',
+            element: (
+              <PermissionGuard permission={Permission.COMMISSION_READ} requiresChildTenant>
+                <CommissionsListPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/checklists',
+            element: (
+              <PermissionGuard permission={Permission.CHECKLIST_READ} requiresChildTenant>
+                <ChecklistsListPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/checklists/create',
+            element: (
+              <PermissionGuard permission={Permission.CHECKLIST_CREATE} requiresChildTenant>
+                <ChecklistCreatePage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/checklists/:id',
+            element: (
+              <PermissionGuard permission={Permission.CHECKLIST_READ} requiresChildTenant>
+                <ChecklistDetailPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/checklists/:id/edit',
+            element: (
+              <PermissionGuard permission={Permission.CHECKLIST_UPDATE} requiresChildTenant>
+                <ChecklistEditPage />
               </PermissionGuard>
             ),
           },

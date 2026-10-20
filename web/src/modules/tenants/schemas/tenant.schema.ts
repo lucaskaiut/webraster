@@ -37,6 +37,21 @@ export const tenantSettingsSchema = tenantFields.extend({
   signature_path: z.string().nullable(),
   late_fine_percent: z.coerce.number().min(0, 'Mínimo 0').max(100, 'Máximo 100'),
   late_interest_percent: z.coerce.number().min(0, 'Mínimo 0').max(100, 'Máximo 100'),
+  require_equipment_loan_acceptance: z.boolean(),
+  equipment_loan_term: z.string().max(20000).optional().or(z.literal('')),
+}).superRefine((values, ctx) => {
+  const termText = (values.equipment_loan_term ?? '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&(?:nbsp|#160);/gi, ' ')
+    .trim()
+
+  if (values.require_equipment_loan_acceptance && !termText) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['equipment_loan_term'],
+      message: 'Informe o termo de comodato para exigir o aceite na conclusão da OS.',
+    })
+  }
 })
 
 export const tenantAppSettingsSchema = z.object({

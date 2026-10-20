@@ -13,4 +13,6 @@ enum ServiceOrderHistoryAction: string
     case COMPLETED = 'completed';
     case CANCELLED = 'cancelled';
     case BILLING_GENERATED = 'billing_generated';
+    case EQUIPMENT_TESTED = 'equipment_tested';
+    case LOAN_TERM_ACCEPTED = 'loan_term_accepted';
 }

@@ -41,6 +41,8 @@ class Tenant extends Model
         'app_logo_path',
         'app_primary_color',
         'app_secondary_color',
+        'require_equipment_loan_acceptance',
+        'equipment_loan_term',
     ];
 
     protected function casts(): array
@@ -49,6 +51,7 @@ class Tenant extends Model
             'vehicle_alert_defaults' => 'array',
             'late_fine_percent' => 'decimal:2',
             'late_interest_percent' => 'decimal:2',
+            'require_equipment_loan_acceptance' => 'boolean',
         ];
     }
 

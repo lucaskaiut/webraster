@@ -6,6 +6,7 @@ use App\Integrations\Traccar\TraccarCommandService;
 use App\Modules\DeviceCommand\Enums\DeviceCommandStatus;
 use App\Modules\DeviceCommand\Models\DeviceCommandLog;
 use App\Modules\Equipment\Models\Equipment;
+use App\Modules\ServiceOrder\Models\ServiceOrder;
 use App\Modules\Tracking\Contracts\TraccarGateway;
 use App\Modules\User\Models\User;
 use Illuminate\Support\Collection;
@@ -48,8 +49,14 @@ class DeviceCommandService
     /**
      * @param  array<string, mixed>  $attributes
      */
-    public function send(Equipment $equipment, string $type, array $attributes, User $user): DeviceCommandLog
-    {
+    public function send(
+        Equipment $equipment,
+        string $type,
+        array $attributes,
+        User $user,
+        ?ServiceOrder $serviceOrder = null,
+        bool $throwOnFailure = true,
+    ): DeviceCommandLog {
         $traccarDeviceId = $this->resolveTraccarDeviceId($equipment);
 
         if (! $this->commands->supports($traccarDeviceId, $type, fresh: true)) {
@@ -69,6 +76,7 @@ class DeviceCommandService
             'tenant_id' => $equipment->tenant_id,
             'vehicle_id' => $equipment->vehicle_id,
             'equipment_id' => $equipment->getKey(),
+            'service_order_id' => $serviceOrder?->getKey(),
             'traccar_device_id' => $traccarDeviceId,
             'user_id' => $user->getKey(),
             'command_type' => $type,
@@ -92,13 +100,15 @@ class DeviceCommandService
                 ],
             ])->save();
 
-            if (! $result->successful) {
+            if (! $result->successful && $throwOnFailure) {
                 throw ValidationException::withMessages([
                     'type' => ['Falha ao enviar comando ao Traccar.'],
                 ]);
             }
         } catch (ValidationException $exception) {
-            throw $exception;
+            if ($throwOnFailure) {
+                throw $exception;
+            }
         } catch (\Throwable $exception) {
             $log->forceFill([
                 'status' => DeviceCommandStatus::FAILED,
@@ -108,9 +118,11 @@ class DeviceCommandService
                 ],
             ])->save();
 
-            throw ValidationException::withMessages([
-                'type' => [$exception->getMessage() ?: 'Falha ao enviar comando ao Traccar.'],
-            ]);
+            if ($throwOnFailure) {
+                throw ValidationException::withMessages([
+                    'type' => [$exception->getMessage() ?: 'Falha ao enviar comando ao Traccar.'],
+                ]);
+            }
         }
 
         return $log->fresh() ?? $log;
