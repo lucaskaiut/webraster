@@ -152,9 +152,8 @@ export function EquipmentForm({
                     label="Número do equipamento (IMEI)"
                     required
                     className="sm:col-span-2"
-                    inputMode="numeric"
                     autoComplete="off"
-                    mask={(value) => value.replace(/\D/g, '').slice(0, 16)}
+                    mask={(value) => value.replace(/[^A-Za-z0-9]/g, '').slice(0, 16)}
                   />
                   <SearchSelectField
                     name="model"

@@ -4,7 +4,10 @@ export const equipmentSchema = z.object({
   imei: z
     .string()
     .trim()
-    .regex(/^\d{1,16}$/, 'Informe o número do equipamento com até 16 dígitos, sem espaços'),
+    .regex(
+      /^[A-Za-z0-9]{1,16}$/,
+      'Informe o número do equipamento com até 16 caracteres (letras e números), sem espaços',
+    ),
   model: z.string(),
   line_number: z.string(),
   carrier: z.string(),

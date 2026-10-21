@@ -163,13 +163,28 @@ class EquipmentCrudTest extends TestCase
             ->assertJsonPath('data.imei', '359633100000001');
     }
 
-    public function test_store_rejects_imei_with_spaces_or_invalid_length(): void
+    public function test_store_accepts_alphanumeric_imei(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->postJson('/api/equipments', ['imei' => 'A1B2C3D4E5F6G7H8'])
+            ->assertCreated()
+            ->assertJsonPath('data.imei', 'A1B2C3D4E5F6G7H8');
+    }
+
+    public function test_store_rejects_imei_with_spaces_special_characters_or_invalid_length(): void
     {
         [, $tenant] = $this->createOperationalChild();
 
         Sanctum::actingAs($this->createAdmin($tenant));
 
         $this->postJson('/api/equipments', ['imei' => '359 633100000001'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['imei']);
+
+        $this->postJson('/api/equipments', ['imei' => 'A1B2-C3D4-E5F6'])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['imei']);
 

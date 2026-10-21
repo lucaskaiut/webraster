@@ -102,8 +102,8 @@ funcionalidades existentes.
 
 ## 6. Equipamentos
 
-- **Validação do número do equipamento**: apenas dígitos, até 16 caracteres,
-  sem espaços, obrigatório (frontend e API).
+- **Validação do número do equipamento**: apenas letras e números, até 16
+  caracteres, sem espaços, obrigatório (frontend e API).
 - Campo **ICCID** renomeado para **Número da Linha** (coluna `line_number`),
   com rótulo, busca e exportação atualizados.
 - Listagem com **botão de atualizar**, quantidade de registros (10, 50, 100,

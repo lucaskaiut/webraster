@@ -18,8 +18,8 @@ class UpdateEquipmentRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'imei.regex' => 'O número do equipamento deve conter apenas dígitos, sem espaços.',
-            'imei.max' => 'O número do equipamento deve ter no máximo 16 dígitos.',
+            'imei.regex' => 'O número do equipamento deve conter apenas letras e números, sem espaços.',
+            'imei.max' => 'O número do equipamento deve ter no máximo 16 caracteres.',
         ];
     }
 
@@ -37,7 +37,7 @@ class UpdateEquipmentRequest extends FormRequest
                 'required',
                 'string',
                 'max:16',
-                'regex:/^\d+$/',
+                'regex:/^[A-Za-z0-9]+$/',
                 Rule::unique('equipments', 'imei')
                     ->ignore($equipment->getKey())
                     ->where(fn ($query) => $query->where('tenant_id', TenantContext::tenantId())->whereNull('deleted_at')),
