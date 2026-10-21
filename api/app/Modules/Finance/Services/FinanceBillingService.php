@@ -262,6 +262,24 @@ class FinanceBillingService
         return $billing->refresh()->load(['client', 'subscription.plan']);
     }
 
+    public function delete(FinanceBilling $billing, ?User $actor = null): void
+    {
+        if (in_array($billing->status, [BillingStatus::PAID, BillingStatus::REFUNDED], true)) {
+            throw ValidationException::withMessages([
+                'status' => ['Cobranças pagas ou estornadas não podem ser excluídas.'],
+            ]);
+        }
+
+        if (filled($billing->gateway_payment_id) && $billing->gateway_expires_at?->isFuture()) {
+            throw ValidationException::withMessages([
+                'status' => ['Esta cobrança possui um pagamento em aberto no gateway. Aguarde a expiração antes de excluir.'],
+            ]);
+        }
+
+        $this->recordEvent($billing, 'deleted', $billing->status, null, null, $actor);
+        $billing->delete();
+    }
+
     public function refund(FinanceBilling $billing, ?User $actor = null): FinanceBilling
     {
         if ($billing->status !== BillingStatus::PAID) {

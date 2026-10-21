@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Link, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import {
   Badge,
   Button,
@@ -25,6 +25,7 @@ import { onlyDigits } from '@/shared/utils/document'
 import {
   useCancelFinanceBilling,
   useChargeFinanceBilling,
+  useDeleteFinanceBilling,
   useFinanceBillingQuery,
   useMarkFinanceBillingPaid,
 } from '../hooks/useFinance'
@@ -32,6 +33,7 @@ import {
   PAYMENT_METHOD_OPTIONS,
   billingStatusBadgeVariant,
   billingStatusLabel,
+  canDeleteBilling,
   paymentMethodLabel,
   reaisToCents,
 } from '../lib/labels'
@@ -55,15 +57,18 @@ const OPEN_STATUSES = new Set(['pending', 'awaiting_payment', 'overdue'])
 
 export default function FinanceBillingDetailPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const { can } = usePermissions()
   const query = useFinanceBillingQuery(id)
   const charge = useChargeFinanceBilling()
   const cancel = useCancelFinanceBilling()
   const markPaid = useMarkFinanceBillingPaid()
+  const remove = useDeleteFinanceBilling()
 
   const [chargeOpen, setChargeOpen] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [paidOpen, setPaidOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   const chargeForm = useForm<ChargeBillingFormValues>({
     resolver: zodResolver(chargeBillingSchema),
@@ -109,6 +114,7 @@ export default function FinanceBillingDetailPage() {
   const isOpen = OPEN_STATUSES.has(billing.status)
   const canCharge = can(Permission.FINANCE_BILLING_CHARGE) && isOpen
   const canUpdate = can(Permission.FINANCE_BILLING_UPDATE) && isOpen
+  const canDelete = can(Permission.FINANCE_BILLING_DELETE) && canDeleteBilling(billing)
 
   const onCharge = async (values: ChargeBillingFormValues) => {
     await charge.mutateAsync({
@@ -162,6 +168,11 @@ export default function FinanceBillingDetailPage() {
             {canUpdate && (
               <Button variant="secondary" onClick={() => setCancelOpen(true)}>
                 Cancelar
+              </Button>
+            )}
+            {canDelete && (
+              <Button variant="danger" onClick={() => setDeleteOpen(true)}>
+                Excluir
               </Button>
             )}
           </div>
@@ -334,6 +345,24 @@ export default function FinanceBillingDetailPage() {
           </>
         }
         confirmLabel="Cancelar cobrança"
+      />
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={() => {
+          remove.mutate(billing.id, {
+            onSuccess: () => navigate('/finance/billings'),
+          })
+        }}
+        loading={remove.isPending}
+        title="Excluir cobrança"
+        description={
+          <>
+            Excluir a cobrança <strong>{billing.code}</strong>? Esta ação não pode ser desfeita.
+          </>
+        }
+        confirmLabel="Excluir"
       />
     </Page>
   )

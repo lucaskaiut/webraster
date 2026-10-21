@@ -90,6 +90,15 @@ class FinanceBillingController extends ApiController
         return $this->success(FinanceBillingResource::make($billing), 'Cobrança cancelada.');
     }
 
+    public function destroy(FinanceBilling $financeBilling): JsonResponse
+    {
+        $this->authorize('delete', $financeBilling);
+
+        $this->service->delete($financeBilling, request()->user());
+
+        return $this->success(null, 'Cobrança excluída.');
+    }
+
     public function markPaid(Request $request, FinanceBilling $financeBilling): JsonResponse
     {
         $this->authorize('update', $financeBilling);

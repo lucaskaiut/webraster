@@ -130,6 +130,7 @@ export const Permission = {
   FINANCE_BILLING_CREATE: 'finance-billing.create',
   FINANCE_BILLING_READ: 'finance-billing.read',
   FINANCE_BILLING_UPDATE: 'finance-billing.update',
+  FINANCE_BILLING_DELETE: 'finance-billing.delete',
   FINANCE_BILLING_CHARGE: 'finance-billing.charge',
 
   FINANCE_GATEWAY_CONFIG_READ: 'finance-gateway-config.read',
@@ -393,6 +394,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { value: Permission.FINANCE_BILLING_READ, label: 'Visualizar cobranças' },
       { value: Permission.FINANCE_BILLING_CREATE, label: 'Gerar cobranças' },
       { value: Permission.FINANCE_BILLING_UPDATE, label: 'Atualizar cobranças' },
+      { value: Permission.FINANCE_BILLING_DELETE, label: 'Excluir cobranças' },
       { value: Permission.FINANCE_BILLING_CHARGE, label: 'Cobrar via gateway' },
       { value: Permission.FINANCE_GATEWAY_CONFIG_READ, label: 'Visualizar configuração do gateway' },
       { value: Permission.FINANCE_GATEWAY_CONFIG_UPDATE, label: 'Editar configuração do gateway' },

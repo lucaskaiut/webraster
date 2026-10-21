@@ -104,6 +104,7 @@ enum DefaultRole: string
                 Permission::FINANCE_BILLING_CREATE,
                 Permission::FINANCE_BILLING_READ,
                 Permission::FINANCE_BILLING_UPDATE,
+                Permission::FINANCE_BILLING_DELETE,
                 Permission::FINANCE_BILLING_CHARGE,
                 Permission::FINANCE_GATEWAY_CONFIG_READ,
                 Permission::FINANCE_GATEWAY_CONFIG_UPDATE,

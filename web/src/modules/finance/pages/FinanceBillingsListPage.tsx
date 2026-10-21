@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { Eye, Receipt } from 'lucide-react'
+import { Eye, Receipt, Trash2 } from 'lucide-react'
 import {
   Badge,
   Button,
+  ConfirmDialog,
   DataTable,
   EmptyState,
   FilterBar,
@@ -15,14 +16,17 @@ import {
   Select,
   type Column,
 } from '@/shared/design-system'
+import { Permission } from '@/shared/constants/permissions'
 import { useDebounce } from '@/shared/hooks/useDebounce'
+import { usePermissions } from '@/shared/hooks/usePermissions'
 import { formatCurrency, formatDate } from '@/shared/utils/format'
 import type { FinanceBilling } from '@/shared/types/models'
-import { useFinanceBillingsQuery } from '../hooks/useFinance'
+import { useDeleteFinanceBilling, useFinanceBillingsQuery } from '../hooks/useFinance'
 import {
   BILLING_STATUS_OPTIONS,
   billingStatusBadgeVariant,
   billingStatusLabel,
+  canDeleteBilling,
   paymentMethodLabel,
 } from '../lib/labels'
 
@@ -35,6 +39,9 @@ export default function FinanceBillingsListPage() {
   const page = Number(searchParams.get('page') ?? 1)
   const status = searchParams.get('status') ?? ''
   const navigate = useNavigate()
+  const { can } = usePermissions()
+  const [toDelete, setToDelete] = useState<FinanceBilling | null>(null)
+  const remove = useDeleteFinanceBilling()
 
   const query = useFinanceBillingsQuery({
     page,
@@ -109,9 +116,9 @@ export default function FinanceBillingsListPage() {
     {
       key: 'actions',
       header: <span className="sr-only">Ações</span>,
-      className: 'w-16 text-right',
+      className: 'w-24 text-right',
       render: (item) => (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-1">
           <Button
             variant="ghost"
             size="sm"
@@ -120,6 +127,17 @@ export default function FinanceBillingsListPage() {
           >
             <Eye className="size-4" />
           </Button>
+          {can(Permission.FINANCE_BILLING_DELETE) && canDeleteBilling(item) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setToDelete(item)}
+              aria-label={`Excluir ${item.code}`}
+              className="text-danger hover:bg-danger-soft hover:text-danger"
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          )}
         </div>
       ),
     },
@@ -186,6 +204,23 @@ export default function FinanceBillingsListPage() {
           />
         )}
       </PageContent>
+
+      <ConfirmDialog
+        open={toDelete !== null}
+        onClose={() => setToDelete(null)}
+        onConfirm={() => {
+          if (!toDelete) return
+          remove.mutate(toDelete.id, { onSettled: () => setToDelete(null) })
+        }}
+        loading={remove.isPending}
+        title="Excluir cobrança"
+        description={
+          <>
+            Excluir a cobrança <strong>{toDelete?.code}</strong>? Esta ação não pode ser desfeita.
+          </>
+        }
+        confirmLabel="Excluir"
+      />
     </Page>
   )
 }

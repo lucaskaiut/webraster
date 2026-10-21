@@ -236,6 +236,20 @@ export function useCancelFinanceBilling() {
   })
 }
 
+export function useDeleteFinanceBilling() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => financeService.deleteBilling(id),
+    onSuccess: () => {
+      invalidateFinance(queryClient)
+      toast.success('Cobrança excluída')
+    },
+    onError: (error) => {
+      if (isApiError(error)) toast.error(error.message)
+    },
+  })
+}
+
 export function useMarkFinanceBillingPaid() {
   const queryClient = useQueryClient()
   return useMutation({

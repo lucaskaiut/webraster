@@ -1,5 +1,6 @@
 import type {
   BillingPeriodicity,
+  FinanceBilling,
   FinanceBillingStatus,
   FinancePaymentMethod,
   FinanceReportType,
@@ -99,6 +100,24 @@ export function billingStatusBadgeVariant(
     default:
       return 'neutral'
   }
+}
+
+/**
+ * Espelha a regra do backend: cobranças pagas/estornadas são histórico
+ * financeiro e cobranças com pagamento ativo no gateway ainda podem ser pagas.
+ */
+export function canDeleteBilling(
+  billing: Pick<FinanceBilling, 'status' | 'gateway_payment_id' | 'gateway_expires_at'>,
+): boolean {
+  if (billing.status === 'paid' || billing.status === 'refunded') {
+    return false
+  }
+
+  if (billing.gateway_payment_id && billing.gateway_expires_at) {
+    return new Date(billing.gateway_expires_at).getTime() <= Date.now()
+  }
+
+  return true
 }
 
 /** Converte valor em reais (UI) para centavos (API). */

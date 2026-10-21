@@ -19,6 +19,10 @@ Cliente possui `plan_id` / `plan` opcional (legado). A fonte de verdade do contr
 `pending` → `awaiting_payment` → `paid`  
 também: `overdue`, `cancelled`, `refunded`
 
+A exclusão de uma cobrança é lógica (soft delete), exige a permissão
+`finance-billing.delete` e é bloqueada para cobranças pagas/estornadas ou com
+pagamento ainda ativo no gateway.
+
 ## Status da assinatura
 
 `active` | `past_due` | `suspended` | `cancelled`
@@ -51,7 +55,7 @@ Inadimplência: após `block_after_days` com `block_on_overdue`, motor de suspen
 | POST próxima cobrança | `/finance/subscriptions/{id}/next-billing` (a partir da última fatura) |
 | GET/PUT | `/clients/{clientId}/order` | pedido atual (itens + veículos + total) |
 | GET overview | `/finance/clients/{clientId}/overview` → `{ plan?, subscription?, open_billing?, billings[] }` |
-| list/show/generate/charge/cancel/mark-paid | `/finance/billings` |
+| list/show/generate/charge/cancel/mark-paid/delete | `/finance/billings` |
 | GET/PUT | `/finance/payment-gateway-config` |
 | GET | `/finance/dashboard` |
 | GET | `/finance/reports?type=` (`billings`, `delinquency`, `receipts`, `subscriptions`, `blocked_clients`) |

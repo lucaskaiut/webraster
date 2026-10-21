@@ -135,6 +135,7 @@ enum Permission: string
     case FINANCE_BILLING_CREATE = 'finance-billing.create';
     case FINANCE_BILLING_READ = 'finance-billing.read';
     case FINANCE_BILLING_UPDATE = 'finance-billing.update';
+    case FINANCE_BILLING_DELETE = 'finance-billing.delete';
     case FINANCE_BILLING_CHARGE = 'finance-billing.charge';
 
     case FINANCE_GATEWAY_CONFIG_READ = 'finance-gateway-config.read';

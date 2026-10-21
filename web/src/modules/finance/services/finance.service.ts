@@ -210,6 +210,10 @@ export const financeService = {
     return response.data.data
   },
 
+  async deleteBilling(id: string): Promise<void> {
+    await http.delete(`/finance/billings/${id}`)
+  },
+
   async markBillingPaid(
     id: string,
     paid_amount_cents?: number | null,

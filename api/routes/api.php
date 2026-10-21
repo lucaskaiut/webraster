@@ -317,6 +317,7 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::get('finance/billings', [FinanceBillingController::class, 'index'])->middleware('permission:finance-billing.read');
     Route::post('finance/billings', [FinanceBillingController::class, 'store'])->middleware('permission:finance-billing.create');
     Route::get('finance/billings/{financeBilling}', [FinanceBillingController::class, 'show'])->middleware('permission:finance-billing.read');
+    Route::delete('finance/billings/{financeBilling}', [FinanceBillingController::class, 'destroy'])->middleware('permission:finance-billing.delete');
     Route::post('finance/billings/{financeBilling}/charge', [FinanceBillingController::class, 'charge'])->middleware('permission:finance-billing.charge');
     Route::post('finance/billings/{financeBilling}/cancel', [FinanceBillingController::class, 'cancel'])->middleware('permission:finance-billing.update');
     Route::post('finance/billings/{financeBilling}/mark-paid', [FinanceBillingController::class, 'markPaid'])->middleware('permission:finance-billing.update');

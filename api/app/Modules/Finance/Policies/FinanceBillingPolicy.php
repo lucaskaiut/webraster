@@ -38,6 +38,13 @@ class FinanceBillingPolicy
             && $user->hasPermission(Permission::FINANCE_BILLING_UPDATE);
     }
 
+    public function delete(User $user, FinanceBilling $billing): bool
+    {
+        return $this->sameTenant($billing)
+            && ClientAuthorization::allowsClient((int) $billing->client_id)
+            && $user->hasPermission(Permission::FINANCE_BILLING_DELETE);
+    }
+
     public function charge(User $user, FinanceBilling $billing): bool
     {
         return $this->sameTenant($billing)

@@ -844,6 +844,113 @@ class FinanceModuleTest extends TestCase
             ->assertJsonPath('data.paid_amount_cents', 5117);
     }
 
+    public function test_deletes_open_billing_with_permission(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $plan = FinancePlan::factory()->forTenant($tenant)->create();
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create();
+        $billing = FinanceBilling::factory()->forSubscription($subscription)->create([
+            'number' => 1,
+            'status' => BillingStatus::PENDING,
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->deleteJson("/api/finance/billings/{$billing->uuid}")
+            ->assertOk()
+            ->assertJsonPath('message', 'Cobrança excluída.');
+
+        $this->assertSoftDeleted('finance_billings', ['id' => $billing->getKey()]);
+        $this->assertDatabaseHas('finance_billing_events', [
+            'billing_id' => $billing->getKey(),
+            'action' => 'deleted',
+        ]);
+    }
+
+    public function test_cannot_delete_billing_without_permission(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $plan = FinancePlan::factory()->forTenant($tenant)->create();
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create();
+        $billing = FinanceBilling::factory()->forSubscription($subscription)->create([
+            'number' => 1,
+            'status' => BillingStatus::PENDING,
+        ]);
+
+        Sanctum::actingAs($this->createClient($tenant));
+
+        $this->deleteJson("/api/finance/billings/{$billing->uuid}")
+            ->assertForbidden();
+
+        $this->assertNotSoftDeleted('finance_billings', ['id' => $billing->getKey()]);
+    }
+
+    public function test_cannot_delete_paid_billing(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $plan = FinancePlan::factory()->forTenant($tenant)->create();
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create();
+        $billing = FinanceBilling::factory()->forSubscription($subscription)->create([
+            'number' => 1,
+            'status' => BillingStatus::PAID,
+            'paid_at' => now(),
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->deleteJson("/api/finance/billings/{$billing->uuid}")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['status']);
+
+        $this->assertNotSoftDeleted('finance_billings', ['id' => $billing->getKey()]);
+    }
+
+    public function test_cannot_delete_billing_with_active_gateway_payment(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $plan = FinancePlan::factory()->forTenant($tenant)->create();
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create();
+        $billing = FinanceBilling::factory()->forSubscription($subscription)->create([
+            'number' => 1,
+            'status' => BillingStatus::AWAITING_PAYMENT,
+            'gateway_payment_id' => 'pay_active',
+            'gateway_expires_at' => now()->addMinutes(30),
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->deleteJson("/api/finance/billings/{$billing->uuid}")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['status']);
+
+        $this->assertNotSoftDeleted('finance_billings', ['id' => $billing->getKey()]);
+    }
+
+    public function test_cannot_delete_billing_from_another_tenant(): void
+    {
+        [, $tenantA] = $this->createOperationalChild();
+        [, $tenantB] = $this->createOperationalChild();
+
+        $client = Client::factory()->for($tenantA)->create();
+        $plan = FinancePlan::factory()->forTenant($tenantA)->create();
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create();
+        $billing = FinanceBilling::factory()->forSubscription($subscription)->create([
+            'number' => 1,
+            'status' => BillingStatus::PENDING,
+        ]);
+
+        Sanctum::actingAs($this->createAdmin($tenantB));
+
+        $this->deleteJson("/api/finance/billings/{$billing->uuid}")
+            ->assertNotFound();
+
+        $this->assertNotSoftDeleted('finance_billings', ['id' => $billing->getKey()]);
+    }
+
     public function test_reactivate_unsuspends_devices_even_when_overdue(): void
     {
         [, $tenant] = $this->createOperationalChild();
