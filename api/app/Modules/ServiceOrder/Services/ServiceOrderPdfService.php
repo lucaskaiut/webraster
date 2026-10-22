@@ -29,7 +29,16 @@ class ServiceOrderPdfService
 
     public function render(ServiceOrder $order): string
     {
-        $order->loadMissing(['client', 'vehicle', 'equipment', 'technician', 'items', 'attachments']);
+        $order->loadMissing([
+            'client',
+            'vehicle',
+            'equipment',
+            'technician',
+            'items',
+            'attachments',
+            'checklists.questions.answer.selectedOptions',
+            'checklists.questions.answer.photos',
+        ]);
 
         $dompdf = new Dompdf(new Options);
         $dompdf->loadHtml($this->html($order), 'UTF-8');
@@ -50,16 +59,25 @@ class ServiceOrderPdfService
         $logoHtml = $logo ? "<img src=\"{$logo}\" style=\"max-height:48px;max-width:180px\" />" : '';
 
         $technicianSignature = $this->localImageDataUri($order->technician?->signature_path);
-        $technicianSignatureHtml = $technicianSignature
-            ? "<img src=\"{$technicianSignature}\" class=\"signature-image\" alt=\"Assinatura do técnico\" />"
-            : '';
+        $technicianSignatureHtml = sprintf(
+            '<div class="signature-slot">%s</div>',
+            $technicianSignature
+                ? "<img src=\"{$technicianSignature}\" class=\"signature-image\" alt=\"Assinatura do técnico\" />"
+                : '',
+        );
 
         $clientSignature = $this->localImageDataUri($order->loan_term_signature_path);
-        $clientSignatureHtml = $clientSignature
-            ? "<img src=\"{$clientSignature}\" class=\"signature-image\" alt=\"Assinatura do cliente\" />"
-            : '';
+        $clientSignatureHtml = sprintf(
+            '<div class="signature-slot">%s</div>',
+            $clientSignature
+                ? "<img src=\"{$clientSignature}\" class=\"signature-image\" alt=\"Assinatura do cliente\" />"
+                : '',
+        );
         $loanAcceptanceHtml = $order->loan_term_accepted_at
-            ? '<div class="muted">Aceite do termo de comodato em '.$this->localDateTime($order->loan_term_accepted_at).'</div>'
+            ? '<div>Aceite do termo de comodato em '.$this->localDateTime($order->loan_term_accepted_at).'</div>'
+            : '';
+        $signatureNotes = $loanAcceptanceHtml !== ''
+            ? '<div class="signature-notes">'.$loanAcceptanceHtml.'</div>'
             : '';
 
         $itemsRows = $order->items->map(fn (ServiceOrderItem $item) => sprintf(
@@ -84,6 +102,63 @@ class ServiceOrderPdfService
                 ->map(fn (ServiceOrderAttachment $attachment) => '<li>'.$e($attachment->original_name).'</li>')
                 ->implode('').'</ul>';
 
+        $checklistsHtml = $order->checklists->isEmpty()
+            ? ''
+            : '<h2>Checklists</h2>'.$order->checklists->map(function ($checklist) use ($e): string {
+                $rows = $checklist->questions->map(function ($question) use ($e): string {
+                    $answer = $question->answer;
+                    $answerText = '—';
+
+                    if ($answer !== null) {
+                        if (filled($answer->text_answer)) {
+                            $answerText = $e($answer->text_answer);
+                        } elseif ($answer->selectedOptions->isNotEmpty()) {
+                            $answerText = $e($answer->selectedOptions->pluck('label')->implode(', '));
+                        }
+                    }
+
+                    $photosHtml = $answer === null
+                        ? ''
+                        : $answer->photos->map(function ($photo) use ($e): string {
+                            $dataUri = $this->diskImageDataUri($photo->disk, $photo->path);
+
+                            return $dataUri === null
+                                ? ''
+                                : sprintf(
+                                    '<img src="%s" class="checklist-photo" alt="%s" />',
+                                    $dataUri,
+                                    $e($photo->original_name),
+                                );
+                        })->implode('');
+
+                    return sprintf(
+                        '<tr><td><div>%s</div>%s</td><td>%s</td></tr>',
+                        $e($question->prompt),
+                        $photosHtml,
+                        $answerText,
+                    );
+                })->implode('');
+
+                $meta = array_filter([
+                    $checklist->type?->label(),
+                    $checklist->status?->label(),
+                    $checklist->completed_at
+                        ? 'Concluído em '.$this->localDateTime($checklist->completed_at)
+                        : null,
+                ]);
+
+                $questionsTable = $rows === ''
+                    ? '<p class="muted">Nenhuma pergunta registrada.</p>'
+                    : '<table class="checklist-table"><thead><tr><th>Pergunta</th><th>Resposta</th></tr></thead><tbody>'.$rows.'</tbody></table>';
+
+                return sprintf(
+                    '<h3 class="checklist-title">%s <span class="muted">%s</span></h3>%s',
+                    $e($checklist->name),
+                    $e(implode(' · ', $meta)),
+                    $questionsTable,
+                );
+            })->implode('');
+
         $vehicle = $order->vehicle
             ? trim(implode(' · ', array_filter([$order->vehicle->plate, $order->vehicle->brand, $order->vehicle->model])))
             : null;
@@ -95,25 +170,6 @@ class ServiceOrderPdfService
                 $order->scheduled_end_at ? ' até '.$this->localTime($order->scheduled_end_at) : '',
             )
             : null;
-
-        $travelMinutes = $order->estimated_travel_minutes !== null
-            ? (int) $order->estimated_travel_minutes + (int) ($order->estimated_return_travel_minutes ?? $order->estimated_travel_minutes)
-            : null;
-
-        $travelDistance = $order->travel_distance_meters !== null
-            ? (int) $order->travel_distance_meters + (int) ($order->return_travel_distance_meters ?? $order->travel_distance_meters)
-            : null;
-
-        $estimates = array_filter([
-            $order->estimated_duration_minutes ? 'Execução: '.$this->minutes($order->estimated_duration_minutes) : null,
-            $travelMinutes !== null
-                ? sprintf(
-                    'Deslocamento total: %s%s',
-                    $this->minutes($travelMinutes),
-                    $travelDistance ? sprintf(' (%s km)', number_format($travelDistance / 1000, 1, ',', '.')) : '',
-                )
-                : null,
-        ]);
 
         $description = filled($order->description) ? '<h2>Descrição</h2><p>'.nl2br($e($order->description)).'</p>' : '';
         $notes = filled($order->notes) ? '<h2>Observações</h2><p>'.nl2br($e($order->notes)).'</p>' : '';
@@ -135,6 +191,12 @@ class ServiceOrderPdfService
           .code { font-size: 18px; font-weight: bold; }
           .muted { color: #6b7280; }
           h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #374151; margin: 16px 0 6px; padding-bottom: 3px; border-bottom: 1px solid #e5e7eb; }
+          h3.checklist-title { font-size: 11px; color: #111827; margin: 12px 0 4px; }
+          h3.checklist-title .muted { font-weight: normal; font-size: 10px; }
+          .checklist-table { margin-bottom: 6px; }
+          .checklist-table th:first-child { width: 68%; }
+          .checklist-table td { vertical-align: top; }
+          .checklist-photo { height: 50px; width: auto; max-width: 100%; margin-top: 4px; margin-right: 4px; }
           .grid { width: 100%; border-collapse: collapse; }
           .grid td { width: 50%; vertical-align: top; padding: 2px 8px 2px 0; }
           .label { color: #6b7280; font-size: 10px; text-transform: uppercase; }
@@ -143,9 +205,12 @@ class ServiceOrderPdfService
           tbody td, tfoot td { padding: 4px; border-bottom: 1px solid #f3f4f6; }
           .num { text-align: right; }
           .signatures { width: 100%; margin-top: 48px; }
-          .signatures td { width: 50%; text-align: center; padding: 0 16px; }
+          .signatures td { width: 50%; text-align: center; padding: 0 16px; vertical-align: top; }
+          .signature-slot { height: 62px; }
           .signature-image { max-height: 56px; max-width: 190px; margin: 0 auto 2px; }
           .line { border-top: 1px solid #111827; padding-top: 4px; }
+          .signature-notes { margin-top: 8px; font-size: 10px; color: #6b7280; text-align: center; }
+          .signature-notes div { margin-top: 2px; }
         </style>
         </head>
         <body>
@@ -153,7 +218,7 @@ class ServiceOrderPdfService
             <td>{$logoHtml}<div class="muted">{$e($tenant?->name)}</div></td>
             <td style="text-align:right">
               <div class="code">Ordem de serviço {$e($order->code)}</div>
-              <div class="muted">Situação: {$e($order->status?->label())} · Prioridade: {$e($order->priority?->label())}</div>
+              <div class="muted">Situação: {$e($order->status?->label())}</div>
             </td>
           </tr></table>
 
@@ -169,7 +234,6 @@ class ServiceOrderPdfService
             </tr>
             <tr>
               <td><div class="label">Veículo</div>{$dash($vehicle)}</td>
-              <td><div class="label">Estimativas</div>{$dash(implode(' · ', $estimates))}</td>
             </tr>
           </table>
 
@@ -178,12 +242,14 @@ class ServiceOrderPdfService
           {$description}
           {$notes}
           {$execution}
+          {$checklistsHtml}
           {$attachments}
 
           <table class="signatures"><tr>
             <td>{$technicianSignatureHtml}<div class="line">Técnico responsável</div></td>
-            <td>{$clientSignatureHtml}<div class="line">Cliente</div>{$loanAcceptanceHtml}</td>
+            <td>{$clientSignatureHtml}<div class="line">Cliente</div></td>
           </tr></table>
+          {$signatureNotes}
         </body>
         </html>
         HTML;
@@ -204,25 +270,29 @@ class ServiceOrderPdfService
 
     private function localImageDataUri(?string $path): ?string
     {
-        if (! $path || ! Storage::disk('local')->exists($path)) {
+        return $this->diskImageDataUri('local', $path);
+    }
+
+    private function diskImageDataUri(?string $diskName, ?string $path): ?string
+    {
+        if (! $diskName || ! $path) {
             return null;
         }
 
-        $mime = Storage::disk('local')->mimeType($path) ?: 'image/png';
+        $disk = Storage::disk($diskName);
 
-        return 'data:'.$mime.';base64,'.base64_encode((string) Storage::disk('local')->get($path));
+        if (! $disk->exists($path)) {
+            return null;
+        }
+
+        $mime = $disk->mimeType($path) ?: 'image/png';
+
+        return 'data:'.$mime.';base64,'.base64_encode((string) $disk->get($path));
     }
 
     private function money(int $cents): string
     {
         return 'R$ '.number_format($cents / 100, 2, ',', '.');
-    }
-
-    private function minutes(int $minutes): string
-    {
-        return $minutes >= 60
-            ? sprintf('%dh%s', intdiv($minutes, 60), $minutes % 60 ? sprintf('%02d', $minutes % 60) : '')
-            : $minutes.' min';
     }
 
     private function localDateTime(CarbonInterface $date): string
