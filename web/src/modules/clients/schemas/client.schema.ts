@@ -72,6 +72,12 @@ export const createClientUserSchema = z.object({
 
 export type ClientUserFormValues = z.infer<typeof createClientUserSchema>
 
+export const updateClientUserSchema = createClientUserSchema.extend({
+  role_ids: z.array(z.number()).min(1, 'Selecione ao menos um perfil'),
+})
+
+export type ClientUserUpdateFormValues = z.infer<typeof updateClientUserSchema>
+
 export const clientOrderSchema = z.object({
   due_day: z.coerce.number().int().min(1, 'Mínimo 1').max(28, 'Máximo 28'),
   periodicity: z.enum(['monthly', 'bimonthly', 'quarterly', 'semiannual', 'annual']),

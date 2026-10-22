@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Contact, Plus, Trash2 } from 'lucide-react'
+import { Contact, Pencil, Plus, Trash2 } from 'lucide-react'
 import {
   Alert,
   Badge,
@@ -22,14 +22,23 @@ import { isApiError } from '@/shared/api/errors'
 import { applyApiErrorsToForm } from '@/shared/utils/forms'
 import type { User } from '@/shared/types/models'
 import { RolesField } from '@/modules/users/components/RolesField'
-import { useClientQuery, useClientUsersQuery, useCreateClientUser, useDeleteClientUser } from '../hooks/useClients'
+import {
+  useClientQuery,
+  useClientUsersQuery,
+  useCreateClientUser,
+  useDeleteClientUser,
+  useUpdateClientUser,
+} from '../hooks/useClients'
 import { createClientUserSchema, type ClientUserFormValues } from '../schemas/client.schema'
+import { ClientUserEditModal } from './ClientUserEditModal'
 
 export function ClientUsersSection({ clientId }: { clientId: string }) {
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
+  const [userToEdit, setUserToEdit] = useState<User | null>(null)
   const usersQuery = useClientUsersQuery(clientId, { per_page: 50 })
   const clientQuery = useClientQuery(clientId)
   const createUser = useCreateClientUser(clientId)
+  const updateUser = useUpdateClientUser(clientId)
   const deleteUser = useDeleteClientUser(clientId)
 
   const form = useForm<ClientUserFormValues>({
@@ -121,10 +130,18 @@ export function ClientUsersSection({ clientId }: { clientId: string }) {
     {
       key: 'actions',
       header: <span className="sr-only">Ações</span>,
-      className: 'w-16 text-right',
+      className: 'w-24 text-right',
       render: (user) => (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-1">
           <Can permission={Permission.CLIENT_UPDATE}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setUserToEdit(user)}
+              aria-label={`Editar ${user.name}`}
+            >
+              <Pencil className="size-4" />
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -222,6 +239,18 @@ export function ClientUsersSection({ clientId }: { clientId: string }) {
           </>
         }
         confirmLabel="Excluir"
+      />
+
+      <ClientUserEditModal
+        open={userToEdit !== null}
+        user={userToEdit}
+        submitting={updateUser.isPending}
+        onClose={() => setUserToEdit(null)}
+        onSubmit={async (payload) => {
+          if (!userToEdit) return
+          await updateUser.mutateAsync({ userId: userToEdit.id, payload })
+          setUserToEdit(null)
+        }}
       />
     </>
   )

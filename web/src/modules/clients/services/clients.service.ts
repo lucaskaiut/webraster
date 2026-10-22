@@ -39,6 +39,14 @@ export interface ClientUserPayload {
   role_ids?: number[]
 }
 
+export interface ClientUserUpdatePayload {
+  name: string
+  email: string
+  phone?: string | null
+  password?: string
+  role_ids?: number[]
+}
+
 export interface ClientOrderItemPayload {
   service_id: string
   vehicle_ids: string[]
@@ -106,6 +114,19 @@ export const clientsService = {
 
   async createUser(clientId: string, payload: ClientUserPayload): Promise<User> {
     const response = await http.post<ApiResponse<User>>(`/clients/${clientId}/users`, payload)
+
+    return response.data.data
+  },
+
+  async updateUser(
+    clientId: string,
+    userId: string,
+    payload: ClientUserUpdatePayload,
+  ): Promise<User> {
+    const response = await http.put<ApiResponse<User>>(
+      `/clients/${clientId}/users/${userId}`,
+      payload,
+    )
 
     return response.data.data
   },

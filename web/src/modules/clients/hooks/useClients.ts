@@ -9,6 +9,7 @@ import {
   type ClientOrderPayload,
   type ClientPayload,
   type ClientUserPayload,
+  type ClientUserUpdatePayload,
 } from '../services/clients.service'
 
 export function useClientsQuery(params: ListParams) {
@@ -98,6 +99,19 @@ export function useCreateClientUser(clientId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.clients.all })
       toast.success('Usuário criado', 'O usuário do cliente foi cadastrado.')
+    },
+  })
+}
+
+export function useUpdateClientUser(clientId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ userId, payload }: { userId: string; payload: ClientUserUpdatePayload }) =>
+      clientsService.updateUser(clientId, userId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.clients.all })
+      toast.success('Usuário atualizado', 'As alterações foram salvas.')
     },
   })
 }
