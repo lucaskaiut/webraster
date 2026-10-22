@@ -27,7 +27,7 @@ class ServiceOrderNotificationService
             $order,
             'service_order.assigned',
             'Nova OS atribuída',
-            $this->describe($order, '%s foi atribuída a você'),
+            $this->describe($order, 'OS %s foi atribuída a você'),
         );
     }
 
@@ -38,7 +38,7 @@ class ServiceOrderNotificationService
             $order,
             'service_order.unassigned',
             'OS removida da sua agenda',
-            sprintf('%s foi reatribuída a outro técnico.', $order->code),
+            sprintf('OS %s foi reatribuída a outro técnico.', $order->code),
         );
     }
 
@@ -53,7 +53,7 @@ class ServiceOrderNotificationService
             $order,
             'service_order.rescheduled',
             'Agendamento alterado',
-            $this->describe($order, '%s foi alterada'),
+            $this->describe($order, 'OS %s foi alterada'),
         );
     }
 
@@ -74,8 +74,8 @@ class ServiceOrderNotificationService
             $cancelled ? 'service_order.cancelled' : 'service_order.status_changed',
             $cancelled ? 'OS cancelada' : 'Status da OS atualizado',
             $cancelled
-                ? sprintf('%s foi cancelada%s', $order->code, $order->cancellation_reason ? ': '.$order->cancellation_reason : '.')
-                : sprintf('%s: %s → %s', $order->code, $from, $to),
+                ? sprintf('OS %s foi cancelada%s', $order->code, $order->cancellation_reason ? ': '.$order->cancellation_reason : '.')
+                : sprintf('OS %s: %s → %s', $order->code, $from, $to),
             ['from' => $from, 'to' => $to],
         );
     }
@@ -92,7 +92,7 @@ class ServiceOrderNotificationService
             'service_order.reminder',
             sprintf('Atendimento às %s', $this->localTime($order)),
             trim(sprintf(
-                '%s · %s%s',
+                'OS %s · %s%s',
                 $order->code,
                 $order->client?->name ?? 'Cliente',
                 $order->address ? ' · '.$order->address : '',

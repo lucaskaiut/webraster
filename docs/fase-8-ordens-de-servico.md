@@ -18,7 +18,7 @@ in_progress → cancelled
 
 ## Numeração
 
-Sequencial por tenant: `OS-000001`, `OS-000002`, …
+Sequencial por tenant: `1`, `2`, …
 
 ## Estoque de equipamentos
 

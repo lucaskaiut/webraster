@@ -35,14 +35,14 @@ class ServiceOrderTest extends TestCase
             'technician_id' => $technician->uuid,
         ])
             ->assertCreated()
-            ->assertJsonPath('data.code', 'OS-000001')
+            ->assertJsonPath('data.code', '1')
             ->assertJsonPath('data.status', 'open');
 
         $this->postJson('/api/service-orders', [
             'client_id' => $client->uuid,
         ])
             ->assertCreated()
-            ->assertJsonPath('data.code', 'OS-000002');
+            ->assertJsonPath('data.code', '2');
     }
 
     public function test_rejects_vehicle_from_another_client(): void

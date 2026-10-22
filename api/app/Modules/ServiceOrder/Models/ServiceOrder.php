@@ -95,7 +95,7 @@ class ServiceOrder extends Model
 
     public function getCodeAttribute(): string
     {
-        return sprintf('OS-%06d', $this->number);
+        return (string) $this->number;
     }
 
     public function vehicle(): BelongsTo

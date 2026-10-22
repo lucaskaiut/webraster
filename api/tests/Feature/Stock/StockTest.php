@@ -210,14 +210,16 @@ class StockTest extends TestCase
         $vehicle = Vehicle::factory()->forClient($client)->create();
         $equipment = Equipment::factory()->forStock($stock)->create();
 
-        $orderId = $this->postJson('/api/service-orders', [
+        $order = $this->postJson('/api/service-orders', [
             'client_id' => $client->uuid,
             'vehicle_id' => $vehicle->uuid,
             'equipment_id' => $equipment->uuid,
             'status' => 'in_progress',
         ])
             ->assertCreated()
-            ->json('data.id');
+            ->json('data');
+
+        $orderId = $order['id'];
 
         $this->patchJson("/api/service-orders/{$orderId}/status", [
             'status' => 'completed',
@@ -235,7 +237,7 @@ class StockTest extends TestCase
 
         $this->assertSame($stock->getKey(), (int) $movement->from_stock_id);
         $this->assertSame($admin->getKey(), (int) $movement->moved_by);
-        $this->assertStringContainsString('OS-', $movement->description);
+        $this->assertStringContainsString("Concluída pela OS {$order['code']}.", $movement->description);
     }
 
     public function test_completing_service_order_swaps_vehicle_equipment_and_returns_previous_to_stock(): void
