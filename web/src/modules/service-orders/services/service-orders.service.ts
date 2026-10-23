@@ -127,6 +127,14 @@ export interface ScheduleEstimate {
   warnings: string[]
 }
 
+export interface AddressSuggestion {
+  title: string
+  subtitle: string | null
+  address: string
+  latitude: number
+  longitude: number
+}
+
 export interface ChangeStatusPayload {
   status: ServiceOrderStatus | string
   cancellation_reason?: string | null
@@ -208,6 +216,14 @@ export const serviceOrdersService = {
 
   async estimate(payload: ScheduleEstimatePayload): Promise<ScheduleEstimate> {
     const response = await http.post<ApiResponse<ScheduleEstimate>>('/scheduling/estimate', payload)
+    return response.data.data
+  },
+
+  async searchAddress(query: string, limit = 6): Promise<AddressSuggestion[]> {
+    const response = await http.get<ApiResponse<AddressSuggestion[]>>(
+      '/scheduling/address-search',
+      { params: { q: query, limit } },
+    )
     return response.data.data
   },
 

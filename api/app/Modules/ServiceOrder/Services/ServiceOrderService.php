@@ -430,11 +430,11 @@ class ServiceOrderService
 
             $this->commissions->syncForOrder($order);
 
-            $this->notifications->notifyStatusChanged(
-                $order,
-                $previous->label(),
-                $next->label(),
-            );
+            // Atualizações de status não geram mais notificação (push ou
+            // painel). Apenas o cancelamento continua sendo avisado.
+            if ($next === ServiceOrderStatus::CANCELLED) {
+                $this->notifications->notifyCancelled($order);
+            }
         });
     }
 

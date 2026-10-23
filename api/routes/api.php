@@ -55,6 +55,7 @@ use App\Modules\Notification\Http\Controllers\NotificationLogController;
 use App\Modules\Notification\Http\Controllers\NotificationSendController;
 use App\Modules\Poi\Http\Controllers\PoiController;
 use App\Modules\Report\Http\Controllers\ReportController;
+use App\Modules\Scheduling\Http\Controllers\AddressSearchController;
 use App\Modules\Scheduling\Http\Controllers\ScheduleEstimateController;
 use App\Modules\Service\Http\Controllers\ServiceController;
 use App\Modules\ServiceOrder\Http\Controllers\ServiceOrderController;
@@ -273,6 +274,7 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::delete('service-orders/{serviceOrder}/attachments/{attachment}', [ServiceOrderController::class, 'destroyAttachment'])->middleware('permission:service-order.update');
 
     Route::post('scheduling/estimate', ScheduleEstimateController::class)->middleware('permission:service-order.read');
+    Route::get('scheduling/address-search', AddressSearchController::class)->middleware('permission:service-order.read');
 
     Route::prefix('technician/service-orders')->middleware('permission:service-order.execute')->group(function (): void {
         Route::get('/', [TechnicianServiceOrderController::class, 'index']);

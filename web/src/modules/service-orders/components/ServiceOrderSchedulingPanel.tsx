@@ -29,10 +29,12 @@ import {
   type ScheduleEstimatePayload,
 } from '../services/service-orders.service'
 import { ServiceOrderRouteMap } from './ServiceOrderRouteMap'
+import { AddressAutocompleteField } from './AddressAutocompleteField'
 import { formatMinutes } from '../lib/duration'
 import {
   formatKilometers,
   formatTime,
+  formatWeekdayDay,
   groupBlockedSlots,
   sameInstant,
 } from '../lib/schedule'
@@ -332,12 +334,12 @@ export function ServiceOrderSchedulingPanel({
   return (
     <div className="space-y-5">
       <div className="grid gap-4 lg:grid-cols-3">
-        <TextField
+        <AddressAutocompleteField
           name="address"
           label="Endereço do atendimento"
           className="lg:col-span-2"
-          placeholder="Em branco usa o endereço do cliente"
-          hint="Confirme o local onde o serviço será executado. Sem endereço, usamos o cadastro do cliente."
+          placeholder="Digite ao menos 3 letras do endereço"
+          hint="Selecione uma sugestão para gravar o endereço completo. Em branco, usamos o endereço do cliente."
         />
         <TextField
           name="estimated_duration_minutes"
@@ -441,7 +443,7 @@ export function ServiceOrderSchedulingPanel({
         {hasTechnician && loading && !estimate && (
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4" aria-hidden="true">
             {Array.from({ length: 8 }).map((_, index) => (
-              <div key={index} className="h-12 animate-pulse rounded-lg bg-surface" />
+              <div key={index} className="h-16 animate-pulse rounded-lg bg-surface" />
             ))}
           </div>
         )}
@@ -470,24 +472,34 @@ export function ServiceOrderSchedulingPanel({
                   key={slot.start}
                   type="button"
                   size="sm"
-                  className="h-12 min-w-0 px-2"
+                  className="h-16 min-w-0 flex-col gap-0 px-2"
                   variant={selectedStart && sameInstant(slot.start, selectedStart) ? 'primary' : 'secondary'}
                   disabled={previewLoading || loading}
                   aria-pressed={Boolean(
                     selectedStart && sameInstant(slot.start, selectedStart),
                   )}
-                  aria-label={`Selecionar ${formatTime(slot.start)} às ${formatTime(slot.end)}`}
+                  aria-label={`Selecionar ${formatWeekdayDay(slot.start)}, ${formatTime(slot.start)} às ${formatTime(slot.end)}`}
                   onClick={() => void selectSlot(slot)}>
-                  <span className="truncate text-[13px] font-semibold">{formatTime(slot.start)}</span>
-                  <span className="truncate text-[11px] opacity-75">
-                    – {formatTime(slot.end)}
+                  <span className="truncate text-[10px] font-medium tracking-wide opacity-75">
+                    {formatWeekdayDay(slot.start)}
+                  </span>
+                  <span className="flex min-w-0 items-baseline gap-1">
+                    <span className="truncate text-[13px] font-semibold">
+                      {formatTime(slot.start)}
+                    </span>
+                    <span className="truncate text-[11px] opacity-75">
+                      – {formatTime(slot.end)}
+                    </span>
                   </span>
                 </Button>
               ) : (
                 <div
                   key={slot.start}
-                  className="flex h-12 min-w-0 flex-col justify-center gap-0.5 overflow-hidden rounded-lg bg-surface px-2 py-1"
+                  className="flex h-16 min-w-0 flex-col justify-center gap-0.5 overflow-hidden rounded-lg bg-surface px-2 py-1"
                   title={slot.reason ?? 'Horário bloqueado'}>
+                  <span className="truncate text-[10px] font-medium text-subtle">
+                    {formatWeekdayDay(slot.start)}
+                  </span>
                   <span className="flex items-center gap-1 text-[11px] font-medium text-muted line-through">
                     <Lock className="size-3 shrink-0" aria-hidden="true" />
                     <span className="truncate">

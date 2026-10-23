@@ -629,7 +629,7 @@ function ServiceOrderEquipmentTestsCard({ order }: { order: ServiceOrder }) {
     <Card className="lg:col-span-2">
       <CardHeader
         title="Testes do equipamento"
-        description="Testes de bloqueio, desbloqueio e ignição realizados no rastreador durante esta OS."
+        description="Testes de bloqueio, desbloqueio, ignição e localização realizados no rastreador durante esta OS."
       />
       <CardContent>
         {tests.length === 0 ? (

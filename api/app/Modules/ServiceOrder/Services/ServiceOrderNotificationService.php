@@ -5,7 +5,6 @@ namespace App\Modules\ServiceOrder\Services;
 use App\Modules\Notification\DTOs\NotificationMessage;
 use App\Modules\Notification\Enums\NotificationSource;
 use App\Modules\Notification\Services\NotificationEngine;
-use App\Modules\ServiceOrder\Enums\ServiceOrderStatus;
 use App\Modules\ServiceOrder\Models\ServiceOrder;
 use App\Modules\User\Models\User;
 
@@ -57,7 +56,7 @@ class ServiceOrderNotificationService
         );
     }
 
-    public function notifyStatusChanged(ServiceOrder $order, string $from, string $to): void
+    public function notifyCancelled(ServiceOrder $order): void
     {
         $recipients = collect([$order->technician_id, $order->created_by])
             ->filter()
@@ -66,17 +65,16 @@ class ServiceOrderNotificationService
             ->values()
             ->all();
 
-        $cancelled = $order->status === ServiceOrderStatus::CANCELLED;
-
         $this->send(
             $recipients,
             $order,
-            $cancelled ? 'service_order.cancelled' : 'service_order.status_changed',
-            $cancelled ? 'OS cancelada' : 'Status da OS atualizado',
-            $cancelled
-                ? sprintf('OS %s foi cancelada%s', $order->code, $order->cancellation_reason ? ': '.$order->cancellation_reason : '.')
-                : sprintf('OS %s: %s → %s', $order->code, $from, $to),
-            ['from' => $from, 'to' => $to],
+            'service_order.cancelled',
+            'OS cancelada',
+            sprintf(
+                'OS %s foi cancelada%s',
+                $order->code,
+                $order->cancellation_reason ? ': '.$order->cancellation_reason : '.',
+            ),
         );
     }
 

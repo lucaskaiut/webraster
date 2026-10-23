@@ -25,6 +25,20 @@ export function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
 
+/** Dia da semana e dia do mês, ex.: "Ter, 27". */
+export function formatWeekdayDay(iso: string): string {
+  const date = new Date(iso)
+
+  if (Number.isNaN(date.getTime())) return ''
+
+  const label = date.toLocaleDateString('pt-BR', {
+    weekday: 'short',
+    day: '2-digit',
+  })
+
+  return label.charAt(0).toUpperCase() + label.slice(1).replace('.', '')
+}
+
 export function formatKilometers(meters: number): string {
   return `${(meters / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} km`
 }

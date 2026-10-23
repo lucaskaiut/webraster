@@ -155,10 +155,6 @@ async function loadTechnicianOptions(search: string) {
   return response.data.map((user) => ({
     value: user.id,
     label: user.name,
-    description:
-      [user.stock?.name ? `Estoque ${user.stock.name}` : null, user.base_address]
-        .filter(Boolean)
-        .join(' · ') || undefined,
   }))
 }
 

@@ -94,6 +94,48 @@ class ServiceOrderTest extends TestCase
         ])->assertUnprocessable();
     }
 
+    public function test_status_updates_do_not_notify_but_cancellation_does(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $admin = $this->createAdmin($tenant);
+        $technician = User::factory()->for($tenant)->technician()->create();
+
+        $order = ServiceOrder::factory()->forClient($client)->create([
+            'technician_id' => $technician->getKey(),
+            'created_by' => $admin->getKey(),
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->patchJson("/api/service-orders/{$order->uuid}/status", [
+            'status' => 'in_progress',
+        ])->assertOk();
+
+        $this->assertSame(0, \DB::table('user_notifications')
+            ->where('type', 'service_order.status_changed')
+            ->count());
+
+        $this->patchJson("/api/service-orders/{$order->uuid}/status", [
+            'status' => 'cancelled',
+            'cancellation_reason' => 'Cliente desistiu',
+        ])->assertOk();
+
+        $this->assertSame(0, \DB::table('user_notifications')
+            ->where('type', 'service_order.status_changed')
+            ->count());
+
+        $this->assertDatabaseHas('user_notifications', [
+            'type' => 'service_order.cancelled',
+            'user_id' => $technician->getKey(),
+        ]);
+
+        $this->assertDatabaseHas('user_notifications', [
+            'type' => 'service_order.cancelled',
+            'user_id' => $admin->getKey(),
+        ]);
+    }
+
     public function test_cancel_requires_reason(): void
     {
         [, $tenant] = $this->createOperationalChild();
