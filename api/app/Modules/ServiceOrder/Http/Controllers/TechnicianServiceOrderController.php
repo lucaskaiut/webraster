@@ -3,7 +3,6 @@
 namespace App\Modules\ServiceOrder\Http\Controllers;
 
 use App\Modules\Checklist\Services\ChecklistService;
-use App\Modules\DeviceCommand\Enums\DeviceCommandStatus;
 use App\Modules\Equipment\Http\Resources\TechnicianAvailableEquipmentResource;
 use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Equipment\Services\EquipmentService;
@@ -400,22 +399,57 @@ class TechnicianServiceOrderController extends ApiController
             'A OS precisa estar em andamento para testar o equipamento.',
         );
 
-        $log = $this->equipmentTests->run(
+        $action = (string) $request->validated('action');
+
+        $test = $this->equipmentTests->run(
             $serviceOrder,
-            (string) $request->validated('action'),
+            $action,
             $request->user(),
         );
 
-        $log->loadMissing(['user', 'equipment']);
+        if ($test === null) {
+            throw ValidationException::withMessages([
+                'action' => [match ($action) {
+                    ServiceOrderEquipmentTestService::ACTION_IGNITION => 'Não foi possível ler a ignição do equipamento.',
+                    ServiceOrderEquipmentTestService::ACTION_LOCATION => 'Não foi possível ler a localização do equipamento.',
+                    default => 'O teste não foi registrado porque o comando falhou.',
+                }],
+            ]);
+        }
 
-        $successful = $log->status === DeviceCommandStatus::SUCCESS;
+        $test->loadMissing(['user', 'equipment']);
 
         return $this->success(
-            ServiceOrderEquipmentTestResource::make($log),
-            $successful
-                ? 'Teste realizado com sucesso.'
-                : 'Teste registrado, mas o comando falhou.',
+            ServiceOrderEquipmentTestResource::make($test),
+            'Teste realizado com sucesso.',
         );
+    }
+
+    public function equipmentLocation(
+        Request $request,
+        ServiceOrder $serviceOrder,
+    ): JsonResponse {
+        $this->assertOwn($request, $serviceOrder);
+        $this->assertInProgress(
+            $serviceOrder,
+            'A OS precisa estar em andamento para testar a localização.',
+        );
+
+        $position = $this->equipmentTests->latestLocation($serviceOrder);
+
+        if ($position === null) {
+            throw ValidationException::withMessages([
+                'location' => ['Nenhuma localização foi recebida do equipamento.'],
+            ]);
+        }
+
+        return $this->success([
+            'latitude' => $position->latitude,
+            'longitude' => $position->longitude,
+            'recorded_at' => $position->recorded_at?->toIso8601String(),
+            'address' => $position->address,
+            'speed' => $position->speed,
+        ], 'Localização do equipamento carregada.');
     }
 
     public function updateInstallationLocation(
@@ -439,7 +473,7 @@ class TechnicianServiceOrderController extends ApiController
         $this->assertOwn($request, $serviceOrder);
         $this->assertInProgress(
             $serviceOrder,
-            'A OS precisa estar em andamento para coletar o aceite do termo de comodato.',
+            'A OS precisa estar em andamento para coletar a assinatura do cliente.',
         );
 
         $order = $this->loanAcceptance->store(
@@ -450,7 +484,7 @@ class TechnicianServiceOrderController extends ApiController
 
         return $this->success(
             TechnicianServiceOrderResource::make($order->load(self::RELATIONS)),
-            'Aceite do termo de comodato registrado.',
+            'Assinatura do cliente registrada.',
         );
     }
 

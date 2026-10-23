@@ -1014,16 +1014,19 @@ export interface UserWorkHour {
   ends_at: string
 }
 
-export type ServiceOrderEquipmentTestAction = 'block' | 'unblock'
+export type ServiceOrderEquipmentTestAction = 'block' | 'unblock' | 'ignition' | 'location'
 export type ServiceOrderEquipmentTestStatus = 'pending' | 'success' | 'failed'
 
 export interface ServiceOrderEquipmentTest {
   id: string
   action: ServiceOrderEquipmentTestAction | string
   action_label?: string
-  command_type: string
+  command_type: string | null
   status: ServiceOrderEquipmentTestStatus
   status_label?: string
+  ignition?: boolean | null
+  latitude?: number | null
+  longitude?: number | null
   requested_at: string | null
   executed_at: string | null
   response?: Record<string, unknown> | null

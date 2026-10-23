@@ -11,12 +11,14 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\InteractsWithTenants;
+use Tests\Concerns\SignsServiceOrders;
 use Tests\TestCase;
 
 class ServiceOrderItemsTest extends TestCase
 {
     use InteractsWithTenants;
     use RefreshDatabase;
+    use SignsServiceOrders;
 
     public function test_creates_order_with_items_snapshotting_catalog_service(): void
     {
@@ -270,6 +272,8 @@ class ServiceOrderItemsTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.status', 'in_progress')
             ->json('data.id');
+
+        $this->signServiceOrder($orderId);
 
         $this->putJson("/api/service-orders/{$orderId}", [
             'status' => 'completed',

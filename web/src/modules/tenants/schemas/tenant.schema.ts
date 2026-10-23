@@ -49,7 +49,7 @@ export const tenantSettingsSchema = tenantFields.extend({
     ctx.addIssue({
       code: 'custom',
       path: ['equipment_loan_term'],
-      message: 'Informe o termo de comodato para exigir o aceite na conclusão da OS.',
+      message: 'Informe o termo de comodato para incluir o aceite na assinatura da OS.',
     })
   }
 })

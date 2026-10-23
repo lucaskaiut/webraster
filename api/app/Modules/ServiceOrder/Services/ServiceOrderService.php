@@ -20,7 +20,6 @@ use App\Modules\ServiceOrder\Models\ServiceOrder;
 use App\Modules\ServiceOrder\Models\ServiceOrderItem;
 use App\Modules\ServiceOrder\Models\ServiceOrderPhoto;
 use App\Modules\Shared\Subscription\Enums\BillingStatus;
-use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Tenant\Support\Facades\TenantContext;
 use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Models\Vehicle;
@@ -383,7 +382,7 @@ class ServiceOrderService
 
             if ($next === ServiceOrderStatus::COMPLETED) {
                 $this->checklists->assertReadyToComplete($order);
-                $this->assertLoanTermAccepted($order);
+                $this->assertClientSignature($order);
             }
 
             // A conclusão é o ponto em que o equipamento realmente sai do
@@ -440,25 +439,15 @@ class ServiceOrderService
     }
 
     /**
-     * Quando a empresa exige comodato, a OS só pode ser concluída com a
-     * assinatura de aceite do cliente registrada.
+     * A OS só pode ser concluída com a assinatura do cliente registrada.
+     * O termo de comodato é opcional e depende da configuração da empresa.
      */
-    private function assertLoanTermAccepted(ServiceOrder $order): void
+    private function assertClientSignature(ServiceOrder $order): void
     {
-        $tenant = TenantContext::tenant();
-
-        if ($tenant === null || (int) $tenant->getKey() !== (int) $order->tenant_id) {
-            $tenant = Tenant::query()->find($order->tenant_id);
-        }
-
-        if (! $tenant?->require_equipment_loan_acceptance) {
-            return;
-        }
-
-        if (! $order->hasAcceptedLoanTerm()) {
+        if (! $order->hasClientSignature()) {
             throw ValidationException::withMessages([
                 'loan_term_acceptance' => [
-                    'É necessário coletar a assinatura de aceite do termo de comodato antes de concluir a OS.',
+                    'É necessário coletar a assinatura do cliente antes de concluir a OS.',
                 ],
             ]);
         }

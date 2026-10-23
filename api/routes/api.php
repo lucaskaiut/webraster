@@ -283,6 +283,7 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
         Route::get('{serviceOrder}/available-equipments', [TechnicianServiceOrderController::class, 'availableEquipments']);
         Route::put('{serviceOrder}/equipment', [TechnicianServiceOrderController::class, 'updateEquipment']);
         Route::post('{serviceOrder}/equipment-tests', [TechnicianServiceOrderController::class, 'storeEquipmentTest']);
+        Route::get('{serviceOrder}/equipment-location', [TechnicianServiceOrderController::class, 'equipmentLocation']);
         Route::post('{serviceOrder}/loan-acceptance', [TechnicianServiceOrderController::class, 'storeLoanAcceptance']);
         Route::get('{serviceOrder}/loan-acceptance/signature', [TechnicianServiceOrderController::class, 'loanAcceptanceSignature']);
         Route::put('{serviceOrder}/installation-location', [TechnicianServiceOrderController::class, 'updateInstallationLocation']);

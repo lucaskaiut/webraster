@@ -12,12 +12,14 @@ use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\InteractsWithTenants;
+use Tests\Concerns\SignsServiceOrders;
 use Tests\TestCase;
 
 class StockTest extends TestCase
 {
     use InteractsWithTenants;
     use RefreshDatabase;
+    use SignsServiceOrders;
 
     protected function setUp(): void
     {
@@ -221,6 +223,8 @@ class StockTest extends TestCase
 
         $orderId = $order['id'];
 
+        $this->signServiceOrder($orderId);
+
         $this->patchJson("/api/service-orders/{$orderId}/status", [
             'status' => 'completed',
         ])->assertOk();
@@ -265,6 +269,8 @@ class StockTest extends TestCase
         ])
             ->assertCreated()
             ->json('data.id');
+
+        $this->signServiceOrder($orderId);
 
         $this->patchJson("/api/service-orders/{$orderId}/status", [
             'status' => 'completed',

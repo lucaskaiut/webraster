@@ -74,7 +74,7 @@ class ServiceOrderPdfService
                 : '',
         );
         $loanAcceptanceHtml = $order->loan_term_accepted_at
-            ? '<div>Aceite do termo de comodato em '.$this->localDateTime($order->loan_term_accepted_at).'</div>'
+            ? '<div>Assinatura do cliente registrada em '.$this->localDateTime($order->loan_term_accepted_at).'</div>'
             : '';
         $signatureNotes = $loanAcceptanceHtml !== ''
             ? '<div class="signature-notes">'.$loanAcceptanceHtml.'</div>'

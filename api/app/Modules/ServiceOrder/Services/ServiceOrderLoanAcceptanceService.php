@@ -14,8 +14,10 @@ use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Registra no próprio OS o aceite do termo de comodato assinado pelo cliente.
- * A imagem fica em disco privado e é servida apenas por rotas autenticadas.
+ * Registra no próprio OS a assinatura do cliente na conclusão do atendimento.
+ * Quando a empresa exige o termo de comodato, o texto do termo também é
+ * congelado na OS. A imagem fica em disco privado e é servida apenas por
+ * rotas autenticadas.
  */
 class ServiceOrderLoanAcceptanceService
 {
@@ -29,18 +31,13 @@ class ServiceOrderLoanAcceptanceService
     {
         if ($order->status !== ServiceOrderStatus::IN_PROGRESS) {
             throw ValidationException::withMessages([
-                'status' => ['O aceite do termo de comodato só pode ser coletado com a OS em andamento.'],
+                'status' => ['A assinatura do cliente só pode ser coletada com a OS em andamento.'],
             ]);
         }
 
         $tenant = $this->tenantFor($order);
-        $term = trim((string) $tenant?->equipment_loan_term);
-
-        if (! $tenant?->require_equipment_loan_acceptance) {
-            throw ValidationException::withMessages([
-                'loan_term_acceptance' => ['O aceite do termo de comodato não está habilitado para esta empresa.'],
-            ]);
-        }
+        $requiresTerm = (bool) $tenant?->require_equipment_loan_acceptance;
+        $term = $requiresTerm ? trim((string) $tenant?->equipment_loan_term) : '';
 
         $termText = trim((string) preg_replace(
             '/\s+/u',
@@ -48,14 +45,14 @@ class ServiceOrderLoanAcceptanceService
             html_entity_decode(strip_tags($term), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
         ));
 
-        if ($termText === '') {
+        if ($requiresTerm && $termText === '') {
             throw ValidationException::withMessages([
                 'loan_term_acceptance' => ['A empresa não configurou o termo de comodato.'],
             ]);
         }
 
         $previous = $order->loan_term_signature_path;
-        $path = $file->store("service-orders/{$order->uuid}/comodato", self::DISK);
+        $path = $file->store("service-orders/{$order->uuid}/assinatura", self::DISK);
 
         if ($path === false) {
             throw ValidationException::withMessages([
@@ -67,8 +64,8 @@ class ServiceOrderLoanAcceptanceService
             'loan_term_accepted_at' => now(),
             'loan_term_signature_path' => $path,
             'loan_term_collected_by' => $actor->getKey(),
-            'loan_term_text' => $term,
-            'loan_term_text_hash' => hash('sha256', $term),
+            'loan_term_text' => $requiresTerm ? $term : null,
+            'loan_term_text_hash' => $requiresTerm ? hash('sha256', $term) : null,
         ])->save();
 
         if ($previous !== null && $previous !== $path) {
@@ -81,7 +78,7 @@ class ServiceOrderLoanAcceptanceService
             $actor,
             'loan_term_acceptance',
             null,
-            'Aceite registrado',
+            'Assinatura registrada',
             [
                 'accepted_at' => $order->loan_term_accepted_at?->toIso8601String(),
                 'term_hash' => $order->loan_term_text_hash,
@@ -108,7 +105,7 @@ class ServiceOrderLoanAcceptanceService
 
         return $disk->response(
             $path,
-            sprintf('aceite-comodato-%s.png', $order->code),
+            sprintf('assinatura-cliente-%s.png', $order->code),
             ['Content-Type' => $disk->mimeType($path) ?: 'image/png'],
             'inline',
         );

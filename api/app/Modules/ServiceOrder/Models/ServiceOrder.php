@@ -5,7 +5,6 @@ namespace App\Modules\ServiceOrder\Models;
 use App\Modules\Checklist\Models\ServiceOrderChecklist;
 use App\Modules\Client\Models\Concerns\BelongsToClient;
 use App\Modules\Commission\Models\Commission;
-use App\Modules\DeviceCommand\Models\DeviceCommandLog;
 use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Finance\Models\FinanceBilling;
 use App\Modules\ServiceOrder\Enums\ServiceOrderPriority;
@@ -143,7 +142,7 @@ class ServiceOrder extends Model
         return $this->belongsTo(User::class, 'loan_term_collected_by');
     }
 
-    public function hasAcceptedLoanTerm(): bool
+    public function hasClientSignature(): bool
     {
         return $this->loan_term_accepted_at !== null
             && filled($this->loan_term_signature_path);
@@ -185,12 +184,12 @@ class ServiceOrder extends Model
     }
 
     /**
-     * Comandos de teste (bloqueio/desbloqueio) enviados ao equipamento
+     * Testes (bloqueio, desbloqueio e ignição) realizados no equipamento
      * selecionado e vinculados a esta OS para auditoria.
      */
     public function equipmentTests(): HasMany
     {
-        return $this->hasMany(DeviceCommandLog::class, 'service_order_id')
+        return $this->hasMany(ServiceOrderEquipmentTest::class, 'service_order_id')
             ->orderByDesc('requested_at')
             ->orderByDesc('id');
     }

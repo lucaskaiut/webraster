@@ -14,12 +14,14 @@ use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\InteractsWithTenants;
+use Tests\Concerns\SignsServiceOrders;
 use Tests\TestCase;
 
 class TechnicianEquipmentSelectionTest extends TestCase
 {
     use InteractsWithTenants;
     use RefreshDatabase;
+    use SignsServiceOrders;
 
     protected function setUp(): void
     {
@@ -103,6 +105,8 @@ class TechnicianEquipmentSelectionTest extends TestCase
             'field' => 'equipment_id',
             'new_value' => (string) $ownEquipment->getKey(),
         ]);
+
+        $this->signServiceOrder($orderId);
 
         $this->patchJson("/api/technician/service-orders/{$orderId}/status", [
             'status' => 'completed',

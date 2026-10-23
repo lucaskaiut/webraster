@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useParams } from 'react-router'
-import { FileDown, ImagePlus, Trash2 } from 'lucide-react'
+import { FileDown, ImagePlus, KeyRound, MapPin, Trash2 } from 'lucide-react'
 import {
   Badge,
   Button,
@@ -629,7 +629,7 @@ function ServiceOrderEquipmentTestsCard({ order }: { order: ServiceOrder }) {
     <Card className="lg:col-span-2">
       <CardHeader
         title="Testes do equipamento"
-        description="Testes de bloqueio e desbloqueio enviados ao rastreador durante esta OS."
+        description="Testes de bloqueio, desbloqueio e ignição realizados no rastreador durante esta OS."
       />
       <CardContent>
         {tests.length === 0 ? (
@@ -662,6 +662,20 @@ function ServiceOrderEquipmentTestsCard({ order }: { order: ServiceOrder }) {
                   <Badge variant={statusVariant}>
                     {test.status_label ?? test.status}
                   </Badge>
+                  {test.action === 'ignition' && test.status === 'success' && (
+                    <Badge variant={test.ignition ? 'success' : 'neutral'}>
+                      <KeyRound className="size-3" />
+                      {test.ignition ? 'Ligada' : 'Desligada'}
+                    </Badge>
+                  )}
+                  {test.action === 'location' && test.status === 'success' && (
+                    <Badge variant="success">
+                      <MapPin className="size-3" />
+                      {test.latitude != null && test.longitude != null
+                        ? `${test.latitude.toFixed(5)}, ${test.longitude.toFixed(5)}`
+                        : 'Confirmada'}
+                    </Badge>
+                  )}
                 </li>
               )
             })}
@@ -674,10 +688,7 @@ function ServiceOrderEquipmentTestsCard({ order }: { order: ServiceOrder }) {
 
 function ServiceOrderLoanAcceptanceCard({ order }: { order: ServiceOrder }) {
   const [downloading, setDownloading] = useState(false)
-
-  if (!order.loan_term_required && !order.loan_term_accepted_at) {
-    return null
-  }
+  const isActive = order.status === 'open' || order.status === 'in_progress'
 
   const handleDownload = async () => {
     setDownloading(true)
@@ -685,10 +696,10 @@ function ServiceOrderLoanAcceptanceCard({ order }: { order: ServiceOrder }) {
     try {
       downloadBlob(
         await serviceOrdersService.loanAcceptanceSignature(order.id),
-        `comodato-${order.code}.png`,
+        `assinatura-cliente-${order.code}.png`,
       )
     } catch {
-      toast.error('Não foi possível baixar a assinatura do comodato.')
+      toast.error('Não foi possível baixar a assinatura do cliente.')
     } finally {
       setDownloading(false)
     }
@@ -697,20 +708,24 @@ function ServiceOrderLoanAcceptanceCard({ order }: { order: ServiceOrder }) {
   return (
     <Card className="lg:col-span-2">
       <CardHeader
-        title="Aceite do termo de comodato"
-        description="Aceite e assinatura do cliente registrados na conclusão da OS."
+        title="Assinatura do cliente"
+        description="Assinatura coletada no aplicativo na conclusão da OS."
       />
       <CardContent className="space-y-3 text-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-surface-2/60 px-3 py-2.5">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={order.loan_term_accepted_at ? 'success' : 'warning'}>
-              {order.loan_term_accepted_at ? 'Aceite registrado' : 'Aguardando aceite'}
+            <Badge variant={order.loan_term_accepted_at ? 'success' : isActive ? 'warning' : 'neutral'}>
+              {order.loan_term_accepted_at
+                ? 'Assinatura registrada'
+                : isActive
+                  ? 'Aguardando assinatura'
+                  : 'Sem assinatura'}
             </Badge>
             {order.loan_term_accepted_at && (
               <span className="text-foreground">
                 {formatDateTime(order.loan_term_accepted_at)}
                 {order.loan_term_collected_by?.name
-                  ? ` · coletado por ${order.loan_term_collected_by.name}`
+                  ? ` · coletada por ${order.loan_term_collected_by.name}`
                   : ''}
               </span>
             )}
@@ -728,7 +743,9 @@ function ServiceOrderLoanAcceptanceCard({ order }: { order: ServiceOrder }) {
         </div>
         {!order.loan_term_accepted_at && (
           <p className="text-muted">
-            A conclusão da OS está condicionada à assinatura do cliente no aplicativo.
+            {isActive
+              ? 'A conclusão da OS está condicionada à assinatura do cliente no aplicativo.'
+              : 'Nenhuma assinatura do cliente foi registrada nesta OS.'}
           </p>
         )}
       </CardContent>

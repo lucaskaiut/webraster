@@ -14,12 +14,14 @@ use App\Modules\User\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\InteractsWithTenants;
+use Tests\Concerns\SignsServiceOrders;
 use Tests\TestCase;
 
 class CommissionTest extends TestCase
 {
     use InteractsWithTenants;
     use RefreshDatabase;
+    use SignsServiceOrders;
 
     protected function setUp(): void
     {
@@ -212,6 +214,8 @@ class CommissionTest extends TestCase
                 'unit_amount_cents' => 10000,
             ]],
         ])->assertCreated()->json('data.id');
+
+        $this->signServiceOrder($orderId);
 
         $this->patchJson("/api/service-orders/{$orderId}/status", [
             'status' => 'completed',

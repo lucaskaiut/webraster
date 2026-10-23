@@ -16,12 +16,14 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\InteractsWithTenants;
+use Tests\Concerns\SignsServiceOrders;
 use Tests\TestCase;
 
 class ServiceOrderChecklistFlowTest extends TestCase
 {
     use InteractsWithTenants;
     use RefreshDatabase;
+    use SignsServiceOrders;
 
     protected function setUp(): void
     {
@@ -191,6 +193,8 @@ class ServiceOrderChecklistFlowTest extends TestCase
                 ],
             ]],
         )->assertOk()->assertJsonPath('data.status', 'completed');
+
+        $this->signServiceOrder($orderId);
 
         $this->patchJson("/api/technician/service-orders/{$orderId}/status", [
             'status' => 'completed',

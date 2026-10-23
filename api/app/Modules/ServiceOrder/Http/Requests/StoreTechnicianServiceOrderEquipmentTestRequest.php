@@ -18,7 +18,7 @@ class StoreTechnicianServiceOrderEquipmentTestRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'action' => ['required', 'string', Rule::in(['block', 'unblock'])],
+            'action' => ['required', 'string', Rule::in(['block', 'unblock', 'ignition', 'location'])],
         ];
     }
 }

@@ -19,12 +19,14 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\InteractsWithTenants;
+use Tests\Concerns\SignsServiceOrders;
 use Tests\TestCase;
 
 class SchedulingTest extends TestCase
 {
     use InteractsWithTenants;
     use RefreshDatabase;
+    use SignsServiceOrders;
 
     private const TUESDAY = '2026-10-20';
 
@@ -565,6 +567,8 @@ class SchedulingTest extends TestCase
             'client_id' => $client->getKey(),
             'technician_id' => $other->getKey(),
         ]);
+
+        $this->signServiceOrder($own->uuid);
 
         Sanctum::actingAs($technician);
 

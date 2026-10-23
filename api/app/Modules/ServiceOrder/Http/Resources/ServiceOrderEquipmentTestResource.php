@@ -3,12 +3,12 @@
 namespace App\Modules\ServiceOrder\Http\Resources;
 
 use App\Modules\DeviceCommand\Enums\DeviceCommandStatus;
-use App\Modules\DeviceCommand\Models\DeviceCommandLog;
+use App\Modules\ServiceOrder\Models\ServiceOrderEquipmentTest;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @mixin DeviceCommandLog
+ * @mixin ServiceOrderEquipmentTest
  */
 class ServiceOrderEquipmentTestResource extends JsonResource
 {
@@ -17,16 +17,12 @@ class ServiceOrderEquipmentTestResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $action = match ($this->command_type) {
-            'engineStop' => 'block',
-            'engineResume' => 'unblock',
-            default => $this->command_type,
-        };
-
-        $actionLabel = match ($action) {
+        $actionLabel = match ($this->action) {
             'block' => 'Bloqueio',
             'unblock' => 'Desbloqueio',
-            default => $action,
+            'ignition' => 'Ignição',
+            'location' => 'Localização',
+            default => $this->action,
         };
 
         $statusLabel = match ($this->status) {
@@ -36,16 +32,24 @@ class ServiceOrderEquipmentTestResource extends JsonResource
             default => $this->status?->value,
         };
 
+        $result = is_array($this->result) ? $this->result : [];
+        $ignition = array_key_exists('ignition', $result) ? $result['ignition'] : null;
+        $latitude = array_key_exists('latitude', $result) ? $result['latitude'] : null;
+        $longitude = array_key_exists('longitude', $result) ? $result['longitude'] : null;
+
         return [
             'id' => $this->uuid,
-            'action' => $action,
+            'action' => $this->action,
             'action_label' => $actionLabel,
             'command_type' => $this->command_type,
             'status' => $this->status?->value,
             'status_label' => $statusLabel,
+            'ignition' => $ignition === null ? null : (bool) $ignition,
+            'latitude' => $latitude === null ? null : (float) $latitude,
+            'longitude' => $longitude === null ? null : (float) $longitude,
+            'response' => $this->result,
             'requested_at' => $this->requested_at?->toIso8601String(),
             'executed_at' => $this->executed_at?->toIso8601String(),
-            'response' => $this->response,
             'user' => $this->whenLoaded('user', fn () => $this->user ? [
                 'id' => $this->user->uuid,
                 'name' => $this->user->name,

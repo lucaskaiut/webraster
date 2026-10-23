@@ -82,7 +82,7 @@ class UpdateTenantRequest extends FormRequest
             if ($this->boolean('require_equipment_loan_acceptance') && $termText === '') {
                 $validator->errors()->add(
                     'equipment_loan_term',
-                    'Informe o termo de comodato para exigir o aceite na conclusão da OS.',
+                    'Informe o termo de comodato para incluir o aceite na assinatura da OS.',
                 );
             }
         });

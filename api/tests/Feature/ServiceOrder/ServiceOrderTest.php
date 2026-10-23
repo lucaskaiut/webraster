@@ -10,12 +10,14 @@ use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\InteractsWithTenants;
+use Tests\Concerns\SignsServiceOrders;
 use Tests\TestCase;
 
 class ServiceOrderTest extends TestCase
 {
     use InteractsWithTenants;
     use RefreshDatabase;
+    use SignsServiceOrders;
 
     public function test_creates_service_order_with_sequential_code(): void
     {
@@ -71,6 +73,8 @@ class ServiceOrderTest extends TestCase
             'number' => 10,
             'created_by' => $admin->getKey(),
         ]);
+
+        $this->signServiceOrder($order->uuid);
 
         $this->patchJson("/api/service-orders/{$order->uuid}/status", [
             'status' => 'completed',

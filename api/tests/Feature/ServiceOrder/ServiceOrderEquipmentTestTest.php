@@ -9,6 +9,7 @@ use App\Modules\Equipment\Models\Equipment;
 use App\Modules\ServiceOrder\Models\ServiceOrder;
 use App\Modules\Tracking\Contracts\TraccarGateway;
 use App\Modules\Tracking\Gateways\HttpTraccarGateway;
+use App\Modules\Tracking\Models\GpsPosition;
 use App\Modules\User\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -78,6 +79,24 @@ class ServiceOrderEquipmentTestTest extends TestCase
             'status' => DeviceCommandStatus::SUCCESS->value,
         ]);
 
+        $this->assertDatabaseHas('service_order_equipment_tests', [
+            'service_order_id' => $order->getKey(),
+            'equipment_id' => $equipment->getKey(),
+            'user_id' => $technician->getKey(),
+            'action' => 'block',
+            'command_type' => 'engineStop',
+            'status' => DeviceCommandStatus::SUCCESS->value,
+        ]);
+
+        $this->assertDatabaseHas('service_order_equipment_tests', [
+            'service_order_id' => $order->getKey(),
+            'equipment_id' => $equipment->getKey(),
+            'user_id' => $technician->getKey(),
+            'action' => 'unblock',
+            'command_type' => 'engineResume',
+            'status' => DeviceCommandStatus::SUCCESS->value,
+        ]);
+
         $this->assertDatabaseHas('service_order_histories', [
             'service_order_id' => $order->getKey(),
             'user_id' => $technician->getKey(),
@@ -101,7 +120,7 @@ class ServiceOrderEquipmentTestTest extends TestCase
             ->assertJsonPath('data.equipment_tests.1.action', 'block');
     }
 
-    public function test_failed_command_is_still_recorded_on_order(): void
+    public function test_failed_command_is_not_recorded_on_order(): void
     {
         [, $tenant] = $this->createOperationalChild();
         $this->enableTraccarGateway();
@@ -127,22 +146,31 @@ class ServiceOrderEquipmentTestTest extends TestCase
         $this->postJson("/api/technician/service-orders/{$order->uuid}/equipment-tests", [
             'action' => 'block',
         ])
-            ->assertOk()
-            ->assertJsonPath('data.action', 'block')
-            ->assertJsonPath('data.status', 'failed');
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('action');
 
+        // O log do comando continua auditado...
         $this->assertDatabaseHas('device_command_logs', [
             'service_order_id' => $order->getKey(),
             'command_type' => 'engineStop',
             'status' => DeviceCommandStatus::FAILED->value,
         ]);
 
-        $this->assertDatabaseHas('service_order_histories', [
+        // ...mas nenhum teste é registrado na OS.
+        $this->assertDatabaseMissing('service_order_equipment_tests', [
+            'service_order_id' => $order->getKey(),
+            'action' => 'block',
+        ]);
+
+        $this->assertDatabaseMissing('service_order_histories', [
             'service_order_id' => $order->getKey(),
             'action' => 'equipment_tested',
             'field' => 'equipment_test',
-            'new_value' => 'Bloqueio',
         ]);
+
+        $this->getJson("/api/technician/service-orders/{$order->uuid}")
+            ->assertOk()
+            ->assertJsonCount(0, 'data.equipment_tests');
     }
 
     public function test_requires_selected_equipment_and_own_order(): void
@@ -173,6 +201,199 @@ class ServiceOrderEquipmentTestTest extends TestCase
         $this->postJson("/api/technician/service-orders/{$order->uuid}/equipment-tests", [
             'action' => 'block',
         ])->assertNotFound();
+    }
+
+    public function test_technician_reads_ignition_from_latest_equipment_position(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+
+        $technician = $this->createTechnician($tenant);
+        $client = Client::factory()->for($tenant)->create();
+        $equipment = Equipment::factory()->forTenant($tenant)->create();
+        $order = $this->makeOrder($client, $technician, $equipment);
+
+        GpsPosition::factory()->forStockEquipment($equipment)->create([
+            'ignition' => false,
+            'recorded_at' => now()->subMinutes(10),
+        ]);
+        GpsPosition::factory()->forStockEquipment($equipment)->create([
+            'ignition' => true,
+            'recorded_at' => now()->subMinute(),
+        ]);
+
+        Sanctum::actingAs($technician);
+
+        $this->postJson("/api/technician/service-orders/{$order->uuid}/equipment-tests", [
+            'action' => 'ignition',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.action', 'ignition')
+            ->assertJsonPath('data.action_label', 'Ignição')
+            ->assertJsonPath('data.status', 'success')
+            ->assertJsonPath('data.ignition', true);
+
+        $this->assertDatabaseHas('service_order_equipment_tests', [
+            'service_order_id' => $order->getKey(),
+            'equipment_id' => $equipment->getKey(),
+            'user_id' => $technician->getKey(),
+            'action' => 'ignition',
+            'status' => DeviceCommandStatus::SUCCESS->value,
+        ]);
+
+        $this->assertDatabaseHas('service_order_histories', [
+            'service_order_id' => $order->getKey(),
+            'user_id' => $technician->getKey(),
+            'action' => 'equipment_tested',
+            'field' => 'equipment_test',
+            'new_value' => 'Ignição ligada',
+        ]);
+
+        // Uma posição mais recente com a ignição desligada passa a valer no
+        // próximo teste, sem sobrescrever o registro anterior.
+        GpsPosition::factory()->forStockEquipment($equipment)->create([
+            'ignition' => false,
+            'recorded_at' => now(),
+        ]);
+
+        $this->postJson("/api/technician/service-orders/{$order->uuid}/equipment-tests", [
+            'action' => 'ignition',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'success')
+            ->assertJsonPath('data.ignition', false);
+
+        $this->assertDatabaseHas('service_order_histories', [
+            'service_order_id' => $order->getKey(),
+            'action' => 'equipment_tested',
+            'field' => 'equipment_test',
+            'new_value' => 'Ignição desligada',
+        ]);
+
+        $this->getJson("/api/technician/service-orders/{$order->uuid}")
+            ->assertOk()
+            ->assertJsonCount(2, 'data.equipment_tests')
+            ->assertJsonPath('data.equipment_tests.0.action', 'ignition')
+            ->assertJsonPath('data.equipment_tests.0.ignition', false)
+            ->assertJsonPath('data.equipment_tests.1.ignition', true);
+    }
+
+    public function test_ignition_test_is_not_recorded_without_positions(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+
+        $technician = $this->createTechnician($tenant);
+        $client = Client::factory()->for($tenant)->create();
+        $equipment = Equipment::factory()->forTenant($tenant)->create();
+        $order = $this->makeOrder($client, $technician, $equipment);
+
+        Sanctum::actingAs($technician);
+
+        $this->postJson("/api/technician/service-orders/{$order->uuid}/equipment-tests", [
+            'action' => 'ignition',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('action');
+
+        $this->assertDatabaseMissing('service_order_equipment_tests', [
+            'service_order_id' => $order->getKey(),
+            'action' => 'ignition',
+        ]);
+
+        $this->assertDatabaseMissing('service_order_histories', [
+            'service_order_id' => $order->getKey(),
+            'action' => 'equipment_tested',
+            'field' => 'equipment_test',
+        ]);
+    }
+
+    public function test_technician_reads_equipment_location_and_confirms_it(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+
+        $technician = $this->createTechnician($tenant);
+        $client = Client::factory()->for($tenant)->create();
+        $equipment = Equipment::factory()->forTenant($tenant)->create([
+            'imei' => '444444444444444',
+        ]);
+        $order = $this->makeOrder($client, $technician, $equipment);
+
+        GpsPosition::factory()->forStockEquipment($equipment)->create([
+            'latitude' => -25.4284,
+            'longitude' => -49.2733,
+            'recorded_at' => now()->subMinute(),
+        ]);
+
+        Sanctum::actingAs($technician);
+
+        $this->getJson("/api/technician/service-orders/{$order->uuid}/equipment-location")
+            ->assertOk()
+            ->assertJsonPath('data.latitude', -25.4284)
+            ->assertJsonPath('data.longitude', -49.2733);
+
+        $this->postJson("/api/technician/service-orders/{$order->uuid}/equipment-tests", [
+            'action' => 'location',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.action', 'location')
+            ->assertJsonPath('data.action_label', 'Localização')
+            ->assertJsonPath('data.status', 'success')
+            ->assertJsonPath('data.latitude', -25.4284)
+            ->assertJsonPath('data.longitude', -49.2733);
+
+        $this->assertDatabaseHas('service_order_equipment_tests', [
+            'service_order_id' => $order->getKey(),
+            'equipment_id' => $equipment->getKey(),
+            'user_id' => $technician->getKey(),
+            'action' => 'location',
+            'status' => DeviceCommandStatus::SUCCESS->value,
+        ]);
+
+        $this->assertDatabaseHas('service_order_histories', [
+            'service_order_id' => $order->getKey(),
+            'user_id' => $technician->getKey(),
+            'action' => 'equipment_tested',
+            'field' => 'equipment_test',
+            'new_value' => 'Localização confirmada',
+        ]);
+
+        $this->getJson("/api/technician/service-orders/{$order->uuid}")
+            ->assertOk()
+            ->assertJsonCount(1, 'data.equipment_tests')
+            ->assertJsonPath('data.equipment_tests.0.action', 'location')
+            ->assertJsonPath('data.equipment_tests.0.latitude', -25.4284);
+    }
+
+    public function test_location_test_is_not_recorded_without_equipment_position(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+
+        $technician = $this->createTechnician($tenant);
+        $client = Client::factory()->for($tenant)->create();
+        $equipment = Equipment::factory()->forTenant($tenant)->create();
+        $order = $this->makeOrder($client, $technician, $equipment);
+
+        Sanctum::actingAs($technician);
+
+        $this->getJson("/api/technician/service-orders/{$order->uuid}/equipment-location")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('location');
+
+        $this->postJson("/api/technician/service-orders/{$order->uuid}/equipment-tests", [
+            'action' => 'location',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('action');
+
+        $this->assertDatabaseMissing('service_order_equipment_tests', [
+            'service_order_id' => $order->getKey(),
+            'action' => 'location',
+        ]);
+
+        $this->assertDatabaseMissing('service_order_histories', [
+            'service_order_id' => $order->getKey(),
+            'action' => 'equipment_tested',
+            'field' => 'equipment_test',
+        ]);
     }
 
     private function makeOrder(

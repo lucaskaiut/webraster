@@ -149,14 +149,14 @@ export function TenantSettingsForm({ tenant, submitting, onSubmit }: TenantSetti
           </Section>
 
           <Section
-            title="Termo de comodato"
-            description="Defina se a conclusão da OS exige a assinatura de aceite do termo de comodato pelo cliente."
+            title="Assinatura do cliente"
+            description="A assinatura do cliente é obrigatória na conclusão da OS. Ative o termo de comodato para incluir o aceite do termo no momento da assinatura."
           >
             <div className="space-y-4">
               <SwitchField
                 name="require_equipment_loan_acceptance"
-                label="Exigir aceite do termo de comodato na conclusão da OS"
-                hint="Quando habilitado, o técnico deverá coletar a assinatura do cliente no aplicativo antes de concluir a OS."
+                label="Incluir aceite do termo de comodato na assinatura"
+                hint="Quando habilitado, o cliente verá e aceitará o termo de comodato ao assinar a OS no aplicativo."
               />
               {requiresLoanTerm && (
                 <Controller

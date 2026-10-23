@@ -56,14 +56,9 @@ class ServiceOrderLoanAcceptanceTest extends TestCase
             ->assertJsonPath('data.equipment_loan_term', $term);
     }
 
-    public function test_blocks_completion_without_customer_acceptance(): void
+    public function test_blocks_completion_without_customer_signature(): void
     {
-        [$tenant, $order, $technician] = $this->makeOrderContext();
-
-        $tenant->forceFill([
-            'require_equipment_loan_acceptance' => true,
-            'equipment_loan_term' => 'Termo de comodato.',
-        ])->save();
+        [, $order, $technician] = $this->makeOrderContext();
 
         Sanctum::actingAs($technician);
 
@@ -79,13 +74,15 @@ class ServiceOrderLoanAcceptanceTest extends TestCase
         );
     }
 
-    public function test_technician_records_signature_and_then_completes_order(): void
+    public function test_technician_records_signature_without_loan_term(): void
     {
         Storage::fake('local');
         [$tenant, $order, $technician] = $this->makeOrderContext();
 
+        // Termo cadastrado, mas a empresa não exige o aceite: a mensagem não
+        // deve ser exibida nem congelada na OS.
         $tenant->forceFill([
-            'require_equipment_loan_acceptance' => true,
+            'require_equipment_loan_acceptance' => false,
             'equipment_loan_term' => 'Termo de comodato do rastreador.',
         ])->save();
 
@@ -93,12 +90,14 @@ class ServiceOrderLoanAcceptanceTest extends TestCase
 
         $this->post(
             "/api/technician/service-orders/{$order->uuid}/loan-acceptance",
-            ['image' => UploadedFile::fake()->image('aceite.png', 400, 160)],
+            ['image' => UploadedFile::fake()->image('assinatura.png', 400, 160)],
             ['Accept' => 'application/json'],
         )
             ->assertOk()
+            ->assertJsonPath('data.loan_term_required', false)
+            ->assertJsonPath('data.loan_term_text', null)
             ->assertJsonPath('data.loan_term_signature_available', true)
-            ->assertJsonPath('data.loan_term_accepted_text', 'Termo de comodato do rastreador.')
+            ->assertJsonPath('data.loan_term_accepted_text', null)
             ->assertJsonPath('data.loan_term_collected_by.name', $technician->name);
 
         $path = $order->refresh()->loan_term_signature_path;
@@ -107,7 +106,8 @@ class ServiceOrderLoanAcceptanceTest extends TestCase
         Storage::disk('local')->assertExists($path);
         $this->assertNotNull($order->loan_term_accepted_at);
         $this->assertSame($technician->getKey(), $order->loan_term_collected_by);
-        $this->assertSame(hash('sha256', 'Termo de comodato do rastreador.'), $order->loan_term_text_hash);
+        $this->assertNull($order->loan_term_text);
+        $this->assertNull($order->loan_term_text_hash);
 
         $this->assertDatabaseHas('service_order_histories', [
             'service_order_id' => $order->getKey(),
@@ -125,6 +125,33 @@ class ServiceOrderLoanAcceptanceTest extends TestCase
         $this->get("/api/technician/service-orders/{$order->uuid}/loan-acceptance/signature", [
             'Accept' => 'image/png',
         ])->assertOk();
+    }
+
+    public function test_technician_records_signature_and_freezes_loan_term_when_enabled(): void
+    {
+        Storage::fake('local');
+        [$tenant, $order, $technician] = $this->makeOrderContext();
+
+        $tenant->forceFill([
+            'require_equipment_loan_acceptance' => true,
+            'equipment_loan_term' => 'Termo de comodato do rastreador.',
+        ])->save();
+
+        Sanctum::actingAs($technician);
+
+        $this->post(
+            "/api/technician/service-orders/{$order->uuid}/loan-acceptance",
+            ['image' => UploadedFile::fake()->image('assinatura.png', 400, 160)],
+            ['Accept' => 'application/json'],
+        )
+            ->assertOk()
+            ->assertJsonPath('data.loan_term_required', true)
+            ->assertJsonPath('data.loan_term_accepted_text', 'Termo de comodato do rastreador.');
+
+        $order->refresh();
+
+        $this->assertSame('Termo de comodato do rastreador.', $order->loan_term_text);
+        $this->assertSame(hash('sha256', 'Termo de comodato do rastreador.'), $order->loan_term_text_hash);
     }
 
     /**
