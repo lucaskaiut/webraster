@@ -206,9 +206,14 @@ class Geocoder
                         $detail['location']['longitude'] ?? null,
                     )
                     : null;
+                // Usa o texto exibido na sugestão: ele mantém o formato
+                // localizado (ex.: "Rua Augusta") e é o mesmo endereço que o
+                // usuário viu. O formattedAddress do Google pode vir com o
+                // nome canonical em inglês (ex.: "Augusta St") e não ser
+                // resolvido pelo geocoder usado no agendamento.
                 $address = trim((string) (
-                    $detail['formattedAddress']
-                    ?? $prediction['text']['text']
+                    $prediction['text']['text']
+                    ?? $detail['formattedAddress']
                     ?? ''
                 ));
 

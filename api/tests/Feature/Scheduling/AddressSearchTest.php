@@ -144,7 +144,7 @@ class AddressSearchTest extends TestCase
                     'suggestions' => [[
                         'placePrediction' => [
                             'placeId' => 'place-augusta',
-                            'text' => ['text' => 'Rua Augusta, 1500 - Consolação, São Paulo - SP, Brasil'],
+                            'text' => ['text' => 'Rua Augusta, 1500 - Consolação, São Paulo - SP'],
                             'structuredFormat' => [
                                 'mainText' => ['text' => 'Rua Augusta, 1500'],
                                 'secondaryText' => ['text' => 'Consolação, São Paulo - SP, Brasil'],
@@ -169,10 +169,7 @@ class AddressSearchTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.title', 'Rua Augusta, 1500')
             ->assertJsonPath('data.0.subtitle', 'Consolação, São Paulo - SP, Brasil')
-            ->assertJsonPath(
-                'data.0.address',
-                'Rua Augusta, 1500 - Consolação, São Paulo - SP, 01304-001, Brasil',
-            )
+            ->assertJsonPath('data.0.address', 'Rua Augusta, 1500 - Consolação, São Paulo - SP')
             ->assertJsonPath('data.0.latitude', -23.5558)
             ->assertJsonPath('data.0.longitude', -46.6614);
 
