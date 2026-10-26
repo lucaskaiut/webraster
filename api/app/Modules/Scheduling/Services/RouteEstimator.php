@@ -12,7 +12,11 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Tempo e distância de deslocamento via OSRM, com estimativa em linha reta como fallback.
+ * Tempo e distância de deslocamento via Google Routes ou OSRM, com estimativa
+ * em linha reta como último fallback.
+ *
+ * No Google usamos a preferência TRAFFIC_UNAWARE: o cálculo ignora
+ * completamente as condições de trânsito e considera apenas a malha viária.
  */
 class RouteEstimator
 {
@@ -22,27 +26,37 @@ class RouteEstimator
             return $this->fallback($from, $to);
         }
 
+        $provider = $this->provider();
         $key = sprintf(
-            'scheduling:route:v3:%.5f,%.5f:%.5f,%.5f',
+            'scheduling:route:v4:%s:%.5f,%.5f:%.5f,%.5f',
+            $provider,
             $from->latitude,
             $from->longitude,
             $to->latitude,
             $to->longitude,
         );
 
-        /** @var array{minutes: int, distance_meters: int, geometry?: list<array{0: float, 1: float}>}|null $cached */
+        /** @var array{minutes: int, distance_meters: int, source?: string, geometry?: list<array{0: float, 1: float}>}|null $cached */
         $cached = Cache::get($key);
 
         if (is_array($cached)) {
             return new TravelEstimate(
                 $cached['minutes'],
                 $cached['distance_meters'],
-                TravelEstimate::SOURCE_OSRM,
+                $cached['source'] ?? ($provider === 'google' ? TravelEstimate::SOURCE_GOOGLE : TravelEstimate::SOURCE_OSRM),
                 $cached['geometry'] ?? [],
             );
         }
 
-        $estimate = $this->request($from, $to);
+        $estimate = $provider === 'google'
+            ? $this->requestGoogle($from, $to)
+            : $this->request($from, $to);
+
+        // A rota do Google é preferencial, mas uma indisponibilidade não pode
+        // travar o agendamento: o OSRM assume até nova tentativa.
+        if ($estimate === null && $provider === 'google') {
+            $estimate = $this->request($from, $to);
+        }
 
         if ($estimate === null) {
             return $this->fallback($from, $to);
@@ -53,12 +67,27 @@ class RouteEstimator
             [
                 'minutes' => $estimate->minutes,
                 'distance_meters' => $estimate->distanceMeters,
+                'source' => $estimate->source,
                 'geometry' => $estimate->geometry,
             ],
             now()->addHours((int) config('scheduling.routing.cache_hours', 24)),
         );
 
         return $estimate;
+    }
+
+    private function provider(): string
+    {
+        $configured = mb_strtolower(trim((string) config('scheduling.routing.provider', 'google')));
+
+        return $configured === 'google' && $this->googleApiKey() !== null ? 'google' : 'osrm';
+    }
+
+    private function googleApiKey(): ?string
+    {
+        $key = trim((string) config('scheduling.google.api_key'));
+
+        return $key === '' ? null : $key;
     }
 
     public function fallback(Coordinates $from, Coordinates $to): TravelEstimate
@@ -76,6 +105,140 @@ class RouteEstimator
                 [$to->latitude, $to->longitude],
             ],
         );
+    }
+
+    private function requestGoogle(Coordinates $from, Coordinates $to): ?TravelEstimate
+    {
+        $key = $this->googleApiKey();
+
+        if ($key === null) {
+            return null;
+        }
+
+        try {
+            $response = Http::baseUrl(rtrim((string) config('scheduling.google.routes_url'), '/'))
+                ->withHeaders([
+                    'X-Goog-Api-Key' => $key,
+                    'X-Goog-FieldMask' => implode(',', [
+                        'routes.duration',
+                        'routes.distanceMeters',
+                        'routes.polyline.encodedPolyline',
+                    ]),
+                ])
+                ->timeout((int) config('scheduling.google.timeout', 8))
+                ->acceptJson()
+                ->post('/directions/v2:computeRoutes', [
+                    'origin' => [
+                        'location' => [
+                            'latLng' => [
+                                'latitude' => $from->latitude,
+                                'longitude' => $from->longitude,
+                            ],
+                        ],
+                    ],
+                    'destination' => [
+                        'location' => [
+                            'latLng' => [
+                                'latitude' => $to->latitude,
+                                'longitude' => $to->longitude,
+                            ],
+                        ],
+                    ],
+                    'travelMode' => 'DRIVE',
+                    // Ignora as condições de trânsito por completo.
+                    'routingPreference' => 'TRAFFIC_UNAWARE',
+                    'computeAlternativeRoutes' => false,
+                    'polylineQuality' => 'OVERVIEW',
+                    'languageCode' => (string) config('scheduling.google.language', 'pt-BR'),
+                    'units' => 'METRIC',
+                ]);
+
+            if ($response->failed()) {
+                Log::warning('Google Routes falhou', [
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            $duration = $response->json('routes.0.duration');
+            $distance = $response->json('routes.0.distanceMeters');
+
+            if (! is_numeric(rtrim((string) $duration, 's')) || ! is_numeric($distance)) {
+                return null;
+            }
+
+            $encoded = $response->json('routes.0.polyline.encodedPolyline');
+            $geometry = is_string($encoded) ? $this->decodePolyline($encoded) : null;
+
+            return new TravelEstimate(
+                TimeGrid::minutes((int) ceil(((float) rtrim((string) $duration, 's')) / 60)),
+                (int) round((float) $distance),
+                TravelEstimate::SOURCE_GOOGLE,
+                $geometry ?? [
+                    [$from->latitude, $from->longitude],
+                    [$to->latitude, $to->longitude],
+                ],
+            );
+        } catch (Throwable $exception) {
+            Log::warning('Google Routes indisponível', ['error' => $exception->getMessage()]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Decodifica a polyline compacta do Google para [latitude, longitude].
+     *
+     * @return list<array{0: float, 1: float}>|null
+     */
+    private function decodePolyline(string $encoded): ?array
+    {
+        if ($encoded === '') {
+            return null;
+        }
+
+        $points = [];
+        $index = 0;
+        $latitude = 0;
+        $longitude = 0;
+        $length = strlen($encoded);
+
+        while ($index < $length) {
+            $shift = 0;
+            $result = 0;
+
+            do {
+                if ($index >= $length) {
+                    return null;
+                }
+
+                $byte = ord($encoded[$index++]) - 63;
+                $result |= ($byte & 0x1F) << $shift;
+                $shift += 5;
+            } while ($byte >= 0x20);
+
+            $latitude += ($result & 1) ? ~($result >> 1) : ($result >> 1);
+
+            $shift = 0;
+            $result = 0;
+
+            do {
+                if ($index >= $length) {
+                    return null;
+                }
+
+                $byte = ord($encoded[$index++]) - 63;
+                $result |= ($byte & 0x1F) << $shift;
+                $shift += 5;
+            } while ($byte >= 0x20);
+
+            $longitude += ($result & 1) ? ~($result >> 1) : ($result >> 1);
+
+            $points[] = [$latitude / 1e5, $longitude / 1e5];
+        }
+
+        return $points === [] ? null : $points;
     }
 
     private function request(Coordinates $from, Coordinates $to): ?TravelEstimate

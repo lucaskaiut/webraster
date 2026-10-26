@@ -24,11 +24,31 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Geocodificação (Nominatim / OpenStreetMap)
+    | Google Maps Platform
     |--------------------------------------------------------------------------
     |
-    | O servidor público exige User-Agent identificável e no máximo 1 req/s;
-    | os resultados ficam em cache e nas coordenadas gravadas nos registros.
+    | A chave de servidor é usada para Autocomplete (Places API) e para o
+    | cálculo de rotas (Routes API). Quando ela não estiver configurada, o
+    | sistema continua usando Nominatim e OSRM como alternativas.
+    |
+    */
+
+    'google' => [
+        'api_key' => env('GOOGLE_MAPS_SERVER_API_KEY', env('GOOGLE_MAPS_API_KEY')),
+        'places_url' => env('GOOGLE_PLACES_URL', 'https://places.googleapis.com'),
+        'routes_url' => env('GOOGLE_ROUTES_URL', 'https://routes.googleapis.com'),
+        'language' => env('GOOGLE_MAPS_LANGUAGE', 'pt-BR'),
+        'timeout' => (int) env('GOOGLE_MAPS_TIMEOUT', 8),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Geocodificação (Google Places / Nominatim)
+    |--------------------------------------------------------------------------
+    |
+    | O autocomplete usa a Places API quando houver chave do Google. Sem a
+    | chave, mantém o Nominatim/OpenStreetMap como fallback. O servidor
+    | público do Nominatim exige User-Agent identificável e no máximo 1 req/s.
     |
     */
 
@@ -43,16 +63,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Rotas (OSRM)
+    | Rotas (Google Routes / OSRM)
     |--------------------------------------------------------------------------
     |
-    | Sem trânsito em tempo real. Se o OSRM falhar, a estimativa usa a
+    | As rotas do Google são solicitadas com TRAFFIC_UNAWARE: o tempo ignora
+    | completamente as condições de trânsito e usa apenas a malha viária.
+    | Se o Google falhar, o OSRM é usado; em último caso, a estimativa usa a
     | distância em linha reta × fator de correção ÷ velocidade média.
     |
     */
 
     'routing' => [
         'enabled' => (bool) env('ROUTING_ENABLED', true),
+        'provider' => env('ROUTING_PROVIDER', 'google'),
         'url' => env('OSRM_URL', 'https://router.project-osrm.org'),
         'profile' => env('OSRM_PROFILE', 'driving'),
         'timeout' => (int) env('OSRM_TIMEOUT', 8),

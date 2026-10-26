@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { useParams } from 'react-router'
+import { useNavigate, useParams } from 'react-router'
 import { FileDown, ImagePlus, KeyRound, MapPin, Trash2 } from 'lucide-react'
 import {
   Badge,
@@ -56,6 +56,7 @@ import { formatMinutes } from '../lib/duration'
 
 export default function ServiceOrderDetailPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const { can } = usePermissions()
   const canViewEquipmentDetails = can(Permission.EQUIPMENT_DETAILS_READ)
   const query = useServiceOrderQuery(id)
@@ -116,6 +117,14 @@ export default function ServiceOrderDetailPage() {
           setCompleteOpen(false)
           setCancelReason('')
           setExecutionNotes('')
+
+          // A OS concluída é um estado terminal: volta para a listagem em vez
+          // de manter o usuário na tela de uma ordem já finalizada.
+          if (status === 'completed') {
+            navigate('/service-orders', { replace: true })
+            return
+          }
+
           void query.refetch()
         },
       },

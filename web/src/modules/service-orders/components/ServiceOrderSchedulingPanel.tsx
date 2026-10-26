@@ -62,8 +62,9 @@ function selectedSlotStart(value: string | undefined, date: string): string | nu
 function travelSourceLabel(estimate: ScheduleEstimate): string {
   const outbound = estimate.travel?.source
   const returnTrip = estimate.travel_return?.source
+  const isCalculated = (source: string | undefined) => source === 'google' || source === 'osrm'
 
-  return outbound === 'osrm' && returnTrip === 'osrm'
+  return isCalculated(outbound) && isCalculated(returnTrip)
     ? 'rotas calculadas'
     : 'estimativa em linha reta'
 }
@@ -338,8 +339,8 @@ export function ServiceOrderSchedulingPanel({
           name="address"
           label="Endereço do atendimento"
           className="lg:col-span-2"
-          placeholder="Digite ao menos 3 letras do endereço"
-          hint="Selecione uma sugestão para gravar o endereço completo. Em branco, usamos o endereço do cliente."
+          placeholder="Digite ao menos 2 palavras do endereço"
+          hint="As sugestões aparecem a partir de 2 palavras. Selecione uma para gravar o endereço completo; em branco, usamos o endereço do cliente."
         />
         <TextField
           name="estimated_duration_minutes"

@@ -63,13 +63,13 @@ export interface ScheduleEstimatePayload {
 export interface ScheduleTravel {
   minutes: number
   distance_meters: number
-  source: 'osrm' | 'estimate'
+  source: 'google' | 'osrm' | 'estimate'
 }
 
 export interface ScheduleRoundTrip {
   minutes: number
   distance_meters: number
-  source: 'osrm' | 'estimate'
+  source: 'google' | 'osrm' | 'estimate'
 }
 
 export interface ScheduleRoutePoint {
@@ -131,8 +131,8 @@ export interface AddressSuggestion {
   title: string
   subtitle: string | null
   address: string
-  latitude: number
-  longitude: number
+  latitude: number | null
+  longitude: number | null
 }
 
 export interface ChangeStatusPayload {

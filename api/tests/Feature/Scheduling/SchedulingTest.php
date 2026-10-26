@@ -641,6 +641,8 @@ class SchedulingTest extends TestCase
         config([
             'scheduling.geocoding.enabled' => true,
             'scheduling.routing.enabled' => true,
+            // Os testes usam as respostas OSRM/Nominatim mockadas abaixo.
+            'scheduling.google.api_key' => null,
         ]);
 
         Http::fake(function ($request) use ($outboundSeconds, $returnSeconds, $outboundDistance, $returnDistance, $routeResolver) {

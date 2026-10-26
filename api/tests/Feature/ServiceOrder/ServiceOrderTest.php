@@ -47,6 +47,24 @@ class ServiceOrderTest extends TestCase
             ->assertJsonPath('data.code', '2');
     }
 
+    public function test_list_includes_who_opened_each_order(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $admin = $this->createAdmin($tenant);
+
+        ServiceOrder::factory()->forClient($client)->create([
+            'created_by' => $admin->getKey(),
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/service-orders')
+            ->assertOk()
+            ->assertJsonPath('data.0.created_by.id', $admin->uuid)
+            ->assertJsonPath('data.0.created_by.name', $admin->name);
+    }
+
     public function test_rejects_vehicle_from_another_client(): void
     {
         [, $tenant] = $this->createOperationalChild();

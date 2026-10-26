@@ -3,16 +3,31 @@
 namespace App\Modules\Scheduling\Services;
 
 use App\Modules\Scheduling\Support\Coordinates;
+use Illuminate\Http\Client\Pool;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Converte endereços em coordenadas via Nominatim (OpenStreetMap).
+ * Converte endereços em coordenadas e monta sugestões de autocomplete.
+ *
+ * O autocomplete prioriza a Places API (Google) quando há chave configurada,
+ * mantendo o Nominatim (OpenStreetMap) como alternativa.
  */
 class Geocoder
 {
+    /**
+     * O autocomplete só é disparado a partir de duas palavras digitadas.
+     */
+    public static function hasMinimumWords(string $query): bool
+    {
+        $words = preg_split('/\s+/u', trim($query), -1, PREG_SPLIT_NO_EMPTY);
+
+        return is_array($words) && count($words) >= 2;
+    }
+
     public function geocode(?string $address): ?Coordinates
     {
         $address = trim((string) $address);
@@ -65,20 +80,22 @@ class Geocoder
     }
 
     /**
-     * Sugestões de endereço para autocomplete (Nominatim).
+     * Sugestões de endereço para autocomplete.
      *
-     * @return list<array{title: string, subtitle: string|null, address: string, latitude: float, longitude: float}>
+     * @return list<array{title: string, subtitle: string|null, address: string, latitude: float|null, longitude: float|null}>
      */
     public function search(string $query, int $limit = 6): array
     {
         $query = trim($query);
 
-        if (mb_strlen($query) < 3 || ! config('scheduling.geocoding.enabled')) {
+        if (! self::hasMinimumWords($query) || ! config('scheduling.geocoding.enabled')) {
             return [];
         }
 
         $limit = max(1, min($limit, 8));
-        $key = 'scheduling:geocode:search:'.md5(mb_strtolower($query)).':'.$limit;
+        $google = $this->googleApiKey() !== null;
+        $provider = $google ? 'google' : 'nominatim';
+        $key = 'scheduling:geocode:search:'.$provider.':'.md5(mb_strtolower($query)).':'.$limit;
 
         /** @var list<array<string, mixed>>|null $cached */
         $cached = Cache::get($key);
@@ -87,7 +104,13 @@ class Geocoder
             return $cached;
         }
 
-        $results = $this->requestSearch($query, $limit);
+        $results = $google ? $this->requestGoogleSearch($query, $limit) : $this->requestSearch($query, $limit);
+
+        if ($google && $results === []) {
+            // Se o Google estiver indisponível, ainda é possível sugerir
+            // endereços pelo Nominatim em vez de deixar o campo sem ajuda.
+            $results = $this->requestSearch($query, $limit);
+        }
 
         Cache::put(
             $key,
@@ -96,6 +119,200 @@ class Geocoder
         );
 
         return $results;
+    }
+
+    /**
+     * @return list<array{title: string, subtitle: string|null, address: string, latitude: float|null, longitude: float|null}>
+     */
+    private function requestGoogleSearch(string $query, int $limit): array
+    {
+        $key = $this->googleApiKey();
+
+        if ($key === null) {
+            return [];
+        }
+
+        try {
+            $regions = array_values(array_filter(array_map(
+                fn (string $code) => mb_strtolower(trim($code)),
+                explode(',', (string) config('scheduling.geocoding.country_codes', 'br')),
+            )));
+
+            $response = Http::baseUrl(rtrim((string) config('scheduling.google.places_url'), '/'))
+                ->withHeaders([
+                    'X-Goog-Api-Key' => $key,
+                    'X-Goog-FieldMask' => implode(',', [
+                        'suggestions.placePrediction.placeId',
+                        'suggestions.placePrediction.text.text',
+                        'suggestions.placePrediction.structuredFormat.mainText.text',
+                        'suggestions.placePrediction.structuredFormat.secondaryText.text',
+                    ]),
+                ])
+                ->timeout((int) config('scheduling.google.timeout', 8))
+                ->acceptJson()
+                ->post('/v1/places:autocomplete', array_filter([
+                    'input' => $query,
+                    'languageCode' => (string) config('scheduling.google.language', 'pt-BR'),
+                    'regionCode' => $regions[0] ?? null,
+                    'includedRegionCodes' => $regions === [] ? null : $regions,
+                ]));
+
+            if ($response->failed()) {
+                Log::warning('Busca de endereço no Google falhou', [
+                    'status' => $response->status(),
+                    'query' => $query,
+                ]);
+
+                return [];
+            }
+
+            $suggestions = $response->json('suggestions');
+
+            if (! is_array($suggestions)) {
+                return [];
+            }
+
+            $predictions = [];
+
+            foreach ($suggestions as $suggestion) {
+                $prediction = is_array($suggestion) ? ($suggestion['placePrediction'] ?? null) : null;
+
+                if (! is_array($prediction)) {
+                    continue;
+                }
+
+                $placeId = trim((string) ($prediction['placeId'] ?? ''));
+
+                if ($placeId === '') {
+                    continue;
+                }
+
+                $predictions[$placeId] = $prediction;
+
+                if (count($predictions) >= $limit) {
+                    break;
+                }
+            }
+
+            if ($predictions === []) {
+                return [];
+            }
+
+            $details = $this->googlePlaceDetails(array_keys($predictions));
+            $results = [];
+
+            foreach ($predictions as $placeId => $prediction) {
+                $detail = $details[$placeId] ?? null;
+                $coordinates = is_array($detail)
+                    ? Coordinates::tryFrom(
+                        $detail['location']['latitude'] ?? null,
+                        $detail['location']['longitude'] ?? null,
+                    )
+                    : null;
+                $address = trim((string) (
+                    $detail['formattedAddress']
+                    ?? $prediction['text']['text']
+                    ?? ''
+                ));
+
+                if ($address === '') {
+                    continue;
+                }
+
+                $title = trim((string) ($prediction['structuredFormat']['mainText']['text'] ?? ''));
+                $subtitle = trim((string) ($prediction['structuredFormat']['secondaryText']['text'] ?? ''));
+
+                if ($coordinates !== null) {
+                    // Evita uma nova consulta ao geocodificar exatamente este endereço.
+                    Cache::put(
+                        'scheduling:geocode:'.md5(mb_strtolower($address)),
+                        [$coordinates->latitude, $coordinates->longitude],
+                        now()->addDays((int) config('scheduling.geocoding.cache_days', 30)),
+                    );
+                }
+
+                $results[] = [
+                    'title' => $title !== '' ? $title : $address,
+                    'subtitle' => $subtitle !== '' ? $subtitle : null,
+                    'address' => $address,
+                    'latitude' => $coordinates?->latitude,
+                    'longitude' => $coordinates?->longitude,
+                ];
+            }
+
+            return $results;
+        } catch (Throwable $exception) {
+            Log::warning('Busca de endereço no Google indisponível', [
+                'error' => $exception->getMessage(),
+                'query' => $query,
+            ]);
+
+            return [];
+        }
+    }
+
+    /**
+     * Consulta os detalhes dos locais em paralelo para obter endereço e coordenadas.
+     *
+     * @param  list<string>  $placeIds
+     * @return array<string, array<string, mixed>>
+     */
+    private function googlePlaceDetails(array $placeIds): array
+    {
+        $key = $this->googleApiKey();
+
+        if ($key === null || $placeIds === []) {
+            return [];
+        }
+
+        try {
+            $responses = Http::pool(function (Pool $pool) use ($key, $placeIds) {
+                $requests = [];
+
+                foreach ($placeIds as $index => $placeId) {
+                    $requests[$index] = $pool
+                        ->baseUrl(rtrim((string) config('scheduling.google.places_url'), '/'))
+                        ->withHeaders([
+                            'X-Goog-Api-Key' => $key,
+                            'X-Goog-FieldMask' => 'formattedAddress,location',
+                        ])
+                        ->timeout((int) config('scheduling.google.timeout', 8))
+                        ->acceptJson()
+                        ->get('/v1/places/'.rawurlencode($placeId));
+                }
+
+                return $requests;
+            });
+        } catch (Throwable $exception) {
+            Log::warning('Detalhes de endereço no Google indisponíveis', [
+                'error' => $exception->getMessage(),
+            ]);
+
+            return [];
+        }
+
+        $details = [];
+
+        foreach ($responses as $index => $response) {
+            if (! $response instanceof Response || $response->failed()) {
+                continue;
+            }
+
+            $data = $response->json();
+
+            if (is_array($data)) {
+                $details[$placeIds[$index]] = $data;
+            }
+        }
+
+        return $details;
+    }
+
+    private function googleApiKey(): ?string
+    {
+        $key = trim((string) config('scheduling.google.api_key'));
+
+        return $key === '' ? null : $key;
     }
 
     /**

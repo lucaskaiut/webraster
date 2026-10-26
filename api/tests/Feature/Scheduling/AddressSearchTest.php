@@ -23,6 +23,9 @@ class AddressSearchTest extends TestCase
             'scheduling.geocoding.user_agent' => 'NuvemaxTest/1.0',
             'scheduling.geocoding.country_codes' => 'br',
             'scheduling.geocoding.timeout' => 2,
+            'scheduling.google.api_key' => null,
+            'scheduling.google.places_url' => 'http://google-places.test',
+            'scheduling.google.timeout' => 2,
         ]);
     }
 
@@ -107,18 +110,85 @@ class AddressSearchTest extends TestCase
         Http::assertSentCount(1);
     }
 
-    public function test_requires_at_least_three_characters(): void
+    public function test_requires_at_least_two_words(): void
     {
         [, $tenant] = $this->createOperationalChild();
         Sanctum::actingAs($this->createAdmin($tenant));
 
         Http::fake();
 
+        $this->getJson('/api/scheduling/address-search?q=Rua')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('q');
+
         $this->getJson('/api/scheduling/address-search?q=ab')
             ->assertUnprocessable()
             ->assertJsonValidationErrors('q');
 
         Http::assertNothingSent();
+    }
+
+    public function test_uses_google_places_autocomplete_when_configured(): void
+    {
+        config([
+            'scheduling.google.api_key' => 'google-test-key',
+            'scheduling.google.language' => 'pt-BR',
+        ]);
+
+        [, $tenant] = $this->createOperationalChild();
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        Http::fake(function ($request) {
+            if (str_ends_with($request->url(), '/v1/places:autocomplete')) {
+                return Http::response([
+                    'suggestions' => [[
+                        'placePrediction' => [
+                            'placeId' => 'place-augusta',
+                            'text' => ['text' => 'Rua Augusta, 1500 - Consolação, São Paulo - SP, Brasil'],
+                            'structuredFormat' => [
+                                'mainText' => ['text' => 'Rua Augusta, 1500'],
+                                'secondaryText' => ['text' => 'Consolação, São Paulo - SP, Brasil'],
+                            ],
+                        ],
+                    ]],
+                ]);
+            }
+
+            if (str_contains($request->url(), '/v1/places/place-augusta')) {
+                return Http::response([
+                    'formattedAddress' => 'Rua Augusta, 1500 - Consolação, São Paulo - SP, 01304-001, Brasil',
+                    'location' => ['latitude' => -23.5558, 'longitude' => -46.6614],
+                ]);
+            }
+
+            return Http::response([], 404);
+        });
+
+        $this->getJson('/api/scheduling/address-search?q=Rua%20Augusta&limit=5')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'Rua Augusta, 1500')
+            ->assertJsonPath('data.0.subtitle', 'Consolação, São Paulo - SP, Brasil')
+            ->assertJsonPath(
+                'data.0.address',
+                'Rua Augusta, 1500 - Consolação, São Paulo - SP, 01304-001, Brasil',
+            )
+            ->assertJsonPath('data.0.latitude', -23.5558)
+            ->assertJsonPath('data.0.longitude', -46.6614);
+
+        Http::assertSent(function ($request): bool {
+            if (! str_ends_with($request->url(), '/v1/places:autocomplete')) {
+                return false;
+            }
+
+            return $request->hasHeader('X-Goog-Api-Key', 'google-test-key')
+                && $request['input'] === 'Rua Augusta'
+                && $request['languageCode'] === 'pt-BR'
+                && $request['includedRegionCodes'] === ['br'];
+        });
+
+        Http::assertSent(fn ($request): bool => str_contains($request->url(), '/v1/places/place-augusta')
+            && $request->hasHeader('X-Goog-Api-Key', 'google-test-key'));
     }
 
     public function test_returns_empty_when_geocoding_is_disabled(): void

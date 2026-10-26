@@ -92,6 +92,11 @@ export default function ServiceOrdersListPage() {
       render: (item) => <span className="text-muted">{item.technician?.name ?? '—'}</span>,
     },
     {
+      key: 'created_by',
+      header: 'Aberta por',
+      render: (item) => <span className="text-muted">{item.created_by?.name ?? '—'}</span>,
+    },
+    {
       key: 'schedule',
       header: 'Agendamento',
       render: (item) => (

@@ -9,8 +9,13 @@ import {
   type AddressSuggestion,
 } from '../services/service-orders.service'
 
-const MIN_CHARS = 3
+/** A busca só é feita depois de duas palavras digitadas. */
+const MIN_WORDS = 2
 const DEBOUNCE_MS = 600
+
+function hasMinimumWords(value: string): boolean {
+  return value.trim().split(/\s+/).filter(Boolean).length >= MIN_WORDS
+}
 
 interface AddressAutocompleteFieldProps {
   name: string
@@ -23,8 +28,10 @@ interface AddressAutocompleteFieldProps {
 }
 
 /**
- * Campo de endereço com sugestões (Nominatim/OpenStreetMap). O texto livre
- * continua permitido; ao escolher uma sugestão, o endereço completo é gravado.
+ * Campo de endereço com sugestões (Google Places, com fallback para
+ * OpenStreetMap). O texto livre continua permitido; as sugestões só são
+ * buscadas depois de duas palavras e, ao escolher uma, o endereço completo
+ * é gravado.
  */
 export function AddressAutocompleteField(props: AddressAutocompleteFieldProps) {
   const { control } = useFormContext()
@@ -79,6 +86,7 @@ function AddressAutocompleteInput({
   const requestIdRef = useRef(0)
 
   const [open, setOpen] = useState(false)
+  const [hasTyped, setHasTyped] = useState(false)
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([])
   const [loading, setLoading] = useState(false)
   const [failed, setFailed] = useState(false)
@@ -86,7 +94,7 @@ function AddressAutocompleteInput({
 
   const term = value.trim()
   const selected = selectedRef.current === term
-  const showDropdown = open && term.length >= MIN_CHARS && !selected
+  const showDropdown = open && hasTyped && hasMinimumWords(term) && !selected
 
   // Busca com debounce enquanto o usuário digita.
   useEffect(() => {
@@ -140,6 +148,7 @@ function AddressAutocompleteInput({
 
   const selectSuggestion = (suggestion: AddressSuggestion) => {
     selectedRef.current = suggestion.address
+    setHasTyped(false)
     onChange(suggestion.address)
     setOpen(false)
     setSuggestions([])
@@ -216,6 +225,7 @@ function AddressAutocompleteInput({
           placeholder={placeholder}
           onChange={(event) => {
             setOpen(true)
+            setHasTyped(true)
             onChange(event.target.value)
           }}
           onFocus={() => {
@@ -254,7 +264,7 @@ function AddressAutocompleteInput({
 
             {suggestions.map((suggestion, index) => (
               <li
-                key={`${suggestion.latitude}:${suggestion.longitude}:${suggestion.address}`}
+                key={`${suggestion.address}:${suggestion.latitude}:${suggestion.longitude}`}
                 id={`${listboxId}-option-${index}`}
                 role="option"
                 aria-selected={index === highlight}>
@@ -286,7 +296,7 @@ function AddressAutocompleteInput({
             ))}
 
             <li className="px-3 py-1.5 text-[10px] text-subtle">
-              Sugestões por OpenStreetMap
+              Sugestões de endereço
             </li>
           </ul>
         )}

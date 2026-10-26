@@ -8,6 +8,8 @@ namespace App\Modules\Scheduling\Support;
  */
 final readonly class TravelEstimate
 {
+    public const SOURCE_GOOGLE = 'google';
+
     public const SOURCE_OSRM = 'osrm';
 
     public const SOURCE_ESTIMATE = 'estimate';
