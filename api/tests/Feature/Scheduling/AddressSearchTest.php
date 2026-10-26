@@ -188,7 +188,9 @@ class AddressSearchTest extends TestCase
         });
 
         Http::assertSent(fn ($request): bool => str_contains($request->url(), '/v1/places/place-augusta')
-            && $request->hasHeader('X-Goog-Api-Key', 'google-test-key'));
+            && $request->hasHeader('X-Goog-Api-Key', 'google-test-key')
+            && $request['languageCode'] === 'pt-BR'
+            && $request['regionCode'] === 'br');
     }
 
     public function test_returns_empty_when_geocoding_is_disabled(): void

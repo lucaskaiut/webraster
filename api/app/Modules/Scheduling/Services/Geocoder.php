@@ -133,10 +133,7 @@ class Geocoder
         }
 
         try {
-            $regions = array_values(array_filter(array_map(
-                fn (string $code) => mb_strtolower(trim($code)),
-                explode(',', (string) config('scheduling.geocoding.country_codes', 'br')),
-            )));
+            $regions = $this->googleRegions();
 
             $response = Http::baseUrl(rtrim((string) config('scheduling.google.places_url'), '/'))
                 ->withHeaders([
@@ -266,7 +263,10 @@ class Geocoder
         }
 
         try {
-            $responses = Http::pool(function (Pool $pool) use ($key, $placeIds) {
+            $language = (string) config('scheduling.google.language', 'pt-BR');
+            $region = $this->googleRegions()[0] ?? null;
+
+            $responses = Http::pool(function (Pool $pool) use ($key, $language, $placeIds, $region) {
                 $requests = [];
 
                 foreach ($placeIds as $index => $placeId) {
@@ -278,7 +278,10 @@ class Geocoder
                         ])
                         ->timeout((int) config('scheduling.google.timeout', 8))
                         ->acceptJson()
-                        ->get('/v1/places/'.rawurlencode($placeId));
+                        ->get('/v1/places/'.rawurlencode($placeId), array_filter([
+                            'languageCode' => $language,
+                            'regionCode' => $region,
+                        ]));
                 }
 
                 return $requests;
@@ -313,6 +316,17 @@ class Geocoder
         $key = trim((string) config('scheduling.google.api_key'));
 
         return $key === '' ? null : $key;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function googleRegions(): array
+    {
+        return array_values(array_filter(array_map(
+            fn (string $code) => mb_strtolower(trim($code)),
+            explode(',', (string) config('scheduling.geocoding.country_codes', 'br')),
+        )));
     }
 
     /**
