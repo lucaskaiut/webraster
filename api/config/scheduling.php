@@ -18,7 +18,7 @@ return [
 
     // Grade operacional: duração/deslocamento arredondam para cima e os
     // horários sugeridos andam neste intervalo.
-    'slot_step_minutes' => (int) env('SCHEDULING_SLOT_STEP_MINUTES', 15),
+    'slot_step_minutes' => (int) env('SCHEDULING_SLOT_STEP_MINUTES', 5),
 
     'reminder_minutes' => (int) env('SCHEDULING_REMINDER_MINUTES', 30),
 

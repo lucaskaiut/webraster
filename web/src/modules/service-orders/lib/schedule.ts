@@ -1,7 +1,7 @@
 /**
  * Utilitários de apresentação da agenda.
  *
- * A API devolve todos os candidatos de 15 minutos, inclusive os bloqueados. Para não
+ * A API devolve todos os candidatos de 5 minutos, inclusive os bloqueados. Para não
  * repetir o mesmo conflito em vários quadros, os bloqueios consecutivos causados pela
  * mesma OS são agrupados em um único intervalo.
  */

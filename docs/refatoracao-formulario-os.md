@@ -37,7 +37,7 @@ inalterados.
 | `technician_id` | Opcional. Precisa ser um usuário técnico. |
 | `address` | Opcional. Em branco, o backend usa o endereço do cliente. Máximo 500 caracteres. |
 | `estimated_duration_minutes` | Opcional; inteiro entre 1 e 1440. Em branco, o backend soma o tempo estimado dos serviços. |
-| `scheduled_start_at` / `scheduled_end_at` | Opcionais. O fim deve ser posterior ao início. Horários são arredondados para a grade de 15 minutos. |
+| `scheduled_start_at` / `scheduled_end_at` | Opcionais. O fim deve ser posterior ao início. Horários são arredondados para a grade de 5 minutos. |
 | `description` / `notes` | Texto livre, até 5000 caracteres cada. Não têm relação com cobrança. |
 | `cancellation_reason` | Obrigatório quando a situação é `cancelled`. |
 | `items[]` | Opcional. Cada item exige `service_id` do catálogo, quantidade inteira >= 1 e valor unitário em centavos >= 0. |
@@ -82,7 +82,7 @@ inalterados.
 - A agenda do dia considera apenas OS não canceladas e não concluídas do técnico,
   exceto a própria OS em edição.
 - A jornada vem de `user_work_hours`; sem jornada cadastrada, usa 08:00–18:00.
-- Os horários candidatos são gerados a cada 15 minutos dentro da jornada, a partir de
+- Os horários candidatos são gerados a cada 5 minutos dentro da jornada, a partir de
   agora, e cada candidato é testado contra sobreposição, deslocamento de ida/volta e
   limites da jornada.
 - Horários bloqueados continuam sendo devolvidos pela API com motivo e OS responsável.

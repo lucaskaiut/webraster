@@ -24,7 +24,8 @@ use Illuminate\Support\Collection;
  */
 class SchedulingService
 {
-    private const MAX_SLOTS = 96;
+    // Cobre uma jornada de 24 h na grade de 5 minutos.
+    private const MAX_SLOTS = 288;
 
     public function __construct(
         private readonly Geocoder $geocoder,

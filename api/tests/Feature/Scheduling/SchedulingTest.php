@@ -116,10 +116,10 @@ class SchedulingTest extends TestCase
             ->assertJsonPath('data.duration_source', 'services')
             ->assertJsonPath('data.travel.minutes', 0)
             ->assertJsonPath('data.travel.source', 'estimate')
-            ->assertJsonPath('data.travel_return.minutes', 45)
+            ->assertJsonPath('data.travel_return.minutes', 40)
             ->assertJsonPath('data.travel_return.distance_meters', 17000)
             ->assertJsonPath('data.travel_return.source', 'osrm')
-            ->assertJsonPath('data.travel_round_trip.minutes', 45)
+            ->assertJsonPath('data.travel_round_trip.minutes', 40)
             ->assertJsonPath('data.travel_round_trip.distance_meters', 17000)
             ->assertJsonPath('data.travel_origin_kind', 'order')
             ->assertJsonPath('data.route.origin.latitude', -25.4284)
@@ -135,15 +135,35 @@ class SchedulingTest extends TestCase
         $this->assertSame(
             [
                 $this->localTime('09:00'),
+                $this->localTime('09:05'),
+                $this->localTime('09:10'),
                 $this->localTime('09:15'),
+                $this->localTime('09:20'),
+                $this->localTime('09:25'),
                 $this->localTime('09:30'),
+                $this->localTime('09:35'),
+                $this->localTime('09:40'),
                 $this->localTime('09:45'),
+                $this->localTime('09:50'),
+                $this->localTime('09:55'),
                 $this->localTime('10:00'),
+                $this->localTime('10:05'),
+                $this->localTime('10:10'),
                 $this->localTime('10:15'),
+                $this->localTime('10:20'),
+                $this->localTime('10:25'),
                 $this->localTime('10:30'),
+                $this->localTime('10:35'),
+                $this->localTime('10:40'),
                 $this->localTime('10:45'),
+                $this->localTime('10:50'),
+                $this->localTime('10:55'),
                 $this->localTime('11:00'),
+                $this->localTime('11:05'),
+                $this->localTime('11:10'),
                 $this->localTime('11:15'),
+                $this->localTime('11:20'),
+                $this->localTime('11:25'),
                 $this->localTime('11:30'),
             ],
             $slots->where('available', true)->pluck('start')->all(),
@@ -161,7 +181,7 @@ class SchedulingTest extends TestCase
         $this->assertSame($this->localTime('09:30'), $firstBlocked['blocked_by']['blocked_end']);
     }
 
-    public function test_rounds_duration_and_travel_to_fifteen_minute_grid(): void
+    public function test_rounds_duration_and_travel_to_five_minute_grid(): void
     {
         $this->fakeGeoServices(outboundSeconds: 840, returnSeconds: 1080);
         [$tenant, $client, $technician, $service] = $this->schedulingScenario();
@@ -178,8 +198,8 @@ class SchedulingTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.duration_minutes', 15)
             ->assertJsonPath('data.travel.minutes', 15)
-            ->assertJsonPath('data.travel_return.minutes', 30)
-            ->assertJsonPath('data.travel_round_trip.minutes', 45);
+            ->assertJsonPath('data.travel_return.minutes', 20)
+            ->assertJsonPath('data.travel_round_trip.minutes', 35);
 
         $slots = collect($response->json('data.slots'));
 
@@ -188,11 +208,11 @@ class SchedulingTest extends TestCase
         foreach ($slots as $slot) {
             $this->assertTrue($slot['available']);
             $start = CarbonImmutable::parse($slot['start'])->setTimezone('America/Sao_Paulo');
-            $this->assertSame(0, $start->minute % 15);
+            $this->assertSame(0, $start->minute % 5);
         }
     }
 
-    public function test_rounds_service_order_times_to_fifteen_minute_grid(): void
+    public function test_rounds_service_order_times_to_five_minute_grid(): void
     {
         $this->fakeGeoServices();
         [$tenant, $client, $technician, $service] = $this->schedulingScenario();
@@ -207,11 +227,11 @@ class SchedulingTest extends TestCase
             'items' => [['service_id' => $service->uuid, 'quantity' => 1, 'unit_amount_cents' => 10000]],
         ])
             ->assertCreated()
-            ->assertJsonPath('data.scheduled_start_at', $this->localTime('10:15'))
-            ->assertJsonPath('data.scheduled_end_at', $this->localTime('10:30'))
+            ->assertJsonPath('data.scheduled_start_at', $this->localTime('10:10'))
+            ->assertJsonPath('data.scheduled_end_at', $this->localTime('10:25'))
             ->assertJsonPath('data.estimated_duration_minutes', 15)
             ->assertJsonPath('data.estimated_travel_minutes', 30)
-            ->assertJsonPath('data.estimated_return_travel_minutes', 45);
+            ->assertJsonPath('data.estimated_return_travel_minutes', 40);
     }
 
     public function test_chains_travel_from_previous_order_and_persists_legs(): void
@@ -455,7 +475,7 @@ class SchedulingTest extends TestCase
             ->assertJsonPath('data.estimated_duration_minutes', 90)
             ->assertJsonPath('data.estimated_travel_minutes', 30)
             ->assertJsonPath('data.travel_distance_meters', 15000)
-            ->assertJsonPath('data.estimated_return_travel_minutes', 45)
+            ->assertJsonPath('data.estimated_return_travel_minutes', 40)
             ->assertJsonPath('data.return_travel_distance_meters', 17000)
             ->assertJsonPath('data.scheduled_end_at', $this->localTime('11:30'));
 

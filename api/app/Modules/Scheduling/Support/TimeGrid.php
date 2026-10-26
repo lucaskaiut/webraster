@@ -5,16 +5,16 @@ namespace App\Modules\Scheduling\Support;
 use Carbon\CarbonImmutable;
 
 /**
- * Grade operacional de horários (padrão: 15 minutos).
+ * Grade operacional de horários (padrão: 5 minutos).
  *
  * Todos os tempos calculados sobem para o próximo múltiplo da grade:
- * 14 → 15, 18 → 30, 31 → 45 etc.
+ * 14 → 15, 18 → 20, 31 → 35 etc.
  */
 final class TimeGrid
 {
     public static function size(): int
     {
-        return max(1, (int) config('scheduling.slot_step_minutes', 15));
+        return max(1, (int) config('scheduling.slot_step_minutes', 5));
     }
 
     public static function minutes(int|float $minutes): int
