@@ -12,6 +12,8 @@ export interface ModalProps {
   footer?: ReactNode
   size?: 'sm' | 'md' | 'lg' | 'xl'
   dismissable?: boolean
+  /** Classes extras para a área rolável do conteúdo. */
+  bodyClassName?: string
 }
 
 const SIZES = {
@@ -30,6 +32,7 @@ export function Modal({
   footer,
   size = 'md',
   dismissable = true,
+  bodyClassName,
 }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -90,7 +93,11 @@ export function Modal({
             </button>
           )}
         </div>
-        {children && <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>}
+        {children && (
+          <div className={cn('min-h-0 flex-1 overflow-y-auto p-5', bodyClassName)}>
+            {children}
+          </div>
+        )}
         {footer && <div className="flex shrink-0 justify-end gap-2 p-5 pt-0">{footer}</div>}
       </div>
     </div>,

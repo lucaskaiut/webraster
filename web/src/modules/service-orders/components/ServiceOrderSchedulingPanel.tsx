@@ -6,7 +6,6 @@ import {
   ChevronDown,
   Clock,
   Info,
-  Lock,
   MapPin,
   RefreshCw,
 } from 'lucide-react'
@@ -23,21 +22,23 @@ import {
 import { isApiError } from '@/shared/api/errors'
 import { extractIsoDate, parseLocalDateTime, toLocalDateTimeValue } from '@/shared/utils/date'
 import { toLocalIsoDate } from '@/shared/utils/format'
-import {
-  serviceOrdersService,
-  type ScheduleEstimate,
-  type ScheduleEstimatePayload,
+import type {
+  ScheduleEstimate,
+  ScheduleEstimatePayload,
 } from '../services/service-orders.service'
 import { ServiceOrderRouteMap } from './ServiceOrderRouteMap'
 import { AddressAutocompleteField } from './AddressAutocompleteField'
+import { ServiceOrderAvailabilityBoard } from './ServiceOrderAvailabilityBoard'
 import { formatMinutes } from '../lib/duration'
 import {
   formatKilometers,
   formatTime,
   formatWeekdayDay,
-  groupBlockedSlots,
   sameInstant,
+  SEARCH_DAYS_LIMIT,
+  type ScheduleSlotView,
 } from '../lib/schedule'
+import { useScheduleAvailability } from '../hooks/useScheduleAvailability'
 import type { ServiceOrderFormValues } from '../schemas/service-order.schema'
 import type { ServiceOrderItemDraft } from '../lib/items'
 
@@ -52,8 +53,8 @@ function dateOfLocalInput(value: string | undefined | null): string | null {
   return extractIsoDate(value)
 }
 
-function selectedSlotStart(value: string | undefined, date: string): string | null {
-  if (!value || dateOfLocalInput(value) !== date) return null
+function normalizedLocalStart(value: string | undefined): string | null {
+  if (!value) return null
 
   const parsed = parseLocalDateTime(value)
   return parsed ? toLocalDateTimeValue(parsed) : null
@@ -94,12 +95,19 @@ interface ServiceOrderSchedulingPanelProps {
   serviceOrderId?: string | null
 }
 
+interface ScheduleDetailEstimate {
+  date: string
+  start: string
+  estimate: ScheduleEstimate
+}
+
 /**
  * Etapa de agendamento do formulário de OS.
  *
- * A disponibilidade é consultada novamente sempre que cliente, endereço, duração,
- * técnico, data ou serviços mudam. O horário só é aplicado depois de uma segunda
- * confirmação da API, mantendo a mesma proteção contra conflitos do fluxo anterior.
+ * A disponibilidade é consultada em lotes de dias de calendário. Cada lote usa
+ * a mesma API de estimativa do fluxo anterior: a grade de 5 minutos, o
+ * deslocamento, a jornada e os conflitos continuam sendo calculados no servidor.
+ * O horário só é aplicado depois de uma segunda confirmação da API.
  */
 export function ServiceOrderSchedulingPanel({
   items,
@@ -118,24 +126,25 @@ export function ServiceOrderSchedulingPanel({
   const [date, setDate] = useState(
     () => dateOfLocalInput(form.getValues('scheduled_start_at')) ?? toLocalIsoDate(),
   )
-  const [estimate, setEstimate] = useState<ScheduleEstimate | null>(null)
-  const [loading, setLoading] = useState(false)
   const [previewLoading, setPreviewLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [confirmingStart, setConfirmingStart] = useState<string | null>(null)
   const [selectionWarning, setSelectionWarning] = useState<string | null>(null)
-  const [previewStart, setPreviewStart] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [detail, setDetail] = useState<ScheduleDetailEstimate | null>(null)
   const [routeDetailsOpen, setRouteDetailsOpen] = useState(false)
 
-  const requestIdRef = useRef(0)
-  const skipAppliedSlotRef = useRef<string | null>(null)
-  const previousNonStartKeyRef = useRef<string | null>(null)
+  const applyingSelectionRef = useRef(false)
+  const skipDetailStartRef = useRef<string | null>(null)
+  const selectionRequestRef = useRef(0)
+  const detailRequestRef = useRef(0)
+  const confirmingRef = useRef(false)
 
   const itemsKey = items
     .filter((item) => item.service_id && !item.missing)
     .map((item) => `${item.service_id}:${Math.max(1, Math.floor(Number(item.quantity) || 1))}`)
     .join('|')
 
-  const requestRef = useRef<Omit<ScheduleEstimatePayload, 'date'>>({})
+  const requestRef = useRef<Omit<ScheduleEstimatePayload, 'date' | 'scheduled_start_at'>>({})
   requestRef.current = {
     client_id: clientId || null,
     address: address?.trim() || null,
@@ -150,166 +159,155 @@ export function ServiceOrderSchedulingPanel({
       })),
   }
 
-  // Mantém a data do painel alinhada quando Início/Fim são alterados manualmente.
+  const hasTechnician = Boolean(technicianId)
+  const requestKey = JSON.stringify([
+    clientId || null,
+    address?.trim() || null,
+    technicianId || null,
+    estimatedDuration || null,
+    itemsKey,
+    serviceOrderId ?? null,
+  ])
+
+  const board = useScheduleAvailability({
+    anchorDate: date,
+    enabled: Boolean(clientId),
+    request: requestRef.current,
+    requestKey,
+    batchSize: hasTechnician ? undefined : 1,
+    maxDays: hasTechnician ? SEARCH_DAYS_LIMIT : 1,
+  })
+
+  // Mantém a data de referência alinhada quando Início/Fim são alterados
+  // manualmente. Seleções feitas no painel não reiniciam a navegação.
   useEffect(() => {
+    if (applyingSelectionRef.current) {
+      applyingSelectionRef.current = false
+      return
+    }
+
     const nextDate = dateOfLocalInput(scheduledStartAt)
     if (nextDate && nextDate !== date) setDate(nextDate)
-    // A data escolhida no próprio painel não altera Início/Fim, portanto não volta.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scheduledStartAt])
 
-  const fetchEstimate = (startAt?: string | null) =>
-    serviceOrdersService.estimate({
-      ...requestRef.current,
-      date,
-      scheduled_start_at: startAt ?? null,
-    })
-
-  const runEstimate = async (startAt?: string | null) => {
-    if (!date || !clientId) {
-      requestIdRef.current += 1
-      setEstimate(null)
-      setError(null)
-      setLoading(false)
-      setPreviewLoading(false)
-      setRouteDetailsOpen(false)
-      return
-    }
-
-    const requestId = ++requestIdRef.current
-    setLoading(true)
-    setPreviewLoading(false)
-    setError(null)
-    setSelectionWarning(null)
-
-    try {
-      const next = await fetchEstimate(startAt)
-      if (requestId !== requestIdRef.current) return
-
-      setEstimate(next)
-      setPreviewStart(startAt ?? null)
-    } catch (err) {
-      if (requestId !== requestIdRef.current) return
-
-      setEstimate(null)
-      setPreviewStart(null)
-      setRouteDetailsOpen(false)
-      setError(isApiError(err) ? err.message : 'Não foi possível calcular a disponibilidade.')
-    } finally {
-      if (requestId === requestIdRef.current) setLoading(false)
-    }
-  }
-
-  const nonStartKey = JSON.stringify([
-    clientId,
-    address,
-    technicianId,
-    estimatedDuration,
-    itemsKey,
-    date,
-    serviceOrderId,
-  ])
-
-  // Atualiza a disponibilidade após uma pausa na edição dos campos que afetam a agenda.
   useEffect(() => {
-    const appliedSlotWasConfirmed =
-      skipAppliedSlotRef.current !== null &&
-      Boolean(scheduledStartAt) &&
-      sameInstant(skipAppliedSlotRef.current, scheduledStartAt ?? '') &&
-      previousNonStartKeyRef.current === nonStartKey
+    detailRequestRef.current += 1
+    setDetail(null)
+    setSelectionWarning(null)
+    setActionError(null)
+  }, [requestKey])
 
-    skipAppliedSlotRef.current = null
-    previousNonStartKeyRef.current = nonStartKey
+  useEffect(() => {
+    setSelectionWarning(null)
+    setActionError(null)
+  }, [date])
 
-    // O clique em um horário já refez a confirmação na API; não dispara outra
-    // consulta só porque Início/Fim acabaram de ser preenchidos.
-    if (appliedSlotWasConfirmed) return
+  // Ajustes manuais em Início/Fim também atualizam o trajeto e a prévia.
+  useEffect(() => {
+    const nextDate = dateOfLocalInput(scheduledStartAt)
+    const startAt = normalizedLocalStart(scheduledStartAt)
 
-    if (!date || !clientId) {
-      requestIdRef.current += 1
-      setEstimate(null)
-      setError(null)
-      setLoading(false)
-      setPreviewLoading(false)
-      setRouteDetailsOpen(false)
+    if (!nextDate || !startAt) return
+
+    // A seleção já confirmou o horário; evita uma requisição duplicada.
+    if (skipDetailStartRef.current === startAt) {
+      skipDetailStartRef.current = null
       return
     }
 
-    // Marca como carregando já durante o debounce para impedir a seleção de um
-    // horário que será recalculado em seguida. Invalida também qualquer resposta
-    // em voo para não exibir uma disponibilidade calculada com dados antigos.
-    setLoading(true)
-    setPreviewLoading(false)
-    requestIdRef.current += 1
-    const selectedStart = selectedSlotStart(scheduledStartAt, date)
-    const timer = setTimeout(() => {
-      void runEstimate(selectedStart)
+    const requestId = ++detailRequestRef.current
+    const timer = window.setTimeout(() => {
+      void board
+        .fetchDay(nextDate, startAt)
+        .then((estimate) => {
+          if (requestId !== detailRequestRef.current || !estimate) return
+
+          setDetail({ date: nextDate, start: startAt, estimate })
+        })
+        .catch((err) => {
+          if (requestId !== detailRequestRef.current) return
+
+          setActionError(
+            isApiError(err)
+              ? err.message
+              : 'Não foi possível atualizar o trajeto do horário selecionado.',
+          )
+        })
     }, 500)
 
-    return () => clearTimeout(timer)
-    // Início/Fim também entram na verificação: ajustes manuais precisam atualizar
-    // a rota e confirmar a disponibilidade, não apenas o calendário.
+    return () => window.clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    clientId,
-    address,
-    technicianId,
-    estimatedDuration,
-    itemsKey,
-    date,
-    scheduledStartAt,
-    serviceOrderId,
-  ])
+  }, [scheduledStartAt, requestKey])
 
-  const hasTechnician = Boolean(technicianId)
-  const slots = estimate?.slots ?? []
-  const displaySlots = groupBlockedSlots(slots)
-  const availableSlots = displaySlots.filter((slot) => slot.available)
-  const blockedSlots = displaySlots.filter((slot) => !slot.available)
-
-  const selectedStart = selectedSlotStart(scheduledStartAt, date)
-  const selectedSlot = selectedStart
-    ? slots.find((slot) => sameInstant(slot.start, selectedStart))
-    : undefined
-  const selectedOnAnotherDate = Boolean(
-    date && scheduledStartAt && dateOfLocalInput(scheduledStartAt) !== date,
-  )
+  const selectedDate = dateOfLocalInput(scheduledStartAt)
+  const selectedStart = normalizedLocalStart(scheduledStartAt)
+  const detailForSelection =
+    selectedDate &&
+    selectedStart &&
+    detail &&
+    detail.date === selectedDate &&
+    sameInstant(detail.start, selectedStart)
+      ? detail.estimate
+      : null
+  const selectedDayEstimate = selectedDate ? board.estimates[selectedDate] ?? null : null
+  const selectedEstimate = detailForSelection ?? selectedDayEstimate
+  const summaryEstimate = selectedDate ? selectedEstimate : board.estimates[date] ?? null
+  const selectedSlot =
+    selectedStart && selectedEstimate
+      ? selectedEstimate.slots.find((slot) => sameInstant(slot.start, selectedStart))
+      : undefined
   const selectedUnavailable = Boolean(
     hasTechnician &&
-      estimate &&
+      selectedEstimate &&
       selectedStart &&
-      !loading &&
-      !slots.some((slot) => sameInstant(slot.start, selectedStart) && slot.available),
+      !board.loading &&
+      !board.loadingMore &&
+      !selectedEstimate.slots.some(
+        (slot) => sameInstant(slot.start, selectedStart) && slot.available,
+      ),
   )
 
-  const selectSlot = async (slot: ScheduleEstimate['slots'][number]) => {
-    if (!slot.available || previewLoading) return
+  const handleSelectSlot = async (
+    slotDate: string,
+    slot: ScheduleSlotView,
+  ): Promise<boolean> => {
+    if (confirmingRef.current) return false
 
-    const requestId = ++requestIdRef.current
-    setLoading(false)
-    setPreviewStart(slot.start)
+    confirmingRef.current = true
+    detailRequestRef.current += 1
     setPreviewLoading(true)
-    setError(null)
+    setConfirmingStart(slot.start)
     setSelectionWarning(null)
+    setActionError(null)
+
+    const requestId = ++selectionRequestRef.current
 
     try {
-      // Confirma o horário com o endereço/duração atuais antes de aplicar.
-      const next = await fetchEstimate(slot.start)
-      if (requestId !== requestIdRef.current) return
+      // Confirma novamente com os dados atuais antes de aplicar ao formulário.
+      const next = await board.refreshDay(slotDate, slot.start)
+
+      if (requestId !== selectionRequestRef.current || !next) return false
 
       const confirmed = next.slots.find((item) => sameInstant(item.start, slot.start))
-      setEstimate(next)
 
       if (!confirmed || !confirmed.available) {
-        setPreviewStart(null)
         setSelectionWarning(
           'Este horário não está mais disponível com os dados atuais. Escolha outro horário.',
         )
-        return
+        return false
       }
 
-      skipAppliedSlotRef.current = confirmed.start
-      form.setValue('scheduled_start_at', toLocalDateTimeValue(new Date(confirmed.start)), {
+      const nextStart = toLocalDateTimeValue(new Date(confirmed.start))
+      const currentStart = normalizedLocalStart(form.getValues('scheduled_start_at'))
+
+      if (nextStart !== currentStart) {
+        applyingSelectionRef.current = true
+        skipDetailStartRef.current = nextStart
+      }
+
+      setDetail({ date: slotDate, start: nextStart, estimate: next })
+      form.setValue('scheduled_start_at', nextStart, {
         shouldDirty: true,
         shouldValidate: true,
       })
@@ -317,20 +315,64 @@ export function ServiceOrderSchedulingPanel({
         shouldDirty: true,
         shouldValidate: true,
       })
-    } catch (err) {
-      if (requestId !== requestIdRef.current) return
 
-      setPreviewStart(null)
-      setError(isApiError(err) ? err.message : 'Não foi possível confirmar o horário.')
+      return true
+    } catch (err) {
+      if (requestId === selectionRequestRef.current) {
+        setSelectionWarning(
+          isApiError(err)
+            ? err.message
+            : 'Não foi possível confirmar o horário selecionado.',
+        )
+      }
+
+      return false
     } finally {
-      if (requestId === requestIdRef.current) setPreviewLoading(false)
+      if (requestId === selectionRequestRef.current) {
+        setPreviewLoading(false)
+        setConfirmingStart(null)
+      }
+      confirmingRef.current = false
     }
   }
 
-  const travel = estimate?.travel
-  const returnTravel = estimate?.travel_return
-  const roundTrip = estimate?.travel_round_trip
-  const routePreviewStart = previewStart ?? selectedStart
+  const handleRefresh = () => {
+    const requestId = ++detailRequestRef.current
+
+    setSelectionWarning(null)
+    setActionError(null)
+    board.reload()
+
+    const nextDate = dateOfLocalInput(scheduledStartAt)
+    const parsed = parseLocalDateTime(scheduledStartAt ?? '')
+
+    if (nextDate && parsed) {
+      const startAt = toLocalDateTimeValue(parsed)
+
+      void board
+        .fetchDay(nextDate, startAt)
+        .then((estimate) => {
+          if (requestId !== detailRequestRef.current || !estimate) return
+
+          setDetail({ date: nextDate, start: startAt, estimate })
+        })
+        .catch((err) => {
+          if (requestId !== detailRequestRef.current) return
+
+          setActionError(
+            isApiError(err)
+              ? err.message
+              : 'Não foi possível atualizar o horário selecionado.',
+          )
+        })
+    }
+  }
+
+  const travel = summaryEstimate?.travel
+  const returnTravel = summaryEstimate?.travel_return
+  const roundTrip = summaryEstimate?.travel_round_trip
+  const routePreviewStart = detailForSelection ? selectedStart : null
+  const selectedTimezone = selectedEstimate?.timezone
 
   return (
     <div className="space-y-5">
@@ -355,74 +397,33 @@ export function ServiceOrderSchedulingPanel({
 
       <div className="rounded-xl bg-surface-2/60 p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <Field label="Data do atendimento" className="w-full sm:w-60">
+          <Field label="Buscar a partir de" className="w-full sm:w-60">
             <DatePicker
               value={date}
               onChange={(event) => setDate(event.target.value)}
-              aria-label="Data do atendimento"
+              aria-label="Buscar horários a partir desta data"
             />
           </Field>
 
           <div className="flex items-center gap-3">
-            {loading && (
+            {previewLoading && (
               <span className="flex items-center gap-2 text-xs text-muted" role="status">
                 <Spinner className="size-4" />
-                Atualizando horários…
+                Confirmando horário…
               </span>
             )}
             <Button
               type="button"
               variant="secondary"
               size="sm"
-              loading={loading}
+              loading={board.loading}
               disabled={!clientId || !date || previewLoading}
-              onClick={() => void runEstimate(selectedStart)}>
-              {!loading && <RefreshCw className="size-4" />}
+              onClick={handleRefresh}>
+              {!board.loading && <RefreshCw className="size-4" />}
               {hasTechnician ? 'Atualizar horários' : 'Calcular estimativa'}
             </Button>
           </div>
         </div>
-
-        {!date && (
-          <p className="mt-4 text-sm text-muted">
-            Escolha uma data para consultar os horários disponíveis.
-          </p>
-        )}
-
-        {error && (
-          <div className="mt-4 flex flex-col gap-3 rounded-lg bg-danger-soft p-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-[13px] text-danger" role="alert">
-              {error}
-            </p>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => void runEstimate(selectedStart)}>
-              Tentar novamente
-            </Button>
-          </div>
-        )}
-
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <CalendarClock className="size-4 text-muted" aria-hidden="true" />
-            <p className="text-sm font-medium text-foreground">Horários disponíveis</p>
-          </div>
-          {estimate && (
-            <p className="text-xs text-muted" aria-live="polite">
-              {availableSlots.length} livre{availableSlots.length === 1 ? '' : 's'}
-              {blockedSlots.length > 0
-                ? ` · ${blockedSlots.length} bloqueado${blockedSlots.length === 1 ? '' : 's'}`
-                : ''}
-            </p>
-          )}
-        </div>
-
-        <p className="mt-1 text-xs text-muted">
-          O horário exibido é o período de execução no cliente. O deslocamento de ida e volta é
-          calculado separadamente. Horários riscados estão bloqueados por outro atendimento.
-        </p>
 
         {!clientId && (
           <div className="mt-4 flex items-start gap-2 rounded-lg bg-surface px-3 py-2.5 text-sm text-muted">
@@ -441,98 +442,55 @@ export function ServiceOrderSchedulingPanel({
           </div>
         )}
 
-        {hasTechnician && loading && !estimate && (
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4" aria-hidden="true">
-            {Array.from({ length: 8 }).map((_, index) => (
-              <div key={index} className="h-16 animate-pulse rounded-lg bg-surface" />
-            ))}
-          </div>
-        )}
-
-        {hasTechnician && clientId && !loading && displaySlots.length === 0 && !error && (
-          <div className="mt-4 rounded-lg bg-surface px-4 py-5 text-center">
-            <p className="text-sm font-medium text-foreground">
-              Nenhum horário livre nesta data.
-            </p>
-            <p className="mt-1 text-xs text-muted">
-              Escolha outra data ou verifique a jornada e os atendimentos do técnico.
-            </p>
-          </div>
-        )}
-
-        {hasTechnician && displaySlots.length > 0 && (
-          <div
-            className={
-              loading
-                ? 'mt-4 grid grid-cols-2 gap-2 opacity-60 sm:grid-cols-3 lg:grid-cols-4'
-                : 'mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4'
-            }>
-            {displaySlots.map((slot) =>
-              slot.available ? (
-                <Button
-                  key={slot.start}
-                  type="button"
-                  size="sm"
-                  className="h-16 min-w-0 flex-col gap-0 px-2"
-                  variant={selectedStart && sameInstant(slot.start, selectedStart) ? 'primary' : 'secondary'}
-                  disabled={previewLoading || loading}
-                  aria-pressed={Boolean(
-                    selectedStart && sameInstant(slot.start, selectedStart),
-                  )}
-                  aria-label={`Selecionar ${formatWeekdayDay(slot.start)}, ${formatTime(slot.start)} às ${formatTime(slot.end)}`}
-                  onClick={() => void selectSlot(slot)}>
-                  <span className="truncate text-[10px] font-medium tracking-wide opacity-75">
-                    {formatWeekdayDay(slot.start)}
-                  </span>
-                  <span className="flex min-w-0 items-baseline gap-1">
-                    <span className="truncate text-[13px] font-semibold">
-                      {formatTime(slot.start)}
-                    </span>
-                    <span className="truncate text-[11px] opacity-75">
-                      – {formatTime(slot.end)}
-                    </span>
-                  </span>
-                </Button>
-              ) : (
-                <div
-                  key={slot.start}
-                  className="flex h-16 min-w-0 flex-col justify-center gap-0.5 overflow-hidden rounded-lg bg-surface px-2 py-1"
-                  title={slot.reason ?? 'Horário bloqueado'}>
-                  <span className="truncate text-[10px] font-medium text-subtle">
-                    {formatWeekdayDay(slot.start)}
-                  </span>
-                  <span className="flex items-center gap-1 text-[11px] font-medium text-muted line-through">
-                    <Lock className="size-3 shrink-0" aria-hidden="true" />
-                    <span className="truncate">
-                      {formatTime(slot.start)} – {formatTime(slot.end)}
-                    </span>
-                  </span>
-                  <span className="truncate text-[10px] leading-tight text-subtle">
-                    {slot.reason ?? 'Horário bloqueado por outro atendimento'}
-                  </span>
-                </div>
-              ),
-            )}
-          </div>
-        )}
-
-        {previewLoading && (
-          <p className="mt-3 flex items-center gap-2 text-xs text-muted" role="status">
-            <Spinner className="size-4" />
-            Confirmando disponibilidade do horário…
+        {clientId && hasTechnician && !date && (
+          <p className="mt-4 text-sm text-muted">
+            Escolha uma data para consultar os horários disponíveis.
           </p>
         )}
 
-        {selectedSlot?.available && !loading && (
-          <Badge variant="success" className="mt-3">
-            Horário selecionado: {formatTime(selectedSlot.start)} – {formatTime(selectedSlot.end)}
+        {clientId && hasTechnician && date && (
+          <div className="mt-4">
+            <div className="mb-3 flex items-center gap-2">
+              <CalendarClock className="size-4 text-muted" aria-hidden="true" />
+              <p className="text-sm font-medium text-foreground">Horários disponíveis</p>
+            </div>
+
+            <p className="mb-3 text-xs text-muted">
+              Os dias mostram a primeira opção da manhã e da tarde. Horários ocupados ou fora da
+              jornada não aparecem; o cálculo considera o deslocamento de ida e volta.
+            </p>
+
+            <ServiceOrderAvailabilityBoard
+              days={board.days}
+              selectedDate={selectedDate}
+              selectedStart={selectedStart}
+              loading={board.loading}
+              loadingMore={board.loadingMore}
+              hasMore={board.hasMore}
+              error={board.error}
+              failedCount={board.failedCount}
+              searchedUntil={board.searchedUntil}
+              confirmingStart={confirmingStart}
+              disabled={previewLoading}
+              selectionWarning={selectionWarning}
+              onReload={handleRefresh}
+              onLoadMore={board.loadMore}
+              onRetryFailed={() => void board.retryFailed()}
+              onClearWarning={() => {
+                setSelectionWarning(null)
+                setActionError(null)
+              }}
+              onSelectSlot={handleSelectSlot}
+            />
+          </div>
+        )}
+
+        {selectedSlot?.available && !board.loading && (
+          <Badge variant="success" className="mt-3 max-w-full whitespace-normal">
+            Horário selecionado: {formatWeekdayDay(selectedSlot.start, selectedTimezone)} ·{' '}
+            {formatTime(selectedSlot.start, selectedTimezone)} –{' '}
+            {formatTime(selectedSlot.end, selectedTimezone)}
           </Badge>
-        )}
-
-        {selectedOnAnotherDate && (
-          <p className="mt-3 text-xs text-warning">
-            Início e Fim estão em outra data. Escolha um horário acima ou ajuste os campos abaixo.
-          </p>
         )}
 
         {(selectedUnavailable || selectionWarning) && (
@@ -540,6 +498,17 @@ export function ServiceOrderSchedulingPanel({
             {selectionWarning ??
               'O horário em Início/Fim não corresponde a um horário disponível na grade atual. Escolha uma opção acima ou ajuste os campos abaixo.'}
           </Alert>
+        )}
+
+        {actionError && (
+          <div className="mt-3 flex flex-col gap-2 rounded-lg bg-danger-soft px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[13px] text-danger" role="alert">
+              {actionError}
+            </p>
+            <Button type="button" variant="secondary" size="sm" onClick={handleRefresh}>
+              Tentar novamente
+            </Button>
+          </div>
         )}
 
         <div className="mt-5 space-y-3">
@@ -553,7 +522,6 @@ export function ServiceOrderSchedulingPanel({
             necessário.
           </p>
         </div>
-
       </div>
 
       <CheckboxField
@@ -563,7 +531,7 @@ export function ServiceOrderSchedulingPanel({
         className="rounded-xl bg-surface-2/60 px-4 py-3"
       />
 
-      {estimate && (
+      {summaryEstimate && (
         <div className="space-y-4">
           <dl className="grid gap-4 px-1 sm:grid-cols-3">
             <div className="min-w-0">
@@ -571,10 +539,10 @@ export function ServiceOrderSchedulingPanel({
                 <Clock className="size-3.5" aria-hidden="true" /> Execução
               </dt>
               <dd className="mt-1 font-semibold text-foreground">
-                {formatMinutes(estimate.duration_minutes)}
+                {formatMinutes(summaryEstimate.duration_minutes)}
               </dd>
               <dd className="text-xs text-muted">
-                {DURATION_SOURCE_LABELS[estimate.duration_source]}
+                {DURATION_SOURCE_LABELS[summaryEstimate.duration_source]}
               </dd>
             </div>
 
@@ -593,7 +561,7 @@ export function ServiceOrderSchedulingPanel({
                   <dd className="text-xs text-muted">
                     Ida {formatMinutes(travel.minutes)} · Volta{' '}
                     {formatMinutes(returnTravel?.minutes ?? travel.minutes)} ·{' '}
-                    {travelSourceLabel(estimate)}
+                    {travelSourceLabel(summaryEstimate)}
                   </dd>
                 </>
               ) : (
@@ -608,11 +576,11 @@ export function ServiceOrderSchedulingPanel({
               {travel ? (
                 <>
                   <dd className="mt-1 text-sm text-foreground">
-                    {originLabel(estimate)}{' '}
+                    {originLabel(summaryEstimate)}{' '}
                     <span className="text-muted">→ atendimento</span>
                   </dd>
                   <dd className="truncate text-xs text-muted">
-                    Retorno {returnLabel(estimate)}
+                    Retorno {returnLabel(summaryEstimate)}
                   </dd>
                 </>
               ) : (
@@ -623,10 +591,10 @@ export function ServiceOrderSchedulingPanel({
             </div>
           </dl>
 
-          {estimate.warnings.length > 0 && (
+          {summaryEstimate.warnings.length > 0 && (
             <Alert variant="warning" title="Atenção">
               <ul className="list-disc space-y-0.5 pl-4">
-                {estimate.warnings.map((warning) => (
+                {summaryEstimate.warnings.map((warning) => (
                   <li key={warning}>{warning}</li>
                 ))}
               </ul>
@@ -653,24 +621,26 @@ export function ServiceOrderSchedulingPanel({
             <div className="space-y-4 px-4 pb-4">
               <dl className="grid gap-2 text-sm sm:grid-cols-3">
                 <div className="min-w-0">
-                  <dt className="text-xs text-muted">{originLabel(estimate)}</dt>
+                  <dt className="text-xs text-muted">{originLabel(summaryEstimate)}</dt>
                   <dd className="break-words text-foreground">
-                    {estimate.travel_origin ?? '—'}
+                    {summaryEstimate.travel_origin ?? '—'}
                   </dd>
                 </div>
                 <div className="min-w-0">
                   <dt className="text-xs text-muted">Atendimento</dt>
-                  <dd className="break-words text-foreground">{estimate.address ?? '—'}</dd>
+                  <dd className="break-words text-foreground">
+                    {summaryEstimate.address ?? '—'}
+                  </dd>
                 </div>
                 <div className="min-w-0">
-                  <dt className="text-xs text-muted">Retorno {returnLabel(estimate)}</dt>
+                  <dt className="text-xs text-muted">Retorno {returnLabel(summaryEstimate)}</dt>
                   <dd className="break-words text-foreground">
-                    {estimate.travel_return_address ?? '—'}
+                    {summaryEstimate.travel_return_address ?? '—'}
                   </dd>
                 </div>
               </dl>
 
-              {routeDetailsOpen && estimate.route && (
+              {routeDetailsOpen && summaryEstimate.route && (
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <p className="text-sm font-medium text-foreground">
@@ -686,11 +656,11 @@ export function ServiceOrderSchedulingPanel({
                           : 'Prévia do primeiro horário disponível; selecione um horário para atualizar.'}
                     </p>
                   </div>
-                  <ServiceOrderRouteMap route={estimate.route} />
+                  <ServiceOrderRouteMap route={summaryEstimate.route} />
                 </div>
               )}
 
-              {routeDetailsOpen && !estimate.route && (
+              {routeDetailsOpen && !summaryEstimate.route && (
                 <p className="text-sm text-muted">
                   O trajeto no mapa não está disponível para este atendimento.
                 </p>
