@@ -39,20 +39,22 @@ function slot(start: string, end: string, available = true): ScheduleSlotView {
   }
 }
 
-// 2026-10-20 em São Paulo (UTC-3): 11:00Z = 08:00, 15:00Z = 12:00.
+// 2026-10-20 em São Paulo (UTC-3): 11:00Z = 08:00, 16:00Z = 13:00.
 const morningFirst = slot('2026-10-20T11:00:00.000Z', '2026-10-20T12:30:00.000Z')
 const morningLater = slot('2026-10-20T12:00:00.000Z', '2026-10-20T13:30:00.000Z')
-const afternoonFirst = slot('2026-10-20T15:00:00.000Z', '2026-10-20T16:30:00.000Z')
+const afternoonFirst = slot('2026-10-20T16:00:00.000Z', '2026-10-20T17:30:00.000Z')
 const afternoonLater = slot('2026-10-20T18:00:00.000Z', '2026-10-20T19:30:00.000Z')
 const blocked = slot('2026-10-20T13:00:00.000Z', '2026-10-20T14:30:00.000Z', false)
 
-test('usa os limites de manhã e tarde no fuso operacional da agenda', () => {
+test('considera a tarde a partir das 13h no fuso operacional da agenda', () => {
   assert.equal(slotPeriod('2026-10-20T14:55:00.000Z', TIMEZONE), 'morning')
-  assert.equal(slotPeriod('2026-10-20T15:00:00.000Z', TIMEZONE), 'afternoon')
+  assert.equal(slotPeriod('2026-10-20T15:00:00.000Z', TIMEZONE), 'morning')
+  assert.equal(slotPeriod('2026-10-20T15:55:00.000Z', TIMEZONE), 'morning')
+  assert.equal(slotPeriod('2026-10-20T16:00:00.000Z', TIMEZONE), 'afternoon')
   assert.equal(slotPeriod('2026-10-20T11:00:00.000Z', TIMEZONE), 'morning')
   assert.equal(slotPeriod('2026-10-20T22:00:00.000Z', TIMEZONE), 'afternoon')
   assert.equal(formatTime(morningFirst.start, TIMEZONE), '08:00')
-  assert.equal(formatTime(afternoonFirst.start, TIMEZONE), '12:00')
+  assert.equal(formatTime(afternoonFirst.start, TIMEZONE), '13:00')
 })
 
 test('sugere no máximo o primeiro horário da manhã e o primeiro da tarde', () => {

@@ -29,8 +29,8 @@ export interface ScheduleEstimateView {
 
 export type SchedulePeriod = 'morning' | 'afternoon'
 
-/** Limite operacional entre manhã e tarde (12:00 no fuso da agenda). */
-export const MORNING_END_MINUTES = 12 * 60
+/** Início operacional da tarde (13:00 no fuso da agenda). */
+export const AFTERNOON_START_MINUTES = 13 * 60
 
 /** Tamanho do lote inicial e dos lotes seguintes, em dias de calendário. */
 export const CALENDAR_DAY_BATCH_SIZE = 10
@@ -98,7 +98,7 @@ export function slotPeriod(iso: string, timeZone?: string): SchedulePeriod | nul
 
   if (minutes === null) return null
 
-  return minutes < MORNING_END_MINUTES ? 'morning' : 'afternoon'
+  return minutes < AFTERNOON_START_MINUTES ? 'morning' : 'afternoon'
 }
 
 /**
