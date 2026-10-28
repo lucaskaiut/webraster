@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\ServiceOrder;
 
+use App\Modules\ACL\Enums\Permission;
 use App\Modules\Client\Models\Client;
 use App\Modules\ServiceOrder\Enums\ServiceOrderStatus;
 use App\Modules\ServiceOrder\Models\ServiceOrder;
@@ -198,6 +199,112 @@ class ServiceOrderTest extends TestCase
 
         $this->postJson('/api/service-orders', [
             'client_id' => $client->uuid,
+        ])->assertForbidden();
+    }
+
+    public function test_without_view_all_lists_only_own_orders(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $viewer = $this->createMember($tenant);
+        $other = $this->createMember($tenant);
+        $viewer->roles()->firstOrFail()->revokePermissions(Permission::SERVICE_ORDER_VIEW_ALL);
+
+        $start = now()->addDay()->setTime(9, 0);
+        $own = ServiceOrder::factory()->forClient($client)->create([
+            'number' => 1,
+            'created_by' => $viewer->getKey(),
+            'scheduled_start_at' => $start,
+            'scheduled_end_at' => $start->copy()->addHour(),
+        ]);
+        ServiceOrder::factory()->forClient($client)->create([
+            'number' => 2,
+            'created_by' => $other->getKey(),
+            'scheduled_start_at' => $start,
+            'scheduled_end_at' => $start->copy()->addHour(),
+        ]);
+
+        Sanctum::actingAs($viewer);
+
+        $this->getJson('/api/service-orders')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $own->uuid);
+
+        $this->getJson('/api/service-orders/kanban')
+            ->assertOk()
+            ->assertJsonCount(1, 'data.open')
+            ->assertJsonPath('data.open.0.id', $own->uuid);
+
+        $this->getJson('/api/service-orders/calendar')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $own->uuid);
+    }
+
+    public function test_without_view_all_cannot_access_orders_from_others(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $viewer = $this->createMember($tenant);
+        $other = $this->createMember($tenant);
+        $viewer->roles()->firstOrFail()->revokePermissions(Permission::SERVICE_ORDER_VIEW_ALL);
+
+        $order = ServiceOrder::factory()->forClient($client)->create([
+            'number' => 1,
+            'created_by' => $other->getKey(),
+        ]);
+
+        Sanctum::actingAs($viewer);
+
+        $this->getJson("/api/service-orders/{$order->uuid}")->assertForbidden();
+        $this->getJson("/api/service-orders/{$order->uuid}/history")->assertForbidden();
+        $this->putJson("/api/service-orders/{$order->uuid}", ['description' => 'x'])->assertForbidden();
+        $this->deleteJson("/api/service-orders/{$order->uuid}")->assertForbidden();
+        $this->patchJson("/api/service-orders/{$order->uuid}/status", [
+            'status' => 'cancelled',
+            'cancellation_reason' => 'Teste',
+        ])->assertForbidden();
+    }
+
+    public function test_cancel_permission_allows_only_cancellation(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $user = $this->createMember($tenant);
+        $user->roles()->firstOrFail()->revokePermissions(Permission::SERVICE_ORDER_CHANGE_STATUS);
+
+        $order = ServiceOrder::factory()->forClient($client)->create([
+            'number' => 1,
+            'created_by' => $user->getKey(),
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->patchJson("/api/service-orders/{$order->uuid}/status", [
+            'status' => 'in_progress',
+        ])->assertForbidden();
+
+        $this->patchJson("/api/service-orders/{$order->uuid}/status", [
+            'status' => 'cancelled',
+            'cancellation_reason' => 'Cliente desistiu',
+        ])->assertOk()->assertJsonPath('data.status', 'cancelled');
+    }
+
+    public function test_change_status_without_cancel_permission_cannot_cancel(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $user = $this->createMember($tenant);
+        $user->roles()->firstOrFail()->revokePermissions(Permission::SERVICE_ORDER_CANCEL);
+
+        $order = ServiceOrder::factory()->forClient($client)->create(['number' => 1]);
+
+        Sanctum::actingAs($user);
+
+        $this->patchJson("/api/service-orders/{$order->uuid}/status", [
+            'status' => 'cancelled',
+            'cancellation_reason' => 'Cliente desistiu',
         ])->assertForbidden();
     }
 

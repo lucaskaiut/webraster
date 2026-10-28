@@ -13,7 +13,9 @@ use App\Modules\Shared\Models\Concerns\HasUuid;
 use App\Modules\Tenant\Models\Concerns\BelongsToTenant;
 use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Models\Vehicle;
+use App\Modules\ACL\Enums\Permission;
 use Database\Factories\ServiceOrderFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -90,6 +92,33 @@ class ServiceOrder extends Model
             'cancelled_at' => 'datetime',
             'loan_term_accepted_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Restringe às OS que o usuário pode ver: todas, com a permissão
+     * service-order.view-all; senão, só as que ele mesmo lançou.
+     *
+     * Escopo local (e não global) de propósito: agenda, deslocamentos e
+     * lembretes precisam enxergar todas as OS do técnico.
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeVisibleTo(Builder $query, User $user): void
+    {
+        if ($user->hasPermission(Permission::SERVICE_ORDER_VIEW_ALL)) {
+            return;
+        }
+
+        $query->where($query->qualifyColumn('created_by'), $user->getKey());
+    }
+
+    /**
+     * Versão em memória de scopeVisibleTo(), usada pela policy.
+     */
+    public function isVisibleTo(User $user): bool
+    {
+        return $user->hasPermission(Permission::SERVICE_ORDER_VIEW_ALL)
+            || (int) $this->created_by === (int) $user->getKey();
     }
 
     public function getCodeAttribute(): string

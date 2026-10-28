@@ -14,6 +14,9 @@ use Symfony\Component\HttpFoundation\Response;
 class EnsurePermission
 {
     /**
+     * Aceita uma permissão ou alternativas separadas por "|"
+     * (ex.: "service-order.change-status|service-order.cancel"): basta uma.
+     *
      * @throws AuthenticationException
      * @throws AuthorizationException
      */
@@ -22,14 +25,15 @@ class EnsurePermission
         $apiToken = $request->attributes->get('api_token');
         $user = $request->user();
 
-        $enum = Permission::tryFrom($permission);
-
-        if ($enum === null) {
-            throw new InvalidArgumentException("Permissão desconhecida [{$permission}].");
-        }
+        $enums = array_map(function (string $value): Permission {
+            return Permission::tryFrom($value)
+                ?? throw new InvalidArgumentException("Permissão desconhecida [{$value}].");
+        }, explode('|', $permission));
 
         if ($apiToken instanceof ApiToken) {
-            if (! $apiToken->can($permission)) {
+            $allowed = array_filter($enums, fn (Permission $enum) => $apiToken->can($enum->value));
+
+            if ($allowed === []) {
                 throw new AuthorizationException('Este token não possui escopo para executar esta ação.');
             }
 
@@ -37,7 +41,9 @@ class EnsurePermission
         }
 
         if ($user !== null) {
-            if (! $user->hasPermission($enum)) {
+            $allowed = array_filter($enums, fn (Permission $enum) => $user->hasPermission($enum));
+
+            if ($allowed === []) {
                 throw new AuthorizationException('Você não possui permissão para executar esta ação.');
             }
 

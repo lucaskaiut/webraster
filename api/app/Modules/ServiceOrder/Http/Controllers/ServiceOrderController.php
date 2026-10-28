@@ -46,6 +46,7 @@ class ServiceOrderController extends ApiController
         $orders = $this->service->paginate(
             (int) $request->integer('per_page', 15),
             $this->filters($request),
+            $request->user(),
         );
 
         return $this->paginated(ServiceOrderResource::collection($orders));
@@ -55,7 +56,7 @@ class ServiceOrderController extends ApiController
     {
         $this->authorize('viewAny', ServiceOrder::class);
 
-        $grouped = $this->service->kanban($this->filters($request));
+        $grouped = $this->service->kanban($this->filters($request), $request->user());
 
         $data = $grouped->map(fn ($items) => ServiceOrderResource::collection($items)->resolve());
 
@@ -66,7 +67,7 @@ class ServiceOrderController extends ApiController
     {
         $this->authorize('viewAny', ServiceOrder::class);
 
-        $orders = $this->service->calendar($this->filters($request));
+        $orders = $this->service->calendar($this->filters($request), $request->user());
 
         return $this->success(ServiceOrderResource::collection($orders));
     }
@@ -130,12 +131,14 @@ class ServiceOrderController extends ApiController
 
     public function changeStatus(ChangeServiceOrderStatusRequest $request, ServiceOrder $serviceOrder): JsonResponse
     {
-        $this->authorize('changeStatus', $serviceOrder);
-
         $data = $request->validated();
+        $next = ServiceOrderStatus::from((string) $data['status']);
+
+        $this->authorize('changeStatus', [$serviceOrder, $next]);
+
         $order = $this->service->changeStatus(
             $serviceOrder,
-            ServiceOrderStatus::from((string) $data['status']),
+            $next,
             $request->user(),
             $data['cancellation_reason'] ?? null,
             $data['execution_notes'] ?? null,

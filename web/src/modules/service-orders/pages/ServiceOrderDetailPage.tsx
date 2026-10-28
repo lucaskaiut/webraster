@@ -97,6 +97,7 @@ export default function ServiceOrderDetailPage() {
     order.status !== 'completed' &&
     order.status !== 'cancelled'
   const canChangeStatus = can(Permission.SERVICE_ORDER_CHANGE_STATUS)
+  const canCancel = can(Permission.SERVICE_ORDER_CANCEL)
   const items = order.items ?? []
   const billing = order.billing ?? null
   const canGenerateBilling =
@@ -181,7 +182,7 @@ export default function ServiceOrderDetailPage() {
             {canChangeStatus && order.status === 'in_progress' && (
               <Button onClick={() => setCompleteOpen(true)}>Concluir</Button>
             )}
-            {canChangeStatus && (order.status === 'open' || order.status === 'in_progress') && (
+            {canCancel && (order.status === 'open' || order.status === 'in_progress') && (
               <Button variant="secondary" onClick={() => setCancelOpen(true)}>
                 Cancelar
               </Button>

@@ -261,7 +261,7 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::get('service-orders/{serviceOrder}', [ServiceOrderController::class, 'show'])->middleware('permission:service-order.read');
     Route::match(['put', 'patch'], 'service-orders/{serviceOrder}', [ServiceOrderController::class, 'update'])->middleware('permission:service-order.update');
     Route::delete('service-orders/{serviceOrder}', [ServiceOrderController::class, 'destroy'])->middleware('permission:service-order.delete');
-    Route::patch('service-orders/{serviceOrder}/status', [ServiceOrderController::class, 'changeStatus'])->middleware('permission:service-order.change-status');
+    Route::patch('service-orders/{serviceOrder}/status', [ServiceOrderController::class, 'changeStatus'])->middleware('permission:service-order.change-status|service-order.cancel');
     Route::post('service-orders/{serviceOrder}/billing', [ServiceOrderController::class, 'generateBilling'])->middleware('permission:finance-billing.create');
     Route::post('service-orders/{serviceOrder}/photos', [ServiceOrderController::class, 'storePhoto'])->middleware('permission:service-order.update');
     Route::delete('service-orders/{serviceOrder}/photos/{photo}', [ServiceOrderController::class, 'destroyPhoto'])->middleware('permission:service-order.update');

@@ -49,9 +49,9 @@ class ServiceOrderService
     /**
      * @param  array<string, mixed>  $filters
      */
-    public function paginate(int $perPage = 15, array $filters = []): LengthAwarePaginator
+    public function paginate(int $perPage = 15, array $filters = [], ?User $viewer = null): LengthAwarePaginator
     {
-        return $this->filteredQuery($filters)
+        return $this->filteredQuery($filters, $viewer)
             ->with(['client', 'vehicle', 'equipment', 'technician', 'creator'])
             ->orderByDesc('created_at')
             ->paginate(min(max($perPage, 1), 100));
@@ -61,9 +61,9 @@ class ServiceOrderService
      * @param  array<string, mixed>  $filters
      * @return Collection<string, Collection<int, ServiceOrder>>
      */
-    public function kanban(array $filters = []): Collection
+    public function kanban(array $filters = [], ?User $viewer = null): Collection
     {
-        $orders = $this->filteredQuery($filters)
+        $orders = $this->filteredQuery($filters, $viewer)
             ->with(['client', 'vehicle', 'technician'])
             ->whereIn('status', [
                 ServiceOrderStatus::OPEN->value,
@@ -97,9 +97,9 @@ class ServiceOrderService
      * @param  array<string, mixed>  $filters
      * @return Collection<int, ServiceOrder>
      */
-    public function calendar(array $filters = []): Collection
+    public function calendar(array $filters = [], ?User $viewer = null): Collection
     {
-        return $this->filteredQuery($filters)
+        return $this->filteredQuery($filters, $viewer)
             ->with(['client', 'vehicle', 'technician'])
             ->whereNotNull('scheduled_start_at')
             ->whereNotIn('status', [ServiceOrderStatus::CANCELLED->value])
@@ -665,9 +665,13 @@ class ServiceOrderService
     /**
      * @param  array<string, mixed>  $filters
      */
-    private function filteredQuery(array $filters)
+    private function filteredQuery(array $filters, ?User $viewer = null)
     {
         $query = ServiceOrder::query();
+
+        if ($viewer !== null) {
+            $query->visibleTo($viewer);
+        }
 
         if (! empty($filters['search'])) {
             $search = (string) $filters['search'];

@@ -86,6 +86,8 @@ enum DefaultRole: string
                 Permission::SERVICE_ORDER_UPDATE,
                 Permission::SERVICE_ORDER_DELETE,
                 Permission::SERVICE_ORDER_CHANGE_STATUS,
+                Permission::SERVICE_ORDER_CANCEL,
+                Permission::SERVICE_ORDER_VIEW_ALL,
                 Permission::COMMISSION_READ,
                 Permission::COMMISSION_VIEW_OTHERS,
                 Permission::CHECKLIST_CREATE,
@@ -132,6 +134,7 @@ enum DefaultRole: string
                 Permission::ALERT_READ,
                 Permission::NOTIFICATION_READ,
                 Permission::SERVICE_ORDER_READ,
+                Permission::SERVICE_ORDER_VIEW_ALL,
                 Permission::FINANCE_PORTAL_VIEW,
             ],
             self::TECHNICIAN => [

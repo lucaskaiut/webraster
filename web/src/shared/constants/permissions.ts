@@ -88,6 +88,8 @@ export const Permission = {
   SERVICE_ORDER_UPDATE: 'service-order.update',
   SERVICE_ORDER_DELETE: 'service-order.delete',
   SERVICE_ORDER_CHANGE_STATUS: 'service-order.change-status',
+  SERVICE_ORDER_CANCEL: 'service-order.cancel',
+  SERVICE_ORDER_VIEW_ALL: 'service-order.view-all',
   SERVICE_ORDER_EXECUTE: 'service-order.execute',
 
   COMMISSION_READ: 'commission.read',
@@ -337,10 +339,15 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     label: 'Ordens de serviço',
     permissions: [
       { value: Permission.SERVICE_ORDER_READ, label: 'Visualizar ordens de serviço' },
+      {
+        value: Permission.SERVICE_ORDER_VIEW_ALL,
+        label: 'Visualizar todas as OS (sem ela, só as que o usuário lançou)',
+      },
       { value: Permission.SERVICE_ORDER_CREATE, label: 'Criar ordens de serviço' },
       { value: Permission.SERVICE_ORDER_UPDATE, label: 'Editar ordens de serviço' },
       { value: Permission.SERVICE_ORDER_DELETE, label: 'Remover ordens de serviço' },
-      { value: Permission.SERVICE_ORDER_CHANGE_STATUS, label: 'Alterar status de OS' },
+      { value: Permission.SERVICE_ORDER_CHANGE_STATUS, label: 'Iniciar e concluir OS' },
+      { value: Permission.SERVICE_ORDER_CANCEL, label: 'Cancelar OS' },
       { value: Permission.SERVICE_ORDER_EXECUTE, label: 'Executar OS como técnico (app)' },
     ],
   },
