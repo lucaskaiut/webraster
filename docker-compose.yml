@@ -122,6 +122,28 @@ services:
     networks:
       - webraster
 
+  agendamento:
+    build:
+      context: ./docker/web
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      DEV_PORT: ${AGENDAMENTO_PORT:-5175}
+      CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING:-false}
+    ports:
+      - "${AGENDAMENTO_PORT:-5175}:${AGENDAMENTO_PORT:-5175}"
+    volumes:
+      - ./agendamento:/app
+      - agendamento_node_modules:/app/node_modules
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:$${DEV_PORT:-5175}/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 300s
+    networks:
+      - webraster
+
 networks:
   webraster:
     driver: bridge
@@ -130,3 +152,4 @@ volumes:
   mysql_data:
   composer_cache:
   web_node_modules:
+  agendamento_node_modules:

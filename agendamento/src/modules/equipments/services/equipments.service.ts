@@ -1,0 +1,73 @@
+import { http } from '@/shared/api/http'
+import type { ApiResponse, ListParams, PaginatedResponse } from '@/shared/types/api'
+import type {
+  Equipment,
+  EquipmentAssignmentEvent,
+  EquipmentStockMovement,
+} from '@/shared/types/models'
+
+export interface EquipmentListParams extends Omit<ListParams, 'per_page'> {
+  per_page?: number | 'all'
+  available?: boolean
+  is_active?: boolean
+  vehicle_id?: string
+  stock_id?: string
+  technician_id?: string
+  /** Ordenação multi-coluna no formato `coluna:asc,coluna2:desc`. */
+  sort?: string
+}
+
+export interface EquipmentPayload {
+  imei?: string
+  model?: string | null
+  line_number?: string | null
+  carrier?: string | null
+  is_active?: boolean
+  stock_id?: string | null
+}
+
+export const equipmentsService = {
+  async list(params: EquipmentListParams): Promise<PaginatedResponse<Equipment>> {
+    const response = await http.get<PaginatedResponse<Equipment>>('/equipments', { params })
+
+    return response.data
+  },
+
+  async get(id: string): Promise<Equipment> {
+    const response = await http.get<ApiResponse<Equipment>>(`/equipments/${id}`)
+
+    return response.data.data
+  },
+
+  async create(payload: EquipmentPayload): Promise<Equipment> {
+    const response = await http.post<ApiResponse<Equipment>>('/equipments', payload)
+
+    return response.data.data
+  },
+
+  async update(id: string, payload: EquipmentPayload): Promise<Equipment> {
+    const response = await http.put<ApiResponse<Equipment>>(`/equipments/${id}`, payload)
+
+    return response.data.data
+  },
+
+  async remove(id: string): Promise<void> {
+    await http.delete(`/equipments/${id}`)
+  },
+
+  async history(id: string): Promise<EquipmentAssignmentEvent[]> {
+    const response = await http.get<ApiResponse<EquipmentAssignmentEvent[]>>(
+      `/equipments/${id}/assignment-history`,
+    )
+
+    return response.data.data
+  },
+
+  async stockMovements(id: string): Promise<EquipmentStockMovement[]> {
+    const response = await http.get<ApiResponse<EquipmentStockMovement[]>>(
+      `/equipments/${id}/stock-movements`,
+    )
+
+    return response.data.data
+  },
+}

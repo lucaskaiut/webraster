@@ -8,6 +8,7 @@ api/storage/framework/sessions/*
 api/bootstrap/cache/*
 api/.env
 web
+agendamento
 docs
 docker/gateway
 docker/traccar
