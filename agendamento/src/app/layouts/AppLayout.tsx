@@ -2,7 +2,6 @@ import { Suspense } from 'react'
 import { Outlet } from 'react-router'
 import { ClipboardList, Hammer, LogOut, Menu } from 'lucide-react'
 import { AppLogo } from '@/shared/brand/AppLogo'
-import { useActiveTenant } from '@/shared/brand/useActiveTenant'
 import { TenantSelector } from '@/modules/auth/components/TenantSelector'
 import { useSessionStore } from '@/shared/stores/session.store'
 import { useUiStore } from '@/shared/stores/ui.store'
@@ -27,8 +26,6 @@ import { cn } from '@/shared/utils/cn'
 import { TopbarSlotProvider, useTopbarSlotContent } from './topbar-slot'
 
 function Brand({ collapsed = false }: { collapsed?: boolean }) {
-  const activeTenant = useActiveTenant()
-
   if (collapsed) {
     return (
       <div className="flex justify-center">
@@ -40,9 +37,6 @@ function Brand({ collapsed = false }: { collapsed?: boolean }) {
   return (
     <div className="px-1">
       <AppLogo size="sm" />
-      {activeTenant?.name ? (
-        <span className="mt-1 block truncate text-xs text-muted">{activeTenant.name}</span>
-      ) : null}
     </div>
   )
 }
