@@ -3,8 +3,6 @@ import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router'
 import { AppProviders } from '@/app/providers/AppProviders'
 import { router } from '@/app/router'
-import { applyFavicon } from '@/shared/brand/favicon'
-import { getTenantBranding } from '@/shared/stores/tenant-branding.store'
 import './index.css'
 
 const CHUNK_RELOAD_KEY = 'app:chunk-reload-at'
@@ -35,9 +33,6 @@ window.addEventListener('vite:preloadError', (event) => {
 
   window.location.reload()
 })
-
-// Aplica o favicon do último tenant ativo antes do primeiro render.
-applyFavicon(getTenantBranding()?.favicon_url)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
