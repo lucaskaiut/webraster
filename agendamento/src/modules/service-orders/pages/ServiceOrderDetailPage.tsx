@@ -169,7 +169,7 @@ export default function ServiceOrderDetailPage() {
         actions={
           <div className="flex flex-wrap gap-2">
             {canCreate && (
-              <ButtonLink to="/service-orders/create" variant="secondary">
+              <ButtonLink to="/service-orders/create">
                 <Plus className="size-4" />
                 Nova OS
               </ButtonLink>
