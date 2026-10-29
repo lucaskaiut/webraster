@@ -2,6 +2,8 @@
 
 use App\Modules\ACL\Http\Middleware\EnsurePanelAccess;
 use App\Modules\ACL\Http\Middleware\EnsurePermission;
+use App\Modules\ACL\Http\Middleware\PreventPanelRequestForgery;
+use App\Modules\ACL\Http\Middleware\UsePanelSessionCookie;
 use App\Modules\ApiToken\Http\Middleware\AuthenticateApiToken;
 use App\Modules\ApiToken\Http\Middleware\MultiAuthenticate;
 use App\Modules\Billing\Http\Middleware\EnsureActiveSubscription;
@@ -18,6 +20,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Validation\ValidationException;
@@ -45,6 +48,10 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Painel identificado pelo header X-Panel exige a permissão de acesso a ele.
         $middleware->api(append: [EnsurePanelAccess::class]);
+
+        // Sessão e cookie XSRF separados por painel (antes do StartSession).
+        $middleware->prepend(UsePanelSessionCookie::class);
+        $middleware->web(replace: [PreventRequestForgery::class => PreventPanelRequestForgery::class]);
 
         // IP real do cliente atrás de proxy/load balancer (evidência de
         // assinatura e auditoria). Sem a variável, nenhum proxy é confiável.

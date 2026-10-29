@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '@/shared/api/base-url'
+import { PANEL, PANEL_HEADER, XSRF_COOKIE_NAME } from '@/shared/api/panel'
 import { useSessionStore } from '@/shared/stores/session.store'
 import { useTenantContextStore } from '@/shared/stores/tenant.store'
 import type { AssistantMessage } from '@/shared/types/models'
@@ -35,7 +36,9 @@ function buildHeaders(): Headers {
     'Content-Type': 'application/json',
   })
 
-  const xsrf = getCookie('XSRF-TOKEN')
+  headers.set(PANEL_HEADER, PANEL)
+
+  const xsrf = getCookie(XSRF_COOKIE_NAME)
   if (xsrf) headers.set('X-XSRF-TOKEN', xsrf)
 
   const { isMaster, availableTenants } = useSessionStore.getState()

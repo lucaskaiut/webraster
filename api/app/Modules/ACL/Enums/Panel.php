@@ -29,6 +29,20 @@ enum Panel: string
         };
     }
 
+    /**
+     * Cada painel tem a própria sessão: os dois chamam a mesma API, então
+     * com o mesmo nome de cookie um painel herdaria o login do outro.
+     */
+    public function sessionCookie(string $baseName): string
+    {
+        return "{$baseName}-{$this->value}";
+    }
+
+    public function xsrfCookie(): string
+    {
+        return "XSRF-TOKEN-{$this->value}";
+    }
+
     public function deniedMessage(): string
     {
         return 'Seu usuário não tem acesso a este painel.';

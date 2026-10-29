@@ -36,7 +36,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setGuest()
       clearSelectedTenantId()
 
-      // Sessão válida (compartilhada com outro painel), mas sem acesso a este.
+      // Usuário autenticado, mas sem permissão de acesso a este painel.
       if (isApiError(error) && error.status === 403) {
         toast.error('Acesso negado', error.message)
       }
