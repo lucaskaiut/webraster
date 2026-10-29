@@ -204,14 +204,6 @@ export function ServiceOrderForm({ submitting, onSubmit }: ServiceOrderFormProps
                   clearSchedule()
                 }}
               />
-              <TextareaField
-                name="description"
-                label="Descrição"
-                className="lg:col-span-3"
-                rows={6}
-                maxLength={5000}
-                placeholder="Descreva o atendimento, observações para o técnico, referências do local..."
-              />
             </div>
           </FormStep>
 
@@ -227,8 +219,15 @@ export function ServiceOrderForm({ submitting, onSubmit }: ServiceOrderFormProps
 
           <FormStep
             step={3}
-            title="Documento"
-            description="Anexe o documento do atendimento, se houver.">
+            title="Descrição e documento"
+            description="Descreva o atendimento e anexe o documento, se houver.">
+            <TextareaField
+              name="description"
+              label="Descrição"
+              rows={6}
+              maxLength={5000}
+              placeholder="Descreva o atendimento, observações para o técnico, referências do local..."
+            />
             <AttachmentDropzone
               files={attachments}
               onChange={(files) => {
