@@ -14,7 +14,6 @@ const ForgotPasswordPage = lazy(() => import('@/modules/auth/pages/ForgotPasswor
 const ResetPasswordPage = lazy(() => import('@/modules/auth/pages/ResetPasswordPage'))
 const ServiceOrdersListPage = lazy(() => import('@/modules/service-orders/pages/ServiceOrdersListPage'))
 const ServiceOrderCreatePage = lazy(() => import('@/modules/service-orders/pages/ServiceOrderCreatePage'))
-const ServiceOrderEditPage = lazy(() => import('@/modules/service-orders/pages/ServiceOrderEditPage'))
 const ServiceOrderDetailPage = lazy(() => import('@/modules/service-orders/pages/ServiceOrderDetailPage'))
 const ServiceOrdersKanbanPage = lazy(() => import('@/modules/service-orders/pages/ServiceOrdersKanbanPage'))
 const ServiceOrdersCalendarPage = lazy(() => import('@/modules/service-orders/pages/ServiceOrdersCalendarPage'))
@@ -78,14 +77,6 @@ export const router = createBrowserRouter([
             element: (
               <PermissionGuard permission={Permission.SERVICE_ORDER_READ} requiresChildTenant>
                 <ServiceOrderDetailPage />
-              </PermissionGuard>
-            ),
-          },
-          {
-            path: '/service-orders/:id/edit',
-            element: (
-              <PermissionGuard permission={Permission.SERVICE_ORDER_UPDATE} requiresChildTenant>
-                <ServiceOrderEditPage />
               </PermissionGuard>
             ),
           },

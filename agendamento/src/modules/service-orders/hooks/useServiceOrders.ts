@@ -46,7 +46,8 @@ function invalidateAll(queryClient: ReturnType<typeof useQueryClient>) {
 export function useCreateServiceOrder() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (payload: ServiceOrderPayload) => serviceOrdersService.create(payload),
+    mutationFn: ({ payload, attachments }: { payload: ServiceOrderPayload; attachments?: File[] }) =>
+      serviceOrdersService.create(payload, attachments),
     onSuccess: () => {
       invalidateAll(queryClient)
       toast.success('Ordem de serviço criada')

@@ -9,16 +9,7 @@ import {
   MapPin,
   RefreshCw,
 } from 'lucide-react'
-import {
-  Alert,
-  Badge,
-  Button,
-  CheckboxField,
-  DatePicker,
-  Field,
-  Spinner,
-  TextField,
-} from '@/shared/design-system'
+import { Alert, Badge, Button, DatePicker, Field, Spinner } from '@/shared/design-system'
 import { isApiError } from '@/shared/api/errors'
 import { extractIsoDate, parseLocalDateTime, toLocalDateTimeValue } from '@/shared/utils/date'
 import { toLocalIsoDate } from '@/shared/utils/format'
@@ -27,7 +18,6 @@ import type {
   ScheduleEstimatePayload,
 } from '../services/service-orders.service'
 import { ServiceOrderRouteMap } from './ServiceOrderRouteMap'
-import { AddressAutocompleteField } from './AddressAutocompleteField'
 import { ServiceOrderAvailabilityBoard } from './ServiceOrderAvailabilityBoard'
 import { formatMinutes } from '../lib/duration'
 import {
@@ -35,12 +25,10 @@ import {
   formatTime,
   formatWeekdayDay,
   sameInstant,
-  SEARCH_DAYS_LIMIT,
   type ScheduleSlotView,
 } from '../lib/schedule'
 import { useScheduleAvailability } from '../hooks/useScheduleAvailability'
 import type { ServiceOrderFormValues } from '../schemas/service-order.schema'
-import type { ServiceOrderItemDraft } from '../lib/items'
 
 const DURATION_SOURCE_LABELS: Record<ScheduleEstimate['duration_source'], string> = {
   manual: 'informada manualmente',
@@ -91,8 +79,9 @@ function returnLabel(estimate: ScheduleEstimate): string {
 }
 
 interface ServiceOrderSchedulingPanelProps {
-  items: ServiceOrderItemDraft[]
-  serviceOrderId?: string | null
+  serviceId: string
+  /** Técnico fixo ainda sendo localizado. */
+  technicianLoading?: boolean
 }
 
 interface ScheduleDetailEstimate {
@@ -102,25 +91,20 @@ interface ScheduleDetailEstimate {
 }
 
 /**
- * Etapa de agendamento do formulário de OS.
+ * Etapa de horário do formulário de OS.
  *
- * A disponibilidade é consultada em lotes de dias de calendário. Cada lote usa
- * a mesma API de estimativa do fluxo anterior: a grade de 5 minutos, o
- * deslocamento, a jornada e os conflitos continuam sendo calculados no servidor.
- * O horário só é aplicado depois de uma segunda confirmação da API.
+ * Com endereço, serviço e técnico definidos, a disponibilidade é consultada em
+ * lotes de dias de calendário: a grade de 5 minutos, o deslocamento, a jornada
+ * e os conflitos são calculados no servidor. O horário só é aplicado depois de
+ * uma segunda confirmação da API.
  */
 export function ServiceOrderSchedulingPanel({
-  items,
-  serviceOrderId,
+  serviceId,
+  technicianLoading = false,
 }: ServiceOrderSchedulingPanelProps) {
   const form = useFormContext<ServiceOrderFormValues>()
-  const clientId = useWatch({ control: form.control, name: 'client_id' })
   const address = useWatch({ control: form.control, name: 'address' })
   const technicianId = useWatch({ control: form.control, name: 'technician_id' })
-  const estimatedDuration = useWatch({
-    control: form.control,
-    name: 'estimated_duration_minutes',
-  })
   const scheduledStartAt = useWatch({ control: form.control, name: 'scheduled_start_at' })
 
   const [date, setDate] = useState(
@@ -133,63 +117,30 @@ export function ServiceOrderSchedulingPanel({
   const [detail, setDetail] = useState<ScheduleDetailEstimate | null>(null)
   const [routeDetailsOpen, setRouteDetailsOpen] = useState(false)
 
-  const applyingSelectionRef = useRef(false)
   const skipDetailStartRef = useRef<string | null>(null)
   const selectionRequestRef = useRef(0)
   const detailRequestRef = useRef(0)
   const confirmingRef = useRef(false)
 
-  const itemsKey = items
-    .filter((item) => item.service_id && !item.missing)
-    .map((item) => `${item.service_id}:${Math.max(1, Math.floor(Number(item.quantity) || 1))}`)
-    .join('|')
+  const trimmedAddress = address?.trim() || null
 
   const requestRef = useRef<Omit<ScheduleEstimatePayload, 'date' | 'scheduled_start_at'>>({})
   requestRef.current = {
-    client_id: clientId || null,
-    address: address?.trim() || null,
+    address: trimmedAddress,
     technician_id: technicianId || null,
-    service_order_id: serviceOrderId ?? null,
-    duration_minutes: estimatedDuration ? Number(estimatedDuration) : null,
-    items: items
-      .filter((item) => item.service_id && !item.missing)
-      .map((item) => ({
-        service_id: item.service_id,
-        quantity: Math.max(1, Math.floor(Number(item.quantity) || 1)),
-      })),
+    items: serviceId ? [{ service_id: serviceId, quantity: 1 }] : [],
   }
 
   const hasTechnician = Boolean(technicianId)
-  const requestKey = JSON.stringify([
-    clientId || null,
-    address?.trim() || null,
-    technicianId || null,
-    estimatedDuration || null,
-    itemsKey,
-    serviceOrderId ?? null,
-  ])
+  const ready = Boolean(trimmedAddress && serviceId && hasTechnician)
+  const requestKey = JSON.stringify([trimmedAddress, technicianId || null, serviceId || null])
 
   const board = useScheduleAvailability({
     anchorDate: date,
-    enabled: Boolean(clientId),
+    enabled: ready,
     request: requestRef.current,
     requestKey,
-    batchSize: hasTechnician ? undefined : 1,
-    maxDays: hasTechnician ? SEARCH_DAYS_LIMIT : 1,
   })
-
-  // Mantém a data de referência alinhada quando Início/Fim são alterados
-  // manualmente. Seleções feitas no painel não reiniciam a navegação.
-  useEffect(() => {
-    if (applyingSelectionRef.current) {
-      applyingSelectionRef.current = false
-      return
-    }
-
-    const nextDate = dateOfLocalInput(scheduledStartAt)
-    if (nextDate && nextDate !== date) setDate(nextDate)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scheduledStartAt])
 
   useEffect(() => {
     detailRequestRef.current += 1
@@ -203,7 +154,7 @@ export function ServiceOrderSchedulingPanel({
     setActionError(null)
   }, [date])
 
-  // Ajustes manuais em Início/Fim também atualizam o trajeto e a prévia.
+  // Atualiza o trajeto e a prévia do horário selecionado quando os dados mudam.
   useEffect(() => {
     const nextDate = dateOfLocalInput(scheduledStartAt)
     const startAt = normalizedLocalStart(scheduledStartAt)
@@ -302,7 +253,6 @@ export function ServiceOrderSchedulingPanel({
       const currentStart = normalizedLocalStart(form.getValues('scheduled_start_at'))
 
       if (nextStart !== currentStart) {
-        applyingSelectionRef.current = true
         skipDetailStartRef.current = nextStart
       }
 
@@ -373,28 +323,10 @@ export function ServiceOrderSchedulingPanel({
   const roundTrip = summaryEstimate?.travel_round_trip
   const routePreviewStart = detailForSelection ? selectedStart : null
   const selectedTimezone = selectedEstimate?.timezone
+  const scheduleError = form.formState.errors.scheduled_start_at?.message
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-4 lg:grid-cols-3">
-        <AddressAutocompleteField
-          name="address"
-          label="Endereço do atendimento"
-          className="lg:col-span-2"
-          placeholder="Digite ao menos 2 palavras do endereço"
-          hint="As sugestões aparecem a partir de 2 palavras. Selecione uma para gravar o endereço completo; em branco, usamos o endereço do cliente."
-        />
-        <TextField
-          name="estimated_duration_minutes"
-          label="Duração estimada (min)"
-          type="number"
-          min={1}
-          max={1440}
-          placeholder="Automática"
-          hint="Em branco, soma o tempo estimado dos serviços."
-        />
-      </div>
-
       <div className="rounded-xl bg-surface-2/60 p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <Field label="Buscar a partir de" className="w-full sm:w-60">
@@ -417,38 +349,37 @@ export function ServiceOrderSchedulingPanel({
               variant="secondary"
               size="sm"
               loading={board.loading}
-              disabled={!clientId || !date || previewLoading}
+              disabled={!ready || !date || previewLoading}
               onClick={handleRefresh}>
               {!board.loading && <RefreshCw className="size-4" />}
-              {hasTechnician ? 'Atualizar horários' : 'Calcular estimativa'}
+              Atualizar horários
             </Button>
           </div>
         </div>
 
-        {!clientId && (
+        {(!trimmedAddress || !serviceId) && (
           <div className="mt-4 flex items-start gap-2 rounded-lg bg-surface px-3 py-2.5 text-sm text-muted">
             <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            <p>Selecione o cliente na etapa 1 para calcular a disponibilidade.</p>
+            <p>Informe o endereço e o serviço para calcular os horários disponíveis.</p>
           </div>
         )}
 
-        {clientId && !hasTechnician && (
+        {trimmedAddress && serviceId && !hasTechnician && (
           <div className="mt-4 flex items-start gap-2 rounded-lg bg-surface px-3 py-2.5 text-sm text-muted">
-            <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            {technicianLoading ? (
+              <Spinner className="mt-0.5 size-4 shrink-0" />
+            ) : (
+              <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            )}
             <p>
-              Selecione o técnico responsável na etapa 1 para ver os horários livres e considerar o
-              deslocamento a partir da base.
+              {technicianLoading
+                ? 'Carregando a agenda do técnico…'
+                : 'Não foi possível localizar o técnico responsável. Entre em contato com o suporte.'}
             </p>
           </div>
         )}
 
-        {clientId && hasTechnician && !date && (
-          <p className="mt-4 text-sm text-muted">
-            Escolha uma data para consultar os horários disponíveis.
-          </p>
-        )}
-
-        {clientId && hasTechnician && date && (
+        {ready && date && (
           <div className="mt-4">
             <div className="mb-3 flex items-center gap-2">
               <CalendarClock className="size-4 text-muted" aria-hidden="true" />
@@ -496,7 +427,7 @@ export function ServiceOrderSchedulingPanel({
         {(selectedUnavailable || selectionWarning) && (
           <Alert variant="warning" title="Revise o horário selecionado" className="mt-3">
             {selectionWarning ??
-              'O horário em Início/Fim não corresponde a um horário disponível na grade atual. Escolha uma opção acima ou ajuste os campos abaixo.'}
+              'O horário selecionado não está mais disponível. Escolha outra opção acima.'}
           </Alert>
         )}
 
@@ -511,25 +442,12 @@ export function ServiceOrderSchedulingPanel({
           </div>
         )}
 
-        <div className="mt-5 space-y-3">
-          <p className="text-xs font-medium text-muted">Horário definido</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <TextField name="scheduled_start_at" label="Início" type="datetime-local" />
-            <TextField name="scheduled_end_at" label="Fim" type="datetime-local" />
-          </div>
-          <p className="text-xs text-muted">
-            Preenchido ao escolher um horário acima. Também pode ser ajustado manualmente quando
-            necessário.
+        {scheduleError && (
+          <p className="mt-3 text-[13px] text-danger" role="alert">
+            {scheduleError}
           </p>
-        </div>
+        )}
       </div>
-
-      <CheckboxField
-        name="ignore_schedule_conflict"
-        label="Ignorar conflito de agenda (se houver)"
-        description="Permite salvar mesmo quando a API identificar sobreposição. Use apenas quando o conflito já foi combinado com o técnico."
-        className="rounded-xl bg-surface-2/60 px-4 py-3"
-      />
 
       {summaryEstimate && (
         <div className="space-y-4">

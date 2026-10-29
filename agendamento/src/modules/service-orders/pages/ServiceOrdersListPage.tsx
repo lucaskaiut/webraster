@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { ClipboardList, Columns3, CalendarDays, Eye, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ClipboardList, Columns3, CalendarDays, Eye, Plus, Trash2 } from 'lucide-react'
 import {
   Badge,
   Button,
@@ -137,16 +137,6 @@ export default function ServiceOrdersListPage() {
           >
             <Eye className="size-4" />
           </Button>
-          {can(Permission.SERVICE_ORDER_UPDATE) && item.status !== 'completed' && item.status !== 'cancelled' && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate(`/service-orders/${item.id}/edit`)}
-              aria-label={`Editar ${item.code}`}
-            >
-              <Pencil className="size-4" />
-            </Button>
-          )}
           {can(Permission.SERVICE_ORDER_DELETE) && item.status !== 'in_progress' && (
             <Button
               variant="ghost"

@@ -11,7 +11,7 @@ export default function ServiceOrderCreatePage() {
     <Page>
       <PageHeader
         title="Nova ordem de serviço"
-        description="Defina cliente, serviços, técnico e agendamento."
+        description="Informe endereço e serviço, escolha o horário e anexe o documento."
         breadcrumb={[
           { label: 'Ordens de serviço', to: '/service-orders' },
           { label: 'Nova' },
@@ -19,10 +19,9 @@ export default function ServiceOrderCreatePage() {
       />
       <PageContent>
         <ServiceOrderForm
-          mode="create"
           submitting={create.isPending}
-          onSubmit={async (payload) => {
-            const order = await create.mutateAsync(payload)
+          onSubmit={async (payload, attachments) => {
+            const order = await create.mutateAsync({ payload, attachments })
             navigate(`/service-orders/${order.id}`)
           }}
         />

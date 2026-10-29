@@ -30,7 +30,7 @@ export interface ServiceOrderItemPayload {
 export interface ServiceOrderPayload {
   priority?: ServiceOrderPriority | string
   status?: ServiceOrderStatus | string
-  client_id: string
+  client_id?: string | null
   vehicle_id?: string | null
   equipment_id?: string | null
   technician_id?: string | null
@@ -141,6 +141,37 @@ export interface ChangeStatusPayload {
   execution_notes?: string | null
 }
 
+function appendFormValue(data: FormData, key: string, value: unknown): void {
+  if (value === undefined) return
+
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => appendFormValue(data, `${key}[${index}]`, item))
+    return
+  }
+
+  if (value !== null && typeof value === 'object') {
+    Object.entries(value).forEach(([field, item]) => appendFormValue(data, `${key}[${field}]`, item))
+    return
+  }
+
+  if (typeof value === 'boolean') {
+    data.append(key, value ? '1' : '0')
+    return
+  }
+
+  // Strings vazias viram null na API (ConvertEmptyStringsToNull).
+  data.append(key, value === null ? '' : String(value))
+}
+
+function toFormData(payload: ServiceOrderPayload, attachments: File[]): FormData {
+  const data = new FormData()
+
+  Object.entries(payload).forEach(([key, value]) => appendFormValue(data, key, value))
+  attachments.forEach((file) => data.append('attachments[]', file))
+
+  return data
+}
+
 export const serviceOrdersService = {
   async list(params: ServiceOrderListParams): Promise<PaginatedResponse<ServiceOrder>> {
     const response = await http.get<PaginatedResponse<ServiceOrder>>('/service-orders', { params })
@@ -166,8 +197,10 @@ export const serviceOrdersService = {
     return response.data.data
   },
 
-  async create(payload: ServiceOrderPayload): Promise<ServiceOrder> {
-    const response = await http.post<ApiResponse<ServiceOrder>>('/service-orders', payload)
+  /** Com documentos, a OS e os anexos seguem juntos em multipart. */
+  async create(payload: ServiceOrderPayload, attachments: File[] = []): Promise<ServiceOrder> {
+    const body = attachments.length > 0 ? toFormData(payload, attachments) : payload
+    const response = await http.post<ApiResponse<ServiceOrder>>('/service-orders', body)
     return response.data.data
   },
 

@@ -171,11 +171,6 @@ export default function ServiceOrderDetailPage() {
               <FileDown className="size-4" />
               PDF
             </Button>
-            {canEdit && (
-              <ButtonLink to={`/service-orders/${order.id}/edit`} variant="secondary">
-                Editar
-              </ButtonLink>
-            )}
             {canChangeStatus && order.status === 'open' && (
               <Button onClick={() => transition('in_progress')}>Iniciar</Button>
             )}
