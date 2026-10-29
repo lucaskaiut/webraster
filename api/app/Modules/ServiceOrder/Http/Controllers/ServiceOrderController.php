@@ -28,6 +28,8 @@ use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ServiceOrderController extends ApiController
@@ -106,7 +108,15 @@ class ServiceOrderController extends ApiController
     {
         $this->authorize('create', ServiceOrder::class);
 
-        $order = $this->service->create($request->validated(), $request->user());
+        $order = DB::transaction(function () use ($request): ServiceOrder {
+            $order = $this->service->create(Arr::except($request->validated(), 'attachments'), $request->user());
+
+            foreach ($request->file('attachments', []) as $file) {
+                $this->attachments->store($order, $file, $request->user());
+            }
+
+            return $order->load('attachments.uploader');
+        });
 
         return $this->created(ServiceOrderResource::make($order), 'Ordem de serviço criada.');
     }

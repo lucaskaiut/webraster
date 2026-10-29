@@ -512,6 +512,12 @@ class ServiceOrderService
             ]);
         }
 
+        if ($order->client_id === null) {
+            throw ValidationException::withMessages([
+                'client_id' => ['Vincule um cliente à OS antes de gerar a cobrança.'],
+            ]);
+        }
+
         $hasOpenBilling = $order->billings()
             ->whereNotIn('status', [
                 BillingStatus::CANCELLED->value,
@@ -755,10 +761,6 @@ class ServiceOrderService
             $payload['priority'] = ServiceOrderPriority::from((string) $payload['priority']);
         } elseif ($existing === null) {
             $payload['priority'] = ServiceOrderPriority::NORMAL;
-        }
-
-        if ($existing === null && empty($payload['client_id'])) {
-            throw ValidationException::withMessages(['client_id' => ['O cliente é obrigatório.']]);
         }
 
         if (array_key_exists('scheduled_start_at', $payload) && $payload['scheduled_start_at']) {

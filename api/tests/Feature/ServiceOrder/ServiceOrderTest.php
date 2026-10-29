@@ -9,6 +9,8 @@ use App\Modules\ServiceOrder\Models\ServiceOrder;
 use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\Concerns\SignsServiceOrders;
@@ -356,5 +358,63 @@ class ServiceOrderTest extends TestCase
             'scheduled_end_at' => $end->copy()->addHour()->toIso8601String(),
             'ignore_schedule_conflict' => true,
         ])->assertCreated();
+    }
+
+    public function test_creates_order_without_client_and_with_attachments(): void
+    {
+        Storage::fake('local');
+        [, $tenant] = $this->createOperationalChild();
+        $admin = $this->createAdmin($tenant);
+
+        Sanctum::actingAs($admin);
+
+        $response = $this->post('/api/service-orders', [
+            'address' => 'Rua das Flores, 100 - Curitiba',
+            'attachments' => [UploadedFile::fake()->create('pedido.pdf', 120, 'application/pdf')],
+        ], ['Accept' => 'application/json'])
+            ->assertCreated()
+            ->assertJsonPath('data.client_id', null)
+            ->assertJsonPath('data.address', 'Rua das Flores, 100 - Curitiba')
+            ->assertJsonCount(1, 'data.attachments')
+            ->assertJsonPath('data.attachments.0.name', 'pedido.pdf');
+
+        $order = ServiceOrder::query()->where('uuid', $response->json('data.id'))->firstOrFail();
+        Storage::disk('local')->assertExists($order->attachments()->firstOrFail()->path);
+    }
+
+    public function test_rejects_attachment_with_unsupported_extension_on_create(): void
+    {
+        Storage::fake('local');
+        [, $tenant] = $this->createOperationalChild();
+        $admin = $this->createAdmin($tenant);
+
+        Sanctum::actingAs($admin);
+
+        $this->post('/api/service-orders', [
+            'address' => 'Rua das Flores, 100 - Curitiba',
+            'attachments' => [UploadedFile::fake()->create('script.exe', 10)],
+        ], ['Accept' => 'application/json'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('attachments.0');
+
+        $this->assertSame(0, ServiceOrder::query()->count());
+    }
+
+    public function test_billing_requires_client(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $admin = $this->createAdmin($tenant);
+        $order = ServiceOrder::factory()->create([
+            'tenant_id' => $tenant->getKey(),
+            'client_id' => null,
+            'created_by' => $admin->getKey(),
+        ]);
+        $order->items()->forceCreate(['tenant_id' => $tenant->getKey(), 'name' => 'Instalação', 'quantity' => 1, 'unit_amount_cents' => 10000]);
+
+        Sanctum::actingAs($admin);
+
+        $this->postJson("/api/service-orders/{$order->uuid}/billing")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('client_id');
     }
 }

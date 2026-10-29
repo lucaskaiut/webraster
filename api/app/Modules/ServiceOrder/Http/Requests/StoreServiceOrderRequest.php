@@ -7,6 +7,7 @@ use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Service\Models\Service;
 use App\Modules\ServiceOrder\Enums\ServiceOrderPriority;
 use App\Modules\ServiceOrder\Enums\ServiceOrderStatus;
+use App\Modules\ServiceOrder\Services\ServiceOrderAttachmentService;
 use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Foundation\Http\FormRequest;
@@ -30,7 +31,7 @@ class StoreServiceOrderRequest extends FormRequest
                 ServiceOrderStatus::OPEN->value,
                 ServiceOrderStatus::IN_PROGRESS->value,
             ])],
-            'client_id' => ['required', 'integer', Rule::exists('clients', 'id')->whereNull('deleted_at')],
+            'client_id' => ['nullable', 'integer', Rule::exists('clients', 'id')->whereNull('deleted_at')],
             'vehicle_id' => ['nullable', 'integer', Rule::exists('vehicles', 'id')->whereNull('deleted_at')],
             'equipment_id' => ['nullable', 'integer', Rule::exists('equipments', 'id')->whereNull('deleted_at')],
             'technician_id' => ['nullable', 'integer', Rule::exists('users', 'id')->whereNull('deleted_at')],
@@ -52,6 +53,23 @@ class StoreServiceOrderRequest extends FormRequest
             'items.*.quantity' => ['sometimes', 'integer', 'min:1', 'max:9999'],
             'items.*.unit_amount_cents' => ['required', 'integer', 'min:0', 'max:99999999'],
             'ignore_schedule_conflict' => ['sometimes', 'boolean'],
+            'attachments' => ['sometimes', 'array', 'max:10'],
+            'attachments.*' => [
+                'file',
+                'extensions:'.implode(',', ServiceOrderAttachmentService::ALLOWED_EXTENSIONS),
+                'max:'.ServiceOrderAttachmentService::MAX_KILOBYTES,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'attachments.*.extensions' => 'Formato não permitido. Envie PDF, imagem, Word, Excel ou texto.',
+            'attachments.*.max' => 'Cada arquivo deve ter no máximo 10 MB.',
         ];
     }
 
@@ -75,7 +93,7 @@ class StoreServiceOrderRequest extends FormRequest
             $input['technician_id'] = User::query()->where('uuid', $this->input('technician_id'))->value('id');
         }
 
-        foreach (['vehicle_id', 'equipment_id', 'technician_id'] as $field) {
+        foreach (['client_id', 'vehicle_id', 'equipment_id', 'technician_id'] as $field) {
             if ($this->has($field) && $this->input($field) === '') {
                 $input[$field] = null;
             }
