@@ -10,6 +10,7 @@ export const serviceOrderSchema = z.object({
   technician_id: z.string().optional().or(z.literal('')),
   scheduled_start_at: z.string().min(1, 'Selecione um horário'),
   scheduled_end_at: z.string().optional().or(z.literal('')),
+  description: z.string().trim().max(5000, 'Máximo de 5000 caracteres').optional().or(z.literal('')),
 })
 
 export type ServiceOrderFormValues = z.infer<typeof serviceOrderSchema>

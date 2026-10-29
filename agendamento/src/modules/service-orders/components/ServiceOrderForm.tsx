@@ -8,6 +8,7 @@ import {
   CardContent,
   Form,
   SearchSelectField,
+  TextareaField,
   type SearchSelectOption,
 } from '@/shared/design-system'
 import { isApiError } from '@/shared/api/errors'
@@ -101,6 +102,7 @@ export function ServiceOrderForm({ submitting, onSubmit }: ServiceOrderFormProps
       technician_id: '',
       scheduled_start_at: '',
       scheduled_end_at: '',
+      description: '',
     },
   })
 
@@ -128,6 +130,7 @@ export function ServiceOrderForm({ submitting, onSubmit }: ServiceOrderFormProps
       technician_id: values.technician_id || null,
       scheduled_start_at: fromFormDateTime(values.scheduled_start_at),
       scheduled_end_at: fromFormDateTime(values.scheduled_end_at),
+      description: values.description?.trim() || null,
       items: [
         {
           service_id: values.service_id,
@@ -200,6 +203,14 @@ export function ServiceOrderForm({ submitting, onSubmit }: ServiceOrderFormProps
                   setService(option as ServiceOption)
                   clearSchedule()
                 }}
+              />
+              <TextareaField
+                name="description"
+                label="Descrição"
+                className="lg:col-span-3"
+                rows={6}
+                maxLength={5000}
+                placeholder="Descreva o atendimento, observações para o técnico, referências do local..."
               />
             </div>
           </FormStep>
