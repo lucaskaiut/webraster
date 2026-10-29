@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { FileDown, ImagePlus, KeyRound, MapPin, Trash2 } from 'lucide-react'
+import { FileDown, ImagePlus, KeyRound, MapPin, Plus, Trash2 } from 'lucide-react'
 import {
   Badge,
   Button,
@@ -98,6 +98,7 @@ export default function ServiceOrderDetailPage() {
     order.status !== 'cancelled'
   const canChangeStatus = can(Permission.SERVICE_ORDER_CHANGE_STATUS)
   const canCancel = can(Permission.SERVICE_ORDER_CANCEL)
+  const canCreate = can(Permission.SERVICE_ORDER_CREATE)
   const items = order.items ?? []
   const billing = order.billing ?? null
   const canGenerateBilling =
@@ -167,6 +168,12 @@ export default function ServiceOrderDetailPage() {
         ]}
         actions={
           <div className="flex flex-wrap gap-2">
+            {canCreate && (
+              <ButtonLink to="/service-orders/create" variant="secondary">
+                <Plus className="size-4" />
+                Nova OS
+              </ButtonLink>
+            )}
             <Button variant="secondary" loading={downloadingPdf} onClick={() => void handleDownloadPdf()}>
               <FileDown className="size-4" />
               PDF
