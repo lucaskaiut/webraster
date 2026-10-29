@@ -84,7 +84,9 @@ export function AttachmentDropzone({
 
   return (
     <Field label={label} hint={hint} error={rejection ?? error ?? undefined} className={className}>
-      <div className="space-y-2">
+      {/* `relative` ancora o input `sr-only` (absolute) aqui; sem isso, o foco ao
+          clicar no label rola os contêineres overflow-hidden do layout. */}
+      <div className="relative space-y-2">
         <label
           htmlFor={inputId}
           onDragOver={(event) => {
