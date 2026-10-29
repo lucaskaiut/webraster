@@ -20,6 +20,8 @@ export const http = axios.create({
   xsrfHeaderName: 'X-XSRF-TOKEN',
   headers: {
     Accept: 'application/json',
+    // Identifica o painel para a API validar a permissão de acesso a ele.
+    'X-Panel': 'agendamento',
   },
 })
 
@@ -58,7 +60,8 @@ http.interceptors.response.use(
       }
     }
 
-    if (apiError.status === 403) {
+    // Em login/sessão o 403 (sem acesso ao painel) já é exibido na própria tela.
+    if (apiError.status === 403 && !isGuestEndpoint) {
       toast.error('Acesso negado', apiError.message)
     }
 

@@ -162,6 +162,9 @@ enum Permission: string
     case CRM_AI_VIEW = 'crm-ai.view';
     case CRM_AI_MANAGE = 'crm-ai.manage';
 
+    case PANEL_WEB_ACCESS = 'panel-web.access';
+    case PANEL_SCHEDULING_ACCESS = 'panel-scheduling.access';
+
     /**
      * @return list<string>
      */

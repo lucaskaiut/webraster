@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\ACL\Http\Middleware\EnsurePanelAccess;
 use App\Modules\ACL\Http\Middleware\EnsurePermission;
 use App\Modules\ApiToken\Http\Middleware\AuthenticateApiToken;
 use App\Modules\ApiToken\Http\Middleware\MultiAuthenticate;
@@ -41,6 +42,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
+
+        // Painel identificado pelo header X-Panel exige a permissão de acesso a ele.
+        $middleware->api(append: [EnsurePanelAccess::class]);
 
         // IP real do cliente atrás de proxy/load balancer (evidência de
         // assinatura e auditoria). Sem a variável, nenhum proxy é confiável.

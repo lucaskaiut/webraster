@@ -151,6 +151,8 @@ export const Permission = {
   CRM_GATEWAY_MANAGE: 'crm-gateway.manage',
   CRM_AI_VIEW: 'crm-ai.view',
   CRM_AI_MANAGE: 'crm-ai.manage',
+  PANEL_WEB_ACCESS: 'panel-web.access',
+  PANEL_SCHEDULING_ACCESS: 'panel-scheduling.access',
 } as const
 
 export type Permission = (typeof Permission)[keyof typeof Permission]
@@ -161,6 +163,13 @@ export interface PermissionGroup {
 }
 
 export const PERMISSION_GROUPS: PermissionGroup[] = [
+  {
+    label: 'Painéis',
+    permissions: [
+      { value: Permission.PANEL_WEB_ACCESS, label: 'Acessar o painel principal' },
+      { value: Permission.PANEL_SCHEDULING_ACCESS, label: 'Acessar o painel de agendamento' },
+    ],
+  },
   {
     label: 'Usuários',
     permissions: [

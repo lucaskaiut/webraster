@@ -2,6 +2,7 @@
 
 namespace App\Modules\Auth\Http\Controllers;
 
+use App\Modules\ACL\Enums\Panel;
 use App\Modules\ACL\Http\Resources\RoleResource;
 use App\Modules\Auth\DTOs\AuthenticatedUser;
 use App\Modules\Auth\DTOs\NewTenantData;
@@ -59,6 +60,7 @@ class AuthController extends ApiController
             $request->validated('email'),
             $request->validated('password'),
             $request->validated('tenant_identifier'),
+            Panel::fromRequest($request),
         );
 
         return $this->success($this->authPayload($result), 'Login realizado com sucesso.');

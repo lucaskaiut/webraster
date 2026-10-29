@@ -121,6 +121,8 @@ enum DefaultRole: string
                 Permission::CRM_GATEWAY_MANAGE,
                 Permission::CRM_AI_VIEW,
                 Permission::CRM_AI_MANAGE,
+                Permission::PANEL_WEB_ACCESS,
+                Permission::PANEL_SCHEDULING_ACCESS,
             ],
             self::CLIENT => [
                 Permission::SUBSCRIPTION_READ,
@@ -136,6 +138,7 @@ enum DefaultRole: string
                 Permission::SERVICE_ORDER_READ,
                 Permission::SERVICE_ORDER_VIEW_ALL,
                 Permission::FINANCE_PORTAL_VIEW,
+                Permission::PANEL_WEB_ACCESS,
             ],
             self::TECHNICIAN => [
                 Permission::NOTIFICATION_READ,

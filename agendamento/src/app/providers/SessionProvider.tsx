@@ -1,8 +1,10 @@
 import { useEffect, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { sessionQueryOptions } from '@/modules/auth/services/auth.service'
+import { isApiError } from '@/shared/api/errors'
 import { useSessionStore } from '@/shared/stores/session.store'
 import { useTenantContextStore } from '@/shared/stores/tenant.store'
+import { toast } from '@/shared/stores/toast.store'
 
 /**
  * Carrega a sessão atual (/auth/me) na inicialização e mantém o
@@ -10,7 +12,7 @@ import { useTenantContextStore } from '@/shared/stores/tenant.store'
  * Para masters, garante um tenant filho válido selecionado.
  */
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const { data, isSuccess, isError } = useQuery(sessionQueryOptions)
+  const { data, isSuccess, isError, error } = useQuery(sessionQueryOptions)
   const setSession = useSessionStore((state) => state.setSession)
   const setGuest = useSessionStore((state) => state.setGuest)
   const selectedTenantId = useTenantContextStore((state) => state.selectedTenantId)
@@ -25,8 +27,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (isError) {
       setGuest()
       clearSelectedTenantId()
+
+      // Sessão válida (compartilhada com outro painel), mas sem acesso a este.
+      if (isApiError(error) && error.status === 403) {
+        toast.error('Acesso negado', error.message)
+      }
     }
-  }, [isError, setGuest, clearSelectedTenantId])
+  }, [isError, error, setGuest, clearSelectedTenantId])
 
   useEffect(() => {
     if (!isSuccess || !data) return

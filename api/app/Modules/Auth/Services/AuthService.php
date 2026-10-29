@@ -3,6 +3,7 @@
 namespace App\Modules\Auth\Services;
 
 use App\Modules\ACL\Enums\DefaultRole;
+use App\Modules\ACL\Enums\Panel;
 use App\Modules\ACL\Services\RoleService;
 use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogService;
@@ -23,6 +24,7 @@ use App\Modules\Tenant\Support\CurrentTenant;
 use App\Modules\User\Models\User;
 use App\Modules\User\Services\UserService;
 use Carbon\CarbonImmutable;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -119,11 +121,13 @@ class AuthService
 
     /**
      * @throws ValidationException
+     * @throws AuthorizationException
      */
     public function login(
         string $email,
         string $password,
         ?string $tenantIdentifier = null,
+        ?Panel $panel = null,
     ): AuthenticatedUser {
         $tenant = $this->findTenantByIdentifier($tenantIdentifier);
         $user = $this->findUserForLogin($email, $tenant);
@@ -132,6 +136,10 @@ class AuthService
             throw ValidationException::withMessages([
                 'email' => ['As credenciais informadas são inválidas.'],
             ]);
+        }
+
+        if ($panel !== null && ! $user->hasPermission($panel->permission())) {
+            throw new AuthorizationException($panel->deniedMessage());
         }
 
         $tenant ??= $user->tenant;

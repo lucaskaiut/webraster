@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { sessionQueryOptions } from '@/modules/auth/services/auth.service'
+import { isApiError } from '@/shared/api/errors'
 import { applyFavicon } from '@/shared/brand/favicon'
 import { useSessionStore } from '@/shared/stores/session.store'
 import {
@@ -9,6 +10,7 @@ import {
   type TenantBranding,
 } from '@/shared/stores/tenant-branding.store'
 import { useTenantContextStore } from '@/shared/stores/tenant.store'
+import { toast } from '@/shared/stores/toast.store'
 
 /**
  * Carrega a sessão atual (/auth/me) na inicialização e mantém o
@@ -17,7 +19,7 @@ import { useTenantContextStore } from '@/shared/stores/tenant.store'
  * persiste a identidade visual do tenant ativo para uso sem sessão.
  */
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const { data, isSuccess, isError } = useQuery(sessionQueryOptions)
+  const { data, isSuccess, isError, error } = useQuery(sessionQueryOptions)
   const setSession = useSessionStore((state) => state.setSession)
   const setGuest = useSessionStore((state) => state.setGuest)
   const setBranding = useTenantBrandingStore((state) => state.setBranding)
@@ -33,8 +35,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (isError) {
       setGuest()
       clearSelectedTenantId()
+
+      // Sessão válida (compartilhada com outro painel), mas sem acesso a este.
+      if (isApiError(error) && error.status === 403) {
+        toast.error('Acesso negado', error.message)
+      }
     }
-  }, [isError, setGuest, clearSelectedTenantId])
+  }, [isError, error, setGuest, clearSelectedTenantId])
 
   useEffect(() => {
     if (!isSuccess || !data) {
