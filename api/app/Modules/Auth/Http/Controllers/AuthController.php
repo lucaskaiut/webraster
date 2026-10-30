@@ -117,11 +117,8 @@ class AuthController extends ApiController
             'tenant' => TenantResource::make($tenant),
             'roles' => RoleResource::collection($user->roles),
             'permissions' => $this->effectivePermissions($user->permissionValues(), $tenant),
-            // Permissões liberadas pelos módulos do tenant (para montar perfis).
-            'available_permissions' => array_values(array_filter(
-                Permission::values(),
-                fn (string $permission): bool => $tenant?->allowsPermission($permission) ?? true,
-            )),
+            // Permissões disponíveis para montar perfis neste tenant.
+            'available_permissions' => $this->availablePermissions($tenant),
             'is_master' => (bool) $user->is_master,
             'available_tenants' => AvailableTenantResource::collection(
                 $this->service->availableTenantsFor($user),
@@ -235,6 +232,24 @@ class AuthController extends ApiController
             'is_master' => (bool) $result->user->is_master,
             'available_tenants' => AvailableTenantResource::collection($result->availableTenants),
         ];
+    }
+
+    /**
+     * No umbrella, só as de administração do grupo; nos filhos, as
+     * liberadas pelos módulos.
+     *
+     * @return list<string>
+     */
+    private function availablePermissions(?Tenant $tenant): array
+    {
+        if ($tenant?->isUmbrella()) {
+            return array_map(fn (Permission $permission) => $permission->value, Permission::umbrella());
+        }
+
+        return array_values(array_filter(
+            Permission::values(),
+            fn (string $permission): bool => $tenant?->allowsPermission($permission) ?? true,
+        ));
     }
 
     /**

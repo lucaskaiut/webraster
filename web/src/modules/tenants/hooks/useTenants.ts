@@ -39,6 +39,13 @@ export function useTenantChildrenQuery(params: ListParams) {
   })
 }
 
+export function useTenantOverviewQuery() {
+  return useQuery({
+    queryKey: queryKeys.tenants.overview(),
+    queryFn: () => tenantsService.overview(),
+  })
+}
+
 export function useTenantModulesQuery() {
   return useQuery({
     queryKey: queryKeys.tenants.modules(),

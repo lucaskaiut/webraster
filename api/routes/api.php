@@ -142,6 +142,7 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::get('tenant/children', [TenantController::class, 'index'])->middleware('permission:tenant.read');
     Route::post('tenant/children', [TenantController::class, 'store'])->middleware('permission:tenant.create');
     Route::get('tenant/modules', [TenantController::class, 'modules'])->middleware('permission:tenant.read');
+    Route::get('tenant/overview', [TenantController::class, 'overview'])->middleware('permission:tenant.read');
     Route::get('tenant/children/{child}', [TenantController::class, 'showChild'])->middleware('permission:tenant.read');
     Route::match(['put', 'patch'], 'tenant/children/{child}', [TenantController::class, 'updateChild'])->middleware('permission:tenant.update');
 

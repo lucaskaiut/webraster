@@ -135,7 +135,7 @@ function SidebarNavigation({
         <SidebarItem
           to="/dashboard"
           icon={LayoutDashboard}
-          label="Dashboard de Monitoramento"
+          label={isUmbrella ? 'Visão geral' : 'Dashboard de Monitoramento'}
           onNavigate={onNavigate}
         />
         {showTracking && (

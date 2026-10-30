@@ -9,6 +9,7 @@ use App\Modules\Tenant\Models\Tenant;
 use App\Modules\User\Models\User;
 use App\Modules\User\Services\UserService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -45,13 +46,14 @@ class TenantService
     }
 
     /**
-     * Lista os tenants filhos do umbrella informado.
+     * Lista os tenants filhos do umbrella informado. A contagem de usuários
+     * ignora o escopo do tenant em contexto (o umbrella).
      */
     public function paginateChildren(Tenant $umbrella, int $perPage = 15, ?string $search = null): LengthAwarePaginator
     {
         return Tenant::query()
             ->where('parent_id', $umbrella->getKey())
-            ->withCount('users')
+            ->withCount(['users' => fn ($query) => $query->withoutTenancy()->withoutClientScope()])
             ->when(filled($search), function ($query) use ($search): void {
                 $query->where(function ($query) use ($search): void {
                     $query->where('name', 'like', "%{$search}%")
@@ -60,6 +62,32 @@ class TenantService
             })
             ->orderBy('name')
             ->paginate(min(max($perPage, 1), 100));
+    }
+
+    /**
+     * Visão geral das empresas filhas para o dashboard do umbrella.
+     *
+     * @return array{companies: array{total: int, active: int, inactive: int}, users: int, recent: Collection<int, Tenant>}
+     */
+    public function overview(Tenant $umbrella): array
+    {
+        $children = Tenant::query()
+            ->where('parent_id', $umbrella->getKey())
+            ->withCount(['users' => fn ($query) => $query->withoutTenancy()->withoutClientScope()])
+            ->orderByDesc('created_at')
+            ->get();
+
+        $active = $children->filter(fn (Tenant $child): bool => $child->isActive());
+
+        return [
+            'companies' => [
+                'total' => $children->count(),
+                'active' => $active->count(),
+                'inactive' => $children->count() - $active->count(),
+            ],
+            'users' => (int) $children->sum('users_count'),
+            'recent' => $children->take(5)->values(),
+        ];
     }
 
     public function findChild(Tenant $umbrella, Tenant $child): Tenant

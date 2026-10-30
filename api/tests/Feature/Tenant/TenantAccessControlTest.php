@@ -172,6 +172,40 @@ class TenantAccessControlTest extends TestCase
             ->assertJsonPath('data.tenant.modules', TenantModule::values());
     }
 
+    public function test_umbrella_roles_only_offer_group_administration_permissions(): void
+    {
+        $umbrella = $this->createTenantWithRoles();
+
+        Sanctum::actingAs($this->createMaster($umbrella));
+
+        $available = $this->getJson('/api/auth/me')->assertOk()->json('data.available_permissions');
+
+        $this->assertContains(Permission::TENANT_CREATE->value, $available);
+        $this->assertContains(Permission::ROLE_UPDATE->value, $available);
+        $this->assertNotContains(Permission::CLIENT_READ->value, $available);
+        $this->assertNotContains(Permission::SERVICE_ORDER_READ->value, $available);
+    }
+
+    public function test_master_operates_child_regardless_of_umbrella_role(): void
+    {
+        $umbrella = $this->createTenantWithRoles();
+        $child = $this->createChildTenant($umbrella, ['modules' => [TenantModule::SERVICE_ORDERS->value]]);
+
+        $role = Role::factory()->for($umbrella)->create(['name' => 'Gestor do grupo']);
+        $role->syncPermissions([Permission::PANEL_WEB_ACCESS, Permission::TENANT_READ]);
+
+        $master = User::factory()->for($umbrella)->master()->create();
+        $master->assignRole($role);
+
+        Sanctum::actingAs($master);
+
+        $headers = ['X-Tenant-Id' => $child->uuid];
+
+        $this->getJson('/api/service-orders', $headers)->assertOk();
+        $this->getJson('/api/clients', $headers)->assertOk();
+        $this->getJson('/api/finance/billings', $headers)->assertForbidden();
+    }
+
     public function test_client_tabs_require_their_module(): void
     {
         $umbrella = $this->createTenantWithRoles();

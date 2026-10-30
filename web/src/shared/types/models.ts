@@ -98,6 +98,12 @@ export type TenantModuleKey =
   | 'crm'
   | 'assistant'
 
+export interface TenantOverview {
+  companies: { total: number; active: number; inactive: number }
+  users: number
+  recent: Tenant[]
+}
+
 export interface TenantModule {
   key: TenantModuleKey
   label: string

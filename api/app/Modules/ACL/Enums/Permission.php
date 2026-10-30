@@ -166,6 +166,37 @@ enum Permission: string
     case PANEL_SCHEDULING_ACCESS = 'panel-scheduling.access';
 
     /**
+     * Permissões que fazem sentido em perfis do tenant umbrella: ele não
+     * opera, só administra o grupo. Masters operam as empresas filhas com
+     * as permissões dos módulos de cada uma (ver HasRoles).
+     *
+     * @return list<self>
+     */
+    public static function umbrella(): array
+    {
+        return [
+            self::PANEL_WEB_ACCESS,
+            self::PANEL_SCHEDULING_ACCESS,
+            self::USER_CREATE,
+            self::USER_READ,
+            self::USER_UPDATE,
+            self::USER_DELETE,
+            self::TENANT_READ,
+            self::TENANT_UPDATE,
+            self::TENANT_CREATE,
+            self::ROLE_CREATE,
+            self::ROLE_READ,
+            self::ROLE_UPDATE,
+            self::ROLE_DELETE,
+            self::PLAN_CREATE,
+            self::PLAN_READ,
+            self::PLAN_UPDATE,
+            self::PLAN_DELETE,
+            self::AUDIT_VIEW,
+        ];
+    }
+
+    /**
      * @return list<string>
      */
     public static function values(): array

@@ -71,3 +71,15 @@ O módulo **Financeiro** (empresa → seus clientes) não é afetado. Para relig
 ## Migração
 
 `2026_10_30_000001_add_status_and_modules_to_tenants_table` cria `is_active` (padrão `true`) e `modules`, preenchendo todos os tenants existentes com todos os módulos: nada muda para quem já usa o sistema até o umbrella desmarcar algo. Tenants novos sem `modules` informado também nascem com todos.
+
+## Painel do umbrella
+
+O umbrella não opera monitoramento: ele oferece o serviço às empresas filhas. No painel dele:
+
+- o dashboard (`/dashboard`) é a **Visão geral** das empresas (`GET /api/tenant/overview`): totais de empresas ativas e inativas, usuários e empresas recentes;
+- o menu mostra só Visão geral e Gestão (Empresas, Usuários, Perfis de acesso, Auditoria, Configurações);
+- as Configurações mostram apenas dados da empresa e identidade visual (sem identificador do app, abas de aplicativo e alertas, assinatura de contratos, termo de comodato e multa/juros);
+- usuários não podem ser do tipo Técnico;
+- os perfis de acesso oferecem só permissões de administração do grupo (`Permission::umbrella()`: painéis, usuários, empresas, perfis, planos e auditoria). Masters operando uma empresa filha têm todas as permissões dos módulos liberados para ela, independentemente do perfil.
+
+Nas empresas filhas, as mesmas seções e abas das Configurações seguem os módulos liberados (contratos, ordens de serviço, financeiro, alertas; aplicativo com rastreamento ou OS), e o tipo Técnico exige o módulo de ordens de serviço.

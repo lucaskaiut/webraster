@@ -217,6 +217,34 @@ class TenantChildrenTest extends TestCase
         $this->assertSame(['finance'], $child->modules);
     }
 
+    public function test_master_gets_overview_of_child_tenants(): void
+    {
+        $umbrella = $this->createTenantWithRoles();
+        $active = $this->createChildTenant($umbrella);
+        $this->createChildTenant($umbrella, ['is_active' => false]);
+        $this->createAdmin($active);
+
+        Sanctum::actingAs($this->createMaster($umbrella));
+
+        $this->getJson('/api/tenant/overview')
+            ->assertOk()
+            ->assertJsonPath('data.companies.total', 2)
+            ->assertJsonPath('data.companies.active', 1)
+            ->assertJsonPath('data.companies.inactive', 1)
+            ->assertJsonPath('data.users', 1)
+            ->assertJsonCount(2, 'data.recent');
+    }
+
+    public function test_child_admin_cannot_get_overview(): void
+    {
+        $umbrella = $this->createTenantWithRoles();
+        $child = $this->createChildTenant($umbrella);
+
+        Sanctum::actingAs($this->createAdmin($child));
+
+        $this->getJson('/api/tenant/overview')->assertForbidden();
+    }
+
     public function test_master_lists_module_catalog(): void
     {
         $umbrella = $this->createTenantWithRoles();

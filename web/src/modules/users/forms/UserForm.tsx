@@ -26,6 +26,8 @@ import { onlyDigits } from '@/shared/utils/document'
 import { maskCep, maskCpf, maskPhone } from '@/shared/utils/mask'
 import { fetchAddressByCep } from '@/shared/services/viacep'
 import { stocksService } from '@/modules/stocks/services/stocks.service'
+import { useIsUmbrellaTenant } from '@/shared/hooks/useIsUmbrellaTenant'
+import { useTenantModules } from '@/shared/hooks/useTenantModules'
 import type { UserWorkHour } from '@/shared/types/models'
 import { RolesField } from '../components/RolesField'
 import { DEFAULT_WORK_HOURS, WEEKDAYS } from '../lib/work-hours'
@@ -103,6 +105,10 @@ export function UserForm({
   const selectedType = useWatch({ control: form.control, name: 'type' })
   const isTechnician = selectedType === 'technician'
   const canReadStocks = can(Permission.STOCK_READ)
+  const isUmbrella = useIsUmbrellaTenant()
+  const { hasModule } = useTenantModules()
+  // Técnicos só existem em empresas filhas com ordens de serviço.
+  const canHaveTechnicians = !isUmbrella && hasModule('service_orders')
 
   const [hours, setHours] = useState<WorkHourRow[]>(() =>
     toRows(initialWorkHours ?? (mode === 'create' ? DEFAULT_WORK_HOURS : [])),
@@ -225,7 +231,9 @@ export function UserForm({
                 hint="Técnicos usam o aplicativo com a área de ordens de serviço; a equipe usa a visão administrativa."
                 options={[
                   { value: 'staff', label: 'Equipe' },
-                  { value: 'technician', label: 'Técnico' },
+                  ...(canHaveTechnicians || isTechnician
+                    ? [{ value: 'technician', label: 'Técnico' }]
+                    : []),
                 ]}
               />
             </div>

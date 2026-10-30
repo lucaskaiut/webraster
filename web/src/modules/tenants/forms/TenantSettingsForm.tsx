@@ -16,7 +16,9 @@ import { isApiError } from '@/shared/api/errors'
 import { applyApiErrorsToForm, formResolver } from '@/shared/utils/forms'
 import { onlyDigits } from '@/shared/utils/document'
 import { maskCpfCnpj, maskPhone } from '@/shared/utils/mask'
-import type { Tenant } from '@/shared/types/models'
+import { useIsUmbrellaTenant } from '@/shared/hooks/useIsUmbrellaTenant'
+import { useTenantModules } from '@/shared/hooks/useTenantModules'
+import type { Tenant, TenantModuleKey } from '@/shared/types/models'
 import { SignatureField } from '../components/SignatureField'
 import type { UpdateTenantPayload } from '../services/tenants.service'
 import {
@@ -31,6 +33,11 @@ interface TenantSettingsFormProps {
 }
 
 export function TenantSettingsForm({ tenant, submitting, onSubmit }: TenantSettingsFormProps) {
+  const isUmbrella = useIsUmbrellaTenant()
+  const { hasModule } = useTenantModules()
+  /** O umbrella não opera: seções operacionais só para filhos com o módulo. */
+  const showFor = (module: TenantModuleKey) => !isUmbrella && hasModule(module)
+
   const form = useForm<TenantSettingsFormValues>({
     resolver: formResolver<TenantSettingsFormValues>(tenantSettingsSchema),
     defaultValues: {
@@ -93,13 +100,15 @@ export function TenantSettingsForm({ tenant, submitting, onSubmit }: TenantSetti
           <Section title="Dados da empresa">
             <div className="grid gap-4 sm:grid-cols-2">
               <TextField name="name" label="Nome" required className="sm:col-span-2" />
-              <TextField
-                name="identifier"
-                label="Identificador do aplicativo"
-                required
-                className="sm:col-span-2"
-                hint="Código usado na tela inicial do app para localizar a empresa. Apenas letras, números, hífen e underline."
-              />
+              {!isUmbrella && (
+                <TextField
+                  name="identifier"
+                  label="Identificador do aplicativo"
+                  required
+                  className="sm:col-span-2"
+                  hint="Código usado na tela inicial do app para localizar a empresa. Apenas letras, números, hífen e underline."
+                />
+              )}
               <TextField
                 name="document"
                 label="CPF / CNPJ"
@@ -141,67 +150,74 @@ export function TenantSettingsForm({ tenant, submitting, onSubmit }: TenantSetti
             </div>
           </Section>
 
-          <Section
-            title="Assinatura do responsável"
-            description="Assinatura aplicada automaticamente nos contratos que usam a variável {{ASSINATURA_EMPRESA}}."
-          >
-            <SignatureField initialUrl={tenant.signature_url} />
-          </Section>
+          {showFor('contracts') && (
+            <Section
+              title="Assinatura do responsável"
+              description="Assinatura aplicada automaticamente nos contratos que usam a variável {{ASSINATURA_EMPRESA}}."
+            >
+              <SignatureField initialUrl={tenant.signature_url} />
+            </Section>
+          )}
 
-          <Section
-            title="Assinatura do cliente"
-            description="A assinatura do cliente é obrigatória na conclusão da OS. Ative o termo de comodato para incluir o aceite do termo no momento da assinatura."
-          >
-            <div className="space-y-4">
-              <SwitchField
-                name="require_equipment_loan_acceptance"
-                label="Incluir aceite do termo de comodato na assinatura"
-                hint="Quando habilitado, o cliente verá e aceitará o termo de comodato ao assinar a OS no aplicativo."
-              />
-              {requiresLoanTerm && (
-                <Controller
-                  control={form.control}
-                  name="equipment_loan_term"
-                  render={({ field, fieldState }) => (
-                    <RichTextEditor
-                      label="Termo de comodato"
-                      value={field.value ?? ''}
-                      onChange={field.onChange}
-                      error={fieldState.error?.message}
-                      placeholder="Digite o texto completo do termo de comodato que será exibido ao cliente..."
-                      hint="Aceita formatação HTML (negrito, títulos, listas, links etc.). O texto será exibido no aplicativo e ficará registrado na OS no momento do aceite."
-                    />
-                  )}
+          {showFor('service_orders') && (
+            <Section
+              title="Assinatura do cliente"
+              description="A assinatura do cliente é obrigatória na conclusão da OS. Ative o termo de comodato para incluir o aceite do termo no momento da assinatura."
+            >
+              <div className="space-y-4">
+                <SwitchField
+                  name="require_equipment_loan_acceptance"
+                  label="Incluir aceite do termo de comodato na assinatura"
+                  hint="Quando habilitado, o cliente verá e aceitará o termo de comodato ao assinar a OS no aplicativo."
                 />
-              )}
-            </div>
-          </Section>
+                {requiresLoanTerm && (
+                  <Controller
+                    control={form.control}
+                    name="equipment_loan_term"
+                    render={({ field, fieldState }) => (
+                      <RichTextEditor
+                        label="Termo de comodato"
+                        value={field.value ?? ''}
+                        onChange={field.onChange}
+                        error={fieldState.error?.message}
+                        placeholder="Digite o texto completo do termo de comodato que será exibido ao cliente..."
+                        hint="Aceita formatação HTML (negrito, títulos, listas, links etc.). O texto será exibido no aplicativo e ficará registrado na OS no momento do aceite."
+                      />
+                    )}
+                  />
+                )}
+              </div>
+            </Section>
 
-          <Section
-            title="Multa e juros por atraso"
-            description="Aplicados automaticamente em cobranças vencidas quando o cliente efetua o pagamento."
-          >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <TextField
-                name="late_fine_percent"
-                label="Multa (% do valor)"
-                type="number"
-                min={0}
-                max={100}
-                step="0.01"
-                hint="Aplicada uma única vez sobre o valor da cobrança em atraso."
-              />
-              <TextField
-                name="late_interest_percent"
-                label="Juros (% ao mês)"
-                type="number"
-                min={0}
-                max={100}
-                step="0.01"
-                hint="Calculados por dia de atraso, proporcionais ao mês (base 30 dias)."
-              />
-            </div>
-          </Section>
+          )}
+
+          {showFor('finance') && (
+            <Section
+              title="Multa e juros por atraso"
+              description="Aplicados automaticamente em cobranças vencidas quando o cliente efetua o pagamento."
+            >
+              <div className="grid gap-4 sm:grid-cols-2">
+                <TextField
+                  name="late_fine_percent"
+                  label="Multa (% do valor)"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="0.01"
+                  hint="Aplicada uma única vez sobre o valor da cobrança em atraso."
+                />
+                <TextField
+                  name="late_interest_percent"
+                  label="Juros (% ao mês)"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="0.01"
+                  hint="Calculados por dia de atraso, proporcionais ao mês (base 30 dias)."
+                />
+              </div>
+            </Section>
+          )}
 
           <div className="flex justify-end">
             <Button type="submit" loading={submitting}>

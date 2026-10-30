@@ -11,18 +11,14 @@ import {
   SegmentedControl,
   Skeleton,
 } from '@/shared/design-system'
+import { useIsUmbrellaTenant } from '@/shared/hooks/useIsUmbrellaTenant'
+import { useTenantModules } from '@/shared/hooks/useTenantModules'
 import { TenantAlertSettingsForm } from '../forms/TenantAlertSettingsForm'
 import { TenantAppSettingsForm } from '../forms/TenantAppSettingsForm'
 import { TenantSettingsForm } from '../forms/TenantSettingsForm'
 import { useTenantQuery, useUpdateTenant } from '../hooks/useTenants'
 
 type TenantSettingsTab = 'empresa' | 'aplicativo' | 'alertas'
-
-const TAB_OPTIONS: Array<{ value: TenantSettingsTab; label: string }> = [
-  { value: 'empresa', label: 'Empresa' },
-  { value: 'aplicativo', label: 'Aplicativo' },
-  { value: 'alertas', label: 'Alertas' },
-]
 
 function FormSkeleton() {
   return (
@@ -46,10 +42,25 @@ export default function TenantSettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const query = useTenantQuery()
   const updateTenant = useUpdateTenant()
+  const isUmbrella = useIsUmbrellaTenant()
+  const { hasModule } = useTenantModules()
+
+  // O umbrella não tem app nem alertas; nos filhos, as abas seguem os módulos.
+  const showAppTab = !isUmbrella && (hasModule('tracking') || hasModule('service_orders'))
+  const showAlertsTab = !isUmbrella && hasModule('alerts')
+  const tabOptions: Array<{ value: TenantSettingsTab; label: string }> = [
+    { value: 'empresa', label: 'Empresa' },
+    ...(showAppTab ? [{ value: 'aplicativo' as const, label: 'Aplicativo' }] : []),
+    ...(showAlertsTab ? [{ value: 'alertas' as const, label: 'Alertas' }] : []),
+  ]
 
   const rawTab = searchParams.get('tab')
   const tab: TenantSettingsTab =
-    rawTab === 'aplicativo' ? 'aplicativo' : rawTab === 'alertas' ? 'alertas' : 'empresa'
+    rawTab === 'aplicativo' && showAppTab
+      ? 'aplicativo'
+      : rawTab === 'alertas' && showAlertsTab
+        ? 'alertas'
+        : 'empresa'
 
   const setTab = (value: TenantSettingsTab) => {
     setSearchParams(
@@ -69,12 +80,14 @@ export default function TenantSettingsPage() {
     <Page>
       <PageHeader
         title="Configurações"
-        description="Atualize os dados, a identidade visual, o aplicativo e os alertas padrão da empresa ativa."
+        description="Atualize os dados e as preferências da empresa ativa."
         breadcrumb={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Configurações' }]}
       />
 
       <PageContent className="space-y-5">
-        <SegmentedControl value={tab} options={TAB_OPTIONS} onChange={setTab} />
+        {tabOptions.length > 1 && (
+          <SegmentedControl value={tab} options={tabOptions} onChange={setTab} />
+        )}
 
         {query.isPending && <FormSkeleton />}
 

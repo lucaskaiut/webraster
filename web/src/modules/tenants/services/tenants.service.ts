@@ -4,6 +4,7 @@ import type {
   Tenant,
   TenantModule,
   TenantModuleKey,
+  TenantOverview,
   TenantVehicleAlertDefault,
   User,
 } from '@/shared/types/models'
@@ -73,6 +74,12 @@ export const tenantsService = {
     const response = await http.get<PaginatedResponse<Tenant>>('/tenant/children', { params })
 
     return response.data
+  },
+
+  async overview(): Promise<TenantOverview> {
+    const response = await http.get<ApiResponse<TenantOverview>>('/tenant/overview')
+
+    return response.data.data
   },
 
   async listModules(): Promise<TenantModule[]> {

@@ -45,6 +45,21 @@ class TenantController extends ApiController
     }
 
     /**
+     * Indicadores das empresas filhas (dashboard do umbrella).
+     */
+    public function overview(): JsonResponse
+    {
+        $this->authorize('viewAny', Tenant::class);
+
+        $overview = $this->service->overview($this->umbrellaTenant());
+
+        return $this->success([
+            ...$overview,
+            'recent' => TenantResource::collection($overview['recent']),
+        ]);
+    }
+
+    /**
      * Catálogo de módulos que o umbrella pode liberar aos filhos.
      */
     public function modules(): JsonResponse

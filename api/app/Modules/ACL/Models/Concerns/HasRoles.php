@@ -63,13 +63,21 @@ trait HasRoles
 
     /**
      * Permissões dos perfis, restritas aos módulos liberados para o tenant
-     * em que o usuário opera.
+     * em que o usuário opera. Master operando uma empresa filha tem todas
+     * as permissões liberadas para ela: os perfis do umbrella só tratam da
+     * administração do grupo.
      *
      * @return Collection<int, string>
      */
     public function permissionValues(): Collection
     {
         $tenant = $this->permissionTenant();
+
+        if ($this->is_master && $tenant !== null && ! $tenant->isUmbrella()) {
+            return collect(Permission::values())
+                ->filter(fn (string $permission): bool => $tenant->allowsPermission($permission))
+                ->values();
+        }
 
         return $this->loadedRoles()
             ->flatMap(fn (Role $role) => $role->permissionValues())
