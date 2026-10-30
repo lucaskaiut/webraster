@@ -3,6 +3,7 @@
 namespace App\Modules\Finance\Console\Commands;
 
 use App\Modules\Finance\Services\DelinquencyService;
+use App\Modules\Tenant\Enums\TenantModule;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Tenant\Support\Facades\TenantContext;
 use Illuminate\Console\Command;
@@ -18,6 +19,11 @@ class ProcessDelinquencyCommand extends Command
         $total = 0;
 
         Tenant::query()->orderBy('id')->each(function (Tenant $tenant) use ($delinquency, &$total): void {
+            // Empresas inativas ou sem o módulo financeiro não geram cobranças nem avisos.
+            if (! $tenant->isActive() || ! $tenant->hasModule(TenantModule::FINANCE)) {
+                return;
+            }
+
             TenantContext::set($tenant);
             $total += $delinquency->process();
         });

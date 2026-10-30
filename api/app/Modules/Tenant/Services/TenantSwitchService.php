@@ -5,6 +5,7 @@ namespace App\Modules\Tenant\Services;
 use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogService;
 use App\Modules\Tenant\Exceptions\TenantAccessForbidden;
+use App\Modules\Tenant\Exceptions\TenantInactive;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\User\Models\User;
 
@@ -17,6 +18,7 @@ class TenantSwitchService
 
     /**
      * @throws TenantAccessForbidden
+     * @throws TenantInactive
      */
     public function select(User $user, string $tenantIdentifier): Tenant
     {
@@ -25,6 +27,10 @@ class TenantSwitchService
         }
 
         $tenant = $this->access->resolveAccessibleTenant($user, $tenantIdentifier);
+
+        if (! $tenant->isActive()) {
+            throw TenantInactive::make();
+        }
 
         $this->audit->record($user, AuditAction::TenantSwitched, $tenant);
 

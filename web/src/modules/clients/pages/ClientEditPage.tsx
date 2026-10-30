@@ -14,6 +14,7 @@ import {
 } from '@/shared/design-system'
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
+import { useTenantModules } from '@/shared/hooks/useTenantModules'
 import { ClientForm } from '../forms/ClientForm'
 import { ClientAlertsSection } from '../components/ClientAlertsSection'
 import { ClientContractSection } from '../components/ClientContractSection'
@@ -51,10 +52,13 @@ export default function ClientEditPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { can } = usePermissions()
+  const { hasModule } = useTenantModules()
 
   const query = useClientQuery(id)
   const updateClient = useUpdateClient(id ?? '')
-  const showOrderTab = can(Permission.CLIENT_READ)
+  const showVehiclesTab = hasModule('tracking') && can(Permission.VEHICLE_READ)
+  const showOrderTab = hasModule('finance') && can(Permission.CLIENT_READ)
+  const showContractTab = hasModule('contracts') && can(Permission.CLIENT_READ)
   const showFinance = can(Permission.FINANCE_SUBSCRIPTION_READ)
   const showAlertsTab = can(Permission.ALERT_CONFIG_READ)
 
@@ -62,23 +66,23 @@ export default function ClientEditPage() {
     () => [
       { value: 'dados' as const, label: 'Dados' },
       { value: 'usuarios' as const, label: 'Usuários' },
-      { value: 'veiculos' as const, label: 'Veículos' },
+      ...(showVehiclesTab ? [{ value: 'veiculos' as const, label: 'Veículos' }] : []),
       ...(showAlertsTab ? [{ value: 'alertas' as const, label: 'Alertas' }] : []),
       ...(showOrderTab ? [{ value: 'pedido' as const, label: 'Pedido' }] : []),
-      ...(showOrderTab ? [{ value: 'contrato' as const, label: 'Contrato' }] : []),
+      ...(showContractTab ? [{ value: 'contrato' as const, label: 'Contrato' }] : []),
     ],
-    [showAlertsTab, showOrderTab],
+    [showVehiclesTab, showAlertsTab, showOrderTab, showContractTab],
   )
 
   const rawTab = searchParams.get('tab')
   const tab: ClientEditTab =
     rawTab === 'pedido' && showOrderTab
       ? 'pedido'
-      : rawTab === 'contrato' && showOrderTab
+      : rawTab === 'contrato' && showContractTab
         ? 'contrato'
         : rawTab === 'usuarios'
           ? 'usuarios'
-          : rawTab === 'veiculos'
+          : rawTab === 'veiculos' && showVehiclesTab
             ? 'veiculos'
             : rawTab === 'alertas' && showAlertsTab
               ? 'alertas'

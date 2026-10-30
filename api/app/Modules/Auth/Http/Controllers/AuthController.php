@@ -3,6 +3,7 @@
 namespace App\Modules\Auth\Http\Controllers;
 
 use App\Modules\ACL\Enums\Panel;
+use App\Modules\ACL\Enums\Permission;
 use App\Modules\ACL\Http\Resources\RoleResource;
 use App\Modules\Auth\DTOs\AuthenticatedUser;
 use App\Modules\Auth\DTOs\NewTenantData;
@@ -116,6 +117,11 @@ class AuthController extends ApiController
             'tenant' => TenantResource::make($tenant),
             'roles' => RoleResource::collection($user->roles),
             'permissions' => $this->effectivePermissions($user->permissionValues(), $tenant),
+            // Permissões liberadas pelos módulos do tenant (para montar perfis).
+            'available_permissions' => array_values(array_filter(
+                Permission::values(),
+                fn (string $permission): bool => $tenant?->allowsPermission($permission) ?? true,
+            )),
             'is_master' => (bool) $user->is_master,
             'available_tenants' => AvailableTenantResource::collection(
                 $this->service->availableTenantsFor($user),

@@ -17,6 +17,7 @@ use App\Modules\Billing\Services\BillingService;
 use App\Modules\Billing\Services\PlanService;
 use App\Modules\Billing\Services\SubscriptionService;
 use App\Modules\Billing\Support\PaymentGatewayResolver;
+use App\Modules\Tenant\Exceptions\TenantInactive;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Tenant\Services\MasterTenantAccessService;
 use App\Modules\Tenant\Services\TenantService;
@@ -77,7 +78,8 @@ class AuthService
                 $subscription = null;
                 $plan = null;
 
-                if ($planId !== null) {
+                // Sem cobrança do umbrella (billing.enabled), o plano informado é ignorado.
+                if ($planId !== null && config('billing.enabled')) {
                     $plan = $this->plans->findActiveForSubscription($planId, $tenant);
 
                     // Método de pagamento é escolhido depois, na plataforma.
@@ -138,11 +140,18 @@ class AuthService
             ]);
         }
 
+        $tenant ??= $user->tenant;
+
+        if (! $tenant->isActive()) {
+            throw ValidationException::withMessages([
+                'email' => [TenantInactive::make()->getMessage()],
+            ]);
+        }
+
         if ($panel !== null && ! $user->hasPermission($panel->permission())) {
             throw new AuthorizationException($panel->deniedMessage());
         }
 
-        $tenant ??= $user->tenant;
         $availableTenants = $this->masterAccess->availableTenants($user);
 
         $this->context->set($tenant);

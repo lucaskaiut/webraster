@@ -5,6 +5,7 @@ namespace App\Modules\ServiceOrder\Console\Commands;
 use App\Modules\ServiceOrder\Enums\ServiceOrderStatus;
 use App\Modules\ServiceOrder\Models\ServiceOrder;
 use App\Modules\ServiceOrder\Services\ServiceOrderNotificationService;
+use App\Modules\Tenant\Enums\TenantModule;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Tenant\Support\Facades\TenantContext;
 use Illuminate\Console\Command;
@@ -22,6 +23,10 @@ class SendServiceOrderRemindersCommand extends Command
         $count = 0;
 
         Tenant::query()->orderBy('id')->each(function (Tenant $tenant) use ($now, $limit, $notifications, &$count): void {
+            if (! $tenant->isActive() || ! $tenant->hasModule(TenantModule::SERVICE_ORDERS)) {
+                return;
+            }
+
             TenantContext::set($tenant);
 
             ServiceOrder::query()

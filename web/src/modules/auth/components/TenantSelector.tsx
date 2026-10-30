@@ -21,9 +21,8 @@ export function TenantSelector() {
     mutationFn: authService.selectTenant,
     onSuccess: async (tenant) => {
       setSelectedTenantId(tenant.id)
-      await queryClient.invalidateQueries({
-        predicate: (query) => query.queryKey[0] !== 'session',
-      })
+      // Inclui a sessão: as permissões dependem dos módulos da empresa selecionada.
+      await queryClient.invalidateQueries()
     },
     onError: () => {
       toast.error('Falha ao trocar empresa', 'Não foi possível selecionar o tenant informado.')

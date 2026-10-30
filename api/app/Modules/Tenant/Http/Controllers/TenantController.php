@@ -3,6 +3,7 @@
 namespace App\Modules\Tenant\Http\Controllers;
 
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\Tenant\Enums\TenantModule;
 use App\Modules\Tenant\Http\Requests\StoreChildTenantRequest;
 use App\Modules\Tenant\Http\Requests\UpdateChildTenantRequest;
 use App\Modules\Tenant\Http\Requests\UpdateTenantRequest;
@@ -43,6 +44,21 @@ class TenantController extends ApiController
         return $this->success(TenantResource::make($child));
     }
 
+    /**
+     * Catálogo de módulos que o umbrella pode liberar aos filhos.
+     */
+    public function modules(): JsonResponse
+    {
+        $this->authorize('viewAny', Tenant::class);
+
+        return $this->success(array_map(fn (TenantModule $module): array => [
+            'key' => $module->value,
+            'label' => $module->label(),
+            'description' => $module->description(),
+            'requires' => array_map(fn (TenantModule $required) => $required->value, $module->requires()),
+        ], TenantModule::cases()));
+    }
+
     public function show(): JsonResponse
     {
         $tenant = TenantContext::tenant();
@@ -62,9 +78,6 @@ class TenantController extends ApiController
             $umbrella,
             $request->validated('tenant'),
             $request->validated('user'),
-            $request->validated('plan_id'),
-            $request->boolean('is_complimentary'),
-            $request->validated('complimentary_ends_at'),
         );
 
         return $this->created([

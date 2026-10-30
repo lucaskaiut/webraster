@@ -2,20 +2,16 @@
 
 namespace Tests\Feature\Auth;
 
-use App\Modules\ACL\Enums\DefaultRole;
-use App\Modules\ACL\Enums\Permission;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class RegisterTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function payload(array $overrides = []): array
+    public function test_public_registration_is_closed(): void
     {
-        return array_replace_recursive([
+        $this->postJson('/api/auth/register', [
             'tenant' => [
                 'name' => 'Empresa Exemplo',
                 'document' => '11.222.333/0001-81',
@@ -25,132 +21,10 @@ class RegisterTest extends TestCase
             'user' => [
                 'name' => 'Administrador',
                 'email' => 'admin@empresa.com',
-                'phone' => '41999999999',
-                'document' => '529.982.247-25',
                 'password' => '12345678',
             ],
-        ], $overrides);
-    }
+        ])->assertNotFound();
 
-    public function test_register_creates_tenant_admin_user_default_roles_and_token(): void
-    {
-        $response = $this->postJson('/api/auth/register', $this->payload());
-
-        $response
-            ->assertCreated()
-            ->assertJsonPath('success', true)
-            ->assertJsonPath('data.token_type', 'Bearer')
-            ->assertJsonPath('data.user.email', 'admin@empresa.com')
-            ->assertJsonStructure(['data' => ['token', 'user' => ['id'], 'tenant' => ['id']]]);
-
-        $this->assertDatabaseHas('tenants', [
-            'email' => 'contato@empresa.com',
-            'document' => '11222333000181',
-        ]);
-
-        $this->assertDatabaseHas('users', [
-            'email' => 'admin@empresa.com',
-            'document' => '52998224725',
-        ]);
-
-        $tenantId = $this->getTenantId();
-
-        $this->assertDatabaseHas('roles', ['tenant_id' => $tenantId, 'name' => DefaultRole::ADMINISTRATOR->value]);
-        $this->assertDatabaseHas('roles', ['tenant_id' => $tenantId, 'name' => DefaultRole::OPERATOR->value]);
-        $this->assertDatabaseHas('roles', ['tenant_id' => $tenantId, 'name' => DefaultRole::CLIENT->value]);
-        $this->assertDatabaseCount(
-            'role_permissions',
-            count(Permission::cases())
-                + count(DefaultRole::OPERATOR->permissions())
-                + count(DefaultRole::CLIENT->permissions())
-                + count(DefaultRole::TECHNICIAN->permissions()),
-        );
-        $this->assertDatabaseCount('user_roles', 1);
-
-        $token = $response->json('data.token');
-
-        $this->getJson('/api/auth/me', ['Authorization' => "Bearer {$token}"])
-            ->assertOk()
-            ->assertJsonPath('data.user.email', 'admin@empresa.com')
-            ->assertJsonPath('data.roles.0.name', DefaultRole::ADMINISTRATOR->value);
-    }
-
-    public function test_register_hashes_the_password(): void
-    {
-        $this->postJson('/api/auth/register', $this->payload())->assertCreated();
-
-        $password = DB::table('users')
-            ->where('email', 'admin@empresa.com')
-            ->value('password');
-
-        $this->assertNotSame('12345678', $password);
-        $this->assertTrue(Hash::check('12345678', $password));
-    }
-
-    public function test_register_rejects_invalid_documents(): void
-    {
-        $this->postJson('/api/auth/register', $this->payload([
-            'tenant' => ['document' => '11111111000111'],
-        ]))->assertUnprocessable()->assertJsonValidationErrors(['tenant.document']);
-
-        $this->postJson('/api/auth/register', $this->payload([
-            'user' => ['document' => '11111111111'],
-        ]))->assertUnprocessable()->assertJsonValidationErrors(['user.document']);
-    }
-
-    public function test_register_rejects_duplicated_emails(): void
-    {
-        $this->postJson('/api/auth/register', $this->payload())->assertCreated();
-
-        $this->postJson('/api/auth/register', $this->payload([
-            'user' => ['email' => 'outro-admin@empresa.com'],
-        ]))->assertUnprocessable()->assertJsonValidationErrors(['tenant.email']);
-
-        $this->postJson('/api/auth/register', $this->payload([
-            'tenant' => ['email' => 'outro@empresa.com'],
-        ]))->assertUnprocessable()->assertJsonValidationErrors(['user.email']);
-    }
-
-    public function test_first_tenant_is_root_and_next_tenants_use_it_as_parent(): void
-    {
-        $this->postJson('/api/auth/register', $this->payload())->assertCreated();
-
-        $firstTenantId = $this->getTenantId();
-
-        $this->assertDatabaseHas('tenants', [
-            'id' => $firstTenantId,
-            'parent_id' => null,
-        ]);
-
-        $this->postJson('/api/auth/register', $this->payload([
-            'tenant' => [
-                'name' => 'Filial',
-                'document' => '04.252.011/0001-10',
-                'email' => 'contato@filial.com',
-            ],
-            'user' => [
-                'email' => 'admin@filial.com',
-            ],
-        ]))->assertCreated();
-
-        $this->assertDatabaseHas('tenants', [
-            'email' => 'contato@filial.com',
-            'parent_id' => $firstTenantId,
-        ]);
-    }
-
-    public function test_error_response_is_standardized(): void
-    {
-        $this->postJson('/api/auth/register', [])
-            ->assertUnprocessable()
-            ->assertJsonStructure(['success', 'message', 'errors'])
-            ->assertJsonPath('success', false);
-    }
-
-    private function getTenantId(): int
-    {
-        return (int) DB::table('tenants')
-            ->where('email', 'contato@empresa.com')
-            ->value('id');
+        $this->assertDatabaseCount('tenants', 0);
     }
 }

@@ -1,3 +1,4 @@
+import { useEffect, type ComponentProps } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -7,8 +8,10 @@ import {
   CardContent,
   Form,
   Section,
+  SwitchField,
   TextField,
 } from '@/shared/design-system'
+import type { TenantModuleKey } from '@/shared/types/models'
 import { isApiError } from '@/shared/api/errors'
 import { applyApiErrorsToForm } from '@/shared/utils/forms'
 import { onlyDigits } from '@/shared/utils/document'
@@ -23,6 +26,8 @@ import {
   type CreateChildTenantFormValues,
   type UpdateChildTenantFormValues,
 } from '../schemas/tenant.schema'
+import { ModulesField } from '../components/ModulesField'
+import { useTenantModulesQuery } from '../hooks/useTenants'
 
 type CreateProps = {
   mode: 'create'
@@ -71,14 +76,25 @@ function CreateForm({
   defaultValues?: Partial<CreateChildTenantFormValues>
   onSubmit: (payload: CreateChildTenantPayload) => Promise<unknown>
 }) {
+  const modulesQuery = useTenantModulesQuery()
   const form = useForm<CreateChildTenantFormValues>({
     resolver: zodResolver(createChildTenantSchema),
     defaultValues: {
-      tenant: { name: '', document: '', email: '', phone: '' },
+      tenant: { name: '', document: '', email: '', phone: '', is_active: true, modules: [] },
       user: { name: '', email: '', password: '' },
       ...defaultValues,
     },
   })
+
+  // Nova empresa nasce com todos os módulos; o umbrella desmarca o que não contratou.
+  useEffect(() => {
+    if (modulesQuery.data && !form.getFieldState('tenant.modules').isDirty) {
+      form.setValue(
+        'tenant.modules',
+        modulesQuery.data.map((module) => module.key),
+      )
+    }
+  }, [modulesQuery.data, form])
 
   const handleSubmit = async (values: CreateChildTenantFormValues) => {
     const payload: CreateChildTenantPayload = {
@@ -87,6 +103,8 @@ function CreateForm({
         document: onlyDigits(values.tenant.document),
         email: values.tenant.email,
         phone: onlyDigits(values.tenant.phone),
+        is_active: values.tenant.is_active,
+        modules: values.tenant.modules as TenantModuleKey[],
       },
       user: {
         name: values.user.name,
@@ -109,6 +127,7 @@ function CreateForm({
       <CardContent>
         <Form form={form} onSubmit={handleSubmit} className="space-y-8">
           <TenantFields />
+          <AccessFields modules={modulesQuery.data} loading={modulesQuery.isPending} />
           <AdminFields />
           <FormActions submitting={submitting} submitLabel="Criar empresa" />
         </Form>
@@ -126,6 +145,7 @@ function EditForm({
   defaultValues?: Partial<UpdateChildTenantFormValues>
   onSubmit: (payload: UpdateChildTenantPayload) => Promise<unknown>
 }) {
+  const modulesQuery = useTenantModulesQuery()
   const form = useForm<UpdateChildTenantFormValues>({
     resolver: zodResolver(updateChildTenantSchema),
     defaultValues: {
@@ -134,6 +154,8 @@ function EditForm({
         email: defaultValues?.tenant?.email ?? '',
         document: maskCpfCnpj(defaultValues?.tenant?.document ?? ''),
         phone: maskPhone(defaultValues?.tenant?.phone ?? ''),
+        is_active: defaultValues?.tenant?.is_active ?? true,
+        modules: defaultValues?.tenant?.modules ?? [],
       },
     },
   })
@@ -145,6 +167,8 @@ function EditForm({
         document: onlyDigits(values.tenant.document),
         email: values.tenant.email,
         phone: onlyDigits(values.tenant.phone),
+        is_active: values.tenant.is_active,
+        modules: values.tenant.modules as TenantModuleKey[],
       },
     }
 
@@ -162,6 +186,7 @@ function EditForm({
       <CardContent>
         <Form form={form} onSubmit={handleSubmit} className="space-y-8">
           <TenantFields />
+          <AccessFields modules={modulesQuery.data} loading={modulesQuery.isPending} />
           <FormActions submitting={submitting} submitLabel="Salvar alterações" />
         </Form>
       </CardContent>
@@ -193,6 +218,31 @@ function TenantFields() {
         />
       </div>
     </Section>
+  )
+}
+
+function AccessFields({
+  modules,
+  loading,
+}: {
+  modules: ComponentProps<typeof ModulesField>['modules']
+  loading: boolean
+}) {
+  return (
+    <>
+      <Section
+        title="Situação"
+        description="Empresas inativas têm o acesso bloqueado para todos os usuários, inclusive no app."
+      >
+        <SwitchField name="tenant.is_active" label="Empresa ativa" />
+      </Section>
+      <Section
+        title="Módulos"
+        description="Funcionalidades liberadas para esta empresa. Usuários, perfis, clientes e configurações estão sempre disponíveis."
+      >
+        <ModulesField name="tenant.modules" modules={modules} loading={loading} />
+      </Section>
+    </>
   )
 }
 

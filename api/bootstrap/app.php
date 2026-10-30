@@ -7,12 +7,15 @@ use App\Modules\ACL\Http\Middleware\UsePanelSessionCookie;
 use App\Modules\ApiToken\Http\Middleware\AuthenticateApiToken;
 use App\Modules\ApiToken\Http\Middleware\MultiAuthenticate;
 use App\Modules\Billing\Http\Middleware\EnsureActiveSubscription;
+use App\Modules\Billing\Http\Middleware\EnsureBillingEnabled;
 use App\Modules\Client\Http\Middleware\ResolveClientScope;
 use App\Modules\Shared\Http\ApiError;
 use App\Modules\Tenant\Exceptions\TenantAccessForbidden;
 use App\Modules\Tenant\Exceptions\TenantCouldNotBeResolved;
+use App\Modules\Tenant\Exceptions\TenantInactive;
 use App\Modules\Tenant\Http\Middleware\EnsureBuildToken;
 use App\Modules\Tenant\Http\Middleware\EnsureChildTenant;
+use App\Modules\Tenant\Http\Middleware\EnsureTenantModule;
 use App\Modules\Tenant\Http\Middleware\ResolveTenant;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -68,7 +71,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'auth.api-token' => AuthenticateApiToken::class,
             'auth.multi' => MultiAuthenticate::class,
             'subscription.active' => EnsureActiveSubscription::class,
+            'billing.enabled' => EnsureBillingEnabled::class,
             'tenant.child' => EnsureChildTenant::class,
+            'module' => EnsureTenantModule::class,
             'build.token' => EnsureBuildToken::class,
         ]);
 
@@ -101,6 +106,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (TenantAccessForbidden $e, Request $request) {
             if (ApiError::shouldRender($request)) {
                 return ApiError::response($e->getMessage(), 403);
+            }
+        });
+
+        $exceptions->render(function (TenantInactive $e, Request $request) {
+            if (ApiError::shouldRender($request)) {
+                return ApiError::response($e->getMessage(), 403, [TenantInactive::ERROR_KEY => [$e->getMessage()]]);
             }
         });
 

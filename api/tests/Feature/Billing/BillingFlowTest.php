@@ -28,7 +28,9 @@ class BillingFlowTest extends TestCase
     {
         parent::setUp();
 
+        // Exercita a cobrança do umbrella, desligada por padrão.
         config([
+            'billing.enabled' => true,
             'billing.active' => ['mockPix', 'asaasCreditCard'],
             'billing.recurring_charge_max_attempts' => 3,
             'billing.recurring_charge_retry_delay_ms' => 0,

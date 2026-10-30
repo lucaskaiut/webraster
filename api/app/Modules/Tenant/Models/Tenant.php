@@ -2,11 +2,13 @@
 
 namespace App\Modules\Tenant\Models;
 
+use App\Modules\ACL\Enums\Permission;
 use App\Modules\ACL\Models\Role;
 use App\Modules\ApiToken\Models\ApiToken;
 use App\Modules\Billing\Models\Plan;
 use App\Modules\Billing\Models\Subscription;
 use App\Modules\Shared\Models\Concerns\HasUuid;
+use App\Modules\Tenant\Enums\TenantModule;
 use App\Modules\User\Models\User;
 use Database\Factories\TenantFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -27,6 +29,8 @@ class Tenant extends Model
         'parent_id',
         'name',
         'identifier',
+        'is_active',
+        'modules',
         'document',
         'email',
         'phone',
@@ -48,6 +52,8 @@ class Tenant extends Model
     protected function casts(): array
     {
         return [
+            'is_active' => 'boolean',
+            'modules' => 'array',
             'vehicle_alert_defaults' => 'array',
             'late_fine_percent' => 'decimal:2',
             'late_interest_percent' => 'decimal:2',
@@ -60,6 +66,10 @@ class Tenant extends Model
         static::creating(function (Tenant $tenant): void {
             if (blank($tenant->identifier)) {
                 $tenant->identifier = $tenant->generateIdentifier();
+            }
+
+            if ($tenant->modules === null) {
+                $tenant->modules = TenantModule::values();
             }
         });
     }
@@ -119,6 +129,54 @@ class Tenant extends Model
     public function isUmbrella(): bool
     {
         return $this->parent_id === null;
+    }
+
+    /**
+     * Tenant inativo tem o acesso bloqueado. O umbrella nunca é inativado.
+     */
+    public function isActive(): bool
+    {
+        return $this->isUmbrella() || $this->is_active !== false;
+    }
+
+    /**
+     * O umbrella tem todos os módulos; filhos, os liberados pelo umbrella.
+     */
+    public function hasModule(TenantModule $module): bool
+    {
+        return $this->isUmbrella() || in_array($module->value, $this->modules ?? [], true);
+    }
+
+    /**
+     * @return list<TenantModule>
+     */
+    public function enabledModules(): array
+    {
+        return array_values(array_filter(
+            TenantModule::cases(),
+            fn (TenantModule $module): bool => $this->hasModule($module),
+        ));
+    }
+
+    /**
+     * Permissões do núcleo sempre valem; as de módulo exigem ao menos um
+     * dos módulos que as liberam.
+     */
+    public function allowsPermission(Permission|string $permission): bool
+    {
+        $modules = TenantModule::providing($permission);
+
+        if ($modules === []) {
+            return true;
+        }
+
+        foreach ($modules as $module) {
+            if ($this->hasModule($module)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function logoUrl(): ?string

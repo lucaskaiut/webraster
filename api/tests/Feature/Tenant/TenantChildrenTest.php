@@ -2,8 +2,11 @@
 
 namespace Tests\Feature\Tenant;
 
+use App\Modules\Billing\Http\Middleware\EnsureActiveSubscription;
 use App\Modules\Billing\Models\Plan;
+use App\Modules\Tenant\Enums\TenantModule;
 use App\Modules\Tenant\Models\Tenant;
+use App\Modules\Tenant\Support\Facades\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\InteractsWithTenants;
@@ -71,10 +74,10 @@ class TenantChildrenTest extends TestCase
         ]);
     }
 
-    public function test_master_creates_child_tenant_with_plan(): void
+    public function test_child_creation_ignores_plan_and_generates_no_subscription(): void
     {
         $umbrella = $this->createTenantWithRoles();
-        $plan = Plan::factory()->forTenant($umbrella)->create(['free_trial_days' => 7]);
+        $plan = Plan::factory()->forTenant($umbrella)->withoutTrial()->create();
 
         Sanctum::actingAs($this->createMaster($umbrella));
 
@@ -91,14 +94,140 @@ class TenantChildrenTest extends TestCase
                 'password' => '12345678',
             ],
             'plan_id' => $plan->uuid,
+            'is_complimentary' => true,
         ])->assertCreated();
 
         $child = Tenant::query()->where('email', 'contato@paga.com')->firstOrFail();
 
-        $this->assertDatabaseHas('subscriptions', [
-            'tenant_id' => $child->getKey(),
-            'plan_id' => $plan->getKey(),
-        ]);
+        $this->assertDatabaseMissing('subscriptions', ['tenant_id' => $child->getKey()]);
+        $this->assertDatabaseCount('invoices', 0);
+    }
+
+    public function test_child_is_created_active_with_all_modules_by_default(): void
+    {
+        $umbrella = $this->createTenantWithRoles();
+
+        Sanctum::actingAs($this->createMaster($umbrella));
+
+        $this->postJson('/api/tenant/children', [
+            'tenant' => [
+                'name' => 'Empresa Padrão',
+                'document' => '11.222.333/0001-81',
+                'email' => 'contato@padrao.com',
+                'phone' => '41999999999',
+            ],
+            'user' => [
+                'name' => 'Admin Padrão',
+                'email' => 'admin@padrao.com',
+                'password' => '12345678',
+            ],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.tenant.is_active', true)
+            ->assertJsonPath('data.tenant.modules', TenantModule::values());
+    }
+
+    public function test_master_creates_child_with_selected_modules_and_their_requirements(): void
+    {
+        $umbrella = $this->createTenantWithRoles();
+
+        Sanctum::actingAs($this->createMaster($umbrella));
+
+        $this->postJson('/api/tenant/children', [
+            'tenant' => [
+                'name' => 'Empresa OS',
+                'document' => '11.222.333/0001-81',
+                'email' => 'contato@os.com',
+                'phone' => '41999999999',
+                'modules' => ['service_orders', 'alerts'],
+            ],
+            'user' => [
+                'name' => 'Admin OS',
+                'email' => 'admin@os.com',
+                'password' => '12345678',
+            ],
+        ])
+            ->assertCreated()
+            // Alertas exigem o rastreamento, incluído automaticamente.
+            ->assertJsonPath('data.tenant.modules', ['tracking', 'alerts', 'service_orders']);
+    }
+
+    public function test_master_updates_child_status_and_modules(): void
+    {
+        $umbrella = $this->createTenantWithRoles();
+        $child = $this->createChildTenant($umbrella);
+
+        Sanctum::actingAs($this->createMaster($umbrella));
+
+        $this->putJson("/api/tenant/children/{$child->uuid}", [
+            'tenant' => [
+                'name' => $child->name,
+                'document' => $child->document,
+                'email' => $child->email,
+                'phone' => $child->phone,
+                'is_active' => false,
+                'modules' => ['finance'],
+            ],
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.is_active', false)
+            ->assertJsonPath('data.modules', ['finance']);
+
+        $child->refresh();
+        $this->assertFalse($child->is_active);
+        $this->assertSame(['finance'], $child->modules);
+    }
+
+    public function test_unknown_module_is_rejected(): void
+    {
+        $umbrella = $this->createTenantWithRoles();
+        $child = $this->createChildTenant($umbrella);
+
+        Sanctum::actingAs($this->createMaster($umbrella));
+
+        $this->putJson("/api/tenant/children/{$child->uuid}", [
+            'tenant' => [
+                'name' => $child->name,
+                'document' => $child->document,
+                'email' => $child->email,
+                'phone' => $child->phone,
+                'modules' => ['inexistente'],
+            ],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['tenant.modules.0']);
+    }
+
+    public function test_child_admin_cannot_change_own_status_or_modules(): void
+    {
+        $umbrella = $this->createTenantWithRoles();
+        $child = $this->createChildTenant($umbrella, ['modules' => ['finance']]);
+
+        Sanctum::actingAs($this->createAdmin($child));
+
+        $this->putJson('/api/tenant', [
+            'name' => 'Nome Novo',
+            'is_active' => false,
+            'modules' => TenantModule::values(),
+        ])->assertOk();
+
+        $child->refresh();
+        $this->assertSame('Nome Novo', $child->name);
+        $this->assertTrue($child->is_active);
+        $this->assertSame(['finance'], $child->modules);
+    }
+
+    public function test_master_lists_module_catalog(): void
+    {
+        $umbrella = $this->createTenantWithRoles();
+
+        Sanctum::actingAs($this->createMaster($umbrella));
+
+        $this->getJson('/api/tenant/modules')
+            ->assertOk()
+            ->assertJsonCount(count(TenantModule::cases()), 'data')
+            ->assertJsonPath('data.0.key', 'tracking')
+            ->assertJsonPath('data.1.requires', ['tracking']);
     }
 
     public function test_regular_admin_cannot_manage_child_tenants(): void
@@ -145,71 +274,6 @@ class TenantChildrenTest extends TestCase
         ])->assertForbidden();
     }
 
-    public function test_master_creates_child_with_complimentary_access(): void
-    {
-        $umbrella = $this->createTenantWithRoles();
-        $plan = Plan::factory()->forTenant($umbrella)->withoutTrial()->create();
-
-        Sanctum::actingAs($this->createMaster($umbrella));
-
-        $this->postJson('/api/tenant/children', [
-            'tenant' => [
-                'name' => 'Parceira',
-                'document' => '11.222.333/0001-81',
-                'email' => 'contato@parceira.com',
-                'phone' => '41999999999',
-            ],
-            'user' => [
-                'name' => 'Admin Parceira',
-                'email' => 'admin@parceira.com',
-                'password' => '12345678',
-            ],
-            'plan_id' => $plan->uuid,
-            'is_complimentary' => true,
-            'complimentary_ends_at' => null,
-        ])
-            ->assertCreated()
-            ->assertJsonPath('data.tenant.subscription.is_complimentary', true)
-            ->assertJsonPath('data.tenant.subscription.is_complimentary_active', true);
-
-        $child = Tenant::query()->where('email', 'contato@parceira.com')->firstOrFail();
-
-        $this->assertDatabaseHas('subscriptions', [
-            'tenant_id' => $child->getKey(),
-            'plan_id' => $plan->getKey(),
-            'is_complimentary' => true,
-            'status' => 'ACTIVE',
-        ]);
-
-        $this->assertDatabaseHas('subscription_events', [
-            'event' => 'COMPLIMENTARY_GRANTED',
-        ]);
-    }
-
-    public function test_complimentary_requires_plan_id(): void
-    {
-        $umbrella = $this->createTenantWithRoles();
-
-        Sanctum::actingAs($this->createMaster($umbrella));
-
-        $this->postJson('/api/tenant/children', [
-            'tenant' => [
-                'name' => 'Parceira',
-                'document' => '11.222.333/0001-81',
-                'email' => 'contato@parceira.com',
-                'phone' => '41999999999',
-            ],
-            'user' => [
-                'name' => 'Admin Parceira',
-                'email' => 'admin@parceira.com',
-                'password' => '12345678',
-            ],
-            'is_complimentary' => true,
-        ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['plan_id']);
-    }
-
     public function test_master_can_show_and_update_child(): void
     {
         $umbrella = $this->createTenantWithRoles();
@@ -222,8 +286,7 @@ class TenantChildrenTest extends TestCase
 
         $this->getJson("/api/tenant/children/{$child->uuid}")
             ->assertOk()
-            ->assertJsonPath('data.name', 'Empresa Edit')
-            ->assertJsonPath('data.subscription', null);
+            ->assertJsonPath('data.name', 'Empresa Edit');
 
         $this->putJson("/api/tenant/children/{$child->uuid}", [
             'tenant' => [
@@ -234,8 +297,7 @@ class TenantChildrenTest extends TestCase
             ],
         ])
             ->assertOk()
-            ->assertJsonPath('data.name', 'Empresa Editada')
-            ->assertJsonPath('data.subscription', null);
+            ->assertJsonPath('data.name', 'Empresa Editada');
     }
 
     public function test_master_cannot_manage_foreign_child(): void
@@ -243,7 +305,6 @@ class TenantChildrenTest extends TestCase
         $umbrellaA = $this->createTenantWithRoles(['email' => 'a@a.com']);
         $umbrellaB = $this->createTenantWithRoles(['email' => 'b@b.com']);
         $foreignChild = $this->createChildTenant($umbrellaB);
-        $plan = Plan::factory()->forTenant($umbrellaA)->create();
 
         Sanctum::actingAs($this->createMaster($umbrellaA));
 
@@ -256,8 +317,6 @@ class TenantChildrenTest extends TestCase
                 'email' => $foreignChild->email,
                 'phone' => $foreignChild->phone,
             ],
-            'plan_id' => $plan->uuid,
-            'is_complimentary' => true,
         ])->assertForbidden();
     }
 
@@ -267,11 +326,6 @@ class TenantChildrenTest extends TestCase
         $child = $this->createChildTenant($umbrella, [
             'name' => 'Empresa Contexto',
         ]);
-        $plan = Plan::factory()->forTenant($umbrella)->withoutTrial()->create();
-
-        app(\App\Modules\Billing\Services\SubscriptionService::class)
-            ->grantComplimentary($child, $plan);
-
         Sanctum::actingAs($this->createMaster($umbrella));
 
         $headers = ['X-Tenant-Id' => $child->uuid];
@@ -291,8 +345,6 @@ class TenantChildrenTest extends TestCase
                 'email' => $child->email,
                 'phone' => $child->phone,
             ],
-            'plan_id' => $plan->uuid,
-            'is_complimentary' => true,
         ], $headers)
             ->assertOk()
             ->assertJsonPath('data.name', 'Empresa Contexto Editada');
@@ -303,9 +355,9 @@ class TenantChildrenTest extends TestCase
         $umbrella = $this->createTenantWithRoles();
         $child = $this->createChildTenant($umbrella);
 
-        \App\Modules\Tenant\Support\Facades\TenantContext::set($child);
+        TenantContext::set($child);
 
-        $middleware = app(\App\Modules\Billing\Http\Middleware\EnsureActiveSubscription::class);
+        $middleware = app(EnsureActiveSubscription::class);
         $result = $middleware->handle(
             request(),
             fn () => response()->json(['ok' => true]),

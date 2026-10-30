@@ -10,6 +10,7 @@ interface SessionState {
   tenant: Tenant | null
   roles: Role[]
   permissions: Permission[]
+  availablePermissions: Permission[]
   isMaster: boolean
   availableTenants: AvailableTenant[]
   setSession: (session: Session) => void
@@ -22,6 +23,7 @@ export const useSessionStore = create<SessionState>()((set) => ({
   tenant: null,
   roles: [],
   permissions: [],
+  availablePermissions: [],
   isMaster: false,
   availableTenants: [],
 
@@ -32,6 +34,7 @@ export const useSessionStore = create<SessionState>()((set) => ({
       tenant: session.tenant,
       roles: session.roles,
       permissions: session.permissions,
+      availablePermissions: session.available_permissions ?? [],
       isMaster: session.is_master,
       availableTenants: session.available_tenants ?? [],
     }),
@@ -43,6 +46,7 @@ export const useSessionStore = create<SessionState>()((set) => ({
       tenant: null,
       roles: [],
       permissions: [],
+      availablePermissions: [],
       isMaster: false,
       availableTenants: [],
     }),

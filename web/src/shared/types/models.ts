@@ -77,10 +77,33 @@ export interface Tenant {
   traccar_server_ip: string | null
   traccar_server_dns: string | null
   is_umbrella?: boolean
+  /** Empresa inativa tem o acesso bloqueado (definido pelo umbrella). */
+  is_active: boolean
+  /** Módulos liberados pelo umbrella; o umbrella tem todos. */
+  modules: TenantModuleKey[]
   users_count?: number
   subscription?: Subscription | null
   created_at: string | null
   updated_at: string | null
+}
+
+export type TenantModuleKey =
+  | 'tracking'
+  | 'geofences'
+  | 'alerts'
+  | 'reports'
+  | 'service_orders'
+  | 'contracts'
+  | 'finance'
+  | 'crm'
+  | 'assistant'
+
+export interface TenantModule {
+  key: TenantModuleKey
+  label: string
+  description: string
+  /** Módulos que precisam estar ativos junto. */
+  requires: TenantModuleKey[]
 }
 
 export interface AvailableTenant {
@@ -142,6 +165,8 @@ export interface Session {
   tenant: Tenant
   roles: Role[]
   permissions: Permission[]
+  /** Permissões liberadas pelos módulos do tenant em contexto. */
+  available_permissions: Permission[]
   is_master: boolean
   available_tenants: AvailableTenant[]
 }

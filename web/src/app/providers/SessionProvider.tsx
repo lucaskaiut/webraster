@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { sessionQueryOptions } from '@/modules/auth/services/auth.service'
 import { isApiError } from '@/shared/api/errors'
 import { applyFavicon } from '@/shared/brand/favicon'
@@ -19,6 +19,7 @@ import { toast } from '@/shared/stores/toast.store'
  * persiste a identidade visual do tenant ativo para uso sem sessão.
  */
 export function SessionProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient()
   const { data, isSuccess, isError, error } = useQuery(sessionQueryOptions)
   const setSession = useSessionStore((state) => state.setSession)
   const setGuest = useSessionStore((state) => state.setGuest)
@@ -85,6 +86,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const availableIds = new Set(data.available_tenants.map((tenant) => tenant.id))
 
     if (selectedTenantId && availableIds.has(selectedTenantId)) {
+      // A primeira carga sai sem X-Tenant-Id (o store ainda não sabe que é
+      // master); recarrega para obter permissões e módulos da empresa selecionada.
+      if (data.tenant.id !== selectedTenantId) {
+        void queryClient.invalidateQueries({ queryKey: sessionQueryOptions.queryKey })
+      }
       return
     }
 
@@ -97,7 +103,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     } else {
       clearSelectedTenantId()
     }
-  }, [isSuccess, data, selectedTenantId, setSelectedTenantId, clearSelectedTenantId])
+  }, [isSuccess, data, selectedTenantId, setSelectedTenantId, clearSelectedTenantId, queryClient])
 
   return children
 }

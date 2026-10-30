@@ -39,6 +39,14 @@ export function useTenantChildrenQuery(params: ListParams) {
   })
 }
 
+export function useTenantModulesQuery() {
+  return useQuery({
+    queryKey: queryKeys.tenants.modules(),
+    queryFn: () => tenantsService.listModules(),
+    staleTime: Infinity,
+  })
+}
+
 export function useTenantChildQuery(id: string | undefined) {
   return useQuery({
     queryKey: queryKeys.tenants.detail(id ?? ''),

@@ -29,8 +29,10 @@ class MasterTenantAccessService
 
         $home->setAttribute('is_home', true);
 
+        // Filhos inativos ficam fora do seletor: o acesso a eles está bloqueado.
         $children = Tenant::query()
             ->where('parent_id', $user->tenant_id)
+            ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'uuid', 'name', 'parent_id'])
             ->each(fn (Tenant $tenant) => $tenant->setAttribute('is_home', false));

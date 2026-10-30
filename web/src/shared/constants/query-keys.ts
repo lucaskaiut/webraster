@@ -47,6 +47,7 @@ export const queryKeys = {
     current: () => ['tenants', 'current'] as const,
     children: (params: ListParams) => ['tenants', 'children', params] as const,
     detail: (id: string) => ['tenants', 'detail', id] as const,
+    modules: () => ['tenants', 'modules'] as const,
   },
 
   assistant: {

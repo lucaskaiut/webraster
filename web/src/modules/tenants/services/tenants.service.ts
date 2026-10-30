@@ -1,6 +1,12 @@
 import { http } from '@/shared/api/http'
 import type { ApiResponse, ListParams, PaginatedResponse } from '@/shared/types/api'
-import type { Tenant, TenantVehicleAlertDefault, User } from '@/shared/types/models'
+import type {
+  Tenant,
+  TenantModule,
+  TenantModuleKey,
+  TenantVehicleAlertDefault,
+  User,
+} from '@/shared/types/models'
 
 export interface CreateChildTenantPayload {
   tenant: {
@@ -8,6 +14,8 @@ export interface CreateChildTenantPayload {
     document: string
     email: string
     phone: string
+    is_active: boolean
+    modules: TenantModuleKey[]
   }
   user: {
     name: string
@@ -22,6 +30,8 @@ export interface UpdateChildTenantPayload {
     document: string
     email: string
     phone: string
+    is_active: boolean
+    modules: TenantModuleKey[]
   }
 }
 
@@ -63,6 +73,12 @@ export const tenantsService = {
     const response = await http.get<PaginatedResponse<Tenant>>('/tenant/children', { params })
 
     return response.data
+  },
+
+  async listModules(): Promise<TenantModule[]> {
+    const response = await http.get<ApiResponse<TenantModule[]>>('/tenant/modules')
+
+    return response.data.data
   },
 
   async getChild(id: string): Promise<Tenant> {

@@ -8,6 +8,9 @@ import { toast } from '@/shared/stores/toast.store'
 
 const GUEST_ENDPOINTS = ['/auth/login', '/auth/register', '/auth/me']
 
+/** Chave em "errors" do 403 de empresa inativa (TenantInactive na API). */
+const TENANT_INACTIVE_ERROR = 'tenant_inactive'
+
 /**
  * Instância central de HTTP.
  * Autenticação via cookie HttpOnly (Sanctum stateful) — nenhum token
@@ -58,6 +61,19 @@ http.interceptors.response.use(
         useTenantContextStore.getState().clearSelectedTenantId()
         toast.warning('Sessão expirada', 'Faça login novamente para continuar.')
       }
+    }
+
+    // Empresa inativada pelo umbrella: encerra a sessão local.
+    if (apiError.status === 403 && apiError.fieldErrors[TENANT_INACTIVE_ERROR] && !isGuestEndpoint) {
+      const store = useSessionStore.getState()
+
+      if (store.status === 'authenticated') {
+        store.setGuest()
+        useTenantContextStore.getState().clearSelectedTenantId()
+        toast.warning('Acesso suspenso', apiError.message)
+      }
+
+      return Promise.reject(apiError)
     }
 
     // Em login/sessão o 403 (sem acesso ao painel) já é exibido na própria tela.

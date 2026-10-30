@@ -161,7 +161,14 @@ export const router = createBrowserRouter([
           { path: '/', element: <Navigate to="/dashboard" replace /> },
           { path: '/dashboard', element: <MonitoringDashboardPage /> },
           { path: '/dashboard/monitoring', element: <Navigate to="/dashboard" replace /> },
-          { path: '/alerts/dashboard', element: <DashboardPage /> },
+          {
+            path: '/alerts/dashboard',
+            element: (
+              <PermissionGuard permission={Permission.ALERT_READ} requiresChildTenant>
+                <DashboardPage />
+              </PermissionGuard>
+            ),
+          },
           {
             path: '/monitoring',
             element: (

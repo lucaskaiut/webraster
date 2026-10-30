@@ -14,6 +14,7 @@ use App\Modules\Finance\Models\TenantPaymentGatewayConfig;
 use App\Modules\Finance\Services\DelinquencyService;
 use App\Modules\Shared\Subscription\Enums\BillingStatus;
 use App\Modules\Shared\Subscription\Enums\SubscriptionStatus;
+use App\Modules\Tenant\Enums\TenantModule;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Vehicle\Models\Vehicle;
 use Carbon\CarbonImmutable;
@@ -134,6 +135,32 @@ class FinanceModuleTest extends TestCase
         $this->assertFalse(
             $notYetDue->billings()->exists(),
         );
+    }
+
+    public function test_billing_generation_skips_tenants_without_finance_module_or_inactive(): void
+    {
+        [$umbrella, $withoutFinance] = $this->createOperationalChild(childAttributes: [
+            'modules' => [TenantModule::TRACKING->value],
+        ]);
+        [, $inactive] = $this->createOperationalChild($umbrella, ['is_active' => false]);
+
+        $dueSoon = now()->addDays(30)->toDateString();
+        $subscriptions = collect([$withoutFinance, $inactive])->map(function (Tenant $tenant) use ($dueSoon) {
+            $plan = FinancePlan::factory()->forTenant($tenant)->create();
+
+            return FinanceSubscription::factory()
+                ->forClient(Client::factory()->for($tenant)->create(), $plan)
+                ->create([
+                    'status' => SubscriptionStatus::ACTIVE,
+                    'next_billing_at' => $dueSoon,
+                ]);
+        });
+
+        $this->artisan('finance:generate-billings')->assertSuccessful();
+
+        $subscriptions->each(fn (FinanceSubscription $subscription) => $this->assertFalse(
+            $subscription->billings()->withoutGlobalScopes()->exists(),
+        ));
     }
 
     public function test_generates_next_billing_from_last_billing(): void

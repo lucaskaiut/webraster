@@ -12,6 +12,8 @@ use App\Modules\Notification\DTOs\NotificationMessage;
 use App\Modules\Notification\Enums\NotificationSource;
 use App\Modules\Notification\Services\NotificationEngine;
 use App\Modules\Notification\Services\NotificationRecipientResolver;
+use App\Modules\Tenant\Enums\TenantModule;
+use App\Modules\Tenant\Models\Tenant;
 use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Support\Collection;
@@ -59,7 +61,7 @@ class AlertDispatcher
             'occurred_at' => $payload['occurred_at'] ?? now(),
         ])->save();
 
-        if ($config->is_enabled) {
+        if ($config->is_enabled && $this->tenantReceivesAlerts($vehicle)) {
             $this->dispatchNotifications($alert, $vehicle, $config);
         }
 
@@ -71,6 +73,19 @@ class AlertDispatcher
         ]);
 
         return $alert;
+    }
+
+    /**
+     * Empresa inativa ou sem o módulo de alertas não recebe notificações; o
+     * alerta fica registrado para quando o acesso for restabelecido.
+     */
+    private function tenantReceivesAlerts(Vehicle $vehicle): bool
+    {
+        $tenant = Tenant::query()->find($vehicle->tenant_id);
+
+        return $tenant !== null
+            && $tenant->isActive()
+            && $tenant->hasModule(TenantModule::ALERTS);
     }
 
     /**

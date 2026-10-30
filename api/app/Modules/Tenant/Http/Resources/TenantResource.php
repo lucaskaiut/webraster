@@ -3,6 +3,7 @@
 namespace App\Modules\Tenant\Http\Resources;
 
 use App\Modules\Billing\Http\Resources\SubscriptionResource;
+use App\Modules\Tenant\Enums\TenantModule;
 use App\Modules\Tenant\Models\Tenant;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -45,6 +46,8 @@ class TenantResource extends JsonResource
             'traccar_server_ip' => config('traccar.server_ip'),
             'traccar_server_dns' => config('traccar.server_dns'),
             'is_umbrella' => $this->isUmbrella(),
+            'is_active' => $this->isActive(),
+            'modules' => array_map(fn (TenantModule $module) => $module->value, $this->enabledModules()),
             'users_count' => $this->whenCounted('users'),
             'subscription' => SubscriptionResource::make($this->whenLoaded('subscription')),
             'created_at' => $this->created_at?->toIso8601String(),

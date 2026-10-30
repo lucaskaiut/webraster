@@ -82,8 +82,10 @@ class NotificationRecipientResolver
      */
     private function baseQuery(): Builder
     {
+        // O tenant define os módulos que filtram as permissões de cada usuário.
         return User::query()
             ->withoutGlobalScopes()
+            ->with('tenant')
             ->whereNull('deleted_at');
     }
 }

@@ -4,12 +4,10 @@ namespace App\Modules\Tenant\Services;
 
 use App\Modules\ACL\Enums\DefaultRole;
 use App\Modules\ACL\Services\RoleService;
-use App\Modules\Billing\Models\Subscription;
-use App\Modules\Billing\Services\SubscriptionService;
+use App\Modules\Tenant\Enums\TenantModule;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\User\Models\User;
 use App\Modules\User\Services\UserService;
-use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -19,7 +17,6 @@ class TenantService
     public function __construct(
         private readonly RoleService $roles,
         private readonly UserService $users,
-        private readonly SubscriptionService $subscriptions,
     ) {}
 
     /**
@@ -54,7 +51,6 @@ class TenantService
     {
         return Tenant::query()
             ->where('parent_id', $umbrella->getKey())
-            ->with(['subscription.plan'])
             ->withCount('users')
             ->when(filled($search), function ($query) use ($search): void {
                 $query->where(function ($query) use ($search): void {
@@ -74,35 +70,23 @@ class TenantService
             ]);
         }
 
-        return $child->load(['subscription.plan']);
+        return $child;
     }
 
     /**
      * Provisiona um tenant filho sob o umbrella: tenant + perfis padrão +
-     * usuário administrador (não master) e, opcionalmente, assinatura.
+     * usuário administrador (não master). O acesso é controlado
+     * manualmente pela situação e pelos módulos; nenhuma cobrança é gerada.
      *
-     * @param  array{name: string, document: string, email: string, phone: ?string}  $tenantData
+     * @param  array{name: string, document: string, email: string, phone: ?string, is_active?: bool, modules?: list<string>}  $tenantData
      * @param  array{name: string, email: string, phone?: ?string, document?: ?string, password: string}  $userData
-     * @return array{tenant: Tenant, user: User, subscription: ?Subscription}
+     * @return array{tenant: Tenant, user: User}
      */
-    public function createChild(
-        Tenant $umbrella,
-        array $tenantData,
-        array $userData,
-        ?string $planId = null,
-        bool $isComplimentary = false,
-        ?string $complimentaryEndsAt = null,
-    ): array {
-        return DB::transaction(function () use (
-            $umbrella,
-            $tenantData,
-            $userData,
-            $planId,
-            $isComplimentary,
-            $complimentaryEndsAt,
-        ): array {
+    public function createChild(Tenant $umbrella, array $tenantData, array $userData): array
+    {
+        return DB::transaction(function () use ($umbrella, $tenantData, $userData): array {
             $tenant = $this->create([
-                ...$tenantData,
+                ...$this->normalizeAccess($tenantData),
                 'parent_id' => $umbrella->getKey(),
             ]);
 
@@ -111,31 +95,17 @@ class TenantService
             $user = $this->users->createForTenant($tenant, $userData);
             $user->assignRole($roles[DefaultRole::ADMINISTRATOR->value]);
 
-            $subscription = null;
-
-            if ($isComplimentary) {
-                $subscription = $this->subscriptions->grantComplimentary(
-                    $tenant,
-                    $planId,
-                    $this->parseEndsAt($complimentaryEndsAt),
-                );
-            } elseif ($planId !== null) {
-                $subscription = $this->subscriptions->createForTenant($tenant, $planId);
-            }
-
             return [
-                'tenant' => $tenant->load(['subscription.plan']),
+                'tenant' => $tenant->refresh(),
                 'user' => $user->load('roles.permissions'),
-                'subscription' => $subscription,
             ];
         });
     }
 
     /**
-     * Atualiza dados da empresa filha.
-     * Controle de assinatura desabilitado — plano/cortesia não são alterados aqui.
+     * Atualiza dados, situação e módulos da empresa filha.
      *
-     * @param  array{name: string, document: string, email: string, phone: ?string}  $tenantData
+     * @param  array{name: string, document: string, email: string, phone: ?string, is_active?: bool, modules?: list<string>}  $tenantData
      */
     public function updateChild(
         Tenant $umbrella,
@@ -143,18 +113,23 @@ class TenantService
         array $tenantData,
     ): Tenant {
         $this->findChild($umbrella, $child);
-        $this->update($child, $tenantData);
 
-        return $child->refresh()->load(['subscription.plan']);
+        return $this->update($child, $this->normalizeAccess($tenantData));
     }
 
-    private function parseEndsAt(?string $value): ?CarbonImmutable
+    /**
+     * Módulos escolhidos levam junto os que eles exigem.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function normalizeAccess(array $data): array
     {
-        if (blank($value)) {
-            return null;
+        if (array_key_exists('modules', $data)) {
+            $data['modules'] = TenantModule::withRequirements($data['modules'] ?? []);
         }
 
-        return CarbonImmutable::parse($value)->endOfDay();
+        return $data;
     }
 
     /**

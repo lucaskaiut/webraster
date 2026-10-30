@@ -23,9 +23,12 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command(GenerateInvoicesCommand::class)->hourly();
-Schedule::command(CheckInvoiceStatusCommand::class)->everyFifteenMinutes();
-Schedule::command(SuspendExpiredSubscriptionsCommand::class)->daily();
+// Cobrança do umbrella aos filhos: só com billing.enabled (ver config/billing.php).
+$billingEnabled = fn (): bool => (bool) config('billing.enabled');
+
+Schedule::command(GenerateInvoicesCommand::class)->hourly()->when($billingEnabled);
+Schedule::command(CheckInvoiceStatusCommand::class)->everyFifteenMinutes()->when($billingEnabled);
+Schedule::command(SuspendExpiredSubscriptionsCommand::class)->daily()->when($billingEnabled);
 Schedule::job(new CheckOfflineDevicesJob)->everyMinute();
 
 Schedule::command(GenerateBillingsCommand::class)->hourly();

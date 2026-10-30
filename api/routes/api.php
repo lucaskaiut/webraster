@@ -77,13 +77,15 @@ use App\Modules\Webhook\Http\Controllers\WebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->group(function (): void {
-    Route::post('register', [AuthController::class, 'register'])->middleware('throttle:auth');
+    // Cadastro público fechado: empresas filhas são criadas pelo umbrella (Gestão → Empresas).
     Route::post('login', [AuthController::class, 'login'])->middleware('throttle:auth');
     Route::post('forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:auth');
     Route::post('reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:auth');
 
+    // Sem resolver o tenant: usuários de empresa inativa ainda conseguem sair.
+    Route::post('logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
+
     Route::middleware(['auth:sanctum', 'tenant', 'client.scope'])->group(function (): void {
-        Route::post('logout', [AuthController::class, 'logout']);
         Route::post('change-password', [AuthController::class, 'changePassword'])->middleware('throttle:auth');
         Route::get('me', [AuthController::class, 'me']);
         Route::get('signature/image', [AuthController::class, 'signatureImage']);
@@ -110,14 +112,20 @@ Route::post('webhooks/messaging/evolution/{webhookConnection}', EvolutionWebhook
     ->middleware('throttle:api');
 
 /*
- * Pagamento e regularização ficam acessíveis mesmo com assinatura PAST_DUE/SUSPENDED.
+ * Cobrança do umbrella aos tenants filhos. Desligada por padrão
+ * (config billing.enabled): o controle é manual, pela situação e pelos
+ * módulos no cadastro da empresa, e nenhuma cobrança é gerada.
  */
 Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(function (): void {
-    Route::middleware('tenant.child')->group(function (): void {
+    Route::middleware(['billing.enabled', 'tenant.child'])->group(function (): void {
         Route::get('billing/subscription', [SubscriptionController::class, 'show'])->middleware('permission:subscription.read');
         Route::get('billing/invoices', [InvoiceController::class, 'index'])->middleware('permission:invoice.read');
         Route::get('billing/invoices/{invoice}', [InvoiceController::class, 'show'])->middleware('permission:invoice.read');
         Route::post('billing/invoices/{invoice}/pay', [InvoiceController::class, 'pay'])->middleware('permission:invoice.read');
+        Route::post('billing/subscription', [SubscriptionController::class, 'store'])->middleware('permission:subscription.update');
+        Route::post('billing/subscription/change-plan', [SubscriptionController::class, 'changePlan'])->middleware('permission:subscription.update');
+        Route::post('billing/subscription/cancel', [SubscriptionController::class, 'cancel'])->middleware('permission:subscription.update');
+        Route::post('billing/subscription/reactivate', [SubscriptionController::class, 'reactivate'])->middleware('permission:subscription.update');
     });
 
     Route::get('billing/plans', [PlanController::class, 'index'])->middleware('permission:plan.read');
@@ -125,13 +133,6 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::get('billing/plans/{plan}', [PlanController::class, 'show'])->middleware('permission:plan.read');
     Route::match(['put', 'patch'], 'billing/plans/{plan}', [PlanController::class, 'update'])->middleware('permission:plan.update');
     Route::delete('billing/plans/{plan}', [PlanController::class, 'destroy'])->middleware('permission:plan.delete');
-
-    Route::middleware('tenant.child')->group(function (): void {
-        Route::post('billing/subscription', [SubscriptionController::class, 'store'])->middleware('permission:subscription.update');
-        Route::post('billing/subscription/change-plan', [SubscriptionController::class, 'changePlan'])->middleware('permission:subscription.update');
-        Route::post('billing/subscription/cancel', [SubscriptionController::class, 'cancel'])->middleware('permission:subscription.update');
-        Route::post('billing/subscription/reactivate', [SubscriptionController::class, 'reactivate'])->middleware('permission:subscription.update');
-    });
 });
 
 Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(function (): void {
@@ -140,6 +141,7 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
 
     Route::get('tenant/children', [TenantController::class, 'index'])->middleware('permission:tenant.read');
     Route::post('tenant/children', [TenantController::class, 'store'])->middleware('permission:tenant.create');
+    Route::get('tenant/modules', [TenantController::class, 'modules'])->middleware('permission:tenant.read');
     Route::get('tenant/children/{child}', [TenantController::class, 'showChild'])->middleware('permission:tenant.read');
     Route::match(['put', 'patch'], 'tenant/children/{child}', [TenantController::class, 'updateChild'])->middleware('permission:tenant.update');
 
@@ -160,27 +162,27 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::match(['put', 'patch'], 'clients/{client}/users/{user}', [ClientUserController::class, 'update'])->middleware('permission:client.update');
     Route::delete('clients/{client}/users/{user}', [ClientUserController::class, 'destroy'])->middleware('permission:client.update');
 
-    Route::get('clients/{client}/shared-vehicles', [ClientVehicleShareController::class, 'index'])->middleware('permission:client.read');
-    Route::post('clients/{client}/shared-vehicles', [ClientVehicleShareController::class, 'store'])->middleware('permission:client.update');
-    Route::delete('clients/{client}/shared-vehicles/{share}', [ClientVehicleShareController::class, 'destroy'])->middleware('permission:client.update');
+    Route::get('clients/{client}/shared-vehicles', [ClientVehicleShareController::class, 'index'])->middleware(['module:tracking', 'permission:client.read']);
+    Route::post('clients/{client}/shared-vehicles', [ClientVehicleShareController::class, 'store'])->middleware(['module:tracking', 'permission:client.update']);
+    Route::delete('clients/{client}/shared-vehicles/{share}', [ClientVehicleShareController::class, 'destroy'])->middleware(['module:tracking', 'permission:client.update']);
 
-    Route::get('clients/{client}/order', [ClientOrderController::class, 'show'])->middleware('permission:client.read');
-    Route::match(['put', 'patch'], 'clients/{client}/order', [ClientOrderController::class, 'upsert'])->middleware('permission:finance-subscription.create');
+    Route::get('clients/{client}/order', [ClientOrderController::class, 'show'])->middleware(['module:finance', 'permission:client.read']);
+    Route::match(['put', 'patch'], 'clients/{client}/order', [ClientOrderController::class, 'upsert'])->middleware(['module:finance', 'permission:finance-subscription.create']);
 
-    Route::get('clients/{client}/contract', [ClientContractController::class, 'show'])->middleware('permission:client.read');
-    Route::get('clients/{client}/contract/pdf', [ClientContractController::class, 'pdf'])->middleware('permission:client.read');
-    Route::match(['put', 'patch'], 'clients/{client}/contract', [ClientContractController::class, 'upsert'])->middleware('permission:client.update');
-    Route::match(['put', 'patch'], 'clients/{client}/contract/signature', [ClientContractController::class, 'updateSignature'])->middleware('permission:client.update');
-    Route::post('clients/{client}/contract/document', [ClientContractController::class, 'uploadDocument'])->middleware('permission:client.update');
+    Route::get('clients/{client}/contract', [ClientContractController::class, 'show'])->middleware(['module:contracts', 'permission:client.read']);
+    Route::get('clients/{client}/contract/pdf', [ClientContractController::class, 'pdf'])->middleware(['module:contracts', 'permission:client.read']);
+    Route::match(['put', 'patch'], 'clients/{client}/contract', [ClientContractController::class, 'upsert'])->middleware(['module:contracts', 'permission:client.update']);
+    Route::match(['put', 'patch'], 'clients/{client}/contract/signature', [ClientContractController::class, 'updateSignature'])->middleware(['module:contracts', 'permission:client.update']);
+    Route::post('clients/{client}/contract/document', [ClientContractController::class, 'uploadDocument'])->middleware(['module:contracts', 'permission:client.update']);
     Route::post('clients/{client}/contract/signature', [ClientContractController::class, 'sign'])->middleware('permission:contract.sign');
     Route::get('contract/portal', [ClientContractController::class, 'portal'])->middleware('permission:contract.sign');
     Route::post('contract/portal/signing-sessions', [PortalSigningController::class, 'start'])->middleware(['permission:contract.sign', 'throttle:20,1']);
     Route::post('contract/portal/signing-sessions/{session}/complete', [PortalSigningController::class, 'complete'])->middleware(['permission:contract.sign', 'throttle:20,1']);
     Route::get('contract/portal/document', [PortalSigningController::class, 'document'])->middleware('permission:contract.sign');
 
-    Route::get('clients/{client}/contract/evidence', [ContractEvidenceController::class, 'index'])->middleware('permission:client.read');
-    Route::get('clients/{client}/contract/evidence/{signature}/verify', [ContractEvidenceController::class, 'verify'])->middleware('permission:client.read');
-    Route::get('clients/{client}/contract/evidence/{signature}/export', [ContractEvidenceController::class, 'export'])->middleware('permission:client.read');
+    Route::get('clients/{client}/contract/evidence', [ContractEvidenceController::class, 'index'])->middleware(['module:contracts', 'permission:client.read']);
+    Route::get('clients/{client}/contract/evidence/{signature}/verify', [ContractEvidenceController::class, 'verify'])->middleware(['module:contracts', 'permission:client.read']);
+    Route::get('clients/{client}/contract/evidence/{signature}/export', [ContractEvidenceController::class, 'export'])->middleware(['module:contracts', 'permission:client.read']);
 
     Route::get('drivers', [DriverController::class, 'index'])->middleware('permission:driver.read');
     Route::post('drivers', [DriverController::class, 'store'])->middleware('permission:driver.create');
@@ -367,15 +369,15 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::post('alerts/{alert}/acknowledge', [AlertController::class, 'acknowledge'])->middleware('permission:alert.manage');
     Route::post('alerts/{alert}/resolve', [AlertController::class, 'resolve'])->middleware('permission:alert.manage');
 
-    Route::get('alert-configs/portal', [AlertConfigPortalController::class, 'index']);
-    Route::put('alert-configs/portal/{type}', [AlertConfigPortalController::class, 'update']);
+    Route::get('alert-configs/portal', [AlertConfigPortalController::class, 'index'])->middleware('module:alerts');
+    Route::put('alert-configs/portal/{type}', [AlertConfigPortalController::class, 'update'])->middleware('module:alerts');
     Route::get('alert-configs/client/{client}', [AlertConfigController::class, 'clientConfigs'])->middleware('permission:alert-config.read');
 
-    Route::get('alert-sound-preferences', [AlertSoundPreferenceController::class, 'index']);
-    Route::put('alert-sound-preferences/{type}', [AlertSoundPreferenceController::class, 'update']);
+    Route::get('alert-sound-preferences', [AlertSoundPreferenceController::class, 'index'])->middleware('module:alerts');
+    Route::put('alert-sound-preferences/{type}', [AlertSoundPreferenceController::class, 'update'])->middleware('module:alerts');
 
     Route::get('alert-configs', [AlertConfigController::class, 'index'])->middleware('permission:alert-config.read');
-    Route::get('alert-configs/defaults', [AlertConfigController::class, 'defaults']);
+    Route::get('alert-configs/defaults', [AlertConfigController::class, 'defaults'])->middleware('module:alerts');
     Route::post('alert-configs', [AlertConfigController::class, 'store'])->middleware('permission:alert-config.update');
     Route::match(['put', 'patch'], 'alert-configs/{alertConfig}', [AlertConfigController::class, 'update'])->middleware('permission:alert-config.update');
     Route::delete('alert-configs/{alertConfig}', [AlertConfigController::class, 'destroy'])->middleware('permission:alert-config.update');

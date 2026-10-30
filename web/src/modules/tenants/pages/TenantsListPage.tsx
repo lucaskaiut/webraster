@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { Building2, Pencil, Plus } from 'lucide-react'
 import {
+  Badge,
   Button,
   ButtonLink,
   DataTable,
@@ -23,7 +24,7 @@ import { useSessionStore } from '@/shared/stores/session.store'
 import { formatDate } from '@/shared/utils/format'
 import { formatDocument } from '@/shared/utils/document'
 import type { Tenant } from '@/shared/types/models'
-import { useTenantChildrenQuery } from '../hooks/useTenants'
+import { useTenantChildrenQuery, useTenantModulesQuery } from '../hooks/useTenants'
 
 const PER_PAGE = 10
 
@@ -36,6 +37,8 @@ export default function TenantsListPage() {
   const { can } = usePermissions()
 
   const query = useTenantChildrenQuery({ page, per_page: PER_PAGE, search: debouncedSearch || undefined })
+  const modulesQuery = useTenantModulesQuery()
+  const totalModules = modulesQuery.data?.length
 
   const isMaster = useSessionStore((state) => state.isMaster)
   const isUmbrella = useIsUmbrellaTenant()
@@ -84,6 +87,25 @@ export default function TenantsListPage() {
       key: 'email',
       header: 'E-mail',
       render: (tenant) => <span className="text-muted">{tenant.email}</span>,
+    },
+    {
+      key: 'is_active',
+      header: 'Situação',
+      render: (tenant) =>
+        tenant.is_active ? (
+          <Badge variant="success">Ativa</Badge>
+        ) : (
+          <Badge variant="danger">Inativa</Badge>
+        ),
+    },
+    {
+      key: 'modules',
+      header: 'Módulos',
+      render: (tenant) => (
+        <span className="text-muted">
+          {totalModules ? `${tenant.modules.length} de ${totalModules}` : tenant.modules.length}
+        </span>
+      ),
     },
     {
       key: 'users_count',

@@ -80,6 +80,8 @@ export default function TenantEditPage() {
                 document: query.data.document,
                 email: query.data.email,
                 phone: query.data.phone ?? '',
+                is_active: query.data.is_active,
+                modules: query.data.modules,
               },
             }}
             submitting={updateChild.isPending}

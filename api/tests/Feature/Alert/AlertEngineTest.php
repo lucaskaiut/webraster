@@ -15,6 +15,7 @@ use App\Modules\Alert\Services\OfflineAlertService;
 use App\Modules\Alert\Support\TraccarAttributeReader;
 use App\Modules\Client\Models\Client;
 use App\Modules\Equipment\Models\Equipment;
+use App\Modules\Tenant\Enums\TenantModule;
 use App\Modules\Tracking\Models\GpsPosition;
 use App\Modules\Vehicle\Models\Vehicle;
 use Carbon\CarbonImmutable;
@@ -596,6 +597,42 @@ class AlertEngineTest extends TestCase
 
         $this->assertTrue($notifiedB->contains($operator->getKey()));
         $this->assertFalse($notifiedB->contains($clientUserB->getKey()));
+    }
+
+    public function test_alert_is_recorded_but_not_notified_without_alerts_module(): void
+    {
+        [, $tenant] = $this->createOperationalChild(childAttributes: [
+            'modules' => [TenantModule::TRACKING->value],
+        ]);
+        $this->createAdmin($tenant);
+
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create();
+        Equipment::factory()->assignedTo($vehicle)->create();
+        $this->createClient($tenant, ['client_id' => $client->getKey()]);
+        $this->configureSos($vehicle, [
+            'notify_in_app' => true,
+            'notify_monitoring' => true,
+            'notify_push' => false,
+            'notify_email' => false,
+        ]);
+
+        app(AlertEngine::class)->process($this->pos(
+            $tenant,
+            $client,
+            $vehicle,
+            10,
+            CarbonImmutable::parse('2026-09-05 19:00:00'),
+            900,
+            attributes: ['sos' => true],
+        ));
+
+        $alert = Alert::query()->withoutGlobalScopes()
+            ->where('type', 'sos')->where('vehicle_id', $vehicle->getKey())->firstOrFail();
+
+        $this->assertFalse(
+            UserNotification::query()->withoutGlobalScopes()->where('alert_id', $alert->getKey())->exists(),
+        );
     }
 
     public function test_push_only_notification_stays_out_of_inbox(): void

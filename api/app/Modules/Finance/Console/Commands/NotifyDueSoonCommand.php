@@ -5,6 +5,7 @@ namespace App\Modules\Finance\Console\Commands;
 use App\Modules\Finance\Events\InvoiceDueSoon;
 use App\Modules\Finance\Models\FinanceBilling;
 use App\Modules\Shared\Subscription\Enums\BillingStatus;
+use App\Modules\Tenant\Enums\TenantModule;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Tenant\Support\Facades\TenantContext;
 use Illuminate\Console\Command;
@@ -22,6 +23,11 @@ class NotifyDueSoonCommand extends Command
         $count = 0;
 
         Tenant::query()->orderBy('id')->each(function (Tenant $tenant) use ($target, &$count): void {
+            // Empresas inativas ou sem o módulo financeiro não geram cobranças nem avisos.
+            if (! $tenant->isActive() || ! $tenant->hasModule(TenantModule::FINANCE)) {
+                return;
+            }
+
             TenantContext::set($tenant);
 
             FinanceBilling::query()

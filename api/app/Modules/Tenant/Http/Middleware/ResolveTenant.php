@@ -2,6 +2,7 @@
 
 namespace App\Modules\Tenant\Http\Middleware;
 
+use App\Modules\Tenant\Exceptions\TenantInactive;
 use App\Modules\Tenant\Resolution\TenantResolver;
 use App\Modules\Tenant\Support\CurrentTenant;
 use Closure;
@@ -15,9 +16,18 @@ class ResolveTenant
         private readonly CurrentTenant $context,
     ) {}
 
+    /**
+     * @throws TenantInactive
+     */
     public function handle(Request $request, Closure $next): Response
     {
-        $this->context->set($this->resolver->resolve($request));
+        $tenant = $this->resolver->resolve($request);
+
+        if (! $tenant->isActive()) {
+            throw TenantInactive::make();
+        }
+
+        $this->context->set($tenant);
 
         return $next($request);
     }

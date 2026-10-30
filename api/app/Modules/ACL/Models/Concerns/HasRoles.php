@@ -4,6 +4,8 @@ namespace App\Modules\ACL\Models\Concerns;
 
 use App\Modules\ACL\Enums\Permission;
 use App\Modules\ACL\Models\Role;
+use App\Modules\Tenant\Models\Tenant;
+use App\Modules\Tenant\Support\Facades\TenantContext;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Collection;
 
@@ -60,14 +62,33 @@ trait HasRoles
     }
 
     /**
+     * Permissões dos perfis, restritas aos módulos liberados para o tenant
+     * em que o usuário opera.
+     *
      * @return Collection<int, string>
      */
     public function permissionValues(): Collection
     {
+        $tenant = $this->permissionTenant();
+
         return $this->loadedRoles()
             ->flatMap(fn (Role $role) => $role->permissionValues())
             ->unique()
+            ->filter(fn (string $permission): bool => $tenant === null || $tenant->allowsPermission($permission))
             ->values();
+    }
+
+    /**
+     * Usuários comuns só operam o próprio tenant. Masters podem operar um
+     * filho (X-Tenant-Id), então valem os módulos do tenant em contexto.
+     */
+    protected function permissionTenant(): ?Tenant
+    {
+        if ($this->is_master && TenantContext::isResolved()) {
+            return TenantContext::tenant();
+        }
+
+        return $this->tenant;
     }
 
     /**

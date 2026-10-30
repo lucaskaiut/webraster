@@ -22,7 +22,11 @@ class SubscriptionServiceTest extends TestCase
     {
         parent::setUp();
 
-        config(['billing.active' => ['mockPix', 'asaasCreditCard']]);
+        // Exercita a cobrança do umbrella, desligada por padrão.
+        config([
+            'billing.enabled' => true,
+            'billing.active' => ['mockPix', 'asaasCreditCard'],
+        ]);
     }
 
     public function test_create_subscription_with_trial_sets_trialing_and_next_billing(): void
@@ -144,110 +148,6 @@ class SubscriptionServiceTest extends TestCase
 
         $permissions = $this->getJson('/api/auth/me')->json('data.permissions');
         $this->assertContains('plan.read', $permissions);
-    }
-
-    public function test_register_with_plan_creates_subscription(): void
-    {
-        $umbrella = $this->createTenantWithRoles([
-            'email' => 'contato@grupo.com.br',
-        ]);
-        $this->createChildTenant($umbrella);
-
-        $plan = Plan::factory()->forTenant($umbrella)->create([
-            'free_trial_days' => 7,
-            'active' => true,
-        ]);
-
-        $response = $this->postJson('/api/auth/register', [
-            'tenant' => [
-                'name' => 'Empresa Nova',
-                'document' => '11.222.333/0001-81',
-                'email' => 'contato@nova.com',
-                'phone' => '41999999999',
-            ],
-            'user' => [
-                'name' => 'Admin Nova',
-                'email' => 'admin@nova.com',
-                'phone' => '41999999999',
-                'document' => '529.982.247-25',
-                'password' => '12345678',
-            ],
-            'plan_id' => $plan->uuid,
-        ])->assertCreated();
-
-        $this->assertDatabaseHas('subscriptions', [
-            'plan_id' => $plan->getKey(),
-            'payment_gateway' => null,
-            'status' => SubscriptionStatus::TRIALING->value,
-        ]);
-
-        $this->assertDatabaseMissing('invoices', [
-            'status' => 'PENDING',
-        ]);
-
-        $this->assertFalse($response->json('data.requires_payment'));
-        $this->assertTrue($response->json('data.is_trial'));
-        $this->assertSame(7, $response->json('data.trial_days'));
-        $this->assertSame('trialing', $response->json('data.billing_status'));
-        $this->assertNull($response->json('data.invoice'));
-        // Tenant criado no register é filho do umbrella (parent_id preenchido).
-        $this->assertFalse((bool) $response->json('data.tenant.is_umbrella'));
-    }
-
-    public function test_register_with_paid_plan_creates_local_invoice(): void
-    {
-        $umbrella = $this->createTenantWithRoles([
-            'email' => 'contato@grupo-pago.com.br',
-        ]);
-        $this->createChildTenant($umbrella);
-
-        $plan = Plan::factory()->forTenant($umbrella)->withoutTrial()->create([
-            'active' => true,
-            'price' => '99.90',
-        ]);
-
-        $response = $this->postJson('/api/auth/register', [
-            'tenant' => [
-                'name' => 'Empresa Paga',
-                'document' => '04.252.011/0001-10',
-                'email' => 'contato@paga.com',
-                'phone' => '41999999999',
-            ],
-            'user' => [
-                'name' => 'Admin Paga',
-                'email' => 'admin@paga.com',
-                'phone' => '41999999999',
-                'document' => '529.982.247-25',
-                'password' => '12345678',
-            ],
-            'plan_id' => $plan->uuid,
-        ])->assertCreated();
-
-        $this->assertDatabaseHas('subscriptions', [
-            'plan_id' => $plan->getKey(),
-            'status' => SubscriptionStatus::ACTIVE->value,
-            'payment_gateway' => null,
-        ]);
-
-        $this->assertTrue($response->json('data.requires_payment'));
-        $this->assertFalse($response->json('data.is_trial'));
-        $this->assertSame(0, $response->json('data.trial_days'));
-        $this->assertSame('pending_payment', $response->json('data.billing_status'));
-        $this->assertTrue($response->json('data.invoice.awaiting_payment_method'));
-        $this->assertNull($response->json('data.invoice.gateway'));
-
-        $invoiceId = $response->json('data.invoice.id');
-        $token = $response->json('data.token');
-
-        $this->assertNotEmpty($invoiceId);
-
-        $this->getJson("/api/billing/invoices/{$invoiceId}", [
-            'Authorization' => "Bearer {$token}",
-        ])
-            ->assertOk()
-            ->assertJsonPath('data.id', $invoiceId)
-            ->assertJsonPath('data.status', 'PENDING')
-            ->assertJsonPath('data.awaiting_payment_method', true);
     }
 
     public function test_complimentary_subscription_is_excluded_from_due_for_billing(): void

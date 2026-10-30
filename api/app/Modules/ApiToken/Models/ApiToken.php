@@ -53,6 +53,10 @@ class ApiToken extends Model
      */
     public function can(string $permission): bool
     {
+        if ($this->tenant !== null && ! $this->tenant->allowsPermission($permission)) {
+            return false;
+        }
+
         if ($this->permissions === null) {
             return true;
         }

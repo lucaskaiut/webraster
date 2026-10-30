@@ -4,6 +4,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Cobrança do umbrella aos tenants filhos
+    |--------------------------------------------------------------------------
+    |
+    | Desligada por padrão: o acesso dos filhos é controlado manualmente pelo
+    | umbrella (situação e módulos no cadastro da empresa) e nenhuma cobrança
+    | é gerada. Desligada, ficam fora do ar as rotas de assinatura/faturas,
+    | os comandos agendados de cobrança e a assinatura de plano no cadastro.
+    |
+    */
+
+    'enabled' => (bool) env('BILLING_ENABLED', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Gateways de pagamento ativos
     |--------------------------------------------------------------------------
     |

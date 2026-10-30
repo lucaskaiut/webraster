@@ -9,8 +9,14 @@ const tenantFields = z.object({
   phone: z.string().min(1, 'Informe o telefone'),
 })
 
+/** Situação e módulos da empresa filha, definidos pelo umbrella. */
+const childTenantFields = tenantFields.extend({
+  is_active: z.boolean(),
+  modules: z.array(z.string()),
+})
+
 export const createChildTenantSchema = z.object({
-  tenant: tenantFields,
+  tenant: childTenantFields,
   user: z.object({
     name: z.string().min(1, 'Informe o nome'),
     email: z.string().min(1, 'Informe o e-mail').email('Informe um e-mail válido'),
@@ -19,7 +25,7 @@ export const createChildTenantSchema = z.object({
 })
 
 export const updateChildTenantSchema = z.object({
-  tenant: tenantFields,
+  tenant: childTenantFields,
 })
 
 const hexColor = z
