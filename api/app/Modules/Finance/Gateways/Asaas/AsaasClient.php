@@ -50,6 +50,14 @@ final class AsaasClient
     /**
      * @return array<string, mixed>
      */
+    public function deletePayment(string $id): array
+    {
+        return $this->request('delete', '/payments/'.$id);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     public function getPaymentPixQrCode(string $paymentId): array
     {
         return $this->request('get', '/payments/'.$paymentId.'/pixQrCode');

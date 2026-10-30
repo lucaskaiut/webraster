@@ -281,6 +281,32 @@ final class AsaasGateway implements PaymentGatewayInterface
         );
     }
 
+    public function cancelPayment(string $externalPaymentId): void
+    {
+        $asaas = $this->client();
+
+        try {
+            $asaas->deletePayment($externalPaymentId);
+        } catch (AsaasException $exception) {
+            // Já removida no gateway (ex.: excluída manualmente no Asaas).
+            if ($exception->statusCode === 404) {
+                return;
+            }
+
+            try {
+                $remote = $asaas->getPayment($externalPaymentId);
+            } catch (AsaasException) {
+                throw $exception;
+            }
+
+            if (($remote['deleted'] ?? false) === true) {
+                return;
+            }
+
+            throw $exception;
+        }
+    }
+
     public function authenticateWebhook(Request $request): bool
     {
         $expected = (string) ($this->config()?->credential('webhook_token') ?? '');

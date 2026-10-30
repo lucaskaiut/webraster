@@ -7,9 +7,11 @@ use App\Modules\Finance\Events\InvoiceCanceled;
 use App\Modules\Finance\Events\InvoiceCreated;
 use App\Modules\Finance\Events\InvoiceOverdue;
 use App\Modules\Finance\Events\InvoicePaid;
+use App\Modules\Finance\Exceptions\GatewayException;
 use App\Modules\Finance\Models\FinanceBilling;
 use App\Modules\Finance\Models\FinanceBillingEvent;
 use App\Modules\Finance\Models\FinanceSubscription;
+use App\Modules\Finance\Support\PaymentGatewayResolver;
 use App\Modules\ServiceOrder\Models\ServiceOrder;
 use App\Modules\Shared\Subscription\Enums\BillingPeriodicity;
 use App\Modules\Shared\Subscription\Enums\BillingStatus;
@@ -30,6 +32,7 @@ class FinanceBillingService
     public function __construct(
         private readonly DelinquencyService $delinquency,
         private readonly LateFeeService $lateFees,
+        private readonly PaymentGatewayResolver $gateways,
     ) {}
 
     /**
@@ -243,12 +246,23 @@ class FinanceBillingService
         return $billing->refresh()->load(['client', 'subscription.plan']);
     }
 
-    public function cancel(FinanceBilling $billing, ?User $actor = null): FinanceBilling
-    {
+    /**
+     * @param  bool  $cancelOnGateway  false quando o cancelamento já partiu do
+     *                                 gateway (webhook de cobrança removida).
+     */
+    public function cancel(
+        FinanceBilling $billing,
+        ?User $actor = null,
+        bool $cancelOnGateway = true,
+    ): FinanceBilling {
         if (! $billing->status->isOpen()) {
             throw ValidationException::withMessages([
                 'status' => ['Esta cobrança não pode ser cancelada.'],
             ]);
+        }
+
+        if ($cancelOnGateway) {
+            $this->releaseGatewayPayment($billing, $actor);
         }
 
         $from = $billing->status;
@@ -260,6 +274,55 @@ class FinanceBillingService
         event(new InvoiceCanceled($billing));
 
         return $billing->refresh()->load(['client', 'subscription.plan']);
+    }
+
+    /**
+     * Cancela no gateway a cobrança emitida para a fatura (se houver) e limpa
+     * os dados dela, evitando duas cobranças abertas para a mesma fatura.
+     *
+     * @throws ValidationException quando o gateway recusa o cancelamento
+     *                             (ex.: a cobrança já foi paga).
+     */
+    public function releaseGatewayPayment(FinanceBilling $billing, ?User $actor = null): void
+    {
+        $paymentId = (string) $billing->gateway_payment_id;
+        if ($paymentId === '') {
+            return;
+        }
+
+        $key = $billing->payment_gateway ?: $this->gateways->defaultKey();
+
+        try {
+            if ($key === null) {
+                throw new GatewayException('Nenhum gateway de pagamento ativo.');
+            }
+
+            $this->gateways->resolve($key)->cancelPayment($paymentId);
+        } catch (GatewayException|ValidationException $exception) {
+            throw ValidationException::withMessages([
+                'payment_gateway' => [
+                    'Não foi possível cancelar a cobrança anterior no gateway: '.$exception->getMessage(),
+                ],
+            ]);
+        }
+
+        $billing->forceFill([
+            'gateway_payment_id' => null,
+            'gateway_expires_at' => null,
+            'invoice_url' => null,
+            'bank_slip_url' => null,
+            'pix_qr_code' => null,
+            'pix_copy_paste' => null,
+        ])->save();
+
+        $this->recordEvent(
+            $billing,
+            'gateway_payment_cancelled',
+            $billing->status,
+            $billing->status,
+            ['payment_gateway' => $key, 'gateway_payment_id' => $paymentId],
+            $actor,
+        );
     }
 
     public function delete(FinanceBilling $billing, ?User $actor = null): void

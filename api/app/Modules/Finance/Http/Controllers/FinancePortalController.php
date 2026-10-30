@@ -77,6 +77,7 @@ class FinancePortalController extends ApiController
             $financeBilling,
             PaymentMethod::from((string) $data['payment_method']),
             $data,
+            $request->user(),
         );
 
         return $this->success(FinanceBillingResource::make($billing), 'Pagamento iniciado.');

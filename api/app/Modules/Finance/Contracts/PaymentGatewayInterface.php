@@ -63,6 +63,12 @@ interface PaymentGatewayInterface
 
     public function getPayment(string $externalPaymentId): GatewayPaymentDTO;
 
+    /**
+     * Cancela no gateway uma cobrança ainda não paga. Idempotente: uma
+     * cobrança já removida no gateway não gera erro.
+     */
+    public function cancelPayment(string $externalPaymentId): void;
+
     public function authenticateWebhook(Request $request): bool;
 
     public function parseWebhook(Request $request): GatewayWebhookEventDTO;

@@ -56,8 +56,8 @@ class PaymentWebhookProcessor
 
             match ($event->type) {
                 GatewayWebhookEventType::PAYMENT_PAID => $this->handlePaid($gateway, $billing, $event),
-                GatewayWebhookEventType::PAYMENT_OVERDUE => $this->handleOverdue($billing),
-                GatewayWebhookEventType::PAYMENT_DELETED => $this->handleDeleted($billing),
+                GatewayWebhookEventType::PAYMENT_OVERDUE => $this->handleOverdue($billing, $event),
+                GatewayWebhookEventType::PAYMENT_DELETED => $this->handleDeleted($billing, $event),
                 GatewayWebhookEventType::PAYMENT_REFUNDED => $this->handleRefund($billing),
                 GatewayWebhookEventType::IGNORED => null,
             };
@@ -174,9 +174,17 @@ class PaymentWebhookProcessor
         return $remote;
     }
 
-    private function handleOverdue(?FinanceBilling $billing): void
+    /**
+     * O vencimento da cobrança no gateway é curto (validade do PIX/boleto),
+     * não o da fatura: só marca atraso quando a fatura em si já venceu.
+     */
+    private function handleOverdue(?FinanceBilling $billing, GatewayWebhookEventDTO $event): void
     {
-        if ($billing === null || $billing->status === BillingStatus::PAID) {
+        if ($billing === null
+            || ! $billing->status->isOpen()
+            || ! $this->isCurrentPayment($billing, $event)
+            || $billing->due_at === null
+            || ! $billing->due_at->isBefore(today())) {
             return;
         }
 
@@ -189,13 +197,26 @@ class PaymentWebhookProcessor
         }
     }
 
-    private function handleDeleted(?FinanceBilling $billing): void
+    /**
+     * Remoção de uma cobrança substituída (troca de método ou expiração) não
+     * cancela a fatura; só a remoção da cobrança vigente.
+     */
+    private function handleDeleted(?FinanceBilling $billing, GatewayWebhookEventDTO $event): void
     {
-        if ($billing === null || $billing->status === BillingStatus::PAID) {
+        if ($billing === null
+            || ! $billing->status->isOpen()
+            || blank($billing->gateway_payment_id)
+            || ! $this->isCurrentPayment($billing, $event)) {
             return;
         }
 
-        $this->billings->cancel($billing);
+        $this->billings->cancel($billing, cancelOnGateway: false);
+    }
+
+    private function isCurrentPayment(FinanceBilling $billing, GatewayWebhookEventDTO $event): bool
+    {
+        return blank($event->paymentExternalId)
+            || hash_equals((string) $billing->gateway_payment_id, (string) $event->paymentExternalId);
     }
 
     private function handleRefund(?FinanceBilling $billing): void

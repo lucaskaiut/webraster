@@ -9,6 +9,7 @@ use App\Modules\Finance\Exceptions\GatewayException;
 use App\Modules\Finance\Models\FinanceBilling;
 use App\Modules\Finance\Support\PaymentGatewayResolver;
 use App\Modules\Shared\Subscription\Enums\BillingStatus;
+use App\Modules\User\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
 
@@ -27,6 +28,7 @@ class BillingChargeService
         FinanceBilling $billing,
         PaymentMethod $method,
         array $paymentData = [],
+        ?User $actor = null,
     ): FinanceBilling {
         if (! $billing->status->isOpen()) {
             throw ValidationException::withMessages([
@@ -41,7 +43,7 @@ class BillingChargeService
             ]);
         }
 
-        if (filled($billing->gateway_payment_id) && $billing->status === BillingStatus::AWAITING_PAYMENT && ! $this->gatewayChargeExpired($billing)) {
+        if ($this->canReuseGatewayCharge($billing, $method)) {
             return $billing->load(['client', 'subscription.plan']);
         }
 
@@ -49,6 +51,10 @@ class BillingChargeService
         $this->lateFees->sync($billing, force: true);
 
         $gateway = $this->gateways->resolveReadyFor($method);
+
+        // Cancela a cobrança anterior (expirada ou de outro método) para que a
+        // fatura nunca tenha duas cobranças abertas no gateway.
+        $this->billings->releaseGatewayPayment($billing, $actor);
 
         // A cobrança no gateway tem validade curta: o vencimento da fatura
         // é controlado pela plataforma (juros/multa), não pelo gateway.
@@ -95,9 +101,21 @@ class BillingChargeService
                 'gateway_payment_id' => $billing->gateway_payment_id,
                 'gateway_expires_at' => $billing->gateway_expires_at?->toIso8601String(),
             ],
+            $actor,
         );
 
         return $billing->refresh()->load(['client', 'subscription.plan']);
+    }
+
+    /**
+     * A cobrança já emitida no gateway ainda vale para o método pedido?
+     */
+    private function canReuseGatewayCharge(FinanceBilling $billing, PaymentMethod $method): bool
+    {
+        return filled($billing->gateway_payment_id)
+            && $billing->status === BillingStatus::AWAITING_PAYMENT
+            && $billing->payment_method === $method
+            && ! $this->gatewayChargeExpired($billing);
     }
 
     /**

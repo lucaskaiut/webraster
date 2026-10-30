@@ -76,6 +76,7 @@ class FinanceBillingController extends ApiController
             $financeBilling,
             PaymentMethod::from((string) $data['payment_method']),
             $data,
+            $request->user(),
         );
 
         return $this->success(FinanceBillingResource::make($billing), 'Cobrança enviada ao gateway.');

@@ -6,6 +6,7 @@ use App\Modules\Client\Models\Client;
 use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Finance\Contracts\DeviceSuspensionProvider;
 use App\Modules\Finance\Models\FinanceBilling;
+use App\Modules\Finance\Models\FinanceBillingEvent;
 use App\Modules\Finance\Models\FinancePlan;
 use App\Modules\Finance\Models\FinanceSubscription;
 use App\Modules\Finance\Models\FinanceWebhookLog;
@@ -632,6 +633,7 @@ class FinanceModuleTest extends TestCase
 
         Http::fake([
             '*/customers*' => Http::response(['id' => 'cus_1', 'name' => 'Cliente'], 200),
+            '*/payments/pay_first' => Http::response(['deleted' => true, 'id' => 'pay_first'], 200),
             '*/payments' => Http::sequence()
                 ->push(['id' => 'pay_first', 'status' => 'PENDING'], 200)
                 ->push(['id' => 'pay_second', 'status' => 'PENDING'], 200),
@@ -653,6 +655,10 @@ class FinanceModuleTest extends TestCase
             ->assertJsonPath('data.gateway_payment_id', 'pay_second');
 
         $this->assertTrue($billing->fresh()->gateway_expires_at->isFuture());
+
+        // A cobrança expirada é cancelada no gateway antes de emitir a nova.
+        Http::assertSent(fn ($request) => $request->method() === 'DELETE'
+            && str_ends_with($request->url(), '/payments/pay_first'));
     }
 
     public function test_charge_reuses_gateway_payment_before_expiration(): void
@@ -698,6 +704,202 @@ class FinanceModuleTest extends TestCase
         );
 
         $this->assertCount(1, $paymentsCreated);
+    }
+
+    public function test_charge_with_another_method_cancels_previous_gateway_payment(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create([
+            'document' => '39053344705',
+            'email' => 'cliente@example.com',
+        ]);
+        $admin = $this->createAdmin($tenant);
+        Sanctum::actingAs($admin);
+
+        $this->createGatewayConfig($tenant, 'wh_token', 'asaas_key');
+
+        $plan = FinancePlan::factory()->forTenant($tenant)->create();
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create();
+        $billing = FinanceBilling::factory()->forSubscription($subscription)->create([
+            'number' => 1,
+            'status' => BillingStatus::PENDING,
+        ]);
+
+        Http::fake([
+            '*/customers*' => Http::response(['id' => 'cus_1', 'name' => 'Cliente'], 200),
+            '*/payments/pay_boleto' => Http::response(['deleted' => true, 'id' => 'pay_boleto'], 200),
+            '*/payments/pay_pix/pixQrCode' => Http::response([
+                'encodedImage' => 'base64img',
+                'payload' => '00020101pix',
+            ], 200),
+            '*/payments' => Http::sequence()
+                ->push(['id' => 'pay_boleto', 'status' => 'PENDING', 'bankSlipUrl' => 'https://asaas.test/b/1'], 200)
+                ->push(['id' => 'pay_pix', 'status' => 'PENDING'], 200),
+        ]);
+
+        $this->postJson("/api/finance/billings/{$billing->uuid}/charge", [
+            'payment_method' => 'boleto',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.gateway_payment_id', 'pay_boleto');
+
+        // Ainda dentro da validade do boleto, o cliente opta por PIX.
+        $this->postJson("/api/finance/billings/{$billing->uuid}/charge", [
+            'payment_method' => 'pix',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.gateway_payment_id', 'pay_pix')
+            ->assertJsonPath('data.payment_method', 'pix')
+            ->assertJsonPath('data.pix_copy_paste', '00020101pix')
+            ->assertJsonPath('data.bank_slip_url', null);
+
+        Http::assertSent(fn ($request) => $request->method() === 'DELETE'
+            && str_ends_with($request->url(), '/payments/pay_boleto'));
+
+        $this->assertSame(
+            $admin->getKey(),
+            FinanceBillingEvent::query()
+                ->where('billing_id', $billing->getKey())
+                ->where('action', 'charged')
+                ->latest('id')
+                ->value('user_id'),
+        );
+    }
+
+    public function test_charge_keeps_previous_payment_when_gateway_refuses_cancellation(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create([
+            'document' => '39053344705',
+            'email' => 'cliente@example.com',
+        ]);
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->createGatewayConfig($tenant, 'wh_token', 'asaas_key');
+
+        $plan = FinancePlan::factory()->forTenant($tenant)->create();
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create();
+        $billing = FinanceBilling::factory()->forSubscription($subscription)->create([
+            'number' => 1,
+            'status' => BillingStatus::AWAITING_PAYMENT,
+            'payment_gateway' => 'asaas',
+            'payment_method' => 'boleto',
+            'gateway_payment_id' => 'pay_paid',
+            'gateway_expires_at' => now()->addMinutes(10),
+        ]);
+
+        Http::fake(function ($request) {
+            if ($request->method() === 'DELETE') {
+                return Http::response([
+                    'errors' => [['code' => 'invalid_action', 'description' => 'Cobrança já recebida.']],
+                ], 400);
+            }
+
+            if (str_ends_with($request->url(), '/payments/pay_paid')) {
+                return Http::response(['id' => 'pay_paid', 'status' => 'RECEIVED', 'deleted' => false], 200);
+            }
+
+            return Http::response(['id' => 'cus_1'], 200);
+        });
+
+        $this->postJson("/api/finance/billings/{$billing->uuid}/charge", [
+            'payment_method' => 'pix',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['payment_gateway']);
+
+        $this->assertSame('pay_paid', $billing->fresh()->gateway_payment_id);
+        Http::assertNotSent(fn ($request) => $request->method() === 'POST'
+            && str_ends_with($request->url(), '/payments'));
+    }
+
+    public function test_cancel_billing_cancels_gateway_payment(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->createGatewayConfig($tenant, 'wh_token', 'asaas_key');
+
+        $plan = FinancePlan::factory()->forTenant($tenant)->create();
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create();
+        $billing = FinanceBilling::factory()->forSubscription($subscription)->create([
+            'number' => 1,
+            'status' => BillingStatus::AWAITING_PAYMENT,
+            'payment_gateway' => 'asaas',
+            'payment_method' => 'boleto',
+            'gateway_payment_id' => 'pay_open',
+            'gateway_expires_at' => now()->addMinutes(10),
+        ]);
+
+        Http::fake([
+            '*/payments/pay_open' => Http::response(['deleted' => true, 'id' => 'pay_open'], 200),
+        ]);
+
+        $this->postJson("/api/finance/billings/{$billing->uuid}/cancel")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'cancelled');
+
+        Http::assertSent(fn ($request) => $request->method() === 'DELETE'
+            && str_ends_with($request->url(), '/payments/pay_open'));
+    }
+
+    public function test_webhook_deleted_for_replaced_payment_does_not_cancel_billing(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $plan = FinancePlan::factory()->forTenant($tenant)->create();
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create();
+        $billing = FinanceBilling::factory()->forSubscription($subscription)->create([
+            'number' => 1,
+            'status' => BillingStatus::AWAITING_PAYMENT,
+            'gateway_payment_id' => 'pay_new',
+        ]);
+
+        $this->createGatewayConfig($tenant, 'secret-token');
+
+        $this->postJson("/api/webhooks/payments/asaas/{$tenant->uuid}", [
+            'id' => 'evt_deleted_old',
+            'event' => 'PAYMENT_DELETED',
+            'payment' => [
+                'id' => 'pay_old',
+                'externalReference' => $billing->uuid,
+            ],
+        ], [
+            'asaas-access-token' => 'secret-token',
+        ])->assertOk();
+
+        $this->assertSame(BillingStatus::AWAITING_PAYMENT, $billing->fresh()->status);
+    }
+
+    public function test_webhook_overdue_before_billing_due_date_is_ignored(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $plan = FinancePlan::factory()->forTenant($tenant)->create();
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create();
+        $billing = FinanceBilling::factory()->forSubscription($subscription)->create([
+            'number' => 1,
+            'status' => BillingStatus::AWAITING_PAYMENT,
+            'gateway_payment_id' => 'pay_short',
+            'due_at' => now()->addDays(5)->toDateString(),
+        ]);
+
+        $this->createGatewayConfig($tenant, 'secret-token');
+
+        // A cobrança do gateway (validade curta) venceu, mas a fatura não.
+        $this->postJson("/api/webhooks/payments/asaas/{$tenant->uuid}", [
+            'id' => 'evt_overdue_short',
+            'event' => 'PAYMENT_OVERDUE',
+            'payment' => [
+                'id' => 'pay_short',
+                'externalReference' => $billing->uuid,
+            ],
+        ], [
+            'asaas-access-token' => 'secret-token',
+        ])->assertOk();
+
+        $this->assertSame(BillingStatus::AWAITING_PAYMENT, $billing->fresh()->status);
     }
 
     public function test_charge_applies_late_fees_to_overdue_billing(): void

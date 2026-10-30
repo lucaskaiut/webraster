@@ -342,6 +342,7 @@ export default function FinanceBillingDetailPage() {
         description={
           <>
             Cancelar a cobrança <strong>{billing.code}</strong>?
+            {billing.gateway_payment_id && ' O boleto/PIX emitido no gateway também será cancelado.'}
           </>
         }
         confirmLabel="Cancelar cobrança"
