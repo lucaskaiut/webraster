@@ -805,6 +805,7 @@ export type AlertType =
   | 'offline'
   | 'online'
   | 'battery'
+  | 'battery_tamper'
   | 'jamming'
   | 'geofence'
   | 'device_alarm'

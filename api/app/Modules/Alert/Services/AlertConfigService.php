@@ -47,6 +47,7 @@ class AlertConfigService
         return [
             AlertType::SOS,
             AlertType::JAMMING,
+            AlertType::BATTERY_TAMPER,
             AlertType::GEOFENCE,
             AlertType::DEVICE_ALARM,
             AlertType::OFFLINE,
@@ -64,6 +65,7 @@ class AlertConfigService
         return [
             AlertType::SOS,
             AlertType::JAMMING,
+            AlertType::BATTERY_TAMPER,
             AlertType::DEVICE_ALARM,
         ];
     }
@@ -97,6 +99,7 @@ class AlertConfigService
                 'notify_monitoring' => true,
                 'notify_email' => $type === AlertType::SOS
                     || $type === AlertType::JAMMING
+                    || $type === AlertType::BATTERY_TAMPER
                     || $type === AlertType::DEVICE_ALARM,
                 'notify_push' => true,
                 'settings' => self::defaultSettings($type),

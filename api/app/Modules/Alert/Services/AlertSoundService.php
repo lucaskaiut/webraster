@@ -184,6 +184,7 @@ class AlertSoundService
         return match ($type) {
             AlertType::IGNITION_ON, AlertType::IGNITION_OFF => self::GROUP_IGNITION,
             AlertType::GEOFENCE => self::GROUP_GEOFENCE,
+            AlertType::BATTERY_TAMPER => self::GROUP_POWERCUT,
             AlertType::DEVICE_ALARM => $this->isPowerCut($notification) ? self::GROUP_POWERCUT : null,
             default => null,
         };

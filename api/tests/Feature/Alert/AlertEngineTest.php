@@ -172,7 +172,7 @@ class AlertEngineTest extends TestCase
         $this->assertCount($expected, $configs);
         $this->assertFalse($configs->has('device_alarm|'));
 
-        foreach ([AlertType::SOS, AlertType::JAMMING, AlertType::GEOFENCE, AlertType::OFFLINE] as $type) {
+        foreach ([AlertType::SOS, AlertType::JAMMING, AlertType::BATTERY_TAMPER, AlertType::GEOFENCE, AlertType::OFFLINE] as $type) {
             $this->assertTrue((bool) $configs[$type->value.'|']->is_enabled, "Esperado {$type->value} habilitado");
         }
 
@@ -180,10 +180,15 @@ class AlertEngineTest extends TestCase
             $this->assertFalse((bool) $configs[$type->value.'|']->is_enabled, "Esperado {$type->value} desabilitado");
         }
 
-        foreach (['powercut', 'tampering', 'removing', 'accident'] as $code) {
-            $this->assertTrue((bool) $configs['device_alarm|'.$code]->is_enabled, "Esperado {$code} habilitado");
-            $this->assertTrue((bool) $configs['device_alarm|'.$code]->notify_email);
+        $this->assertTrue((bool) $configs['battery_tamper|']->notify_email);
+
+        // Códigos de bateria violada não são mais alarmes genéricos do rastreador.
+        foreach (['powercut', 'tampering', 'removing'] as $code) {
+            $this->assertFalse($configs->has('device_alarm|'.$code), "{$code} não deveria ser alarme do dispositivo");
         }
+
+        $this->assertTrue((bool) $configs['device_alarm|accident']->is_enabled);
+        $this->assertTrue((bool) $configs['device_alarm|accident']->notify_email);
 
         foreach (['tow', 'door', 'vibration', 'lowbattery'] as $code) {
             $this->assertFalse((bool) $configs['device_alarm|'.$code]->is_enabled, "Esperado {$code} desabilitado");
@@ -337,31 +342,53 @@ class AlertEngineTest extends TestCase
         ])->assertUnprocessable();
     }
 
-    public function test_device_alarm_power_cut_and_restore(): void
+    public function test_battery_tamper_power_cut_and_restore(): void
     {
         [, $tenant] = $this->createOperationalChild();
         $client = Client::factory()->for($tenant)->create();
         $vehicle = Vehicle::factory()->forClient($client)->create();
         Equipment::factory()->assignedTo($vehicle)->create();
-        $this->enableVehicleAlert($vehicle, AlertType::DEVICE_ALARM, [], 'powercut');
+        $this->enableVehicleAlert($vehicle, AlertType::BATTERY_TAMPER);
 
         $engine = app(AlertEngine::class);
         $base = CarbonImmutable::parse('2026-09-05 14:00:00');
 
         $engine->process($this->pos($tenant, $client, $vehicle, 0, $base, 400, attributes: ['alarm' => 'powerCut']));
-        $alert = Alert::query()->withoutGlobalScopes()->where('type', 'device_alarm')->first();
+        $alert = Alert::query()->withoutGlobalScopes()->where('type', 'battery_tamper')->first();
         $this->assertNotNull($alert);
-        $this->assertSame('Alimentação cortada', $alert->title);
+        $this->assertSame('Bateria violada', $alert->title);
         $this->assertSame('powercut', $alert->meta['alarm_code'] ?? null);
+        $this->assertSame(0, Alert::query()->withoutGlobalScopes()->where('type', 'device_alarm')->count());
 
         // duplicate suppressed while alarm remains active
         $engine->process($this->pos($tenant, $client, $vehicle, 0, $base->addMinute(), 401, attributes: ['alarm' => 'powerCut']));
-        $this->assertSame(1, Alert::query()->withoutGlobalScopes()->where('type', 'device_alarm')->count());
+        $this->assertSame(1, Alert::query()->withoutGlobalScopes()->where('type', 'battery_tamper')->count());
 
         // restored clears state; new alarm can fire again later
         $engine->process($this->pos($tenant, $client, $vehicle, 0, $base->addMinutes(2), 402, attributes: ['alarm' => 'powerRestored']));
         $engine->process($this->pos($tenant, $client, $vehicle, 0, $base->addMinutes(3), 403, attributes: ['alarm' => 'powerCut']));
-        $this->assertSame(2, Alert::query()->withoutGlobalScopes()->where('type', 'device_alarm')->count());
+        $this->assertSame(2, Alert::query()->withoutGlobalScopes()->where('type', 'battery_tamper')->count());
+    }
+
+    public function test_disabling_battery_tamper_stops_power_cut_alerts(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create();
+        Equipment::factory()->assignedTo($vehicle)->create();
+        $this->enableVehicleAlert($vehicle, AlertType::BATTERY_TAMPER, ['is_enabled' => false]);
+
+        app(AlertEngine::class)->process($this->pos(
+            $tenant,
+            $client,
+            $vehicle,
+            0,
+            CarbonImmutable::parse('2026-09-05 14:30:00'),
+            450,
+            attributes: ['alarm' => 'powerCut'],
+        ));
+
+        $this->assertSame(0, Alert::query()->withoutGlobalScopes()->count());
     }
 
     public function test_disabling_one_device_alarm_does_not_affect_others(): void
@@ -437,13 +464,14 @@ class AlertEngineTest extends TestCase
             attributes: ['alarm' => 'powerCut,tampering'],
         ));
 
-        $alerts = Alert::query()->withoutGlobalScopes()->where('type', 'device_alarm')->get();
+        $alerts = Alert::query()->withoutGlobalScopes()->get();
 
         $this->assertCount(1, $alerts);
+        $this->assertSame('battery_tamper', $alerts->first()->type->value);
         $this->assertSame('powercut', $alerts->first()->meta['alarm_code']);
     }
 
-    public function test_tampering_alone_still_creates_alert(): void
+    public function test_tampering_alone_creates_battery_tamper_alert(): void
     {
         [, $tenant] = $this->createOperationalChild();
         $client = Client::factory()->for($tenant)->create();
@@ -460,9 +488,10 @@ class AlertEngineTest extends TestCase
             attributes: ['alarm' => 'tampering'],
         ));
 
-        $alerts = Alert::query()->withoutGlobalScopes()->where('type', 'device_alarm')->get();
+        $alerts = Alert::query()->withoutGlobalScopes()->get();
 
         $this->assertCount(1, $alerts);
+        $this->assertSame('battery_tamper', $alerts->first()->type->value);
         $this->assertSame('tampering', $alerts->first()->meta['alarm_code']);
     }
 

@@ -11,6 +11,7 @@ enum AlertType: string
     case OFFLINE = 'offline';
     case ONLINE = 'online';
     case BATTERY = 'battery';
+    case BATTERY_TAMPER = 'battery_tamper';
     case JAMMING = 'jamming';
     case GEOFENCE = 'geofence';
     case DEVICE_ALARM = 'device_alarm';
@@ -25,6 +26,7 @@ enum AlertType: string
             self::OFFLINE => 'Dispositivo offline',
             self::ONLINE => 'Dispositivo online',
             self::BATTERY => 'Bateria baixa',
+            self::BATTERY_TAMPER => 'Bateria violada',
             self::JAMMING => 'Jamming',
             self::GEOFENCE => 'Entrada e saída de cerca',
             self::DEVICE_ALARM => 'Alarme do dispositivo',
@@ -38,7 +40,7 @@ enum AlertType: string
             self::IGNITION_ON, self::IGNITION_OFF => AlertSeverity::LOW,
             self::BATTERY => AlertSeverity::MEDIUM,
             self::OFFLINE, self::ONLINE => AlertSeverity::HIGH,
-            self::SOS, self::JAMMING => AlertSeverity::CRITICAL,
+            self::SOS, self::JAMMING, self::BATTERY_TAMPER => AlertSeverity::CRITICAL,
             self::GEOFENCE => AlertSeverity::MEDIUM,
             self::DEVICE_ALARM => AlertSeverity::HIGH,
         };
@@ -56,6 +58,7 @@ enum AlertType: string
             self::SOS,
             self::OFFLINE,
             self::BATTERY,
+            self::BATTERY_TAMPER,
             self::JAMMING,
             self::GEOFENCE,
             self::DEVICE_ALARM,
@@ -75,6 +78,7 @@ enum AlertType: string
             self::SOS,
             self::OFFLINE,
             self::BATTERY,
+            self::BATTERY_TAMPER,
             self::DEVICE_ALARM,
             self::GEOFENCE,
         ];
@@ -90,9 +94,10 @@ enum AlertType: string
             self::OFFLINE => 'Avisa quando o rastreador fica sem comunicação.',
             self::ONLINE => 'Avisa quando o rastreador volta a comunicar.',
             self::BATTERY => 'Avisa quando a bateria do rastreador fica baixa.',
+            self::BATTERY_TAMPER => 'Avisa quando o rastreador é desconectado da bateria do veículo, violado ou removido.',
             self::JAMMING => 'Avisa quando há tentativa de bloquear o sinal de GPS/GSM.',
             self::GEOFENCE => 'Avisa quando o veículo entra ou sai de uma geocerca.',
-            self::DEVICE_ALARM => 'Avisa alarmes do rastreador, como energia cortada, reboque ou porta aberta.',
+            self::DEVICE_ALARM => 'Avisa alarmes do rastreador, como reboque, porta aberta ou acidente.',
         };
     }
 }

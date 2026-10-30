@@ -17,7 +17,17 @@ final class TraccarAttributeReader
     /** Só exibe/alerta `lowpower` quando a tensão medida está abaixo deste valor (V). */
     private const LOW_POWER_VOLTAGE_THRESHOLD = 8.0;
 
-    /** Alarmes tratados por regras dedicadas (SOS, jamming, velocidade). */
+    /**
+     * Códigos que indicam o rastreador desconectado da bateria do veículo,
+     * violado ou removido: viram o alerta dedicado "Bateria violada".
+     */
+    public const BATTERY_TAMPER_ALARMS = [
+        'powercut',
+        'tampering',
+        'removing',
+    ];
+
+    /** Alarmes tratados por regras dedicadas (SOS, jamming, velocidade, bateria violada). */
     private const EXCLUDED_DEVICE_ALARMS = [
         'sos',
         'emergency',
@@ -26,6 +36,7 @@ final class TraccarAttributeReader
         'gpsjamming',
         'gsmjamming',
         'overspeed',
+        ...self::BATTERY_TAMPER_ALARMS,
     ];
 
     /** @var array<string, string> */
@@ -188,6 +199,25 @@ final class TraccarAttributeReader
             ))),
             $attributes,
         );
+    }
+
+    /**
+     * Códigos de bateria violada ativos na posição (`tampering` junto com
+     * `powercut` conta só como alimentação cortada).
+     *
+     * @param  array<string, mixed>|null  $attributes
+     * @return list<string>
+     */
+    public static function extractBatteryTamperAlarms(?array $attributes): array
+    {
+        if ($attributes === null || $attributes === []) {
+            return [];
+        }
+
+        return self::suppressPairedAlarms(array_values(array_filter(
+            self::parseAlarmCodes($attributes['alarm'] ?? null),
+            fn (string $alarm) => in_array(self::normalizeAlarmCode($alarm), self::BATTERY_TAMPER_ALARMS, true),
+        )));
     }
 
     /**

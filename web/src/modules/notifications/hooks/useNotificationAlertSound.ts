@@ -8,6 +8,7 @@ import { useNotificationsQuery } from './useNotifications'
 function groupFor(notification: AppNotification): string | null {
   if (notification.type === 'ignition_on' || notification.type === 'ignition_off') return 'ignition'
   if (notification.type === 'geofence') return 'geofence'
+  if (notification.type === 'battery_tamper') return 'powercut'
 
   if (notification.type === 'device_alarm') {
     const meta = notification.alert?.meta

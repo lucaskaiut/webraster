@@ -181,6 +181,11 @@ class AlertSoundPreferenceTest extends TestCase
         $this->assertSame('default', $sounds->soundFor(
             $this->userNotification($tenant->getKey(), $user->getKey(), 'device_alarm', $tow->getKey()),
         ));
+
+        // O alerta dedicado de bateria violada usa o mesmo grupo de som.
+        $this->assertSame('siren', $sounds->soundFor(
+            $this->userNotification($tenant->getKey(), $user->getKey(), 'battery_tamper', $powerCut->getKey()),
+        ));
     }
 
     public function test_legacy_type_preference_is_used_when_the_group_has_no_choice(): void

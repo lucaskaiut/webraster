@@ -7,6 +7,7 @@ export const VEHICLE_ALERT_TYPE_VALUES = [
   'sos',
   'offline',
   'battery',
+  'battery_tamper',
   'jamming',
   'geofence',
 ] as const
@@ -56,6 +57,11 @@ export const VEHICLE_ALERT_TYPES: VehicleAlertTypeOption[] = [
     description: 'Avisa quando a bateria do rastreador fica baixa.',
   },
   {
+    type: 'battery_tamper',
+    label: 'Bateria violada',
+    description: 'Avisa quando o rastreador é desconectado da bateria do veículo, violado ou removido.',
+  },
+  {
     type: 'jamming',
     label: 'Jamming',
     description: 'Avisa quando há tentativa de bloquear o sinal de GPS/GSM.',
@@ -94,9 +100,14 @@ export const VISIBLE_VEHICLE_ALERT_TYPES: VehicleAlertTypeOption[] = [
     description: 'Avisa quando o veículo sai de uma geocerca.',
   },
   {
-    type: 'battery',
+    type: 'battery_tamper',
     label: 'Bateria violada',
-    description: 'Avisa quando a bateria do rastreador é violada ou removida.',
+    description: 'Avisa quando o rastreador é desconectado da bateria do veículo, violado ou removido.',
+  },
+  {
+    type: 'battery',
+    label: 'Bateria baixa',
+    description: 'Avisa quando a bateria interna do rastreador fica baixa.',
   },
 ]
 
@@ -110,6 +121,7 @@ export const ALERT_TYPE_LABELS: Record<string, string> = {
   offline: 'Dispositivo offline',
   online: 'Dispositivo online',
   battery: 'Bateria baixa',
+  battery_tamper: 'Bateria violada',
   jamming: 'Jamming',
   geofence: 'Entrada e saída de cerca',
   device_alarm: 'Alarme do dispositivo',
@@ -135,9 +147,6 @@ export const ALERT_STATUS_LABELS: Record<string, string> = {
  */
 export const DEVICE_ALARM_TYPES: DeviceAlarmTypeOption[] = [
   { code: 'accident', label: 'Acidente', severity: 'critical' },
-  { code: 'powercut', label: 'Alimentação cortada', severity: 'critical' },
-  { code: 'removing', label: 'Remoção', severity: 'critical' },
-  { code: 'tampering', label: 'Violação', severity: 'critical' },
   { code: 'fault', label: 'Falha', severity: 'high' },
   { code: 'fuelleak', label: 'Vazamento de combustível', severity: 'high' },
   { code: 'gpsantennacut', label: 'Antena GPS cortada', severity: 'high' },
@@ -193,9 +202,18 @@ export interface AlertConfigLike {
   notify_email?: boolean
 }
 
-const DEFAULT_ENABLED_GENERAL: VehicleAlertType[] = ['sos', 'jamming', 'geofence', 'offline']
-const DEFAULT_EMAIL_GENERAL: VehicleAlertType[] = ['sos', 'jamming']
-const DEFAULT_ENABLED_DEVICE = ['accident', 'powercut', 'removing', 'tampering']
+const DEFAULT_ENABLED_GENERAL: VehicleAlertType[] = [
+  'sos',
+  'jamming',
+  'battery_tamper',
+  'geofence',
+  'offline',
+]
+const DEFAULT_EMAIL_GENERAL: VehicleAlertType[] = ['sos', 'jamming', 'battery_tamper']
+const DEFAULT_ENABLED_DEVICE = ['accident']
+
+/** Códigos tratados pelo alerta dedicado "Bateria violada" (BATTERY_TAMPER_ALARMS no backend). */
+const BATTERY_TAMPER_CODES = new Set(['powercut', 'tampering', 'removing'])
 
 function generalValue(
   option: VehicleAlertTypeOption,
@@ -258,7 +276,8 @@ export function vehicleAlertConfigsFromApi(
       (config) =>
         config.type === 'device_alarm' &&
         Boolean(config.alarm_code) &&
-        !catalogued.has(config.alarm_code as string),
+        !catalogued.has(config.alarm_code as string) &&
+        !BATTERY_TAMPER_CODES.has(config.alarm_code as string),
     )
     .map((config) => deviceValue(config.alarm_code as string, config.alarm_code as string, config))
 

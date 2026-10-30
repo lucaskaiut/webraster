@@ -48,7 +48,9 @@ class AlertSupportTest extends TestCase
     #[Test]
     public function extracts_device_alarms_and_labels(): void
     {
-        $this->assertSame('powercut', TraccarAttributeReader::extractDeviceAlarm(['alarm' => 'powerCut']));
+        $this->assertSame('tow', TraccarAttributeReader::extractDeviceAlarm(['alarm' => 'tow']));
+        $this->assertNull(TraccarAttributeReader::extractDeviceAlarm(['alarm' => 'powerCut']));
+        $this->assertSame(['powercut'], TraccarAttributeReader::extractBatteryTamperAlarms(['alarm' => 'powerCut']));
         $this->assertSame('Alimentação cortada', TraccarAttributeReader::deviceAlarmLabel('powerCut'));
         $this->assertNull(TraccarAttributeReader::extractDeviceAlarm(['alarm' => 'sos']));
         $this->assertNull(TraccarAttributeReader::extractDeviceAlarm(['alarm' => 'powerRestored']));
@@ -77,7 +79,7 @@ class AlertSupportTest extends TestCase
             TraccarAttributeReader::activeAlarms(['alarm' => 'powerCut, vibration']),
         );
         $this->assertSame(
-            ['powercut', 'lowbattery'],
+            ['lowbattery'],
             TraccarAttributeReader::extractDeviceAlarms(['alarm' => 'powerCut, lowBattery']),
         );
     }
@@ -87,7 +89,7 @@ class AlertSupportTest extends TestCase
     {
         $this->assertSame(
             ['powercut'],
-            TraccarAttributeReader::extractDeviceAlarms(['alarm' => 'powerCut,tampering']),
+            TraccarAttributeReader::extractBatteryTamperAlarms(['alarm' => 'powerCut,tampering']),
         );
         $this->assertSame(
             ['powercut'],
@@ -95,7 +97,7 @@ class AlertSupportTest extends TestCase
         );
         $this->assertSame(
             ['tampering'],
-            TraccarAttributeReader::extractDeviceAlarms(['alarm' => 'tampering']),
+            TraccarAttributeReader::extractBatteryTamperAlarms(['alarm' => 'tampering']),
         );
         $this->assertSame(
             ['tampering'],
