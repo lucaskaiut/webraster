@@ -1,4 +1,4 @@
-import { useEffect, type MouseEvent } from 'react'
+import { useEffect, useState, type MouseEvent } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -28,6 +28,7 @@ import { useVehicleAlertDefaultsQuery } from '@/modules/alerts/hooks/useAlerts'
 import { clientsService } from '@/modules/clients/services/clients.service'
 import type { VehiclePayload } from '../services/vehicles.service'
 import { VehicleAlertConfigsCard } from '../components/VehicleAlertConfigsCard'
+import { VehiclePhotosPicker } from '../components/VehiclePhotosPicker'
 import { usePlateLookup } from '../hooks/usePlateLookup'
 import { fillVehicleFromLookup } from '../utils/plate-lookup'
 import {
@@ -43,7 +44,8 @@ interface VehicleFormProps {
   defaultValues?: Partial<VehicleFormValues>
   submitting: boolean
   crlvFileUrl?: string | null
-  onSubmit: (payload: VehiclePayload) => Promise<unknown>
+  /** `photos` só é preenchido no modo `create` (fotos escolhidas antes do cadastro). */
+  onSubmit: (payload: VehiclePayload, photos: File[]) => Promise<unknown>
   /** Fixa o cliente no contexto (oculta o seletor) — ex.: cadastro dentro do cliente. */
   fixedClientId?: string
   /** Exibe a navegação lateral entre seções (padrão: true). */
@@ -69,6 +71,8 @@ const SECTIONS: FormSection[] = [
   { id: 'veiculo-fipe', label: 'Tabela FIPE' },
   { id: 'veiculo-documentos', label: 'Documentos' },
 ]
+
+const PHOTOS_SECTION: FormSection = { id: 'veiculo-fotos', label: 'Fotos' }
 
 const ALERT_SECTION: FormSection = { id: 'veiculo-alertas', label: 'Alertas' }
 
@@ -181,7 +185,14 @@ function VehicleFormFields({
   const canConfigureAlerts = can(Permission.ALERT_CONFIG_UPDATE)
   const canAssignEquipment = mode === 'create' && can(Permission.VEHICLE_CREATE)
   const canViewEquipmentDetails = can(Permission.EQUIPMENT_DETAILS_READ)
-  const sections = canConfigureAlerts ? [...SECTIONS, ALERT_SECTION] : SECTIONS
+  // Fotos de veículos existentes são geridas fora do formulário (VehicleImagesCard).
+  const canAttachPhotos = mode === 'create' && can(Permission.VEHICLE_UPDATE)
+  const [photos, setPhotos] = useState<File[]>([])
+  const sections = [
+    ...SECTIONS,
+    ...(canAttachPhotos ? [PHOTOS_SECTION] : []),
+    ...(canConfigureAlerts ? [ALERT_SECTION] : []),
+  ]
 
   const form = useForm<VehicleFormValues>({
     resolver: zodResolver(vehicleSchema),
@@ -306,8 +317,9 @@ function VehicleFormFields({
     }
 
     try {
-      await onSubmit(payload)
+      await onSubmit(payload, canAttachPhotos ? photos : [])
       if (resetOnSuccess) {
+        setPhotos([])
         form.reset({
           ...form.getValues(),
           plate: '',
@@ -537,6 +549,18 @@ function VehicleFormFields({
             />
           </CardContent>
         </Card>
+
+        {canAttachPhotos && (
+          <Card id="veiculo-fotos" className="scroll-mt-24">
+            <CardHeader
+              title="Fotos"
+              description="Imagens exibidas no painel de monitoramento do veículo. Enviadas ao salvar o cadastro."
+            />
+            <CardContent>
+              <VehiclePhotosPicker value={photos} onChange={setPhotos} disabled={submitting} />
+            </CardContent>
+          </Card>
+        )}
 
         {canConfigureAlerts && <VehicleAlertConfigsCard />}
 

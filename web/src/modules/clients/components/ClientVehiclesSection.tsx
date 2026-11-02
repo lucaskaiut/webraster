@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Car, Link2, Trash2 } from 'lucide-react'
+import { Car, Images, Link2, Trash2 } from 'lucide-react'
 import {
   Alert,
   Badge,
@@ -9,7 +9,9 @@ import {
   ConfirmDialog,
   DataTable,
   EmptyState,
+  Modal,
   SearchSelect,
+  Skeleton,
   Section,
   type Column,
   type SearchSelectOption,
@@ -21,8 +23,10 @@ import { VehicleForm } from '@/modules/vehicles/forms/VehicleForm'
 import {
   useCreateVehicle,
   useDeleteVehicle,
+  useVehicleQuery,
   useVehiclesQuery,
 } from '@/modules/vehicles/hooks/useVehicles'
+import { VehicleImagesManager } from '@/modules/vehicles/components/VehicleImagesCard'
 import { vehiclesService } from '@/modules/vehicles/services/vehicles.service'
 import {
   useClientSharedVehiclesQuery,
@@ -32,6 +36,7 @@ import {
 
 export function ClientVehiclesSection({ clientId }: { clientId: string }) {
   const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null)
+  const [photosVehicle, setPhotosVehicle] = useState<Vehicle | null>(null)
   const [shareToRemove, setShareToRemove] = useState<SharedVehicle | null>(null)
   const [candidateId, setCandidateId] = useState('')
   const vehiclesQuery = useVehiclesQuery({ client_id: clientId, per_page: 100 })
@@ -97,7 +102,7 @@ export function ClientVehiclesSection({ clientId }: { clientId: string }) {
     {
       key: 'actions',
       header: <span className="sr-only">Ações</span>,
-      className: 'w-24 text-right',
+      className: 'w-28 text-right',
       render: (vehicle) => {
         const shared = vehicle.client_id !== clientId
         const share = shared
@@ -119,17 +124,30 @@ export function ClientVehiclesSection({ clientId }: { clientId: string }) {
                 <Link2 className="size-4" />
               </Button>
             ) : (
-              <Can permission={Permission.VEHICLE_DELETE}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setVehicleToDelete(vehicle)}
-                  aria-label={`Excluir ${vehicle.plate}`}
-                  className="text-danger hover:bg-danger-soft hover:text-danger"
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              </Can>
+              <>
+                <Can permission={Permission.VEHICLE_UPDATE}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setPhotosVehicle(vehicle)}
+                    aria-label={`Fotos de ${vehicle.plate}`}
+                    title="Fotos"
+                  >
+                    <Images className="size-4" />
+                  </Button>
+                </Can>
+                <Can permission={Permission.VEHICLE_DELETE}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setVehicleToDelete(vehicle)}
+                    aria-label={`Excluir ${vehicle.plate}`}
+                    className="text-danger hover:bg-danger-soft hover:text-danger"
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </Can>
+              </>
             )}
           </div>
         )
@@ -230,10 +248,12 @@ export function ClientVehiclesSection({ clientId }: { clientId: string }) {
             submitLabel="Adicionar veículo"
             resetOnSuccess
             submitting={createVehicle.isPending}
-            onSubmit={(payload) => createVehicle.mutateAsync(payload)}
+            onSubmit={(payload, photos) => createVehicle.mutateAsync({ payload, photos })}
           />
         </Section>
       </Can>
+
+      <VehiclePhotosModal vehicle={photosVehicle} onClose={() => setPhotosVehicle(null)} />
 
       <ConfirmDialog
         open={vehicleToDelete !== null}
@@ -271,5 +291,35 @@ export function ClientVehiclesSection({ clientId }: { clientId: string }) {
         confirmLabel="Remover"
       />
     </>
+  )
+}
+
+function VehiclePhotosModal({
+  vehicle,
+  onClose,
+}: {
+  vehicle: Vehicle | null
+  onClose: () => void
+}) {
+  // O detalhe traz as fotos atualizadas após cada envio/remoção.
+  const query = useVehicleQuery(vehicle?.id)
+
+  return (
+    <Modal
+      open={vehicle !== null}
+      onClose={onClose}
+      size="lg"
+      title={`Fotos · ${vehicle?.plate ?? ''}`}
+      description="Imagens exibidas no painel de monitoramento do veículo."
+    >
+      {query.data ? (
+        <VehicleImagesManager vehicle={query.data} />
+      ) : (
+        <div className="flex gap-3">
+          <Skeleton className="h-24 w-40" />
+          <Skeleton className="h-24 w-40" />
+        </div>
+      )}
+    </Modal>
   )
 }

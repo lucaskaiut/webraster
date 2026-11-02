@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/shared/constants/query-keys'
 import { toast } from '@/shared/stores/toast.store'
+import { uploadFile } from '@/shared/api/uploads'
 import {
   vehiclesService,
   type AssignmentPayload,
@@ -32,16 +33,50 @@ export function useVehicleHistoryQuery(id: string | undefined) {
   })
 }
 
+interface CreateVehicleInput {
+  payload: VehiclePayload
+  /** Fotos enviadas e vinculadas logo após o cadastro. */
+  photos?: File[]
+}
+
 export function useCreateVehicle() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (payload: VehiclePayload) => vehiclesService.create(payload),
-    onSuccess: () => {
+    mutationFn: async ({ payload, photos = [] }: CreateVehicleInput) => {
+      const vehicle = await vehiclesService.create(payload)
+      const failedPhotos = await attachVehiclePhotos(vehicle.id, photos)
+
+      return { vehicle, failedPhotos }
+    },
+    onSuccess: ({ failedPhotos }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.all })
       toast.success('Veículo criado', 'O veículo foi cadastrado com sucesso.')
+
+      if (failedPhotos > 0) {
+        toast.error(
+          'Falha ao enviar fotos',
+          `${failedPhotos} foto(s) não puderam ser enviadas. Adicione-as novamente na edição do veículo.`,
+        )
+      }
     },
   })
+}
+
+/** Envia e vincula as fotos ao veículo; retorna quantas falharam. */
+async function attachVehiclePhotos(vehicleId: string, files: File[]): Promise<number> {
+  let failed = 0
+
+  for (const file of files) {
+    try {
+      const { path } = await uploadFile(file)
+      await vehiclesService.addImage(vehicleId, path)
+    } catch {
+      failed += 1
+    }
+  }
+
+  return failed
 }
 
 export function useUpdateVehicle(id: string) {

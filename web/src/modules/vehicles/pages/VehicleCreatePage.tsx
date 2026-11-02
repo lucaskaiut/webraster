@@ -23,8 +23,8 @@ export default function VehicleCreatePage() {
         <VehicleForm
           mode="create"
           submitting={createVehicle.isPending}
-          onSubmit={async (payload) => {
-            await createVehicle.mutateAsync(payload)
+          onSubmit={async (payload, photos) => {
+            await createVehicle.mutateAsync({ payload, photos })
             navigate('/vehicles')
           }}
         />
