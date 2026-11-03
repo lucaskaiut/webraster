@@ -5,6 +5,7 @@ import { AppProviders } from '@/app/providers/AppProviders'
 import { router } from '@/app/router'
 import { applyFavicon } from '@/shared/brand/favicon'
 import { getTenantBranding } from '@/shared/stores/tenant-branding.store'
+import { applyTheme } from '@/shared/theme/theme'
 import './index.css'
 
 const CHUNK_RELOAD_KEY = 'app:chunk-reload-at'
@@ -36,8 +37,10 @@ window.addEventListener('vite:preloadError', (event) => {
   window.location.reload()
 })
 
-// Aplica o favicon do último tenant ativo antes do primeiro render.
+// Aplica favicon e tema do último tenant ativo antes do primeiro render
+// (evita o "piscar" das cores padrão até a sessão carregar).
 applyFavicon(getTenantBranding()?.favicon_url)
+applyTheme(getTenantBranding()?.theme)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

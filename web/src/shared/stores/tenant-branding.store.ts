@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { TenantTheme } from '@/shared/theme/theme'
 
 const STORAGE_KEY = 'webraster:tenant-branding'
 
@@ -8,6 +9,7 @@ export interface TenantBranding {
   name: string
   logo_url: string | null
   favicon_url: string | null
+  theme?: TenantTheme | null
 }
 
 interface TenantBrandingState {
@@ -16,7 +18,7 @@ interface TenantBrandingState {
 }
 
 /**
- * Identidade visual do último tenant ativo (nome, logo e favicon).
+ * Identidade visual do último tenant ativo (nome, logo, favicon e tema).
  * Persistida em localStorage para ser reutilizada mesmo sem sessão —
  * por isso não deve conter dados sensíveis.
  */

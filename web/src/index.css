@@ -15,6 +15,12 @@
   --app-primary-hover: #4338ca;
   --app-primary-soft: #eef2ff;
   --app-primary-fg: #ffffff;
+  /* Secundária: por padrão acompanha a primária; o tema do tenant pode sobrescrever. */
+  --app-secondary: var(--app-primary);
+  --app-secondary-hover: var(--app-primary-hover);
+  --app-secondary-soft: var(--app-primary-soft);
+  --app-secondary-fg: var(--app-primary-fg);
+  --app-font: 'Inter';
   --app-danger: #dc2626;
   --app-danger-hover: #b91c1c;
   --app-danger-soft: #fef2f2;
@@ -43,6 +49,10 @@
   --app-primary-hover: #7679f3;
   --app-primary-soft: rgb(99 102 241 / 0.14);
   --app-primary-fg: #ffffff;
+  --app-secondary: var(--app-primary);
+  --app-secondary-hover: var(--app-primary-hover);
+  --app-secondary-soft: var(--app-primary-soft);
+  --app-secondary-fg: var(--app-primary-fg);
   --app-danger: #ef4444;
   --app-danger-hover: #f26a6a;
   --app-danger-soft: rgb(239 68 68 / 0.12);
@@ -59,7 +69,7 @@
 }
 
 @theme inline {
-  --font-sans: 'Inter', 'Inter var', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+  --font-sans: var(--app-font), 'Inter', 'Inter var', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
     'Helvetica Neue', Arial, sans-serif;
 
   --color-background: var(--app-bg);
@@ -74,6 +84,10 @@
   --color-primary-hover: var(--app-primary-hover);
   --color-primary-soft: var(--app-primary-soft);
   --color-primary-foreground: var(--app-primary-fg);
+  --color-secondary: var(--app-secondary);
+  --color-secondary-hover: var(--app-secondary-hover);
+  --color-secondary-soft: var(--app-secondary-soft);
+  --color-secondary-foreground: var(--app-secondary-fg);
   --color-danger: var(--app-danger);
   --color-danger-hover: var(--app-danger-hover);
   --color-danger-soft: var(--app-danger-soft);

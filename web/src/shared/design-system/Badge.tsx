@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/shared/utils/cn'
 
-type BadgeVariant = 'neutral' | 'primary' | 'success' | 'warning' | 'danger'
+type BadgeVariant = 'neutral' | 'primary' | 'secondary' | 'success' | 'warning' | 'danger'
 
 const VARIANTS: Record<BadgeVariant, string> = {
   neutral: 'bg-surface-2 text-muted',
   primary: 'bg-primary-soft text-primary',
+  secondary: 'bg-secondary-soft text-secondary',
   success: 'bg-success-soft text-success',
   warning: 'bg-warning-soft text-warning',
   danger: 'bg-danger-soft text-danger',

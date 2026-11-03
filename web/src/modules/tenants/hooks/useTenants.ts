@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { queryKeys } from '@/shared/constants/query-keys'
 import type { ListParams } from '@/shared/types/api'
 import { toast } from '@/shared/stores/toast.store'
+import { applyTheme, type TenantTheme } from '@/shared/theme/theme'
 import {
   tenantsService,
   type CreateChildTenantPayload,
@@ -9,10 +10,34 @@ import {
   type UpdateTenantPayload,
 } from '../services/tenants.service'
 
-export function useTenantQuery() {
+export function useTenantQuery(enabled = true) {
   return useQuery({
     queryKey: queryKeys.tenants.current(),
     queryFn: () => tenantsService.getCurrent(),
+    enabled,
+  })
+}
+
+export function useTenantThemeQuery(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.tenants.theme(),
+    queryFn: () => tenantsService.getTheme(),
+    enabled,
+  })
+}
+
+export function useUpdateTenantTheme() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: TenantTheme) => tenantsService.updateTheme(payload),
+    onSuccess: (theme) => {
+      queryClient.setQueryData(queryKeys.tenants.theme(), theme)
+      applyTheme(theme)
+      // A sessão traz o tema do tenant ativo: recarregar aplica em todo o painel.
+      queryClient.invalidateQueries({ queryKey: queryKeys.session })
+      toast.success('Tema salvo', 'As cores e a fonte do painel foram atualizadas.')
+    },
   })
 }
 

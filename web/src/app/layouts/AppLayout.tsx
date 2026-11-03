@@ -127,6 +127,7 @@ function SidebarNavigation({
     can(Permission.ROLE_READ) ||
     can(Permission.AUDIT_VIEW) ||
     can(Permission.TENANT_UPDATE) ||
+    can(Permission.THEME_MANAGE) ||
     showDeviceRawLogs
 
   return (
@@ -412,7 +413,7 @@ function SidebarNavigation({
           {can(Permission.AUDIT_VIEW) && (
             <SidebarItem to="/audit" icon={ScrollText} label="Auditoria" onNavigate={onNavigate} />
           )}
-          {can(Permission.TENANT_UPDATE) && (
+          {(can(Permission.TENANT_UPDATE) || can(Permission.THEME_MANAGE)) && (
             <SidebarItem to="/settings" icon={Settings} label="Configurações" onNavigate={onNavigate} />
           )}
           {showDeviceRawLogs && (

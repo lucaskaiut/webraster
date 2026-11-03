@@ -202,8 +202,15 @@ export function SidebarItem({
         )
       }
     >
-      <Icon className={cn('shrink-0', nested ? 'size-4' : 'size-4.5')} aria-hidden="true" />
-      {!collapsed && <span className="truncate">{label}</span>}
+      {({ isActive }) => (
+        <>
+          <Icon
+            className={cn('shrink-0', nested ? 'size-4' : 'size-4.5', isActive && 'text-secondary')}
+            aria-hidden="true"
+          />
+          {!collapsed && <span className="truncate">{label}</span>}
+        </>
+      )}
     </NavLink>
   )
 

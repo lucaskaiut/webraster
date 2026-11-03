@@ -1,5 +1,6 @@
 import { http } from '@/shared/api/http'
 import type { ApiResponse, ListParams, PaginatedResponse } from '@/shared/types/api'
+import type { TenantTheme } from '@/shared/theme/theme'
 import type {
   Tenant,
   TenantModule,
@@ -60,6 +61,18 @@ export interface UpdateTenantPayload {
 export const tenantsService = {
   async getCurrent(): Promise<Tenant> {
     const response = await http.get<ApiResponse<Tenant>>('/tenant')
+
+    return response.data.data
+  },
+
+  async getTheme(): Promise<TenantTheme> {
+    const response = await http.get<ApiResponse<TenantTheme>>('/tenant/theme')
+
+    return response.data.data
+  },
+
+  async updateTheme(payload: TenantTheme): Promise<TenantTheme> {
+    const response = await http.put<ApiResponse<TenantTheme>>('/tenant/theme', payload)
 
     return response.data.data
   },

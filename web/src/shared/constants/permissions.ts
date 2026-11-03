@@ -8,6 +8,8 @@ export const Permission = {
   TENANT_UPDATE: 'tenant.update',
   TENANT_CREATE: 'tenant.create',
 
+  THEME_MANAGE: 'theme.manage',
+
   ROLE_CREATE: 'role.create',
   ROLE_READ: 'role.read',
   ROLE_UPDATE: 'role.update',
@@ -186,6 +188,10 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { value: Permission.TENANT_UPDATE, label: 'Editar dados da organização' },
       { value: Permission.TENANT_CREATE, label: 'Criar empresas' },
     ],
+  },
+  {
+    label: 'Tema',
+    permissions: [{ value: Permission.THEME_MANAGE, label: 'Gerenciar cores e fontes do painel' }],
   },
   {
     label: 'Perfis de acesso',

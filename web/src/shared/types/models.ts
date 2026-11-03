@@ -1,4 +1,5 @@
 import type { Permission } from '@/shared/constants/permissions'
+import type { TenantTheme } from '@/shared/theme/theme'
 
 export interface Role {
   id: number
@@ -60,6 +61,7 @@ export interface Tenant {
   logo_url: string | null
   favicon_path: string | null
   favicon_url: string | null
+  theme?: TenantTheme | null
   signature_path: string | null
   signature_url: string | null
   late_fine_percent: string | null
@@ -119,6 +121,7 @@ export interface AvailableTenant {
   is_umbrella?: boolean
   logo_url?: string | null
   favicon_url?: string | null
+  theme?: TenantTheme | null
 }
 
 export interface ApiToken {

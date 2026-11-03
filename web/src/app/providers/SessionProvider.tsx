@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { sessionQueryOptions } from '@/modules/auth/services/auth.service'
 import { isApiError } from '@/shared/api/errors'
 import { applyFavicon } from '@/shared/brand/favicon'
+import { applyTheme, normalizeTheme } from '@/shared/theme/theme'
 import { useSessionStore } from '@/shared/stores/session.store'
 import {
   getTenantBranding,
@@ -47,6 +48,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isSuccess || !data) {
       applyFavicon(getTenantBranding()?.favicon_url)
+      applyTheme(getTenantBranding()?.theme)
       return
     }
 
@@ -59,6 +61,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       name: activeTenant.name,
       logo_url: activeTenant.logo_url ?? null,
       favicon_url: activeTenant.favicon_url ?? null,
+      theme: normalizeTheme(activeTenant.theme),
     }
 
     const current = getTenantBranding()
@@ -67,12 +70,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       current?.id !== branding.id ||
       current.name !== branding.name ||
       current.logo_url !== branding.logo_url ||
-      current.favicon_url !== branding.favicon_url
+      current.favicon_url !== branding.favicon_url ||
+      JSON.stringify(normalizeTheme(current.theme)) !== JSON.stringify(branding.theme)
     ) {
       setBranding(branding)
     }
 
     applyFavicon(branding.favicon_url)
+    applyTheme(branding.theme)
   }, [isSuccess, data, selectedTenantId, setBranding])
 
   useEffect(() => {

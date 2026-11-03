@@ -350,7 +350,7 @@ export const router = createBrowserRouter([
           {
             path: '/settings',
             element: (
-              <PermissionGuard permission={Permission.TENANT_UPDATE}>
+              <PermissionGuard anyOf={[Permission.TENANT_UPDATE, Permission.THEME_MANAGE]}>
                 <TenantSettingsPage />
               </PermissionGuard>
             ),
