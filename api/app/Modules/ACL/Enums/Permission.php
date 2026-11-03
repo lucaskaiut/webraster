@@ -84,6 +84,7 @@ enum Permission: string
     case EQUIPMENT_DETAILS_READ = 'equipment.details.read';
 
     case TRACKING_READ = 'tracking.read';
+    case TRACKING_SHARE = 'tracking.share';
 
     case REPORT_VIEW = 'report.view';
     case REPORT_EXPORT = 'report.export';

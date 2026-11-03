@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
-import { Car, Download, Plus, RefreshCw } from 'lucide-react'
+import { Car, Download, Plus, RefreshCw, Share2 } from 'lucide-react'
 import {
   Badge,
   Button,
@@ -28,10 +28,13 @@ import { downloadBlob } from '@/shared/utils/report-export'
 import { toast } from '@/shared/stores/toast.store'
 import { useTrackingLiveQuery } from '@/modules/tracking/hooks/useTracking'
 import { VehicleStatusIndicators } from '@/modules/tracking/components/VehicleStatusIndicators'
+import { ShareTrackingModal } from '@/modules/tracking/components/ShareTrackingModal'
 import { TABLE_PER_PAGE_OPTIONS, parseTablePerPage } from '@/shared/constants/pagination'
 import { VehicleListRowActions } from '../components/VehicleListRowActions'
 import { useDeleteVehicle, useVehiclesQuery } from '../hooks/useVehicles'
 import { vehiclesService } from '../services/vehicles.service'
+
+const NO_VEHICLES: never[] = []
 
 export default function VehiclesListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -47,6 +50,7 @@ export default function VehiclesListPage() {
 
   const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null)
   const [exporting, setExporting] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const deleteVehicle = useDeleteVehicle()
   const { sort, sortParam, toggleSort } = useTableSort()
 
@@ -301,6 +305,12 @@ export default function VehiclesListPage() {
               <Download className="size-4" aria-hidden="true" />
               Exportar
             </Button>
+            <Can permission={Permission.TRACKING_SHARE}>
+              <Button variant="secondary" onClick={() => setShareOpen(true)}>
+                <Share2 className="size-4" aria-hidden="true" />
+                Compartilhar
+              </Button>
+            </Can>
             <Can permission={Permission.VEHICLE_CREATE}>
               <ButtonLink to="/vehicles/create">
                 <Plus className="size-4" />
@@ -380,6 +390,10 @@ export default function VehiclesListPage() {
           />
         )}
       </PageContent>
+
+      {can(Permission.TRACKING_SHARE) && (
+        <ShareTrackingModal open={shareOpen} onClose={() => setShareOpen(false)} initialVehicles={NO_VEHICLES} />
+      )}
 
       <ConfirmDialog
         open={vehicleToDelete !== null}

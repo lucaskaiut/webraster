@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import {
   FileBarChart,
@@ -6,6 +6,7 @@ import {
   MoreHorizontal,
   Pencil,
   ScrollText,
+  Share2,
   Terminal,
   Trash2,
   UserPlus,
@@ -23,6 +24,7 @@ import type { Vehicle } from '@/shared/types/models'
 import { DriverForm } from '@/modules/drivers/forms/DriverForm'
 import { useCreateDriver } from '@/modules/drivers/hooks/useDrivers'
 import { VehicleCommandsPanel } from '@/modules/tracking/components/VehicleCommandsPanel'
+import { ShareTrackingModal } from '@/modules/tracking/components/ShareTrackingModal'
 
 function buildMonitoringUrl(vehicleId: string): string {
   const params = new URLSearchParams({ vehicle: vehicleId, only: '1' })
@@ -85,10 +87,12 @@ export function VehicleListRowActions({
 
   const [commandsOpen, setCommandsOpen] = useState(false)
   const [driverOpen, setDriverOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
 
   const canEdit = can(Permission.VEHICLE_UPDATE) && onEdit
   const canDelete = can(Permission.VEHICLE_DELETE) && onDelete
   const canMonitor = can(Permission.TRACKING_READ)
+  const canShare = can(Permission.TRACKING_SHARE)
   const canReport = can(Permission.REPORT_VIEW)
   const canCommands =
     can(Permission.DEVICE_COMMANDS_SEND) && Boolean(vehicle.equipment?.id)
@@ -100,10 +104,16 @@ export function VehicleListRowActions({
     canEdit ||
     canDelete ||
     canMonitor ||
+    canShare ||
     canReport ||
     canCommands ||
     canCreateDriver ||
     canDeviceRawLog
+
+  const shareVehicles = useMemo(
+    () => [{ id: vehicle.id, plate: vehicle.plate, brand: vehicle.brand, model: vehicle.model }],
+    [vehicle.id, vehicle.plate, vehicle.brand, vehicle.model],
+  )
 
   if (!hasMenu) {
     return null
@@ -130,6 +140,11 @@ export function VehicleListRowActions({
             onSelect={() => window.open(buildMonitoringUrl(vehicle.id), '_blank', 'noopener,noreferrer')}
           >
             Monitorar
+          </DropdownItem>
+        )}
+        {canShare && (
+          <DropdownItem icon={Share2} onSelect={() => setShareOpen(true)}>
+            Compartilhar localização
           </DropdownItem>
         )}
         {canReport && (
@@ -183,6 +198,14 @@ export function VehicleListRowActions({
           <VehicleCommandsPanel deviceId={vehicle.equipment.id} allowCustom={false} />
         ) : null}
       </Modal>
+
+      {canShare && (
+        <ShareTrackingModal
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          initialVehicles={shareVehicles}
+        />
+      )}
 
       <Modal
         open={driverOpen}

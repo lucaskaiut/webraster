@@ -69,8 +69,10 @@ use App\Modules\Tenant\Http\Controllers\PublicTenantController;
 use App\Modules\Tenant\Http\Controllers\TenantController;
 use App\Modules\Tenant\Http\Controllers\TenantThemeController;
 use App\Modules\Tracking\Http\Controllers\EquipmentRawLogController;
+use App\Modules\Tracking\Http\Controllers\PublicTrackingShareController;
 use App\Modules\Tracking\Http\Controllers\TraccarWebhookController;
 use App\Modules\Tracking\Http\Controllers\TrackingController;
+use App\Modules\Tracking\Http\Controllers\TrackingShareLinkController;
 use App\Modules\User\Http\Controllers\UserController;
 use App\Modules\Vehicle\Http\Controllers\VehicleController;
 use App\Modules\VehicleData\Http\Controllers\VehicleDataConfigController;
@@ -104,6 +106,7 @@ Route::get('payment-methods', [PaymentMethodController::class, 'index']);
 
 Route::get('public/tenants/{identifier}', PublicTenantController::class)->middleware('throttle:api');
 Route::get('public/contract-signatures/{code}', PublicSignatureVerificationController::class)->middleware('throttle:30,1');
+Route::get('public/tracking/{token}', PublicTrackingShareController::class)->middleware('throttle:60,1');
 Route::get('build/tenants', BuildTenantController::class)->middleware('build.token');
 
 Route::post('webhooks/payments/{gateway}/{tenantUuid}', PaymentWebhookController::class)->middleware('throttle:api');
@@ -348,6 +351,7 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::get('tracking/live', [TrackingController::class, 'live'])->middleware('permission:tracking.read');
     Route::get('tracking/equipments/live', [TrackingController::class, 'liveEquipments'])->middleware('permission:tracking.read');
     Route::get('tracking/vehicles/{vehicle}/history', [TrackingController::class, 'history'])->middleware('permission:tracking.read');
+    Route::post('tracking/share-links', [TrackingShareLinkController::class, 'store'])->middleware('permission:tracking.share');
 
     Route::get('dashboard/monitoring', [MonitoringDashboardController::class, 'index']);
 

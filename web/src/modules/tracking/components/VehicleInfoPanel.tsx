@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import {
   Crosshair,
@@ -9,6 +9,7 @@ import {
   Monitor,
   Navigation,
   Pencil,
+  Share2,
   Terminal,
   View,
   X,
@@ -31,6 +32,7 @@ import {
 } from '../lib/tracking'
 import { externalPowerStatus } from '../lib/indicators'
 import { VehicleCommandsPanel } from './VehicleCommandsPanel'
+import { ShareTrackingModal } from './ShareTrackingModal'
 import { VehicleStatusIndicators } from './VehicleStatusIndicators'
 
 type PanelTab = 'info' | 'events' | 'commands'
@@ -140,6 +142,12 @@ export function VehicleInfoPanel({
   const navigate = useNavigate()
   const [tab, setTab] = useState<PanelTab>('info')
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const [shareOpen, setShareOpen] = useState(false)
+  const canShare = can(Permission.TRACKING_SHARE)
+  const shareVehicles = useMemo(
+    () => [{ id: vehicle.id, plate: vehicle.plate, brand: vehicle.brand, model: vehicle.model }],
+    [vehicle.id, vehicle.plate, vehicle.brand, vehicle.model],
+  )
   const position = vehicle.position
   const alarms = vehicleAlarms(vehicle)
   const powerStatus = externalPowerStatus(vehicle)
@@ -288,6 +296,9 @@ export function VehicleInfoPanel({
             active={follow}
             onClick={() => onFollowChange(!follow)}
           />
+          {canShare && (
+            <ToolbarButton icon={Share2} label="Compartilhar localização" onClick={() => setShareOpen(true)} />
+          )}
           {mapsUrl && <ExternalToolbarLink icon={Map} label="Ver no Google Maps" href={mapsUrl} />}
           {streetViewUrl && (
             <ExternalToolbarLink icon={View} label="Street View" href={streetViewUrl} />
@@ -441,6 +452,10 @@ export function VehicleInfoPanel({
             className="max-h-[85vh] max-w-full rounded-xl shadow-pop"
           />
         </div>
+      )}
+
+      {canShare && (
+        <ShareTrackingModal open={shareOpen} onClose={() => setShareOpen(false)} initialVehicles={shareVehicles} />
       )}
     </div>
   )

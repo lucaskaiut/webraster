@@ -155,6 +155,7 @@ export const queryKeys = {
     history: (vehicleId: string, from: string, to: string) =>
       ['tracking', 'history', vehicleId, from, to] as const,
     status: () => ['tracking', 'status'] as const,
+    publicShare: (token: string) => ['tracking', 'public-share', token] as const,
     commands: (deviceId: string) => ['tracking', 'commands', deviceId] as const,
     commandsHistory: (deviceId: string) => ['tracking', 'commands-history', deviceId] as const,
   },

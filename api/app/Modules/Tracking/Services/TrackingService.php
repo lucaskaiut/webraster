@@ -69,15 +69,25 @@ class TrackingService
      */
     public function live(?string $search = null): Collection
     {
-        $vehicles = $this->listMonitoredVehicles($search);
+        return $this->liveFor($this->listMonitoredVehicles($search));
+    }
 
+    /**
+     * Última posição e status de conexão dos veículos informados.
+     *
+     * @param  Collection<int, Vehicle>  $vehicles
+     * @param  bool  $resolveDevices  vincula no Traccar equipamentos sem device id
+     * @return Collection<int, array{vehicle: Vehicle, position: ?GpsPosition, online: bool}>
+     */
+    public function liveFor(Collection $vehicles, bool $resolveDevices = true): Collection
+    {
         if ($vehicles->isEmpty()) {
             return collect();
         }
 
         // Vincula equipamentos sem traccar_device_id (necessário para o webhook
         // conseguir associar as posições que chegam do Traccar).
-        foreach ($vehicles as $vehicle) {
+        foreach ($resolveDevices ? $vehicles : [] as $vehicle) {
             $equipment = $vehicle->equipment;
 
             if ($equipment !== null && blank($equipment->traccar_device_id)) {

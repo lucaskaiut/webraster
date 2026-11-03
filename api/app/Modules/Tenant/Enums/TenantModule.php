@@ -77,6 +77,7 @@ enum TenantModule: string
         return match ($this) {
             self::TRACKING => [
                 Permission::TRACKING_READ,
+                Permission::TRACKING_SHARE,
                 Permission::DRIVER_CREATE,
                 Permission::DRIVER_READ,
                 Permission::DRIVER_UPDATE,

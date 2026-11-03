@@ -762,6 +762,38 @@ export interface TrackingLiveVehicle {
   position: GpsPosition | null
 }
 
+export interface TrackingShareLink {
+  id: string
+  token: string
+  expires_at: string
+  vehicles: Array<{ id: string; plate: string }>
+}
+
+/** Veículo exibido no link público de monitoramento (dados mínimos). */
+export interface PublicTrackingVehicle {
+  id: string
+  plate: string
+  brand: string | null
+  model: string | null
+  color: string | null
+  vehicle_type: number | null
+  online: boolean
+  position: Pick<
+    GpsPosition,
+    'id' | 'latitude' | 'longitude' | 'address' | 'recorded_at' | 'speed' | 'heading' | 'ignition' | 'motion'
+  > | null
+}
+
+export interface PublicTrackingShare {
+  expires_at: string
+  tenant: {
+    name: string | null
+    logo_url: string | null
+    theme: { primary_color: string | null; secondary_color: string | null; font_family: string | null } | null
+  }
+  vehicles: PublicTrackingVehicle[]
+}
+
 export interface TrackingGatewayStatus {
   enabled: boolean
   configured: boolean

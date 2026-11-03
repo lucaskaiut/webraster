@@ -79,6 +79,7 @@ export const Permission = {
   EQUIPMENT_DETAILS_READ: 'equipment.details.read',
 
   TRACKING_READ: 'tracking.read',
+  TRACKING_SHARE: 'tracking.share',
 
   REPORT_VIEW: 'report.view',
   REPORT_EXPORT: 'report.export',
@@ -322,6 +323,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     label: 'Monitoramento',
     permissions: [
       { value: Permission.TRACKING_READ, label: 'Visualizar mapa e histórico' },
+      { value: Permission.TRACKING_SHARE, label: 'Compartilhar localização por link público' },
       { value: Permission.DEVICE_COMMANDS_SEND, label: 'Enviar comandos ao dispositivo' },
     ],
   },

@@ -66,6 +66,7 @@ const StocksListPage = lazy(() => import('@/modules/stocks/pages/StocksListPage'
 const StockCreatePage = lazy(() => import('@/modules/stocks/pages/StockCreatePage'))
 const StockEditPage = lazy(() => import('@/modules/stocks/pages/StockEditPage'))
 const MonitoringPage = lazy(() => import('@/modules/tracking/pages/MonitoringPage'))
+const PublicTrackingPage = lazy(() => import('@/modules/tracking/pages/PublicTrackingPage'))
 const DeviceRawLogsPage = lazy(() => import('@/modules/tracking/pages/DeviceRawLogsPage'))
 const GeofencesListPage = lazy(() => import('@/modules/geofences/pages/GeofencesListPage'))
 const GeofenceCreatePage = lazy(() => import('@/modules/geofences/pages/GeofenceCreatePage'))
@@ -126,6 +127,14 @@ export const router = createBrowserRouter([
   {
     path: '/privacy-policy',
     element: <Navigate to="/app/privacy-policy" replace />,
+  },
+  {
+    path: '/acompanhar/:token',
+    element: (
+      <Suspense fallback={<Loading />}>
+        <PublicTrackingPage />
+      </Suspense>
+    ),
   },
   ...['/validar-contrato', '/validar-contrato/:code'].map((path) => ({
     path,
