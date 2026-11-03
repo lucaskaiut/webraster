@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { Outlet } from 'react-router'
+import { Link, Outlet } from 'react-router'
 import { Bell, BellRing, Building2, Car, ChartColumn, CircleDollarSign, ClipboardCheck, ClipboardList, Cog, Columns3, Contact, Cpu, CreditCard, Database, FileBarChart, FileText, Hammer, Handshake, Hexagon, History, IdCard, Inbox, Kanban, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, MessageCircle, Package, Receipt, Repeat, ScrollText, Search, Send, Settings, ShieldCheck, Terminal, Users, Wallet, Warehouse, Wrench } from 'lucide-react'
 import { AppLogo } from '@/shared/brand/AppLogo'
 import { useActiveTenant } from '@/shared/brand/useActiveTenant'
@@ -28,24 +28,24 @@ import {
 import { cn } from '@/shared/utils/cn'
 import { TopbarSlotProvider, useTopbarSlotContent } from './topbar-slot'
 
-function Brand({ collapsed = false }: { collapsed?: boolean }) {
+function Brand({ collapsed = false, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
   const activeTenant = useActiveTenant()
 
   if (collapsed) {
     return (
-      <div className="flex justify-center">
+      <Link to="/dashboard" onClick={onNavigate} aria-label="Ir para o início" className="flex justify-center">
         <AppLogo size="sm" className="h-5" />
-      </div>
+      </Link>
     )
   }
 
   return (
-    <div className="px-1">
+    <Link to="/dashboard" onClick={onNavigate} aria-label="Ir para o início" className="block px-1">
       <AppLogo size="sm" />
       {activeTenant?.name ? (
         <span className="mt-1 block truncate text-xs text-muted">{activeTenant.name}</span>
       ) : null}
-    </div>
+    </Link>
   )
 }
 
@@ -131,7 +131,7 @@ function SidebarNavigation({
     showDeviceRawLogs
 
   return (
-    <Sidebar header={<Brand collapsed={collapsed} />} collapsed={collapsed}>
+    <Sidebar header={<Brand collapsed={collapsed} onNavigate={onNavigate} />} collapsed={collapsed}>
       <SidebarGroup label="Dashboard" icon={LayoutDashboard} collapsible defaultOpen>
         <SidebarItem
           to="/dashboard"
