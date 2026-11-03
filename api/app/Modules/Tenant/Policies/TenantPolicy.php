@@ -33,6 +33,12 @@ class TenantPolicy
             && $user->hasPermission(Permission::TENANT_UPDATE);
     }
 
+    public function manageTheme(User $user, Tenant $tenant): bool
+    {
+        return TenantAuthorization::matchesCurrentTenant($tenant->getKey())
+            && $user->hasPermission(Permission::THEME_MANAGE);
+    }
+
     public function viewChild(User $user, Tenant $child): bool
     {
         return $this->ownsChild($user, $child)

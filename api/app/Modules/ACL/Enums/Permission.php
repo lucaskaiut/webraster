@@ -13,6 +13,8 @@ enum Permission: string
     case TENANT_UPDATE = 'tenant.update';
     case TENANT_CREATE = 'tenant.create';
 
+    case THEME_MANAGE = 'theme.manage';
+
     case ROLE_CREATE = 'role.create';
     case ROLE_READ = 'role.read';
     case ROLE_UPDATE = 'role.update';
@@ -184,6 +186,7 @@ enum Permission: string
             self::TENANT_READ,
             self::TENANT_UPDATE,
             self::TENANT_CREATE,
+            self::THEME_MANAGE,
             self::ROLE_CREATE,
             self::ROLE_READ,
             self::ROLE_UPDATE,

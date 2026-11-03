@@ -25,6 +25,7 @@ class AvailableTenantResource extends JsonResource
             'is_umbrella' => $this->isUmbrella(),
             'logo_url' => $this->logoUrl(),
             'favicon_url' => $this->faviconUrl(),
+            'theme' => $this->themeSettings(),
         ];
     }
 }

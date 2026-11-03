@@ -36,6 +36,7 @@ class Tenant extends Model
         'phone',
         'logo_path',
         'favicon_path',
+        'theme',
         'signature_path',
         'late_fine_percent',
         'late_interest_percent',
@@ -55,6 +56,7 @@ class Tenant extends Model
             'is_active' => 'boolean',
             'modules' => 'array',
             'vehicle_alert_defaults' => 'array',
+            'theme' => 'array',
             'late_fine_percent' => 'decimal:2',
             'late_interest_percent' => 'decimal:2',
             'require_equipment_loan_acceptance' => 'boolean',
@@ -124,6 +126,22 @@ class Tenant extends Model
     public function subscription(): HasOne
     {
         return $this->hasOne(Subscription::class)->withoutTenancy();
+    }
+
+    /**
+     * Tema do painel. Valores nulos usam o padrão da aplicação.
+     *
+     * @return array{primary_color: ?string, secondary_color: ?string, font_family: ?string}
+     */
+    public function themeSettings(): array
+    {
+        $theme = is_array($this->theme) ? $this->theme : [];
+
+        return [
+            'primary_color' => $theme['primary_color'] ?? null,
+            'secondary_color' => $theme['secondary_color'] ?? null,
+            'font_family' => $theme['font_family'] ?? null,
+        ];
     }
 
     public function isUmbrella(): bool

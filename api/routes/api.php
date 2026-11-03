@@ -67,6 +67,7 @@ use App\Modules\Stock\Http\Controllers\StockController;
 use App\Modules\Tenant\Http\Controllers\BuildTenantController;
 use App\Modules\Tenant\Http\Controllers\PublicTenantController;
 use App\Modules\Tenant\Http\Controllers\TenantController;
+use App\Modules\Tenant\Http\Controllers\TenantThemeController;
 use App\Modules\Tracking\Http\Controllers\EquipmentRawLogController;
 use App\Modules\Tracking\Http\Controllers\TraccarWebhookController;
 use App\Modules\Tracking\Http\Controllers\TrackingController;
@@ -139,6 +140,8 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
 Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(function (): void {
     Route::get('tenant', [TenantController::class, 'show'])->middleware('permission:tenant.read');
     Route::match(['put', 'patch'], 'tenant', [TenantController::class, 'update'])->middleware('permission:tenant.update');
+    Route::get('tenant/theme', [TenantThemeController::class, 'show'])->middleware('permission:theme.manage');
+    Route::put('tenant/theme', [TenantThemeController::class, 'update'])->middleware('permission:theme.manage');
 
     Route::get('tenant/children', [TenantController::class, 'index'])->middleware('permission:tenant.read');
     Route::post('tenant/children', [TenantController::class, 'store'])->middleware('permission:tenant.create');
