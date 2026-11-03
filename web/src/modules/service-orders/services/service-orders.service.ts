@@ -60,6 +60,13 @@ export interface ScheduleEstimatePayload {
   items?: Array<{ service_id: string; quantity: number }>
 }
 
+export interface ScheduleAgendaSignatureParams {
+  technician_id: string
+  from: string
+  to: string
+  service_order_id?: string | null
+}
+
 export interface ScheduleTravel {
   minutes: number
   distance_meters: number
@@ -217,6 +224,18 @@ export const serviceOrdersService = {
   async estimate(payload: ScheduleEstimatePayload): Promise<ScheduleEstimate> {
     const response = await http.post<ApiResponse<ScheduleEstimate>>('/scheduling/estimate', payload)
     return response.data.data
+  },
+
+  /**
+   * Assinatura da agenda do técnico por dia. Só consulta o banco (sem
+   * geocodificação/rotas): serve para detectar mudanças na agenda.
+   */
+  async agendaSignature(params: ScheduleAgendaSignatureParams): Promise<Record<string, string>> {
+    const response = await http.get<ApiResponse<{ days: Record<string, string> }>>(
+      '/scheduling/agenda-signature',
+      { params },
+    )
+    return response.data.data.days
   },
 
   async searchAddress(query: string, limit = 6): Promise<AddressSuggestion[]> {

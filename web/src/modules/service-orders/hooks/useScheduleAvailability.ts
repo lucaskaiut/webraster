@@ -18,6 +18,9 @@ import {
 /** Concorrência máxima por lote para não sobrecarregar o cálculo de rotas. */
 const FETCH_CONCURRENCY = 4
 
+/** Intervalo da verificação de mudanças na agenda do técnico. */
+const WATCH_INTERVAL_MS = 20_000
+
 export type ScheduleAvailabilityRequest = Omit<
   ScheduleEstimatePayload,
   'date' | 'scheduled_start_at'
@@ -31,6 +34,15 @@ export interface ScheduleAvailabilityOptions {
   requestKey: string
   batchSize?: number
   maxDays?: number
+  /** Intervalo da verificação automática de mudanças na agenda (0 desativa). */
+  watchIntervalMs?: number
+}
+
+/** Dias cujos horários mudaram por alterações na agenda feitas por outra pessoa. */
+export interface ScheduleChange {
+  dates: string[]
+  /** Muda a cada detecção, para efeitos dependentes reagirem. */
+  revision: number
 }
 
 export interface ScheduleAvailability {
@@ -52,6 +64,9 @@ export interface ScheduleAvailability {
   refreshDay: (date: string, startAt: string) => Promise<ScheduleEstimate | null>
   /** Busca a estimativa de um horário sem alterar os cartões da lista. */
   fetchDay: (date: string, startAt: string) => Promise<ScheduleEstimate | null>
+  /** Última atualização automática que alterou horários, até ser dispensada. */
+  change: ScheduleChange | null
+  dismissChange: () => void
 }
 
 interface SearchWindow {
@@ -95,6 +110,16 @@ async function mapWithConcurrency<T, R>(
   return results
 }
 
+/** Horários livres de uma estimativa, para comparar antes/depois. */
+function availabilityKey(estimate: ScheduleEstimate | undefined): string {
+  if (!estimate) return ''
+
+  return estimate.slots
+    .filter((slot) => slot.available)
+    .map((slot) => slot.start)
+    .join('|')
+}
+
 function uniqueSorted(values: string[]): string[] {
   return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b))
 }
@@ -125,6 +150,7 @@ export function useScheduleAvailability(
     requestKey,
     batchSize = CALENDAR_DAY_BATCH_SIZE,
     maxDays = SEARCH_DAYS_LIMIT,
+    watchIntervalMs = WATCH_INTERVAL_MS,
   } = options
 
   const [days, setDays] = useState<ScheduleDayView[]>([])
@@ -135,6 +161,7 @@ export function useScheduleAvailability(
   const [error, setError] = useState<string | null>(null)
   const [failedCount, setFailedCount] = useState(0)
   const [searchedUntil, setSearchedUntil] = useState<string | null>(null)
+  const [change, setChange] = useState<ScheduleChange | null>(null)
 
   const daysRef = useRef(new Map<string, ScheduleDayView>())
   const estimatesRef = useRef(new Map<string, ScheduleEstimate>())
@@ -152,6 +179,12 @@ export function useScheduleAvailability(
   const optionsRef = useRef(options)
   const windowRef = useRef<SearchWindow>({ anchorDate, batchSize, maxDays })
   const enabledRef = useRef(enabled)
+  /** Assinatura da agenda conhecida quando cada dia foi calculado. */
+  const signaturesRef = useRef(new Map<string, string>())
+  /** Horário usado no último cálculo manual de cada dia (prévia do trajeto). */
+  const dayStartsRef = useRef(new Map<string, string>())
+  const watchingRef = useRef(false)
+  const changeRevisionRef = useRef(0)
 
   requestRef.current = request
   optionsRef.current = options
@@ -231,6 +264,8 @@ export function useScheduleAvailability(
       estimatesRef.current.clear()
       manualVersionsRef.current.clear()
       refreshSequencesRef.current.clear()
+      signaturesRef.current.clear()
+      dayStartsRef.current.clear()
       failedDatesRef.current = []
       pendingRef.current.clear()
       cursorRef.current = nextWindow.anchorDate
@@ -246,6 +281,37 @@ export function useScheduleAvailability(
       setError(null)
       setFailedCount(0)
       setSearchedUntil(null)
+      setChange(null)
+    },
+    [],
+  )
+
+  /**
+   * Registra a assinatura da agenda dos dias antes de calculá-los, para que
+   * qualquer mudança posterior seja detectada pela verificação automática.
+   */
+  const captureSignatures = useCallback(
+    async (snapshot: ScheduleAvailabilityRequest, dates: string[], generation: number) => {
+      if (!snapshot.technician_id || dates.length === 0) return
+
+      try {
+        const signatures = await serviceOrdersService.agendaSignature({
+          technician_id: snapshot.technician_id,
+          service_order_id: snapshot.service_order_id ?? null,
+          from: dates[0],
+          to: dates[dates.length - 1],
+        })
+
+        if (generation !== generationRef.current) return
+
+        for (const date of dates) {
+          if (signatures[date] && !signaturesRef.current.has(date)) {
+            signaturesRef.current.set(date, signatures[date])
+          }
+        }
+      } catch {
+        // Sem assinatura, o dia é registrado na próxima verificação.
+      }
     },
     [],
   )
@@ -281,6 +347,10 @@ export function useScheduleAvailability(
           }
 
           const snapshot = requestSnapshotRef.current
+          await captureSignatures(snapshot, dates, generation)
+
+          if (generation !== generationRef.current) return
+
           const results = await mapWithConcurrency(
             dates,
             FETCH_CONCURRENCY,
@@ -365,7 +435,7 @@ export function useScheduleAvailability(
         }
       }
     },
-    [applyEstimate, commit, markHasMore, requestDay],
+    [applyEstimate, captureSignatures, commit, markHasMore, requestDay],
   )
 
   useEffect(() => {
@@ -498,6 +568,7 @@ export function useScheduleAvailability(
       const sequence = (refreshSequencesRef.current.get(date) ?? 0) + 1
 
       refreshSequencesRef.current.set(date, sequence)
+      dayStartsRef.current.set(date, startAt)
 
       const estimate = await requestDay(snapshot, date, startAt, generation)
 
@@ -528,6 +599,119 @@ export function useScheduleAvailability(
     [requestDay],
   )
 
+  /**
+   * Verifica se a agenda do técnico mudou (ex.: outra pessoa marcou uma OS)
+   * e recalcula apenas os dias afetados. A consulta de assinatura não envolve
+   * endereços; o recálculo reaproveita a geocodificação e as rotas já em
+   * cache na API.
+   */
+  const checkForChanges = useCallback(async () => {
+    if (watchingRef.current || loadingRef.current || !enabledRef.current) return
+
+    const snapshot = requestSnapshotRef.current
+    const loadedDates = Array.from(estimatesRef.current.keys()).sort((a, b) =>
+      a.localeCompare(b),
+    )
+
+    if (!snapshot.technician_id || loadedDates.length === 0) return
+
+    const generation = generationRef.current
+    watchingRef.current = true
+
+    try {
+      const signatures = await serviceOrdersService.agendaSignature({
+        technician_id: snapshot.technician_id,
+        service_order_id: snapshot.service_order_id ?? null,
+        from: loadedDates[0],
+        to: loadedDates[loadedDates.length - 1],
+      })
+
+      if (generation !== generationRef.current) return
+
+      const changedDates: string[] = []
+
+      for (const date of loadedDates) {
+        const signature = signatures[date]
+
+        if (!signature) continue
+
+        const known = signaturesRef.current.get(date)
+
+        if (known === undefined) {
+          signaturesRef.current.set(date, signature)
+        } else if (known !== signature) {
+          changedDates.push(date)
+        }
+      }
+
+      if (changedDates.length === 0) return
+
+      const updatedDates: string[] = []
+
+      await mapWithConcurrency(changedDates, FETCH_CONCURRENCY, async (date) => {
+        const version = manualVersionsRef.current.get(date) ?? 0
+        const startAt = dayStartsRef.current.get(date) ?? null
+
+        try {
+          const estimate = await requestDay(snapshot, date, startAt, generation)
+
+          if (generation !== generationRef.current) return
+
+          signaturesRef.current.set(date, signatures[date])
+
+          // Uma confirmação manual mais recente já trouxe os dados atuais.
+          if ((manualVersionsRef.current.get(date) ?? 0) !== version) return
+
+          const before = availabilityKey(estimatesRef.current.get(date))
+
+          applyEstimate(date, estimate)
+
+          if (availabilityKey(estimate) !== before) {
+            updatedDates.push(date)
+          }
+        } catch {
+          // Mantém a assinatura antiga para tentar de novo na próxima verificação.
+        }
+      })
+
+      if (generation !== generationRef.current || updatedDates.length === 0) return
+
+      changeRevisionRef.current += 1
+      setChange({
+        dates: uniqueSorted(updatedDates),
+        revision: changeRevisionRef.current,
+      })
+    } catch {
+      // Falhas na verificação são silenciosas; a próxima rodada tenta de novo.
+    } finally {
+      watchingRef.current = false
+    }
+  }, [applyEstimate, requestDay])
+
+  useEffect(() => {
+    if (!enabled || watchIntervalMs <= 0) return
+
+    const timer = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+
+      void checkForChanges()
+    }, watchIntervalMs)
+
+    // Ao voltar para a aba, verifica imediatamente.
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') void checkForChanges()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [checkForChanges, enabled, requestKey, watchIntervalMs])
+
+  const dismissChange = useCallback(() => setChange(null), [])
+
   const searchLimitDate = addDaysToIsoDate(anchorDate, Math.max(1, maxDays) - 1)
 
   return {
@@ -545,5 +729,7 @@ export function useScheduleAvailability(
     retryFailed,
     refreshDay,
     fetchDay,
+    change,
+    dismissChange,
   }
 }

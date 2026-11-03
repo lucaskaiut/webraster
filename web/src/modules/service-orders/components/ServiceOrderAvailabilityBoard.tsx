@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, RefreshCw, X } from 'lucide-react'
 import { Button, Spinner } from '@/shared/design-system'
 import { cn } from '@/shared/utils/cn'
 import {
@@ -29,11 +29,55 @@ interface ServiceOrderAvailabilityBoardProps {
   confirmingStart: string | null
   disabled: boolean
   selectionWarning: string | null
+  /** Dias recalculados porque a agenda do técnico mudou. */
+  changedDates?: string[] | null
+  onDismissChange?: () => void
   onReload: () => void
   onLoadMore: () => void
   onRetryFailed: () => void
   onClearWarning: () => void
   onSelectSlot: (date: string, slot: ScheduleSlotView) => Promise<boolean>
+}
+
+function ScheduleChangeNotice({
+  dates,
+  onDismiss,
+}: {
+  dates: string[]
+  onDismiss?: () => void
+}) {
+  const labels = dates.map((date) => {
+    const { weekday, shortDate } = formatDayCard(date)
+
+    return `${weekday} ${shortDate}`
+  })
+  const list =
+    labels.length > 1
+      ? `${labels.slice(0, -1).join(', ')} e ${labels[labels.length - 1]}`
+      : labels[0]
+
+  return (
+    <div
+      className="flex items-start gap-2 rounded-lg bg-primary-soft px-3 py-2 text-primary"
+      role="status"
+      aria-live="polite">
+      <RefreshCw className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+      <p className="min-w-0 flex-1 text-xs">
+        <span className="font-semibold">Horários atualizados.</span> A agenda do técnico mudou
+        {list ? ` e os horários de ${list} foram recalculados` : ''}. Confira as opções antes de
+        salvar.
+      </p>
+      {onDismiss && (
+        <button
+          type="button"
+          className="-m-1 shrink-0 cursor-pointer rounded p-1 hover:bg-primary/10"
+          aria-label="Dispensar aviso"
+          onClick={onDismiss}>
+          <X className="size-3.5" aria-hidden="true" />
+        </button>
+      )}
+    </div>
+  )
 }
 
 function DayCard({
@@ -146,6 +190,8 @@ export function ServiceOrderAvailabilityBoard({
   confirmingStart,
   disabled,
   selectionWarning,
+  changedDates,
+  onDismissChange,
   onReload,
   onLoadMore,
   onRetryFailed,
@@ -272,6 +318,10 @@ export function ServiceOrderAvailabilityBoard({
 
   const modalDay = modalDate ? days.find((day) => day.date === modalDate) ?? null : null
   const searching = (loading || loadingMore) && days.length === 0
+  const changeNotice =
+    changedDates && changedDates.length > 0 ? (
+      <ScheduleChangeNotice dates={changedDates} onDismiss={onDismissChange} />
+    ) : null
 
   if (searching) {
     return (
@@ -286,31 +336,34 @@ export function ServiceOrderAvailabilityBoard({
 
   if (days.length === 0) {
     return (
-      <div className="rounded-xl bg-surface px-4 py-5 text-center shadow-card">
-        <p className="text-sm font-medium text-foreground">
-          Nenhum horário livre no período consultado.
-        </p>
-        <p className="mt-1 text-xs text-muted">
-          {searchedUntil
-            ? `Buscamos até ${formatFullDay(searchedUntil)}.`
-            : 'Não há dias disponíveis para os critérios atuais.'}{' '}
-          Ajuste a data de referência ou confira a jornada do técnico.
-        </p>
-        {error ? (
-          <p className="mt-2 text-[13px] text-danger" role="alert">
-            {error}
+      <div className="space-y-3">
+        {changeNotice}
+        <div className="rounded-xl bg-surface px-4 py-5 text-center shadow-card">
+          <p className="text-sm font-medium text-foreground">
+            Nenhum horário livre no período consultado.
           </p>
-        ) : null}
-        <div className="mt-4 flex flex-wrap justify-center gap-2">
-          {failedCount > 0 ? (
-            <Button type="button" variant="secondary" size="sm" onClick={onRetryFailed}>
-              Tentar dias que falharam
-            </Button>
-          ) : (
-            <Button type="button" variant="secondary" size="sm" onClick={onReload}>
-              Atualizar horários
-            </Button>
-          )}
+          <p className="mt-1 text-xs text-muted">
+            {searchedUntil
+              ? `Buscamos até ${formatFullDay(searchedUntil)}.`
+              : 'Não há dias disponíveis para os critérios atuais.'}{' '}
+            Ajuste a data de referência ou confira a jornada do técnico.
+          </p>
+          {error ? (
+            <p className="mt-2 text-[13px] text-danger" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            {failedCount > 0 ? (
+              <Button type="button" variant="secondary" size="sm" onClick={onRetryFailed}>
+                Tentar dias que falharam
+              </Button>
+            ) : (
+              <Button type="button" variant="secondary" size="sm" onClick={onReload}>
+                Atualizar horários
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     )
@@ -321,6 +374,8 @@ export function ServiceOrderAvailabilityBoard({
       <p className="text-xs text-muted" aria-live="polite">
         {days.length} dia{days.length === 1 ? '' : 's'} com horários livres
       </p>
+
+      {changeNotice}
 
       {error ? (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-warning-soft px-3 py-2">

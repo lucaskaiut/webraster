@@ -193,6 +193,28 @@ export function ServiceOrderSchedulingPanel({
 
   const selectedDate = dateOfLocalInput(scheduledStartAt)
   const selectedStart = normalizedLocalStart(scheduledStartAt)
+
+  // A agenda mudou no dia selecionado: atualiza a prévia do horário escolhido
+  // para que o aviso de indisponibilidade reflita a nova situação.
+  const changeRevision = board.change?.revision
+  useEffect(() => {
+    if (!board.change || !selectedDate || !selectedStart) return
+    if (!board.change.dates.includes(selectedDate)) return
+
+    const requestId = ++detailRequestRef.current
+
+    void board
+      .fetchDay(selectedDate, selectedStart)
+      .then((estimate) => {
+        if (requestId !== detailRequestRef.current || !estimate) return
+
+        setDetail({ date: selectedDate, start: selectedStart, estimate })
+      })
+      .catch(() => {
+        // Mantém a prévia anterior; a lista de horários já foi atualizada.
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [changeRevision])
   const detailForSelection =
     selectedDate &&
     selectedStart &&
@@ -404,6 +426,8 @@ export function ServiceOrderSchedulingPanel({
               confirmingStart={confirmingStart}
               disabled={previewLoading}
               selectionWarning={selectionWarning}
+              changedDates={board.change?.dates}
+              onDismissChange={board.dismissChange}
               onReload={handleRefresh}
               onLoadMore={board.loadMore}
               onRetryFailed={() => void board.retryFailed()}
