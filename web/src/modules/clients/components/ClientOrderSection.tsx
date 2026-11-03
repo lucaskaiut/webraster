@@ -1,5 +1,5 @@
-import { useForm, useFieldArray } from 'react-hook-form'
-import { Plus, Trash2, Wrench } from 'lucide-react'
+import { useForm } from 'react-hook-form'
+import { Package, Wrench } from 'lucide-react'
 import {
   Button,
   ButtonLink,
@@ -17,10 +17,10 @@ import { applyApiErrorsToForm, formResolver } from '@/shared/utils/forms'
 import { formatCurrency } from '@/shared/utils/format'
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
-import { PERIODICITY_OPTIONS } from '@/modules/finance/lib/labels'
-import { useServicesQuery } from '@/modules/services/hooks/useServices'
+import { periodicityLabel } from '@/modules/finance/lib/labels'
+import { useFinancePlansQuery } from '@/modules/finance/hooks/useFinance'
 import { useVehiclesQuery } from '@/modules/vehicles/hooks/useVehicles'
-import type { ClientOrder } from '@/shared/types/models'
+import type { ClientOrder, FinancePlan } from '@/shared/types/models'
 import { clientOrderSchema, type ClientOrderFormValues } from '../schemas/client.schema'
 import { useClientOrderQuery, useUpsertClientOrder } from '../hooks/useClients'
 
@@ -33,15 +33,18 @@ export function ClientOrderSection({ clientId, onSaved }: ClientOrderSectionProp
   const { can } = usePermissions()
   const canEdit = can(Permission.FINANCE_SUBSCRIPTION_CREATE)
   const orderQuery = useClientOrderQuery(clientId)
-  const servicesQuery = useServicesQuery({ per_page: 100 })
+  const plansQuery = useFinancePlansQuery({ per_page: 100 })
   const vehiclesQuery = useVehiclesQuery({ client_id: clientId, per_page: 100 })
   const upsertOrder = useUpsertClientOrder(clientId)
 
-  const services = servicesQuery.data?.data ?? []
-  const vehicles = vehiclesQuery.data?.data ?? []
   const order = orderQuery.data
+  const vehicles = vehiclesQuery.data?.data ?? []
+  // Planos inativos só aparecem se já forem o plano atual do pedido.
+  const plans = (plansQuery.data?.data ?? []).filter(
+    (plan) => plan.is_active || plan.id === order?.plan_id,
+  )
 
-  if (orderQuery.isPending || servicesQuery.isPending || vehiclesQuery.isPending) {
+  if (orderQuery.isPending || plansQuery.isPending || vehiclesQuery.isPending) {
     return (
       <Card>
         <CardContent>
@@ -51,33 +54,19 @@ export function ClientOrderSection({ clientId, onSaved }: ClientOrderSectionProp
     )
   }
 
-  if (services.length === 0) {
+  if (plans.length === 0) {
     return (
       <Card>
         <CardContent>
           <EmptyState
-            icon={Wrench}
-            title="Nenhum serviço cadastrado"
-            description="Cadastre os serviços e valores antes de montar o pedido do cliente."
+            icon={Package}
+            title="Nenhum plano cadastrado"
+            description="Cadastre os planos e valores antes de montar o pedido do cliente."
             action={
-              <ButtonLink to="/services/create" variant="secondary">
-                Cadastrar serviço
+              <ButtonLink to="/finance/plans/create" variant="secondary">
+                Cadastrar plano
               </ButtonLink>
             }
-          />
-        </CardContent>
-      </Card>
-    )
-  }
-
-  if (vehicles.length === 0) {
-    return (
-      <Card>
-        <CardContent>
-          <EmptyState
-            icon={Wrench}
-            title="Nenhum veículo deste cliente"
-            description="Cadastre os veículos na etapa anterior para vincular aos serviços."
           />
         </CardContent>
       </Card>
@@ -87,7 +76,7 @@ export function ClientOrderSection({ clientId, onSaved }: ClientOrderSectionProp
   return (
     <ClientOrderForm
       order={order ?? null}
-      services={services}
+      plans={plans}
       vehicles={vehicles}
       submitting={upsertOrder.isPending}
       canEdit={canEdit}
@@ -101,14 +90,14 @@ export function ClientOrderSection({ clientId, onSaved }: ClientOrderSectionProp
 
 function ClientOrderForm({
   order,
-  services,
+  plans,
   vehicles,
   submitting,
   canEdit,
   onSubmit,
 }: {
   order: ClientOrder | null
-  services: Array<{ id: string; name: string; amount_cents: number; amount: string }>
+  plans: FinancePlan[]
   vehicles: Array<{ id: string; plate: string; brand: string | null; model: string | null }>
   submitting: boolean
   canEdit: boolean
@@ -118,41 +107,34 @@ function ClientOrderForm({
     resolver: formResolver<ClientOrderFormValues>(clientOrderSchema),
     defaultValues: {
       due_day: order?.due_day ?? 10,
-      periodicity: order?.periodicity ?? 'monthly',
-      items:
-        order?.items.map((item) => ({
-          service_id: item.service_id,
-          vehicle_ids: item.vehicles.map((vehicle) => vehicle.id),
-        })) ?? [{ service_id: '', vehicle_ids: [] }],
+      plan_id: order?.plan_id ?? '',
+      vehicle_ids: order?.vehicle_ids ?? [],
     },
   })
 
-  const items = useFieldArray({ control: form.control, name: 'items' })
-  const watched = form.watch()
+  const planId = form.watch('plan_id')
+  const vehicleIds = form.watch('vehicle_ids') ?? []
+  const plan = plans.find((item) => item.id === planId)
+  const perVehicle = plan?.pricing_type === 'per_vehicle'
+  const quantity = vehicleIds.length
+  const total = plan ? (perVehicle ? plan.amount_cents * quantity : plan.amount_cents) : 0
 
-  const serviceById = new Map(services.map((service) => [service.id, service]))
-
-  const lines = (watched.items ?? []).map((item) => {
-    const service = serviceById.get(item.service_id)
-    const quantity = item.vehicle_ids?.length ?? 0
-    const unit = service?.amount_cents ?? 0
-    return {
-      name: service?.name ?? 'Serviço',
-      unit,
-      quantity,
-      total: unit * quantity,
-    }
-  })
-  const grandTotal = lines.reduce((sum, line) => sum + line.total, 0)
-
-  const serviceOptions = services.map((service) => ({
-    value: service.id,
-    label: `${service.name} · ${formatCurrency(service.amount)}`,
+  const planOptions = plans.map((item) => ({
+    value: item.id,
+    label:
+      item.pricing_type === 'per_vehicle'
+        ? `${item.name} · ${formatCurrency(item.amount)} por veículo`
+        : `${item.name} · ${formatCurrency(item.amount)}`,
   }))
 
   const handleSubmit = async (values: ClientOrderFormValues) => {
+    if (perVehicle && values.vehicle_ids.length === 0) {
+      form.setError('vehicle_ids', { message: 'Selecione ao menos um veículo' })
+      return
+    }
+
     try {
-      await onSubmit(values)
+      await onSubmit({ ...values, vehicle_ids: perVehicle ? values.vehicle_ids : [] })
     } catch (error) {
       if (isApiError(error) && error.status === 422) {
         applyApiErrorsToForm(form, error)
@@ -165,113 +147,91 @@ function ClientOrderForm({
       <CardContent>
         <Form form={form} onSubmit={handleSubmit} className="space-y-8">
           <Section
-            title="Pedido"
-            description="Cada serviço pode ter veículos diferentes. O valor do contrato é serviço × quantidade de carros."
+            title="Plano"
+            description="O plano define o valor do contrato e das cobranças recorrentes do cliente."
           >
             <div className="space-y-6">
-              {items.fields.map((field, index) => {
-                const line = lines[index]
-                const selectedServiceIds = (watched.items ?? [])
-                  .map((item, itemIndex) => (itemIndex === index ? null : item.service_id))
-                  .filter(Boolean)
-                const options = serviceOptions.filter(
-                  (option) =>
-                    option.value === watched.items?.[index]?.service_id ||
-                    !selectedServiceIds.includes(option.value),
-                )
+              <SelectField
+                name="plan_id"
+                label="Plano"
+                required
+                placeholder="Selecione..."
+                options={planOptions}
+                disabled={!canEdit}
+              />
 
-                return (
-                  <div key={field.id} className="space-y-4 rounded-xl border border-border/70 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <SelectField
-                        name={`items.${index}.service_id`}
-                        label="Serviço"
-                        required
-                        placeholder="Selecione..."
-                        options={options}
-                        className="min-w-0 flex-1"
-                      />
-                      {items.fields.length > 1 && canEdit && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          className="mt-7 text-danger hover:bg-danger-soft hover:text-danger"
-                          onClick={() => items.remove(index)}
-                          aria-label="Remover serviço"
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      )}
+              {order && !order.plan_id && order.items.length > 0 && (
+                <p className="text-sm text-muted">
+                  Este pedido foi criado com serviços ({order.items.map((item) => item.name).join(', ')}).
+                  Selecione um plano para substituí-lo.
+                </p>
+              )}
+
+              {perVehicle && (
+                <fieldset>
+                  <legend className="mb-2 text-sm font-medium text-foreground">Veículos</legend>
+                  {vehicles.length === 0 ? (
+                    <EmptyState
+                      icon={Wrench}
+                      title="Nenhum veículo deste cliente"
+                      description="Cadastre os veículos na etapa anterior para vincular ao plano."
+                    />
+                  ) : (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {vehicles.map((vehicle) => {
+                        const checked = vehicleIds.includes(vehicle.id)
+                        const label = [vehicle.plate, vehicle.brand, vehicle.model]
+                          .filter(Boolean)
+                          .join(' · ')
+
+                        return (
+                          <Checkbox
+                            key={vehicle.id}
+                            label={label}
+                            checked={checked}
+                            disabled={!canEdit}
+                            onChange={(event) => {
+                              const current = form.getValues('vehicle_ids') ?? []
+                              const next = event.target.checked
+                                ? [...current, vehicle.id]
+                                : current.filter((id) => id !== vehicle.id)
+                              form.setValue('vehicle_ids', next, {
+                                shouldDirty: true,
+                                shouldValidate: true,
+                              })
+                              if (next.length > 0) form.clearErrors('vehicle_ids')
+                            }}
+                          />
+                        )
+                      })}
                     </div>
-
-                    <fieldset>
-                      <legend className="mb-2 text-sm font-medium text-foreground">Veículos</legend>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        {vehicles.map((vehicle) => {
-                          const checked = (watched.items?.[index]?.vehicle_ids ?? []).includes(vehicle.id)
-                          const label = [vehicle.plate, vehicle.brand, vehicle.model]
-                            .filter(Boolean)
-                            .join(' · ')
-
-                          return (
-                            <Checkbox
-                              key={vehicle.id}
-                              label={label}
-                              checked={checked}
-                              disabled={!canEdit}
-                              onChange={(event) => {
-                                const current = form.getValues(`items.${index}.vehicle_ids`) ?? []
-                                const next = event.target.checked
-                                  ? [...current, vehicle.id]
-                                  : current.filter((id) => id !== vehicle.id)
-                                form.setValue(`items.${index}.vehicle_ids`, next, {
-                                  shouldDirty: true,
-                                  shouldValidate: true,
-                                })
-                              }}
-                            />
-                          )
-                        })}
-                      </div>
-                      {form.formState.errors.items?.[index]?.vehicle_ids?.message && (
-                        <p className="mt-2 text-[13px] text-danger">
-                          {form.formState.errors.items[index]?.vehicle_ids?.message}
-                        </p>
-                      )}
-                    </fieldset>
-
-                    <p className="text-sm text-muted">
-                      {formatCurrency(line.unit / 100)} × {line.quantity}{' '}
-                      {line.quantity === 1 ? 'carro' : 'carros'} ={' '}
-                      <span className="font-medium text-foreground">{formatCurrency(line.total / 100)}</span>
+                  )}
+                  {form.formState.errors.vehicle_ids?.message && (
+                    <p className="mt-2 text-[13px] text-danger">
+                      {form.formState.errors.vehicle_ids.message}
                     </p>
-                  </div>
-                )
-              })}
+                  )}
+                </fieldset>
+              )}
 
-              {canEdit && (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => items.append({ service_id: '', vehicle_ids: [] })}
-                  disabled={items.fields.length >= services.length}
-                >
-                  <Plus className="size-4" />
-                  Adicionar serviço
-                </Button>
+              {plan && (
+                <p className="text-sm text-muted">
+                  {perVehicle ? (
+                    <>
+                      {formatCurrency(plan.amount_cents / 100)} × {quantity}{' '}
+                      {quantity === 1 ? 'veículo' : 'veículos'} ={' '}
+                    </>
+                  ) : (
+                    <>Valor fixo: </>
+                  )}
+                  <span className="font-medium text-foreground">{formatCurrency(total / 100)}</span>
+                </p>
               )}
             </div>
           </Section>
 
           <Section title="Recorrência" description="As cobranças usam o valor total deste pedido.">
             <div className="grid gap-4 sm:grid-cols-2">
-              <SelectField
-                name="periodicity"
-                label="Periodicidade"
-                options={PERIODICITY_OPTIONS}
-                required
-                disabled={!canEdit}
-              />
               <TextField
                 name="due_day"
                 label="Dia de vencimento"
@@ -282,9 +242,17 @@ function ClientOrderForm({
                 required
                 disabled={!canEdit}
               />
+              {plan && (
+                <div className="flex flex-col justify-center">
+                  <span className="text-sm font-medium text-foreground">Periodicidade</span>
+                  <span className="text-sm text-muted">
+                    {plan.periodicity_label ?? periodicityLabel(plan.periodicity)} (definida no plano)
+                  </span>
+                </div>
+              )}
             </div>
             <p className="text-base font-semibold text-foreground">
-              Total do contrato: {formatCurrency(grandTotal / 100)}
+              Total do contrato: {formatCurrency(total / 100)}
             </p>
           </Section>
 

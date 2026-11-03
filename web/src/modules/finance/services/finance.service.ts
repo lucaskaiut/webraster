@@ -7,6 +7,7 @@ import type {
   FinanceDashboardMetrics,
   FinancePaymentMethod,
   FinancePlan,
+  FinancePlanPricingType,
   FinanceReportResult,
   FinanceReportType,
   FinanceSubscription,
@@ -24,6 +25,7 @@ export interface FinancePlanPayload {
   periodicity?: BillingPeriodicity | string
   device_limit?: number | null
   is_active?: boolean
+  pricing_type?: FinancePlanPricingType
 }
 
 export interface FinanceSubscriptionListParams extends ListParams {

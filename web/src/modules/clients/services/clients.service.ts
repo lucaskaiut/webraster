@@ -47,16 +47,11 @@ export interface ClientUserUpdatePayload {
   role_ids?: number[]
 }
 
-export interface ClientOrderItemPayload {
-  service_id: string
-  vehicle_ids: string[]
-}
-
 export interface ClientOrderPayload {
+  plan_id: string
+  vehicle_ids: string[]
   due_day?: number
-  periodicity?: string
   next_billing_at?: string | null
-  items: ClientOrderItemPayload[]
 }
 
 export interface ClientContractPayload {

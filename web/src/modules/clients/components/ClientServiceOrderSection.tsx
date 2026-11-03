@@ -5,18 +5,13 @@ import { toLocalIsoDate } from '@/shared/utils/format'
 import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import { toast } from '@/shared/stores/toast.store'
-import {
-  ServiceOrderForm,
-  type ServiceOrderFormDefaultItem,
-} from '@/modules/service-orders/components/ServiceOrderForm'
+import { ServiceOrderForm } from '@/modules/service-orders/components/ServiceOrderForm'
 import {
   useCreateServiceOrder,
   useGenerateServiceOrderBilling,
 } from '@/modules/service-orders/hooks/useServiceOrders'
-import { useServicesQuery } from '@/modules/services/hooks/useServices'
 import { useVehiclesQuery } from '@/modules/vehicles/hooks/useVehicles'
-import type { CatalogService, ClientOrder, ServiceOrder } from '@/shared/types/models'
-import { useClientOrderQuery } from '../hooks/useClients'
+import type { ServiceOrder } from '@/shared/types/models'
 
 interface ClientServiceOrderSectionProps {
   clientId: string
@@ -24,58 +19,21 @@ interface ClientServiceOrderSectionProps {
   onCreated?: (order: ServiceOrder) => Promise<void> | void
 }
 
-/**
- * Serviços vinculados aos serviços do pedido. A quantidade é o total de veículos
- * distintos das linhas que puxam o vínculo, para não duplicar quando dois serviços
- * do pedido apontam para o mesmo serviço vinculado.
- */
-function linkedItemsFromOrder(
-  order: ClientOrder | null | undefined,
-  services: CatalogService[],
-): ServiceOrderFormDefaultItem[] {
-  const serviceById = new Map(services.map((service) => [service.id, service]))
-  const linked = new Map<string, { item: ServiceOrderFormDefaultItem; vehicleIds: Set<string> }>()
-
-  for (const orderItem of order?.items ?? []) {
-    for (const linkedService of serviceById.get(orderItem.service_id)?.linked_services ?? []) {
-      const entry = linked.get(linkedService.id) ?? {
-        item: {
-          service_id: linkedService.id,
-          name: linkedService.name,
-          quantity: 1,
-          unit_amount_cents: linkedService.amount_cents,
-        },
-        vehicleIds: new Set<string>(),
-      }
-
-      orderItem.vehicles.forEach((vehicle) => entry.vehicleIds.add(vehicle.id))
-      linked.set(linkedService.id, entry)
-    }
-  }
-
-  return [...linked.values()].map(({ item, vehicleIds }) => ({
-    ...item,
-    quantity: Math.max(1, vehicleIds.size),
-  }))
-}
-
 export function ClientServiceOrderSection({ clientId, onBack, onCreated }: ClientServiceOrderSectionProps) {
   const navigate = useNavigate()
   const { can } = usePermissions()
   const canGenerateBilling = can(Permission.FINANCE_BILLING_CREATE)
-  const orderQuery = useClientOrderQuery(clientId)
-  const servicesQuery = useServicesQuery({ per_page: 100 })
   const firstVehicleQuery = useVehiclesQuery({ client_id: clientId, sort: 'created_at:asc', per_page: 1 })
   const create = useCreateServiceOrder()
   const generateBilling = useGenerateServiceOrderBilling()
   const [withBilling, setWithBilling] = useState(false)
   const [billingDueDate, setBillingDueDate] = useState(toLocalIsoDate())
 
-  if (orderQuery.isPending || servicesQuery.isPending || firstVehicleQuery.isPending) {
+  if (firstVehicleQuery.isPending) {
     return (
       <Card>
         <CardContent>
-          <p className="text-sm text-muted">Carregando pedido...</p>
+          <p className="text-sm text-muted">Carregando...</p>
         </CardContent>
       </Card>
     )
@@ -91,7 +49,6 @@ export function ClientServiceOrderSection({ clientId, onBack, onCreated }: Clien
         client_id: clientId,
         vehicle_id: firstVehicleId,
         description: 'Instalação',
-        items: linkedItemsFromOrder(orderQuery.data, servicesQuery.data?.data ?? []),
       }}
       submitting={create.isPending || generateBilling.isPending}
       submitLabel="Criar OS e concluir"

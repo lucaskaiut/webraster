@@ -80,15 +80,8 @@ export type ClientUserUpdateFormValues = z.infer<typeof updateClientUserSchema>
 
 export const clientOrderSchema = z.object({
   due_day: z.coerce.number().int().min(1, 'Mínimo 1').max(28, 'Máximo 28'),
-  periodicity: z.enum(['monthly', 'bimonthly', 'quarterly', 'semiannual', 'annual']),
-  items: z
-    .array(
-      z.object({
-        service_id: z.string().min(1, 'Selecione o serviço'),
-        vehicle_ids: z.array(z.string()).min(1, 'Selecione ao menos um veículo'),
-      }),
-    )
-    .min(1, 'Inclua ao menos um serviço'),
+  plan_id: z.string().min(1, 'Selecione o plano'),
+  vehicle_ids: z.array(z.string()),
 })
 
 export type ClientOrderFormValues = z.infer<typeof clientOrderSchema>

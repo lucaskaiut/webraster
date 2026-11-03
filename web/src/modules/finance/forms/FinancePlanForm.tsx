@@ -16,7 +16,7 @@ import { applyApiErrorsToForm, formResolver } from '@/shared/utils/forms'
 import type { FinancePlan } from '@/shared/types/models'
 import type { FinancePlanPayload } from '../services/finance.service'
 import { financePlanSchema, type FinancePlanFormValues } from '../schemas/plan.schema'
-import { centsToReais, PERIODICITY_OPTIONS, reaisToCents } from '../lib/labels'
+import { centsToReais, PERIODICITY_OPTIONS, PRICING_TYPE_OPTIONS, reaisToCents } from '../lib/labels'
 
 interface FinancePlanFormProps {
   mode: 'create' | 'edit'
@@ -32,17 +32,21 @@ export function FinancePlanForm({ mode, initial, submitting, onSubmit }: Finance
       name: initial?.name ?? '',
       description: initial?.description ?? '',
       amount: initial ? centsToReais(initial.amount_cents) : 0,
+      pricing_type: initial?.pricing_type ?? 'fixed',
       periodicity: initial?.periodicity ?? 'monthly',
       device_limit: initial?.device_limit != null ? String(initial.device_limit) : '',
       is_active: initial?.is_active ?? true,
     },
   })
 
+  const pricingType = form.watch('pricing_type')
+
   const handleSubmit = async (values: FinancePlanFormValues) => {
     const payload: FinancePlanPayload = {
       name: values.name,
       description: values.description || null,
       amount_cents: reaisToCents(values.amount),
+      pricing_type: values.pricing_type,
       periodicity: values.periodicity,
       device_limit: values.device_limit.trim() ? Number(values.device_limit) : null,
       is_active: values.is_active,
@@ -64,11 +68,22 @@ export function FinancePlanForm({ mode, initial, submitting, onSubmit }: Finance
           <Section title="Identificação">
             <div className="grid gap-4 sm:grid-cols-2">
               <TextField name="name" label="Nome" required className="sm:col-span-2" />
+              <SelectField
+                name="pricing_type"
+                label="Tipo de cobrança"
+                options={PRICING_TYPE_OPTIONS}
+                required
+              />
               <TextField
                 name="amount"
-                label="Valor (R$)"
+                label={pricingType === 'per_vehicle' ? 'Valor por veículo (R$)' : 'Valor (R$)'}
                 type="number"
                 step="0.01"
+                hint={
+                  pricingType === 'per_vehicle'
+                    ? 'Multiplicado pela quantidade de veículos selecionados no pedido do cliente.'
+                    : 'Valor cobrado do cliente a cada ciclo, independente da quantidade de veículos.'
+                }
                 required
               />
               <SelectField

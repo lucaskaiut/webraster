@@ -147,7 +147,7 @@ export function buildOrderItemsTableHtml(items: ContractOrderLine[]): string {
   return `<table style="width:100%;border-collapse:collapse;margin:1rem 0;">
   <thead>
     <tr>
-      <th style="border:1px solid #ccc;padding:8px;text-align:left;">Serviço</th>
+      <th style="border:1px solid #ccc;padding:8px;text-align:left;">Plano</th>
       <th style="border:1px solid #ccc;padding:8px;text-align:center;">Qtd.</th>
       <th style="border:1px solid #ccc;padding:8px;text-align:left;">Veículos</th>
       <th style="border:1px solid #ccc;padding:8px;text-align:right;">Valor unit.</th>
@@ -171,18 +171,11 @@ export function getFictionalContractValues(): ContractSubstitutionValues {
   const phone = '41999998888'
   const items: ContractOrderLine[] = [
     {
-      service_name: 'Instalação de rastreador',
-      quantity: 3,
-      unit_amount_cents: 5000,
-      line_total_cents: 15000,
-      plates: ['AAA1A11', 'BBB2B22', 'CCC3C33'],
-    },
-    {
-      service_name: 'Instalação de bloqueador',
-      quantity: 2,
+      service_name: 'Rastreamento por veículo',
+      quantity: 4,
       unit_amount_cents: 3000,
-      line_total_cents: 6000,
-      plates: ['AAA1A11', 'BBB2B22'],
+      line_total_cents: 12000,
+      plates: ['AAA1A11', 'BBB2B22', 'CCC3C33', 'DDD4D44'],
     },
   ]
 

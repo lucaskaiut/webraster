@@ -24,7 +24,7 @@ import { useDebounce } from '@/shared/hooks/useDebounce'
 import { formatCurrency } from '@/shared/utils/format'
 import type { FinancePlan } from '@/shared/types/models'
 import { useDeleteFinancePlan, useFinancePlansQuery } from '../hooks/useFinance'
-import { periodicityLabel } from '../lib/labels'
+import { periodicityLabel, pricingTypeLabel } from '../lib/labels'
 
 const PER_PAGE = 10
 
@@ -70,7 +70,15 @@ export default function FinancePlansListPage() {
     {
       key: 'amount',
       header: 'Valor',
-      render: (item) => formatCurrency(item.amount),
+      render: (item) =>
+        item.pricing_type === 'per_vehicle'
+          ? `${formatCurrency(item.amount)} / veículo`
+          : formatCurrency(item.amount),
+    },
+    {
+      key: 'pricing_type',
+      header: 'Cobrança',
+      render: (item) => item.pricing_type_label ?? pricingTypeLabel(item.pricing_type),
     },
     {
       key: 'periodicity',

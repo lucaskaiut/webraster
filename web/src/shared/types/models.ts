@@ -303,8 +303,11 @@ export interface ClientOrderVehicle {
 
 export interface ClientOrderItem {
   id: number
-  service_id: string
+  service_id: string | null
+  plan_id: string | null
+  name: string
   service_name: string
+  pricing_type: FinancePlanPricingType | null
   unit_amount_cents: number
   unit_amount: string
   quantity: number
@@ -316,6 +319,11 @@ export interface ClientOrderItem {
 export interface ClientOrder {
   id: string
   client_id: string
+  plan_id: string | null
+  plan_name: string | null
+  pricing_type: FinancePlanPricingType | null
+  pricing_type_label?: string | null
+  vehicle_ids: string[]
   due_day: number
   periodicity: BillingPeriodicity
   periodicity_label?: string
@@ -1327,12 +1335,16 @@ export interface VehicleFipe {
   score: number | null
 }
 
+export type FinancePlanPricingType = 'fixed' | 'per_vehicle'
+
 export interface FinancePlan {
   id: string
   name: string
   description: string | null
   amount_cents: number
   amount: string
+  pricing_type: FinancePlanPricingType
+  pricing_type_label?: string
   periodicity: BillingPeriodicity
   periodicity_label?: string
   device_limit: number | null

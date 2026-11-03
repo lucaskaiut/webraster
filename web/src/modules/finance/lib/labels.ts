@@ -2,6 +2,7 @@ import type {
   BillingPeriodicity,
   FinanceBilling,
   FinanceBillingStatus,
+  FinancePlanPricingType,
   FinancePaymentMethod,
   FinanceReportType,
   FinanceSubscriptionStatus,
@@ -14,6 +15,15 @@ export const PERIODICITY_OPTIONS: Array<{ value: BillingPeriodicity; label: stri
   { value: 'semiannual', label: 'Semestral' },
   { value: 'annual', label: 'Anual' },
 ]
+
+export const PRICING_TYPE_OPTIONS: Array<{ value: FinancePlanPricingType; label: string }> = [
+  { value: 'fixed', label: 'Valor fixo' },
+  { value: 'per_vehicle', label: 'Por veículo' },
+]
+
+export function pricingTypeLabel(value: FinancePlanPricingType | string): string {
+  return PRICING_TYPE_OPTIONS.find((item) => item.value === value)?.label ?? value
+}
 
 export const SUBSCRIPTION_STATUS_OPTIONS: Array<{
   value: FinanceSubscriptionStatus
