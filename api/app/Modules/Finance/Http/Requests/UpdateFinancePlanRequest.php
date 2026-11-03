@@ -2,6 +2,7 @@
 
 namespace App\Modules\Finance\Http\Requests;
 
+use App\Modules\Finance\Enums\PlanPricingType;
 use App\Modules\Shared\Subscription\Enums\BillingPeriodicity;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -22,6 +23,7 @@ class UpdateFinancePlanRequest extends FormRequest
             'name' => ['sometimes', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string', 'max:5000'],
             'amount_cents' => ['sometimes', 'integer', 'min:0'],
+            'pricing_type' => ['sometimes', Rule::enum(PlanPricingType::class)],
             'periodicity' => ['sometimes', Rule::enum(BillingPeriodicity::class)],
             'device_limit' => ['sometimes', 'nullable', 'integer', 'min:0'],
             'is_active' => ['sometimes', 'boolean'],

@@ -2,6 +2,8 @@
 
 namespace App\Modules\Client\Models;
 
+use App\Modules\Finance\Enums\PlanPricingType;
+use App\Modules\Finance\Models\FinancePlan;
 use App\Modules\Service\Models\Service;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Database\Eloquent\Model;
@@ -13,7 +15,9 @@ class ClientOrderItem extends Model
     protected $fillable = [
         'client_order_id',
         'service_id',
+        'plan_id',
         'service_name',
+        'pricing_type',
         'unit_amount_cents',
         'quantity',
         'line_total_cents',
@@ -25,6 +29,7 @@ class ClientOrderItem extends Model
             'unit_amount_cents' => 'integer',
             'quantity' => 'integer',
             'line_total_cents' => 'integer',
+            'pricing_type' => PlanPricingType::class,
         ];
     }
 
@@ -36,6 +41,11 @@ class ClientOrderItem extends Model
     public function service(): BelongsTo
     {
         return $this->belongsTo(Service::class);
+    }
+
+    public function plan(): BelongsTo
+    {
+        return $this->belongsTo(FinancePlan::class, 'plan_id')->withTrashed();
     }
 
     public function vehicles(): BelongsToMany

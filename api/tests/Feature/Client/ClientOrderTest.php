@@ -5,8 +5,9 @@ namespace Tests\Feature\Client;
 use App\Modules\Client\Models\Client;
 use App\Modules\Client\Models\ClientOrder;
 use App\Modules\Finance\Models\FinanceBilling;
+use App\Modules\Finance\Models\FinancePlan;
 use App\Modules\Finance\Models\FinanceSubscription;
-use App\Modules\Service\Models\Service;
+use App\Modules\Shared\Subscription\Enums\BillingPeriodicity;
 use App\Modules\Shared\Subscription\Enums\BillingStatus;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -19,64 +20,81 @@ class ClientOrderTest extends TestCase
     use InteractsWithTenants;
     use RefreshDatabase;
 
-    public function test_upsert_creates_order_and_subscription_from_services_and_vehicles(): void
+    public function test_per_vehicle_plan_charges_plan_amount_times_selected_vehicles(): void
     {
         [, $tenant] = $this->createOperationalChild();
         $client = Client::factory()->for($tenant)->create();
-
-        $tracker = Service::factory()->forTenant($tenant)->create([
-            'name' => 'Instalação de rastreador',
-            'amount_cents' => 5000,
-        ]);
-        $blocker = Service::factory()->forTenant($tenant)->create([
-            'name' => 'Instalação de bloqueador',
+        $plan = FinancePlan::factory()->forTenant($tenant)->perVehicle()->create([
+            'name' => 'Rastreamento por veículo',
             'amount_cents' => 3000,
         ]);
 
-        $cars = Vehicle::factory()->count(3)->forClient($client)->create();
-        $blockerCars = $cars->take(2);
+        $cars = Vehicle::factory()->count(5)->forClient($client)->create();
+        $selected = $cars->take(4);
 
         Sanctum::actingAs($this->createAdmin($tenant));
 
         $this->putJson("/api/clients/{$client->uuid}/order", [
             'due_day' => 15,
-            'periodicity' => 'monthly',
-            'items' => [
-                [
-                    'service_id' => $tracker->uuid,
-                    'vehicle_ids' => $cars->pluck('uuid')->all(),
-                ],
-                [
-                    'service_id' => $blocker->uuid,
-                    'vehicle_ids' => $blockerCars->pluck('uuid')->all(),
-                ],
-            ],
+            'plan_id' => $plan->uuid,
+            'vehicle_ids' => $selected->pluck('uuid')->all(),
         ])
             ->assertOk()
-            ->assertJsonPath('data.total_cents', 21000)
-            ->assertJsonPath('data.total', '210.00')
+            ->assertJsonPath('data.plan_id', $plan->uuid)
+            ->assertJsonPath('data.pricing_type', 'per_vehicle')
+            ->assertJsonPath('data.total_cents', 12000)
+            ->assertJsonPath('data.total', '120.00')
             ->assertJsonPath('data.due_day', 15)
-            ->assertJsonCount(2, 'data.items');
+            ->assertJsonCount(4, 'data.vehicle_ids')
+            ->assertJsonCount(1, 'data.items')
+            ->assertJsonPath('data.items.0.quantity', 4)
+            ->assertJsonPath('data.items.0.unit_amount_cents', 3000);
 
-        $this->assertDatabaseHas('client_orders', [
-            'client_id' => $client->getKey(),
-            'total_cents' => 21000,
-            'due_day' => 15,
-        ]);
-
-        $subscription = FinanceSubscription::query()->where('client_id', $client->getKey())->first();
-        $this->assertNotNull($subscription);
-        $this->assertNull($subscription->plan_id);
-        $this->assertSame(21000, $subscription->plan_price_cents);
+        $subscription = FinanceSubscription::query()->where('client_id', $client->getKey())->firstOrFail();
+        $this->assertSame($plan->getKey(), $subscription->plan_id);
+        $this->assertSame(12000, $subscription->plan_price_cents);
+        $this->assertSame('Rastreamento por veículo', $subscription->plan_name);
         $this->assertSame(15, $subscription->due_day);
-        $this->assertStringContainsString('rastreador', (string) $subscription->plan_name);
+        $this->assertNull($client->fresh()->plan_id);
+
+        $this->assertTrue(
+            FinanceBilling::query()->where('subscription_id', $subscription->getKey())->get()
+                ->every(fn (FinanceBilling $billing): bool => $billing->amount_cents === 12000),
+        );
+    }
+
+    public function test_fixed_plan_charges_plan_amount_and_ignores_vehicles(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $plan = FinancePlan::factory()->forTenant($tenant)->create([
+            'amount_cents' => 9900,
+            'periodicity' => BillingPeriodicity::QUARTERLY,
+        ]);
+        $vehicles = Vehicle::factory()->count(3)->forClient($client)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}/order", [
+            'plan_id' => $plan->uuid,
+            'vehicle_ids' => $vehicles->pluck('uuid')->all(),
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.pricing_type', 'fixed')
+            ->assertJsonPath('data.total_cents', 9900)
+            ->assertJsonPath('data.periodicity', 'quarterly')
+            ->assertJsonCount(0, 'data.vehicle_ids');
+
+        $subscription = FinanceSubscription::query()->where('client_id', $client->getKey())->firstOrFail();
+        $this->assertSame(9900, $subscription->plan_price_cents);
+        $this->assertSame(BillingPeriodicity::QUARTERLY, $subscription->plan_periodicity);
     }
 
     public function test_upsert_generates_first_two_billings_on_creation(): void
     {
         [, $tenant] = $this->createOperationalChild();
         $client = Client::factory()->for($tenant)->create();
-        $service = Service::factory()->forTenant($tenant)->create(['amount_cents' => 5000]);
+        $plan = FinancePlan::factory()->forTenant($tenant)->perVehicle()->create(['amount_cents' => 5000]);
         $vehicle = Vehicle::factory()->forClient($client)->create();
 
         $firstDue = now()->startOfMonth()->addMonthNoOverflow()->day(10);
@@ -87,11 +105,9 @@ class ClientOrderTest extends TestCase
 
         $this->putJson("/api/clients/{$client->uuid}/order", [
             'due_day' => 10,
-            'periodicity' => 'monthly',
             'next_billing_at' => $firstDue->toDateString(),
-            'items' => [
-                ['service_id' => $service->uuid, 'vehicle_ids' => [$vehicle->uuid]],
-            ],
+            'plan_id' => $plan->uuid,
+            'vehicle_ids' => [$vehicle->uuid],
         ])->assertOk();
 
         $subscription = FinanceSubscription::query()->where('client_id', $client->getKey())->firstOrFail();
@@ -114,24 +130,59 @@ class ClientOrderTest extends TestCase
         $this->assertSame($thirdDue->toDateString(), $subscription->next_billing_at?->toDateString());
     }
 
+    public function test_per_vehicle_plan_requires_vehicles(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $plan = FinancePlan::factory()->forTenant($tenant)->perVehicle()->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}/order", [
+            'plan_id' => $plan->uuid,
+            'vehicle_ids' => [],
+        ])->assertUnprocessable()->assertJsonValidationErrors('vehicle_ids');
+    }
+
+    public function test_requires_plan(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}/order", [])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('plan_id');
+    }
+
+    public function test_rejects_inactive_plan(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $plan = FinancePlan::factory()->forTenant($tenant)->create(['is_active' => false]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->putJson("/api/clients/{$client->uuid}/order", [
+            'plan_id' => $plan->uuid,
+        ])->assertUnprocessable()->assertJsonValidationErrors('plan_id');
+    }
+
     public function test_rejects_vehicles_from_another_client(): void
     {
         [, $tenant] = $this->createOperationalChild();
         $client = Client::factory()->for($tenant)->create();
         $other = Client::factory()->for($tenant)->create();
-        $service = Service::factory()->forTenant($tenant)->create(['amount_cents' => 1000]);
+        $plan = FinancePlan::factory()->forTenant($tenant)->perVehicle()->create();
         $foreignVehicle = Vehicle::factory()->forClient($other)->create();
 
         Sanctum::actingAs($this->createAdmin($tenant));
 
         $this->putJson("/api/clients/{$client->uuid}/order", [
-            'items' => [
-                [
-                    'service_id' => $service->uuid,
-                    'vehicle_ids' => [$foreignVehicle->uuid],
-                ],
-            ],
-        ])->assertUnprocessable();
+            'plan_id' => $plan->uuid,
+            'vehicle_ids' => [$foreignVehicle->uuid],
+        ])->assertUnprocessable()->assertJsonValidationErrors('vehicle_ids');
     }
 
     public function test_show_returns_null_when_client_has_no_order(): void
@@ -150,22 +201,20 @@ class ClientOrderTest extends TestCase
     {
         [, $tenant] = $this->createOperationalChild();
         $client = Client::factory()->for($tenant)->create();
-        $service = Service::factory()->forTenant($tenant)->create(['amount_cents' => 10000]);
+        $plan = FinancePlan::factory()->forTenant($tenant)->perVehicle()->create(['amount_cents' => 10000]);
         $first = Vehicle::factory()->forClient($client)->create();
         $second = Vehicle::factory()->forClient($client)->create();
 
         Sanctum::actingAs($this->createAdmin($tenant));
 
         $this->putJson("/api/clients/{$client->uuid}/order", [
-            'items' => [
-                ['service_id' => $service->uuid, 'vehicle_ids' => [$first->uuid]],
-            ],
+            'plan_id' => $plan->uuid,
+            'vehicle_ids' => [$first->uuid],
         ])->assertOk()->assertJsonPath('data.total_cents', 10000);
 
         $this->putJson("/api/clients/{$client->uuid}/order", [
-            'items' => [
-                ['service_id' => $service->uuid, 'vehicle_ids' => [$first->uuid, $second->uuid]],
-            ],
+            'plan_id' => $plan->uuid,
+            'vehicle_ids' => [$first->uuid, $second->uuid],
         ])->assertOk()->assertJsonPath('data.total_cents', 20000);
 
         $this->assertSame(1, ClientOrder::query()->where('client_id', $client->getKey())->count());
@@ -174,5 +223,44 @@ class ClientOrderTest extends TestCase
 
         // As cobranças iniciais são geradas apenas na criação do pedido.
         $this->assertSame(2, FinanceBilling::query()->count());
+    }
+
+    public function test_per_vehicle_plan_cannot_be_assigned_without_order(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $plan = FinancePlan::factory()->forTenant($tenant)->perVehicle()->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->patchJson("/api/clients/{$client->uuid}/plan", [
+            'plan_id' => $plan->uuid,
+        ])->assertUnprocessable()->assertJsonValidationErrors('plan_id');
+    }
+
+    public function test_plan_crud_persists_pricing_type(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $id = $this->postJson('/api/finance/plans', [
+            'name' => 'Por veículo',
+            'amount_cents' => 3000,
+            'pricing_type' => 'per_vehicle',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.pricing_type', 'per_vehicle')
+            ->assertJsonPath('data.pricing_type_label', 'Por veículo')
+            ->json('data.id');
+
+        $this->patchJson("/api/finance/plans/{$id}", ['pricing_type' => 'fixed'])
+            ->assertOk()
+            ->assertJsonPath('data.pricing_type', 'fixed');
+
+        $this->postJson('/api/finance/plans', [
+            'name' => 'Padrão',
+            'amount_cents' => 1000,
+        ])->assertCreated()->assertJsonPath('data.pricing_type', 'fixed');
     }
 }

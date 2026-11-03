@@ -4,9 +4,11 @@ namespace App\Modules\Client\Services;
 
 use App\Modules\Client\Models\Client;
 use App\Modules\Client\Models\ClientOrder;
+use App\Modules\Client\Models\ClientOrderItem;
+use App\Modules\Finance\Enums\PlanPricingType;
+use App\Modules\Finance\Models\FinancePlan;
 use App\Modules\Finance\Services\FinanceBillingService;
 use App\Modules\Finance\Services\FinanceSubscriptionService;
-use App\Modules\Service\Models\Service;
 use App\Modules\Shared\Subscription\Enums\BillingPeriodicity;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Support\Facades\DB;
@@ -27,7 +29,7 @@ class ClientOrderService
     public function currentForClient(Client $client): ?ClientOrder
     {
         return ClientOrder::query()
-            ->with(['client', 'items.service', 'items.vehicles', 'subscription'])
+            ->with(['client', 'items.plan', 'items.service', 'items.vehicles', 'subscription'])
             ->where('client_id', $client->getKey())
             ->first();
     }
@@ -37,13 +39,13 @@ class ClientOrderService
      */
     public function upsert(Client $client, array $data): ClientOrder
     {
-        $items = $this->resolveItems($client, $data['items'] ?? []);
+        $item = $this->resolvePlanItem($client, $data);
 
         $dueDay = min(max((int) ($data['due_day'] ?? 10), 1), 28);
-        $periodicity = BillingPeriodicity::from((string) ($data['periodicity'] ?? BillingPeriodicity::MONTHLY->value));
-        $totalCents = collect($items)->sum(fn (array $item): int => $item['line_total_cents']);
+        $periodicity = $item['periodicity'];
+        $totalCents = $item['line_total_cents'];
 
-        return DB::transaction(function () use ($client, $items, $dueDay, $periodicity, $totalCents, $data) {
+        return DB::transaction(function () use ($client, $item, $dueDay, $periodicity, $totalCents, $data) {
             $order = ClientOrder::withTrashed()
                 ->where('client_id', $client->getKey())
                 ->first();
@@ -64,26 +66,26 @@ class ClientOrderService
             ]);
             $order->save();
 
-            foreach ($order->items()->get() as $item) {
-                $item->vehicles()->detach();
-                $item->delete();
+            foreach ($order->items()->get() as $existing) {
+                $existing->vehicles()->detach();
+                $existing->delete();
             }
 
-            foreach ($items as $itemData) {
-                $item = $order->items()->create([
-                    'service_id' => $itemData['service_id'],
-                    'service_name' => $itemData['service_name'],
-                    'unit_amount_cents' => $itemData['unit_amount_cents'],
-                    'quantity' => $itemData['quantity'],
-                    'line_total_cents' => $itemData['line_total_cents'],
-                ]);
+            $created = $order->items()->create([
+                'service_id' => null,
+                'plan_id' => $item['plan_id'],
+                'service_name' => $item['name'],
+                'pricing_type' => $item['pricing_type'],
+                'unit_amount_cents' => $item['unit_amount_cents'],
+                'quantity' => $item['quantity'],
+                'line_total_cents' => $item['line_total_cents'],
+            ]);
 
-                $item->vehicles()->sync($itemData['vehicle_ids']);
-            }
+            $created->vehicles()->sync($item['vehicle_ids']);
 
             $isNewSubscription = $this->subscriptions->currentForClient($client) === null;
 
-            $subscription = $this->subscriptions->assignFromOrder($client, $order->fresh(['items.service']), [
+            $subscription = $this->subscriptions->assignFromOrder($client, $order->fresh(['items']), [
                 'due_day' => $dueDay,
                 'next_billing_at' => $data['next_billing_at'] ?? null,
             ]);
@@ -95,75 +97,77 @@ class ClientOrderService
 
             $order->forceFill(['finance_subscription_id' => $subscription->getKey()])->save();
 
-            return $order->fresh(['client', 'items.service', 'items.vehicles', 'subscription']);
+            return $order->fresh(['client', 'items.plan', 'items.vehicles', 'subscription']);
         });
     }
 
     /**
-     * @param  list<array<string, mixed>>  $rawItems
-     * @return list<array{service_id: int, service_name: string, unit_amount_cents: int, quantity: int, line_total_cents: int, vehicle_ids: list<int>}>
+     * Resolve o plano do pedido e calcula o valor recorrente: valor fixo do
+     * plano, ou valor do plano × veículos selecionados quando por veículo.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array{plan_id: int, name: string, pricing_type: PlanPricingType, periodicity: BillingPeriodicity, unit_amount_cents: int, quantity: int, line_total_cents: int, vehicle_ids: list<int>}
      */
-    private function resolveItems(Client $client, array $rawItems): array
+    private function resolvePlanItem(Client $client, array $data): array
     {
-        if ($rawItems === []) {
+        $plan = FinancePlan::query()->find((int) ($data['plan_id'] ?? 0));
+
+        if ($plan === null) {
             throw ValidationException::withMessages([
-                'items' => ['Inclua ao menos um serviço no pedido.'],
+                'plan_id' => ['Plano inválido.'],
             ]);
         }
 
-        $seenServices = [];
-        $resolved = [];
+        if (! $plan->is_active && ! $this->isCurrentPlan($client, $plan)) {
+            throw ValidationException::withMessages([
+                'plan_id' => ['O plano selecionado está inativo.'],
+            ]);
+        }
 
-        foreach ($rawItems as $index => $raw) {
-            $serviceId = (int) ($raw['service_id'] ?? 0);
-            $vehicleIds = array_values(array_unique(array_map('intval', $raw['vehicle_ids'] ?? [])));
+        $vehicleIds = [];
+        $quantity = 1;
 
-            if (isset($seenServices[$serviceId])) {
+        if ($plan->isPerVehicle()) {
+            $requested = array_values(array_unique(array_map('intval', $data['vehicle_ids'] ?? [])));
+
+            if ($requested === []) {
                 throw ValidationException::withMessages([
-                    "items.{$index}.service_id" => ['Cada serviço só pode aparecer uma vez no pedido.'],
-                ]);
-            }
-
-            $seenServices[$serviceId] = true;
-
-            $service = Service::query()->find($serviceId);
-
-            if ($service === null) {
-                throw ValidationException::withMessages([
-                    "items.{$index}.service_id" => ['Serviço inválido.'],
-                ]);
-            }
-
-            if ($vehicleIds === []) {
-                throw ValidationException::withMessages([
-                    "items.{$index}.vehicle_ids" => ['Selecione ao menos um veículo para este serviço.'],
+                    'vehicle_ids' => ['Selecione ao menos um veículo para este plano.'],
                 ]);
             }
 
             $vehicles = Vehicle::query()
                 ->where('client_id', $client->getKey())
-                ->whereIn('id', $vehicleIds)
+                ->whereIn('id', $requested)
                 ->get();
 
-            if ($vehicles->count() !== count($vehicleIds)) {
+            if ($vehicles->count() !== count($requested)) {
                 throw ValidationException::withMessages([
-                    "items.{$index}.vehicle_ids" => ['Todos os veículos devem pertencer a este cliente.'],
+                    'vehicle_ids' => ['Todos os veículos devem pertencer a este cliente.'],
                 ]);
             }
 
-            $quantity = $vehicles->count();
-            $unitAmount = (int) $service->amount_cents;
-
-            $resolved[] = [
-                'service_id' => $service->getKey(),
-                'service_name' => (string) $service->name,
-                'unit_amount_cents' => $unitAmount,
-                'quantity' => $quantity,
-                'line_total_cents' => $unitAmount * $quantity,
-                'vehicle_ids' => $vehicles->modelKeys(),
-            ];
+            $vehicleIds = $vehicles->modelKeys();
+            $quantity = count($vehicleIds);
         }
 
-        return $resolved;
+        return [
+            'plan_id' => $plan->getKey(),
+            'name' => (string) $plan->name,
+            'pricing_type' => $plan->pricing_type ?? PlanPricingType::FIXED,
+            'periodicity' => $plan->periodicity ?? BillingPeriodicity::MONTHLY,
+            'unit_amount_cents' => (int) $plan->amount_cents,
+            'quantity' => $quantity,
+            'line_total_cents' => $plan->priceFor($quantity),
+            'vehicle_ids' => $vehicleIds,
+        ];
+    }
+
+    private function isCurrentPlan(Client $client, FinancePlan $plan): bool
+    {
+        return ClientOrderItem::query()
+            ->where('plan_id', $plan->getKey())
+            ->whereHas('order', fn ($query) => $query->where('client_id', $client->getKey()))
+            ->exists();
     }
 }

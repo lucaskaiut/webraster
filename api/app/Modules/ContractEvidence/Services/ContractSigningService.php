@@ -303,7 +303,7 @@ class ContractSigningService
             return $contract;
         }
 
-        $order = $client->order()->with('items.service', 'items.vehicles')->first();
+        $order = $client->order()->with('items.vehicles')->first();
         $body = $this->renderer->render($template, $client, $order);
 
         if ((string) $contract->body === $body) {

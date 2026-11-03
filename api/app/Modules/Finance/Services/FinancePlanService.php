@@ -2,6 +2,7 @@
 
 namespace App\Modules\Finance\Services;
 
+use App\Modules\Finance\Enums\PlanPricingType;
 use App\Modules\Finance\Models\FinancePlan;
 use App\Modules\Shared\Subscription\Enums\BillingPeriodicity;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -73,6 +74,7 @@ class FinancePlanService
             'name',
             'description',
             'amount_cents',
+            'pricing_type',
             'periodicity',
             'device_limit',
             'is_active',
@@ -84,6 +86,14 @@ class FinancePlanService
                 : BillingPeriodicity::from((string) $payload['periodicity']);
         } elseif ($existing === null) {
             $payload['periodicity'] = BillingPeriodicity::MONTHLY;
+        }
+
+        if (isset($payload['pricing_type'])) {
+            $payload['pricing_type'] = $payload['pricing_type'] instanceof PlanPricingType
+                ? $payload['pricing_type']
+                : PlanPricingType::from((string) $payload['pricing_type']);
+        } elseif ($existing === null) {
+            $payload['pricing_type'] = PlanPricingType::FIXED;
         }
 
         if ($existing === null && empty($payload['name'])) {

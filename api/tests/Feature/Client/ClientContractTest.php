@@ -3,8 +3,8 @@
 namespace Tests\Feature\Client;
 
 use App\Modules\Client\Models\Client;
+use App\Modules\Finance\Models\FinancePlan;
 use App\Modules\Contract\Models\Contract;
-use App\Modules\Service\Models\Service;
 use App\Modules\Shared\Support\Document;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -52,17 +52,15 @@ class ClientContractTest extends TestCase
             'body' => '<p>Contrato de {{NOME_CLIENTE}} ({{DOCUMENTO_CLIENTE}}).</p><p>{{TABELA_PEDIDO}}</p>',
         ]);
 
-        $service = Service::factory()->forTenant($tenant)->create(['name' => 'Rastreamento', 'amount_cents' => 5000]);
+        $plan = FinancePlan::factory()->forTenant($tenant)->perVehicle()->create(['name' => 'Rastreamento', 'amount_cents' => 5000]);
         $vehicle = Vehicle::factory()->forClient($client)->create(['plate' => 'ABC1D23']);
 
         Sanctum::actingAs($this->createAdmin($tenant));
 
         $this->putJson("/api/clients/{$client->uuid}/order", [
             'due_day' => 10,
-            'periodicity' => 'monthly',
-            'items' => [
-                ['service_id' => $service->uuid, 'vehicle_ids' => [$vehicle->uuid]],
-            ],
+            'plan_id' => $plan->uuid,
+            'vehicle_ids' => [$vehicle->uuid],
         ])->assertOk();
 
         $this->putJson("/api/clients/{$client->uuid}/contract", [

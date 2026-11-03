@@ -2,8 +2,7 @@
 
 namespace App\Modules\Client\Http\Requests;
 
-use App\Modules\Service\Models\Service;
-use App\Modules\Shared\Subscription\Enums\BillingPeriodicity;
+use App\Modules\Finance\Models\FinancePlan;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -22,12 +21,10 @@ class UpsertClientOrderRequest extends FormRequest
     {
         return [
             'due_day' => ['sometimes', 'integer', 'min:1', 'max:28'],
-            'periodicity' => ['sometimes', Rule::enum(BillingPeriodicity::class)],
             'next_billing_at' => ['sometimes', 'nullable', 'date'],
-            'items' => ['required', 'array', 'min:1'],
-            'items.*.service_id' => ['required', 'integer', Rule::exists('services', 'id')->whereNull('deleted_at')],
-            'items.*.vehicle_ids' => ['required', 'array', 'min:1'],
-            'items.*.vehicle_ids.*' => ['integer', Rule::exists('vehicles', 'id')->whereNull('deleted_at')],
+            'plan_id' => ['required', 'integer', Rule::exists('finance_plans', 'id')->whereNull('deleted_at')],
+            'vehicle_ids' => ['sometimes', 'array'],
+            'vehicle_ids.*' => ['integer', Rule::exists('vehicles', 'id')->whereNull('deleted_at')],
         ];
     }
 
@@ -37,51 +34,33 @@ class UpsertClientOrderRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'items.required' => 'Inclua ao menos um serviço no pedido.',
-            'items.min' => 'Inclua ao menos um serviço no pedido.',
-            'items.*.vehicle_ids.required' => 'Selecione ao menos um veículo para este serviço.',
-            'items.*.vehicle_ids.min' => 'Selecione ao menos um veículo para este serviço.',
+            'plan_id.required' => 'Selecione o plano do pedido.',
+            'plan_id.exists' => 'Plano inválido.',
         ];
     }
 
     protected function prepareForValidation(): void
     {
-        $items = $this->input('items');
+        $merge = [];
 
-        if (! is_array($items)) {
-            return;
+        if ($this->filled('plan_id') && ! is_numeric($this->input('plan_id'))) {
+            $merge['plan_id'] = FinancePlan::query()->where('uuid', $this->input('plan_id'))->value('id');
         }
 
-        $resolved = [];
+        $vehicleIds = $this->input('vehicle_ids');
 
-        foreach ($items as $item) {
-            if (! is_array($item)) {
-                $resolved[] = $item;
-
-                continue;
-            }
-
-            if (isset($item['service_id']) && ! is_numeric($item['service_id'])) {
-                $item['service_id'] = Service::query()->where('uuid', $item['service_id'])->value('id');
-            }
-
-            if (isset($item['vehicle_ids']) && is_array($item['vehicle_ids'])) {
-                $item['vehicle_ids'] = collect($item['vehicle_ids'])
-                    ->map(function ($id) {
-                        if (is_numeric($id)) {
-                            return (int) $id;
-                        }
-
-                        return Vehicle::query()->where('uuid', $id)->value('id');
-                    })
-                    ->filter()
-                    ->values()
-                    ->all();
-            }
-
-            $resolved[] = $item;
+        if (is_array($vehicleIds)) {
+            $merge['vehicle_ids'] = collect($vehicleIds)
+                ->map(fn ($id) => is_numeric($id)
+                    ? (int) $id
+                    : Vehicle::query()->where('uuid', $id)->value('id'))
+                ->filter()
+                ->values()
+                ->all();
         }
 
-        $this->merge(['items' => $resolved]);
+        if ($merge !== []) {
+            $this->merge($merge);
+        }
     }
 }

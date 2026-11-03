@@ -22,6 +22,8 @@ class FinancePlanResource extends JsonResource
             'description' => $this->description,
             'amount_cents' => $this->amount_cents,
             'amount' => number_format($this->amount_cents / 100, 2, '.', ''),
+            'pricing_type' => $this->pricing_type?->value,
+            'pricing_type_label' => $this->pricing_type?->label(),
             'periodicity' => $this->periodicity?->value,
             'periodicity_label' => $this->periodicity?->label(),
             'device_limit' => $this->device_limit,

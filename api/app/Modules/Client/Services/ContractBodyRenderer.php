@@ -5,6 +5,7 @@ namespace App\Modules\Client\Services;
 use App\Modules\Client\Models\Client;
 use App\Modules\Client\Models\ClientOrder;
 use App\Modules\Client\Models\ClientOrderItem;
+use App\Modules\Finance\Enums\PlanPricingType;
 use App\Modules\Contract\Models\Contract;
 
 class ContractBodyRenderer
@@ -89,10 +90,11 @@ class ContractBodyRenderer
                     : '';
 
                 $plates = $plates !== '' ? $plates : '—';
+                $quantity = $item->pricing_type === PlanPricingType::FIXED ? '—' : (string) (int) $item->quantity;
 
                 return '<tr>'
                     .'<td style="border:1px solid #ccc;padding:8px;">'.$this->escape((string) $item->service_name).'</td>'
-                    .'<td style="border:1px solid #ccc;padding:8px;text-align:center;">'.(int) $item->quantity.'</td>'
+                    .'<td style="border:1px solid #ccc;padding:8px;text-align:center;">'.$quantity.'</td>'
                     .'<td style="border:1px solid #ccc;padding:8px;">'.$this->escape($plates).'</td>'
                     .'<td style="border:1px solid #ccc;padding:8px;text-align:right;">'.$this->escape($this->formatCurrency($item->unit_amount_cents / 100)).'</td>'
                     .'<td style="border:1px solid #ccc;padding:8px;text-align:right;">'.$this->escape($this->formatCurrency($item->line_total_cents / 100)).'</td>'
@@ -105,7 +107,7 @@ class ContractBodyRenderer
         return '<table style="width:100%;border-collapse:collapse;margin:1rem 0;">'
             .'<thead>'
             .'<tr>'
-            .'<th style="border:1px solid #ccc;padding:8px;text-align:left;">Serviço</th>'
+            .'<th style="border:1px solid #ccc;padding:8px;text-align:left;">Plano</th>'
             .'<th style="border:1px solid #ccc;padding:8px;text-align:center;">Qtd.</th>'
             .'<th style="border:1px solid #ccc;padding:8px;text-align:left;">Veículos</th>'
             .'<th style="border:1px solid #ccc;padding:8px;text-align:right;">Valor unit.</th>'

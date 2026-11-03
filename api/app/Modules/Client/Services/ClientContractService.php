@@ -45,7 +45,7 @@ class ClientContractService
     {
         $contract = Contract::query()->findOrFail((int) $data['contract_id']);
 
-        $order = $client->order()->with('items.service', 'items.vehicles')->first();
+        $order = $client->order()->with('items.vehicles')->first();
 
         $body = $this->renderer->render($contract, $client, $order);
 

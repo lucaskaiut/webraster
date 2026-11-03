@@ -66,8 +66,8 @@ class FinanceSubscriptionService
     }
 
     /**
-     * Cria ou atualiza a assinatura a partir do pedido (serviços × veículos),
-     * sem exigir um FinancePlan.
+     * Cria ou atualiza a assinatura a partir do pedido do cliente. O valor
+     * recorrente é o total do pedido (plano fixo ou plano × veículos).
      *
      * @param  array<string, mixed>  $options
      */
@@ -81,6 +81,9 @@ class FinanceSubscriptionService
             ->unique()
             ->implode(' + ');
 
+        $planIds = $order->items->pluck('plan_id')->filter()->unique()->values();
+        $planId = $planIds->count() === 1 ? (int) $planIds->first() : null;
+
         if ($planName === '') {
             $planName = 'Pedido';
         }
@@ -88,7 +91,7 @@ class FinanceSubscriptionService
         $periodicity = $order->periodicity ?? BillingPeriodicity::MONTHLY;
         $dueDay = min(max((int) ($options['due_day'] ?? $order->due_day ?? 10), 1), 28);
 
-        return DB::transaction(function () use ($client, $order, $planName, $periodicity, $dueDay, $options) {
+        return DB::transaction(function () use ($client, $order, $planId, $planName, $periodicity, $dueDay, $options) {
             $subscription = $this->currentForClient($client);
 
             if ($subscription === null) {
@@ -98,7 +101,7 @@ class FinanceSubscriptionService
 
                 $subscription = FinanceSubscription::query()->create([
                     'client_id' => $client->getKey(),
-                    'plan_id' => null,
+                    'plan_id' => $planId,
                     'plan_name' => $planName,
                     'plan_price_cents' => (int) $order->total_cents,
                     'plan_periodicity' => $periodicity,
@@ -112,7 +115,7 @@ class FinanceSubscriptionService
 
                 event(new SubscriptionCreated($subscription));
             } else {
-                $subscription->plan_id = null;
+                $subscription->plan_id = $planId;
                 $subscription->plan_name = $planName;
                 $subscription->plan_price_cents = (int) $order->total_cents;
                 $subscription->plan_periodicity = $periodicity;
@@ -134,6 +137,8 @@ class FinanceSubscriptionService
                 $subscription->save();
             }
 
+            // O pedido é a fonte do valor; manter clients.plan_id vazio evita
+            // que uma sincronização direta sobrescreva o valor calculado.
             if ($client->plan_id !== null) {
                 $client->forceFill(['plan_id' => null])->save();
             }
@@ -155,6 +160,8 @@ class FinanceSubscriptionService
                 'plan_id' => ['O plano selecionado está inativo.'],
             ]);
         }
+
+        $this->assertDirectlyAssignable($plan);
 
         return DB::transaction(function () use ($client, $plan, $options) {
             $subscription = $this->currentForClient($client);
@@ -202,6 +209,8 @@ class FinanceSubscriptionService
                 'plan_id' => ['Plano inválido para este tenant.'],
             ]);
         }
+
+        $this->assertDirectlyAssignable($plan);
 
         $subscription->plan_id = $plan->getKey();
         $subscription->plan_name = $plan->name;
@@ -375,6 +384,19 @@ class FinanceSubscriptionService
             ->orderByRaw("CASE status WHEN 'active' THEN 0 WHEN 'past_due' THEN 1 WHEN 'suspended' THEN 2 ELSE 3 END")
             ->orderByDesc('created_at')
             ->first();
+    }
+
+    /**
+     * Planos por veículo dependem dos veículos selecionados no pedido do
+     * cliente para calcular o valor; não podem ser atribuídos diretamente.
+     */
+    private function assertDirectlyAssignable(FinancePlan $plan): void
+    {
+        if ($plan->isPerVehicle()) {
+            throw ValidationException::withMessages([
+                'plan_id' => ['Planos cobrados por veículo devem ser definidos no pedido do cliente.'],
+            ]);
+        }
     }
 
     private function assertNoOtherSubscription(Client $client): void
