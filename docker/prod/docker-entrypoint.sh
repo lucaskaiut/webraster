@@ -63,7 +63,13 @@ echo "Running migrations..."
 php artisan migrate --force || echo "WARNING: migrations failed — container will start with current schema" >&2
 
 php artisan storage:link --no-interaction >/dev/null 2>&1 || true
-php artisan optimize:clear --no-interaction >/dev/null 2>&1 || true
+# Limpa config/rotas/views/eventos compilados, mas mantém o cache de dados:
+# rotas (Google Routes) e geocodificações (Places) são pagas por chamada e
+# não podem ser descartadas a cada deploy.
+php artisan optimize:clear --except=cache --no-interaction >/dev/null 2>&1 || true
+# Antes o cache:clear também soltava as travas de withoutOverlapping; sem ele,
+# uma tarefa interrompida pelo deploy ficaria travada até a trava expirar.
+php artisan schedule:clear-cache --no-interaction >/dev/null 2>&1 || true
 
 # Flag de saúde servida pelo nginx em /healthz (dreno do blue-green remove este
 # arquivo para o Traefik parar de enviar tráfego novo antes da troca de slot).

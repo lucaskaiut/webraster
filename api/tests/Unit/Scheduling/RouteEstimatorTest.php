@@ -116,14 +116,12 @@ class RouteEstimatorTest extends TestCase
             ]),
         ]);
 
-        $estimator = app(RouteEstimator::class);
-
-        $estimator->estimate(
+        (new RouteEstimator)->estimate(
             new Coordinates(self::FROM_LAT, self::FROM_LNG),
             new Coordinates(self::TO_LAT, self::TO_LNG),
         );
         // Poucos metros de diferença: arredonda para a mesma chave.
-        $estimator->estimate(
+        (new RouteEstimator)->estimate(
             new Coordinates(self::FROM_LAT + 0.00002, self::FROM_LNG - 0.00002),
             new Coordinates(self::TO_LAT - 0.00002, self::TO_LNG + 0.00002),
         );
@@ -143,13 +141,12 @@ class RouteEstimatorTest extends TestCase
             ]),
         ]);
 
-        $estimator = app(RouteEstimator::class);
         $from = new Coordinates(self::FROM_LAT, self::FROM_LNG);
         $to = new Coordinates(self::TO_LAT, self::TO_LNG);
 
-        $estimator->estimate($from, $to);
+        (new RouteEstimator)->estimate($from, $to);
         $this->travel(20)->days();
-        $estimator->estimate($from, $to);
+        (new RouteEstimator)->estimate($from, $to);
 
         Http::assertSentCount(1);
     }
@@ -175,15 +172,44 @@ class RouteEstimatorTest extends TestCase
             ]),
         ]);
 
-        $estimator = app(RouteEstimator::class);
         $from = new Coordinates(self::FROM_LAT, self::FROM_LNG);
         $to = new Coordinates(self::TO_LAT, self::TO_LNG);
 
-        $this->assertSame(TravelEstimate::SOURCE_OSRM, $estimator->estimate($from, $to)->source);
-        $this->assertSame(TravelEstimate::SOURCE_OSRM, $estimator->estimate($from, $to)->source);
+        $this->assertSame(TravelEstimate::SOURCE_OSRM, (new RouteEstimator)->estimate($from, $to)->source);
+        $this->assertSame(TravelEstimate::SOURCE_OSRM, (new RouteEstimator)->estimate($from, $to)->source);
 
         $this->travel(2)->hours();
 
-        $this->assertSame(TravelEstimate::SOURCE_GOOGLE, $estimator->estimate($from, $to)->source);
+        $this->assertSame(TravelEstimate::SOURCE_GOOGLE, (new RouteEstimator)->estimate($from, $to)->source);
+    }
+
+    #[Test]
+    public function repeated_pairs_in_the_same_request_hit_the_provider_once_without_cache(): void
+    {
+        // Cache persistente indisponível (ex.: logo após uma limpeza).
+        config(['cache.default' => 'null']);
+        Cache::forgetDriver();
+
+        Http::fake([
+            'http://google-routes.test/directions/v2:computeRoutes' => Http::response([
+                'routes' => [[
+                    'duration' => '600s',
+                    'distanceMeters' => 5000,
+                ]],
+            ]),
+        ]);
+
+        $from = new Coordinates(self::FROM_LAT, self::FROM_LNG);
+        $to = new Coordinates(self::TO_LAT, self::TO_LNG);
+
+        // Serviços diferentes da mesma requisição recebem a mesma instância.
+        $this->assertSame(app(RouteEstimator::class), app(RouteEstimator::class));
+
+        for ($i = 0; $i < 200; $i++) {
+            app(RouteEstimator::class)->estimate($from, $to);
+            app(RouteEstimator::class)->estimate($to, $from);
+        }
+
+        Http::assertSentCount(2);
     }
 }

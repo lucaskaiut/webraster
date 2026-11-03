@@ -21,6 +21,18 @@ use Throwable;
  */
 class RouteEstimator
 {
+    /** Limite de rotas guardadas em memória (comandos longos não crescem sem fim). */
+    private const MEMO_LIMIT = 1000;
+
+    /**
+     * Rotas já resolvidas nesta requisição/job. A sugestão de horários consulta
+     * os mesmos pares centenas de vezes; com isso cada par sai no máximo uma
+     * vez para o provedor, mesmo com o cache persistente vazio ou indisponível.
+     *
+     * @var array<string, TravelEstimate>
+     */
+    private array $memo = [];
+
     public function estimate(Coordinates $from, Coordinates $to): TravelEstimate
     {
         if (! config('scheduling.routing.enabled')) {
@@ -30,6 +42,24 @@ class RouteEstimator
         $provider = $this->provider();
         $key = $this->cacheKey($provider, $from, $to);
 
+        if (isset($this->memo[$key])) {
+            return $this->memo[$key];
+        }
+
+        return $this->remember($key, $this->resolve($provider, $key, $from, $to));
+    }
+
+    private function remember(string $key, TravelEstimate $estimate): TravelEstimate
+    {
+        if (count($this->memo) >= self::MEMO_LIMIT) {
+            $this->memo = [];
+        }
+
+        return $this->memo[$key] = $estimate;
+    }
+
+    private function resolve(string $provider, string $key, Coordinates $from, Coordinates $to): TravelEstimate
+    {
         /** @var array{minutes: int, distance_meters: int, source?: string, geometry?: list<array{0: float, 1: float}>}|null $cached */
         $cached = Cache::get($key);
 
