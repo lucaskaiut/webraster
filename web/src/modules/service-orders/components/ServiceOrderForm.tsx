@@ -279,6 +279,8 @@ export function ServiceOrderForm({
       scheduled_start_at: toFormDateTime(initial?.scheduled_start_at),
       scheduled_end_at: toFormDateTime(initial?.scheduled_end_at),
       address: initial?.address ?? '',
+      latitude: initial?.latitude ?? null,
+      longitude: initial?.longitude ?? null,
       estimated_duration_minutes: initial?.estimated_duration_minutes
         ? String(initial.estimated_duration_minutes)
         : '',
@@ -391,6 +393,7 @@ export function ServiceOrderForm({
       scheduled_start_at: fromFormDateTime(values.scheduled_start_at ?? ''),
       scheduled_end_at: fromFormDateTime(values.scheduled_end_at ?? ''),
       address: values.address?.trim() || null,
+      ...coordinatesPayload(values),
       estimated_duration_minutes: values.estimated_duration_minutes
         ? Number(values.estimated_duration_minutes)
         : null,
@@ -447,6 +450,8 @@ export function ServiceOrderForm({
                 onSelectOption={() => {
                   form.setValue('vehicle_id', '')
                   form.setValue('address', '')
+                  form.setValue('latitude', null)
+                  form.setValue('longitude', null)
                 }}
               />
               <SearchSelectField
@@ -803,4 +808,16 @@ export function ServiceOrderForm({
       </CardContent>
     </Card>
   )
+}
+
+/** Envia as coordenadas apenas quando acompanham um endereço escolhido nas sugestões. */
+function coordinatesPayload(
+  values: ServiceOrderFormValues,
+): Pick<ServiceOrderPayload, 'latitude' | 'longitude'> {
+  const latitude = values.latitude ?? null
+  const longitude = values.longitude ?? null
+
+  if (!values.address?.trim() || latitude === null || longitude === null) return {}
+
+  return { latitude, longitude }
 }

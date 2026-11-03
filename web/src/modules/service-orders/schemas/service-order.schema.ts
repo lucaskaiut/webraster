@@ -12,6 +12,9 @@ export const serviceOrderSchema = z
     scheduled_start_at: z.string().optional().or(z.literal('')),
     scheduled_end_at: z.string().optional().or(z.literal('')),
     address: z.string().max(500, 'Máximo de 500 caracteres').optional().or(z.literal('')),
+    // Coordenadas da sugestão de endereço escolhida (null para texto livre).
+    latitude: z.number().nullable().optional(),
+    longitude: z.number().nullable().optional(),
     estimated_duration_minutes: z
       .string()
       .regex(/^\d*$/, 'Informe um número inteiro de minutos')

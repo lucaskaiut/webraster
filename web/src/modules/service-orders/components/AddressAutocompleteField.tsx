@@ -17,8 +17,23 @@ function hasMinimumWords(value: string): boolean {
   return value.trim().split(/\s+/).filter(Boolean).length >= MIN_WORDS
 }
 
+/** Endereço confirmado: escolhido nas sugestões ou digitado e finalizado (blur). */
+export interface CommittedAddress {
+  address: string
+  latitude: number | null
+  longitude: number | null
+}
+
 interface AddressAutocompleteFieldProps {
   name: string
+  /** Campos do formulário que recebem as coordenadas da sugestão escolhida. */
+  latitudeName?: string
+  longitudeName?: string
+  /**
+   * Chamado quando o endereço é confirmado: ao escolher uma sugestão ou ao
+   * sair do campo. Não é chamado a cada tecla.
+   */
+  onCommit?: (value: CommittedAddress) => void
   label?: string
   hint?: string
   required?: boolean
@@ -33,8 +48,24 @@ interface AddressAutocompleteFieldProps {
  * buscadas depois de duas palavras e, ao escolher uma, o endereço completo
  * é gravado.
  */
-export function AddressAutocompleteField(props: AddressAutocompleteFieldProps) {
-  const { control } = useFormContext()
+export function AddressAutocompleteField({
+  latitudeName,
+  longitudeName,
+  onCommit,
+  ...props
+}: AddressAutocompleteFieldProps) {
+  const { control, getValues, setValue } = useFormContext()
+
+  const coordinate = (fieldName?: string): number | null => {
+    const value: unknown = fieldName ? getValues(fieldName) : null
+
+    return typeof value === 'number' && Number.isFinite(value) ? value : null
+  }
+
+  const setCoordinates = (latitude: number | null, longitude: number | null) => {
+    if (latitudeName) setValue(latitudeName, latitude, { shouldDirty: true })
+    if (longitudeName) setValue(longitudeName, longitude, { shouldDirty: true })
+  }
 
   return (
     <Controller
@@ -46,7 +77,23 @@ export function AddressAutocompleteField(props: AddressAutocompleteFieldProps) {
           id={props.name}
           value={(field.value as string) ?? ''}
           onChange={field.onChange}
-          onBlur={field.onBlur}
+          onType={() => setCoordinates(null, null)}
+          onSelectSuggestion={(suggestion) => {
+            setCoordinates(suggestion.latitude, suggestion.longitude)
+            onCommit?.({
+              address: suggestion.address.trim(),
+              latitude: suggestion.latitude,
+              longitude: suggestion.longitude,
+            })
+          }}
+          onBlur={() => {
+            field.onBlur()
+            onCommit?.({
+              address: String(getValues(props.name) ?? '').trim(),
+              latitude: coordinate(latitudeName),
+              longitude: coordinate(longitudeName),
+            })
+          }}
           inputRef={field.ref}
           error={fieldState.error?.message}
         />
@@ -59,6 +106,9 @@ interface AddressAutocompleteInputProps extends AddressAutocompleteFieldProps {
   id: string
   value: string
   onChange: (value: string) => void
+  /** Texto digitado manualmente: descarta as coordenadas da sugestão anterior. */
+  onType: () => void
+  onSelectSuggestion: (suggestion: AddressSuggestion) => void
   onBlur: () => void
   inputRef: Ref<HTMLInputElement>
   error?: string
@@ -68,6 +118,8 @@ function AddressAutocompleteInput({
   id,
   value,
   onChange,
+  onType,
+  onSelectSuggestion,
   onBlur,
   inputRef,
   error,
@@ -150,6 +202,7 @@ function AddressAutocompleteInput({
     selectedRef.current = suggestion.address
     setHasTyped(false)
     onChange(suggestion.address)
+    onSelectSuggestion(suggestion)
     setOpen(false)
     setSuggestions([])
     setFailed(false)
@@ -227,6 +280,7 @@ function AddressAutocompleteInput({
             setOpen(true)
             setHasTyped(true)
             onChange(event.target.value)
+            onType()
           }}
           onFocus={() => {
             if (!disabled) setOpen(true)

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useFormContext, useWatch } from 'react-hook-form'
 import {
   CalendarClock,
@@ -27,7 +27,7 @@ import type {
   ScheduleEstimatePayload,
 } from '../services/service-orders.service'
 import { ServiceOrderRouteMap } from './ServiceOrderRouteMap'
-import { AddressAutocompleteField } from './AddressAutocompleteField'
+import { AddressAutocompleteField, type CommittedAddress } from './AddressAutocompleteField'
 import { ServiceOrderAvailabilityBoard } from './ServiceOrderAvailabilityBoard'
 import { formatMinutes } from '../lib/duration'
 import {
@@ -132,6 +132,31 @@ export function ServiceOrderSchedulingPanel({
   const [actionError, setActionError] = useState<string | null>(null)
   const [detail, setDetail] = useState<ScheduleDetailEstimate | null>(null)
   const [routeDetailsOpen, setRouteDetailsOpen] = useState(false)
+  // Só o endereço confirmado (sugestão escolhida ou campo finalizado) dispara
+  // a busca de horários: cada endereço novo gera cálculos de rota pagos.
+  const [committedAddress, setCommittedAddress] = useState<CommittedAddress>(() => ({
+    address: form.getValues('address')?.trim() ?? '',
+    latitude: form.getValues('latitude') ?? null,
+    longitude: form.getValues('longitude') ?? null,
+  }))
+
+  const commitAddress = useCallback((next: CommittedAddress) => {
+    setCommittedAddress((current) =>
+      current.address === next.address &&
+      current.latitude === next.latitude &&
+      current.longitude === next.longitude
+        ? current
+        : next,
+    )
+  }, [])
+
+  const typedAddress = address?.trim() ?? ''
+  const addressPending = typedAddress !== committedAddress.address
+
+  // Campo limpo (pelo usuário ou ao trocar o cliente): volta ao endereço do cliente.
+  useEffect(() => {
+    if (typedAddress === '') commitAddress({ address: '', latitude: null, longitude: null })
+  }, [typedAddress, commitAddress])
 
   const applyingSelectionRef = useRef(false)
   const skipDetailStartRef = useRef<string | null>(null)
@@ -147,7 +172,9 @@ export function ServiceOrderSchedulingPanel({
   const requestRef = useRef<Omit<ScheduleEstimatePayload, 'date' | 'scheduled_start_at'>>({})
   requestRef.current = {
     client_id: clientId || null,
-    address: address?.trim() || null,
+    address: committedAddress.address || null,
+    latitude: committedAddress.address ? committedAddress.latitude : null,
+    longitude: committedAddress.address ? committedAddress.longitude : null,
     technician_id: technicianId || null,
     service_order_id: serviceOrderId ?? null,
     duration_minutes: estimatedDuration ? Number(estimatedDuration) : null,
@@ -162,7 +189,9 @@ export function ServiceOrderSchedulingPanel({
   const hasTechnician = Boolean(technicianId)
   const requestKey = JSON.stringify([
     clientId || null,
-    address?.trim() || null,
+    committedAddress.address || null,
+    committedAddress.latitude,
+    committedAddress.longitude,
     technicianId || null,
     estimatedDuration || null,
     itemsKey,
@@ -404,7 +433,14 @@ export function ServiceOrderSchedulingPanel({
           label="Endereço do atendimento"
           className="lg:col-span-2"
           placeholder="Digite ao menos 2 palavras do endereço"
-          hint="As sugestões aparecem a partir de 2 palavras. Selecione uma para gravar o endereço completo; em branco, usamos o endereço do cliente."
+          latitudeName="latitude"
+          longitudeName="longitude"
+          onCommit={commitAddress}
+          hint={
+            addressPending
+              ? 'Selecione uma sugestão (ou saia do campo) para atualizar os horários e o trajeto.'
+              : 'As sugestões aparecem a partir de 2 palavras. Selecione uma para gravar o endereço completo; em branco, usamos o endereço do cliente.'
+          }
         />
         <TextField
           name="estimated_duration_minutes"

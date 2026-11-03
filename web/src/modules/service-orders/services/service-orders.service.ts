@@ -37,6 +37,8 @@ export interface ServiceOrderPayload {
   scheduled_start_at?: string | null
   scheduled_end_at?: string | null
   address?: string | null
+  latitude?: number | null
+  longitude?: number | null
   estimated_duration_minutes?: number | null
   description?: string | null
   notes?: string | null
@@ -54,6 +56,9 @@ export interface ScheduleEstimatePayload {
   scheduled_start_at?: string | null
   client_id?: string | null
   address?: string | null
+  /** Coordenadas da sugestão escolhida; sem elas, a API geocodifica o texto. */
+  latitude?: number | null
+  longitude?: number | null
   technician_id?: string | null
   service_order_id?: string | null
   duration_minutes?: number | null
