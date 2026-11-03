@@ -38,6 +38,10 @@ class StoreServiceOrderRequest extends FormRequest
             'scheduled_start_at' => ['nullable', 'date'],
             'scheduled_end_at' => ['nullable', 'date', 'after:scheduled_start_at'],
             'address' => ['nullable', 'string', 'max:500'],
+            // Coordenadas da sugestão de endereço escolhida; evitam uma nova
+            // geocodificação e garantem o mesmo ponto usado nas estimativas.
+            'latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitude'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180', 'required_with:latitude'],
             'estimated_duration_minutes' => ['nullable', 'integer', 'min:1', 'max:1440'],
             'description' => ['nullable', 'string', 'max:5000'],
             'notes' => ['nullable', 'string', 'max:5000'],

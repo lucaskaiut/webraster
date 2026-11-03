@@ -675,6 +675,64 @@ class SchedulingTest extends TestCase
     /**
      * @return array{0: Tenant, 1: Client, 2: User, 3: Service}
      */
+    public function test_uses_selected_suggestion_coordinates_without_geocoding(): void
+    {
+        $this->fakeGeoServices();
+        [$tenant, $client, $technician, $service] = $this->schedulingScenario();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $address = 'Av. Sete de Setembro, 2775 - Rebouças, Curitiba - PR';
+
+        $this->postJson('/api/scheduling/estimate', [
+            'client_id' => $client->uuid,
+            'technician_id' => $technician->uuid,
+            'address' => $address,
+            'latitude' => -25.4400,
+            'longitude' => -49.2650,
+            'date' => self::TUESDAY,
+            'items' => [['service_id' => $service->uuid, 'quantity' => 1]],
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.address', $address)
+            ->assertJsonPath('data.latitude', -25.44)
+            ->assertJsonPath('data.longitude', -49.265);
+
+        $id = $this->postJson('/api/service-orders', [
+            'client_id' => $client->uuid,
+            'technician_id' => $technician->uuid,
+            'address' => $address,
+            'latitude' => -25.4400,
+            'longitude' => -49.2650,
+            'scheduled_start_at' => $this->localTime('10:00'),
+            'items' => [['service_id' => $service->uuid, 'quantity' => 1, 'unit_amount_cents' => 10000]],
+        ])
+            ->assertCreated()
+            ->json('data.id');
+
+        $order = ServiceOrder::query()->where('uuid', $id)->firstOrFail();
+
+        $this->assertEqualsWithDelta(-25.44, (float) $order->latitude, 1e-6);
+        $this->assertEqualsWithDelta(-49.265, (float) $order->longitude, 1e-6);
+
+        // Nenhuma geocodificação por texto: o ponto veio da sugestão.
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), '/search'));
+    }
+
+    public function test_rejects_partial_suggestion_coordinates(): void
+    {
+        [$tenant, $client] = $this->schedulingScenario();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->postJson('/api/scheduling/estimate', [
+            'client_id' => $client->uuid,
+            'address' => 'Rua Qualquer, 10',
+            'latitude' => -25.44,
+            'date' => self::TUESDAY,
+        ])->assertUnprocessable()->assertJsonValidationErrors('longitude');
+    }
+
     private function schedulingScenario(): array
     {
         [, $tenant] = $this->createOperationalChild();

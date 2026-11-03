@@ -5,6 +5,7 @@ namespace App\Modules\Scheduling\Http\Controllers;
 use App\Modules\Client\Models\Client;
 use App\Modules\Scheduling\Http\Requests\ScheduleEstimateRequest;
 use App\Modules\Scheduling\Services\SchedulingService;
+use App\Modules\Scheduling\Support\Coordinates;
 use App\Modules\Scheduling\Support\TimeGrid;
 use App\Modules\Scheduling\Support\TravelEstimate;
 use App\Modules\Shared\Http\Controllers\ApiController;
@@ -27,7 +28,8 @@ class ScheduleEstimateController extends ApiController
         $coordinates = null;
 
         if ($address !== '') {
-            $coordinates = $this->scheduling->geocode($address);
+            $coordinates = Coordinates::tryFrom($data['latitude'] ?? null, $data['longitude'] ?? null)
+                ?? $this->scheduling->geocode($address);
         } elseif (! empty($data['client_id'])) {
             $client = Client::query()->find($data['client_id']);
 

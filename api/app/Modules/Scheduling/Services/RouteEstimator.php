@@ -6,6 +6,7 @@ use App\Modules\Geofence\Support\GeoMath;
 use App\Modules\Scheduling\Support\Coordinates;
 use App\Modules\Scheduling\Support\TimeGrid;
 use App\Modules\Scheduling\Support\TravelEstimate;
+use DateTimeInterface;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -27,14 +28,7 @@ class RouteEstimator
         }
 
         $provider = $this->provider();
-        $key = sprintf(
-            'scheduling:route:v4:%s:%.5f,%.5f:%.5f,%.5f',
-            $provider,
-            $from->latitude,
-            $from->longitude,
-            $to->latitude,
-            $to->longitude,
-        );
+        $key = $this->cacheKey($provider, $from, $to);
 
         /** @var array{minutes: int, distance_meters: int, source?: string, geometry?: list<array{0: float, 1: float}>}|null $cached */
         $cached = Cache::get($key);
@@ -70,10 +64,38 @@ class RouteEstimator
                 'source' => $estimate->source,
                 'geometry' => $estimate->geometry,
             ],
-            now()->addHours((int) config('scheduling.routing.cache_hours', 24)),
+            $this->cacheExpiration($provider, $estimate),
         );
 
         return $estimate;
+    }
+
+    /**
+     * Coordenadas arredondadas (padrão: 4 casas ≈ 11 m) para que pequenas
+     * variações do mesmo endereço reaproveitem a rota já calculada.
+     */
+    private function cacheKey(string $provider, Coordinates $from, Coordinates $to): string
+    {
+        $precision = max(0, min(6, (int) config('scheduling.routing.cache_precision', 4)));
+        $format = '%.'.$precision.'F';
+
+        return sprintf(
+            'scheduling:route:v5:%s:%s,%s:%s,%s',
+            $provider,
+            sprintf($format, round($from->latitude, $precision)),
+            sprintf($format, round($from->longitude, $precision)),
+            sprintf($format, round($to->latitude, $precision)),
+            sprintf($format, round($to->longitude, $precision)),
+        );
+    }
+
+    private function cacheExpiration(string $provider, TravelEstimate $estimate): DateTimeInterface
+    {
+        if ($provider === 'google' && $estimate->source !== TravelEstimate::SOURCE_GOOGLE) {
+            return now()->addMinutes((int) config('scheduling.routing.fallback_cache_minutes', 60));
+        }
+
+        return now()->addHours((int) config('scheduling.routing.cache_hours', 720));
     }
 
     private function provider(): string

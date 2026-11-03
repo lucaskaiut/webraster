@@ -23,6 +23,10 @@ class ScheduleEstimateRequest extends FormRequest
         return [
             'client_id' => ['nullable', 'integer'],
             'address' => ['nullable', 'string', 'max:500'],
+            // Coordenadas da sugestão de endereço escolhida; evitam uma nova
+            // geocodificação e garantem o mesmo ponto usado nas estimativas.
+            'latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitude'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180', 'required_with:latitude'],
             'technician_id' => ['nullable', 'integer'],
             'service_order_id' => ['nullable', 'integer'],
             'date' => ['required', 'date_format:Y-m-d'],

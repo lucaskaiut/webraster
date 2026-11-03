@@ -79,7 +79,15 @@ return [
         'url' => env('OSRM_URL', 'https://router.project-osrm.org'),
         'profile' => env('OSRM_PROFILE', 'driving'),
         'timeout' => (int) env('OSRM_TIMEOUT', 8),
-        'cache_hours' => 24,
+        // Rotas sem trânsito (TRAFFIC_UNAWARE) só mudam com a malha viária,
+        // então podem ficar em cache por bastante tempo.
+        'cache_hours' => (int) env('ROUTING_CACHE_HOURS', 720),
+        // Casas decimais das coordenadas na chave do cache: 4 ≈ 11 m, o que
+        // faz pequenos ajustes de pin reaproveitarem a mesma rota.
+        'cache_precision' => (int) env('ROUTING_CACHE_PRECISION', 4),
+        // Quando o Google falha e o OSRM assume, o resultado (menos preciso)
+        // fica pouco tempo em cache para o Google ser tentado de novo logo.
+        'fallback_cache_minutes' => (int) env('ROUTING_FALLBACK_CACHE_MINUTES', 60),
         'fallback_speed_kmh' => (float) env('ROUTING_FALLBACK_SPEED_KMH', 35),
         'fallback_road_factor' => (float) env('ROUTING_FALLBACK_ROAD_FACTOR', 1.3),
     ],

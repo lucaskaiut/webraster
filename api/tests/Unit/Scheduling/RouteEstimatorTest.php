@@ -103,4 +103,87 @@ class RouteEstimatorTest extends TestCase
         $this->assertSame(15, $estimate->minutes);
         $this->assertSame(7000, $estimate->distanceMeters);
     }
+
+    #[Test]
+    public function nearby_coordinates_reuse_the_cached_google_route(): void
+    {
+        Http::fake([
+            'http://google-routes.test/directions/v2:computeRoutes' => Http::response([
+                'routes' => [[
+                    'duration' => '600s',
+                    'distanceMeters' => 5000,
+                ]],
+            ]),
+        ]);
+
+        $estimator = app(RouteEstimator::class);
+
+        $estimator->estimate(
+            new Coordinates(self::FROM_LAT, self::FROM_LNG),
+            new Coordinates(self::TO_LAT, self::TO_LNG),
+        );
+        // Poucos metros de diferença: arredonda para a mesma chave.
+        $estimator->estimate(
+            new Coordinates(self::FROM_LAT + 0.00002, self::FROM_LNG - 0.00002),
+            new Coordinates(self::TO_LAT - 0.00002, self::TO_LNG + 0.00002),
+        );
+
+        Http::assertSentCount(1);
+    }
+
+    #[Test]
+    public function google_route_stays_cached_for_weeks(): void
+    {
+        Http::fake([
+            'http://google-routes.test/directions/v2:computeRoutes' => Http::response([
+                'routes' => [[
+                    'duration' => '600s',
+                    'distanceMeters' => 5000,
+                ]],
+            ]),
+        ]);
+
+        $estimator = app(RouteEstimator::class);
+        $from = new Coordinates(self::FROM_LAT, self::FROM_LNG);
+        $to = new Coordinates(self::TO_LAT, self::TO_LNG);
+
+        $estimator->estimate($from, $to);
+        $this->travel(20)->days();
+        $estimator->estimate($from, $to);
+
+        Http::assertSentCount(1);
+    }
+
+    #[Test]
+    public function osrm_fallback_is_cached_only_briefly(): void
+    {
+        Http::fake([
+            'http://google-routes.test/directions/v2:computeRoutes' => Http::sequence()
+                ->push(['error' => ['message' => 'unavailable']], 503)
+                ->push([
+                    'routes' => [[
+                        'duration' => '600s',
+                        'distanceMeters' => 5000,
+                    ]],
+                ]),
+            'http://osrm.test/route/v1/driving/*' => Http::response([
+                'code' => 'Ok',
+                'routes' => [[
+                    'duration' => 900,
+                    'distance' => 7000,
+                ]],
+            ]),
+        ]);
+
+        $estimator = app(RouteEstimator::class);
+        $from = new Coordinates(self::FROM_LAT, self::FROM_LNG);
+        $to = new Coordinates(self::TO_LAT, self::TO_LNG);
+
+        $this->assertSame(TravelEstimate::SOURCE_OSRM, $estimator->estimate($from, $to)->source);
+        $this->assertSame(TravelEstimate::SOURCE_OSRM, $estimator->estimate($from, $to)->source);
+
+        $this->travel(2)->hours();
+
+        $this->assertSame(TravelEstimate::SOURCE_GOOGLE, $estimator->estimate($from, $to)->source);
+    }
 }

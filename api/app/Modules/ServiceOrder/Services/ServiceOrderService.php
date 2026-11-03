@@ -868,7 +868,10 @@ class ServiceOrderService
 
         if (array_key_exists('address', $payload) && $payload['address'] !== null) {
             if ($payload['address'] !== $existing?->address) {
-                $coordinates = $this->scheduling->geocode($payload['address']);
+                // Coordenadas da sugestão escolhida têm prioridade: são o mesmo
+                // ponto usado nas estimativas de horário e deslocamento.
+                $coordinates = Coordinates::tryFrom($data['latitude'] ?? null, $data['longitude'] ?? null)
+                    ?? $this->scheduling->geocode($payload['address']);
                 $locationChanged = true;
             }
         } elseif ($existing === null || $clientChanged || array_key_exists('address', $payload)) {
