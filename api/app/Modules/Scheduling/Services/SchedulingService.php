@@ -423,6 +423,90 @@ class SchedulingService
     }
 
     /**
+     * Assinatura da agenda do técnico por dia (data local => hash).
+     *
+     * Muda quando algo que afeta os horários sugeridos muda: OS do dia (horário,
+     * duração, status, local e deslocamentos persistidos), jornada ou base do
+     * técnico. Usa apenas o banco — sem geocodificação nem cálculo de rotas —
+     * para que o painel detecte mudanças com baixo custo e só recalcule os dias
+     * afetados.
+     *
+     * @return array<string, string>
+     */
+    public function agendaSignatures(
+        int $technicianId,
+        string $from,
+        string $to,
+        ?int $ignoreOrderId = null,
+    ): array {
+        $timezone = $this->timezone();
+        $first = CarbonImmutable::parse($from, $timezone)->startOfDay();
+        $last = CarbonImmutable::parse($to, $timezone)->startOfDay();
+        $technician = $this->technician($technicianId);
+        $base = $technician?->baseCoordinates();
+
+        $ordersByDay = ServiceOrder::query()
+            ->where('technician_id', $technicianId)
+            ->whereNotIn('status', [
+                ServiceOrderStatus::CANCELLED->value,
+                ServiceOrderStatus::COMPLETED->value,
+            ])
+            ->when($ignoreOrderId, fn ($query) => $query->where('id', '!=', $ignoreOrderId))
+            ->whereNotNull('scheduled_start_at')
+            ->whereBetween('scheduled_start_at', [$first->utc(), $last->endOfDay()->utc()])
+            ->orderBy('scheduled_start_at')
+            ->orderBy('id')
+            ->get([
+                'id',
+                'status',
+                'scheduled_start_at',
+                'scheduled_end_at',
+                'estimated_duration_minutes',
+                'estimated_travel_minutes',
+                'estimated_return_travel_minutes',
+                'latitude',
+                'longitude',
+            ])
+            ->groupBy(fn (ServiceOrder $order) => CarbonImmutable::parse($order->scheduled_start_at)
+                ->setTimezone($timezone)
+                ->format('Y-m-d'));
+
+        $signatures = [];
+
+        for ($day = $first; $day->lessThanOrEqualTo($last); $day = $day->addDay()) {
+            $date = $day->format('Y-m-d');
+
+            $orders = ($ordersByDay->get($date) ?? collect())
+                ->map(fn (ServiceOrder $order) => [
+                    $order->getKey(),
+                    $order->status instanceof \BackedEnum ? $order->status->value : $order->status,
+                    CarbonImmutable::parse($order->scheduled_start_at)->getTimestamp(),
+                    $order->scheduled_end_at ? CarbonImmutable::parse($order->scheduled_end_at)->getTimestamp() : null,
+                    $order->estimated_duration_minutes,
+                    $order->estimated_travel_minutes,
+                    $order->estimated_return_travel_minutes,
+                    $order->latitude !== null ? round((float) $order->latitude, 6) : null,
+                    $order->longitude !== null ? round((float) $order->longitude, 6) : null,
+                ])
+                ->values()
+                ->all();
+
+            $work = array_map(
+                fn (array $interval) => [$interval[0]->getTimestamp(), $interval[1]->getTimestamp()],
+                $this->workIntervals($technician, $date),
+            );
+
+            $signatures[$date] = sha1((string) json_encode([
+                $orders,
+                $work,
+                $base !== null ? [round($base->latitude, 6), round($base->longitude, 6)] : null,
+            ]));
+        }
+
+        return $signatures;
+    }
+
+    /**
      * Recalcula e persiste os trechos de deslocamento de todas as OS do dia:
      * cada OS recebe a origem da OS anterior (ou base) e o destino da próxima
      * OS (ou base).

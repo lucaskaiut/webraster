@@ -622,6 +622,56 @@ class SchedulingTest extends TestCase
         $this->getJson('/api/technician/service-orders?scope=history')->assertJsonCount(1, 'data');
     }
 
+    public function test_agenda_signature_changes_only_for_days_affected_by_orders(): void
+    {
+        Http::fake();
+        [$tenant, $client, $technician] = $this->schedulingScenario();
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $query = http_build_query([
+            'technician_id' => $technician->uuid,
+            'from' => self::TUESDAY,
+            'to' => '2026-10-21',
+        ]);
+
+        $before = $this->getJson("/api/scheduling/agenda-signature?{$query}")
+            ->assertOk()
+            ->assertJsonCount(2, 'data.days')
+            ->json('data.days');
+
+        $order = ServiceOrder::factory()->for($tenant)->create([
+            'client_id' => $client->getKey(),
+            'technician_id' => $technician->getKey(),
+            'scheduled_start_at' => $this->localTime('10:00'),
+            'scheduled_end_at' => $this->localTime('11:00'),
+        ]);
+
+        $after = $this->getJson("/api/scheduling/agenda-signature?{$query}")->assertOk()->json('data.days');
+
+        $this->assertNotSame($before[self::TUESDAY], $after[self::TUESDAY]);
+        $this->assertSame($before['2026-10-21'], $after['2026-10-21']);
+
+        // Ignorar a própria OS (edição) volta à assinatura sem ela.
+        $this->getJson("/api/scheduling/agenda-signature?{$query}&service_order_id={$order->uuid}")
+            ->assertOk()
+            ->assertJsonPath('data.days.'.self::TUESDAY, $before[self::TUESDAY]);
+
+        $order->update(['status' => ServiceOrderStatus::CANCELLED->value]);
+
+        $this->getJson("/api/scheduling/agenda-signature?{$query}")
+            ->assertOk()
+            ->assertJsonPath('data.days.'.self::TUESDAY, $before[self::TUESDAY]);
+
+        // Não consulta geocodificação nem rotas.
+        Http::assertNothingSent();
+
+        $this->getJson('/api/scheduling/agenda-signature?'.http_build_query([
+            'technician_id' => $technician->uuid,
+            'from' => self::TUESDAY,
+            'to' => '2027-06-01',
+        ]))->assertUnprocessable()->assertJsonValidationErrors('to');
+    }
+
     /**
      * @return array{0: Tenant, 1: Client, 2: User, 3: Service}
      */
