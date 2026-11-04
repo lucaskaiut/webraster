@@ -78,11 +78,6 @@ export interface ScheduleTravel {
   source: 'google' | 'osrm' | 'estimate'
 }
 
-export interface ScheduleRoundTrip {
-  minutes: number
-  distance_meters: number
-  source: 'google' | 'osrm' | 'estimate'
-}
 
 export interface ScheduleRoutePoint {
   latitude: number
@@ -98,9 +93,7 @@ export type ScheduleRouteGeometry = Array<[number, number]>
 export interface ScheduleRoute {
   origin: ScheduleRoutePoint | null
   destination: ScheduleRoutePoint | null
-  return_to: ScheduleRoutePoint | null
   outbound: ScheduleRouteGeometry
-  return: ScheduleRouteGeometry
 }
 
 export interface ScheduleEstimate {
@@ -110,14 +103,9 @@ export interface ScheduleEstimate {
   duration_minutes: number
   duration_source: 'manual' | 'services' | 'default'
   travel: ScheduleTravel | null
-  travel_return: ScheduleTravel | null
-  travel_round_trip: ScheduleRoundTrip | null
   travel_origin: string | null
   travel_origin_kind: 'base' | 'order'
   travel_origin_order_code: string | null
-  travel_return_address: string | null
-  travel_return_kind: 'base' | 'order'
-  travel_return_order_code: string | null
   route: ScheduleRoute | null
   date: string
   timezone: string

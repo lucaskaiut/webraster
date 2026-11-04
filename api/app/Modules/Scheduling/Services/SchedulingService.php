@@ -527,10 +527,11 @@ class SchedulingService
             $nextCoordinates = $next !== null ? $this->orderCoordinates($next) : null;
 
             $fromOrigin = $previousCoordinates ?? $base;
-            $toDestination = $nextCoordinates ?? $base;
 
             $fromTravel = $this->routeBetween($fromOrigin, $orderCoordinates);
-            $toTravel = $this->routeBetween($orderCoordinates, $toDestination);
+            // A volta só é calculada até a próxima OS: o retorno para a base
+            // (casa do técnico) não restringe a agenda e não é exibido.
+            $toTravel = $this->routeBetween($orderCoordinates, $nextCoordinates);
 
             $order->timestamps = false;
             $order->forceFill([
@@ -580,11 +581,8 @@ class SchedulingService
             : $start->addMinutes($order->estimated_duration_minutes ?: (int) config('scheduling.default_duration_minutes', 60));
 
         $fromMinutes = TimeGrid::minutes((int) $order->estimated_travel_minutes);
-        $toMinutes = TimeGrid::minutes(
-            $order->estimated_return_travel_minutes !== null
-                ? (int) $order->estimated_return_travel_minutes
-                : $fromMinutes,
-        );
+        // Sem próxima OS não há trecho de volta (o retorno à base não é calculado).
+        $toMinutes = TimeGrid::minutes((int) $order->estimated_return_travel_minutes);
 
         return [$start->subMinutes($fromMinutes), $end->addMinutes($toMinutes)];
     }
@@ -637,7 +635,9 @@ class SchedulingService
         $previousCoordinates = $previous !== null ? $this->orderCoordinates($previous) : null;
         $nextCoordinates = $next !== null ? $this->orderCoordinates($next) : null;
         $fromOrigin = $previousCoordinates ?? $base;
-        $toDestination = $nextCoordinates ?? $base;
+        // Só existe trecho de saída quando há uma próxima OS; o retorno para a
+        // base não restringe a jornada e não é calculado.
+        $toDestination = $nextCoordinates;
 
         return [
             'previous' => $previous,

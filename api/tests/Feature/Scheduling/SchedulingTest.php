@@ -116,16 +116,13 @@ class SchedulingTest extends TestCase
             ->assertJsonPath('data.duration_source', 'services')
             ->assertJsonPath('data.travel.minutes', 0)
             ->assertJsonPath('data.travel.source', 'estimate')
-            ->assertJsonPath('data.travel_return.minutes', 40)
-            ->assertJsonPath('data.travel_return.distance_meters', 17000)
-            ->assertJsonPath('data.travel_return.source', 'osrm')
-            ->assertJsonPath('data.travel_round_trip.minutes', 40)
-            ->assertJsonPath('data.travel_round_trip.distance_meters', 17000)
+            ->assertJsonMissingPath('data.travel_return')
+            ->assertJsonMissingPath('data.travel_round_trip')
             ->assertJsonPath('data.travel_origin_kind', 'order')
             ->assertJsonPath('data.route.origin.latitude', -25.4284)
             ->assertJsonPath('data.route.destination.latitude', -25.4284)
             ->assertJsonCount(1, 'data.route.outbound')
-            ->assertJsonCount(3, 'data.route.return');
+            ->assertJsonMissingPath('data.route.return');
 
         $slots = collect($response->json('data.slots'));
 
@@ -178,7 +175,8 @@ class SchedulingTest extends TestCase
         $this->assertSame($this->localTime('08:30'), $firstBlocked['blocked_by']['service_start']);
         $this->assertSame($this->localTime('09:00'), $firstBlocked['blocked_by']['service_end']);
         $this->assertSame($this->localTime('08:00'), $firstBlocked['blocked_by']['blocked_start']);
-        $this->assertSame($this->localTime('09:30'), $firstBlocked['blocked_by']['blocked_end']);
+        // Sem próxima OS não há trecho de volta: o bloqueio termina no fim do atendimento.
+        $this->assertSame($this->localTime('09:00'), $firstBlocked['blocked_by']['blocked_end']);
     }
 
     public function test_rounds_duration_and_travel_to_five_minute_grid(): void
@@ -198,8 +196,7 @@ class SchedulingTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.duration_minutes', 15)
             ->assertJsonPath('data.travel.minutes', 15)
-            ->assertJsonPath('data.travel_return.minutes', 20)
-            ->assertJsonPath('data.travel_round_trip.minutes', 35);
+            ->assertJsonMissingPath('data.travel_return');
 
         $slots = collect($response->json('data.slots'));
 
@@ -231,7 +228,7 @@ class SchedulingTest extends TestCase
             ->assertJsonPath('data.scheduled_end_at', $this->localTime('10:25'))
             ->assertJsonPath('data.estimated_duration_minutes', 15)
             ->assertJsonPath('data.estimated_travel_minutes', 30)
-            ->assertJsonPath('data.estimated_return_travel_minutes', 40);
+            ->assertJsonPath('data.estimated_return_travel_minutes', null);
     }
 
     public function test_chains_travel_from_previous_order_and_persists_legs(): void
@@ -240,8 +237,8 @@ class SchedulingTest extends TestCase
         $b = ['latitude' => -25.4500, 'longitude' => -49.3100];
 
         $this->fakeGeoServices(routeResolver: function (string $url) {
-            // A → B (30 min) e B → base (30 min) usam tempos diferentes da
-            // base → B (60 min), provando que a origem é o atendimento anterior.
+            // A → B (30 min) usa tempo diferente de base → B (60 min), provando
+            // que a origem é o atendimento anterior. B → base nunca é consultada.
             if (str_contains($url, '-49.273300,-25.428400;-49.310000,-25.450000')) {
                 return $this->routeResponse(1800, 20000, [
                     [-49.2733, -25.4284],
@@ -307,15 +304,13 @@ class SchedulingTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.travel.minutes', 30)
             ->assertJsonPath('data.travel_origin_kind', 'order')
-            ->assertJsonPath('data.travel_origin_order_code', $existing->code)
-            ->assertJsonPath('data.travel_return.minutes', 30)
-            ->assertJsonPath('data.travel_return_kind', 'base');
+            ->assertJsonPath('data.travel_origin_order_code', $existing->code);
 
         $available = collect($response->json('data.slots'))->where('available', true);
 
         $this->assertSame($this->localTime('10:30'), $available->first()['start']);
 
-        // Ao pré-visualizar um horário antes da OS existente, a volta é para ela.
+        // Antes da OS existente, a origem é a base.
         $this->postJson('/api/scheduling/estimate', [
             'client_id' => $clientB->uuid,
             'technician_id' => $technician->uuid,
@@ -324,9 +319,7 @@ class SchedulingTest extends TestCase
             'items' => [['service_id' => $service->uuid, 'quantity' => 1]],
         ])
             ->assertOk()
-            ->assertJsonPath('data.travel_origin_kind', 'base')
-            ->assertJsonPath('data.travel_return_kind', 'order')
-            ->assertJsonPath('data.travel_return_order_code', $existing->code);
+            ->assertJsonPath('data.travel_origin_kind', 'base');
 
         $created = $this->postJson('/api/service-orders', [
             'client_id' => $clientB->uuid,
@@ -344,8 +337,13 @@ class SchedulingTest extends TestCase
         $this->assertSame($new->getKey(), $existing->travel_to_order_id);
         $this->assertNull($new->travel_to_order_id);
         $this->assertSame(30, $new->estimated_travel_minutes);
-        $this->assertSame(30, $new->estimated_return_travel_minutes);
+        // Última OS do dia: o retorno à base não é calculado.
+        $this->assertNull($new->estimated_return_travel_minutes);
+        $this->assertNull($new->return_travel_distance_meters);
+        // A volta da OS anterior vai até a nova OS.
         $this->assertSame(30, $existing->estimated_return_travel_minutes);
+
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), '-49.310000,-25.450000;-49.300000,-25.400000'));
     }
 
     public function test_technician_dashboard_counts_categories_and_ignores_other_days(): void
@@ -444,12 +442,13 @@ class SchedulingTest extends TestCase
         $response = $this->getJson('/api/technician/service-orders/day?date='.self::TUESDAY)
             ->assertOk()
             ->assertJsonCount(2, 'data.stops')
-            ->assertJsonCount(3, 'data.legs')
-            ->assertJsonPath('data.total_minutes', 90)
+            // Base → A → B, sem retorno à base.
+            ->assertJsonCount(2, 'data.legs')
+            ->assertJsonPath('data.total_minutes', 60)
             ->assertJsonPath('data.stops.0.address', 'Endereço A')
             ->assertJsonPath('data.stops.1.address', 'Endereço B');
 
-        // O trecho do meio liga a OS A à OS B.
+        // O segundo trecho liga a OS A à OS B.
         $middleLeg = $response->json('data.legs.1');
         $this->assertSame('Endereço A', $middleLeg['from']['address']);
         $this->assertSame('Endereço B', $middleLeg['to']['address']);
@@ -475,9 +474,12 @@ class SchedulingTest extends TestCase
             ->assertJsonPath('data.estimated_duration_minutes', 90)
             ->assertJsonPath('data.estimated_travel_minutes', 30)
             ->assertJsonPath('data.travel_distance_meters', 15000)
-            ->assertJsonPath('data.estimated_return_travel_minutes', 40)
-            ->assertJsonPath('data.return_travel_distance_meters', 17000)
+            ->assertJsonPath('data.estimated_return_travel_minutes', null)
+            ->assertJsonPath('data.return_travel_distance_meters', null)
             ->assertJsonPath('data.scheduled_end_at', $this->localTime('11:30'));
+
+        // O retorno atendimento → base nunca é consultado.
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), '-49.273300,-25.428400;-49.300000,-25.400000'));
 
         $this->postJson('/api/service-orders', [
             'client_id' => $client->uuid,

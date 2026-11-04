@@ -238,6 +238,7 @@ class TechnicianServiceOrderController extends ApiController
             'estimated_duration_minutes' => $order->estimated_duration_minutes,
         ])->values();
 
+        // Base → OS1 → OS2 → … → última OS. O retorno à base não é calculado.
         $legs = [];
         $previous = $base;
         $totalMinutes = 0;
@@ -265,25 +266,6 @@ class TechnicianServiceOrderController extends ApiController
                 }
 
                 $previous = $current;
-            }
-        }
-
-        if ($previous !== null && $base !== null) {
-            $from = Coordinates::tryFrom($previous['latitude'], $previous['longitude']);
-            $to = Coordinates::tryFrom($base['latitude'], $base['longitude']);
-            $route = $this->scheduling->routeBetween($from, $to);
-
-            if ($route !== null) {
-                $legs[] = [
-                    'from' => $previous,
-                    'to' => $base,
-                    'minutes' => $route->minutes,
-                    'distance_meters' => $route->distanceMeters,
-                    'source' => $route->source,
-                    'geometry' => $route->geometry,
-                ];
-                $totalMinutes += $route->minutes;
-                $totalDistance += $route->distanceMeters;
             }
         }
 

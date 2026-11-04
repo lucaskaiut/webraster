@@ -32,20 +32,6 @@ function RouteOverlay({ route }: { route: ScheduleRoute }) {
       )
     }
 
-    if (route.return.length > 1) {
-      lines.push(
-        new google.maps.Polyline({
-          path: route.return.map(toLatLng),
-          geodesic: true,
-          strokeColor: '#94a3b8',
-          strokeOpacity: 0.75,
-          strokeWeight: 9,
-          zIndex: 1,
-          map,
-        }),
-      )
-    }
-
     return () => lines.forEach((line) => line.setMap(null))
   }, [map, route])
 
@@ -57,11 +43,7 @@ function RouteOverlay({ route }: { route: ScheduleRoute }) {
       ...(route.destination
         ? [toLatLng([route.destination.latitude, route.destination.longitude])]
         : []),
-      ...(route.return_to
-        ? [toLatLng([route.return_to.latitude, route.return_to.longitude])]
-        : []),
       ...route.outbound.map(toLatLng),
-      ...route.return.map(toLatLng),
     ]
 
     if (points.length === 0) return
@@ -97,15 +79,6 @@ function RouteOverlay({ route }: { route: ScheduleRoute }) {
           </div>
         </AdvancedMarker>
       )}
-      {route.return_to && (
-        <AdvancedMarker
-          position={toLatLng([route.return_to.latitude, route.return_to.longitude])}
-          zIndex={4}>
-          <div className="rounded-full bg-slate-500 px-2 py-0.5 text-[11px] font-semibold text-white">
-            {route.return_to.kind === 'order' ? 'Próxima OS' : 'Base'}
-          </div>
-        </AdvancedMarker>
-      )}
     </>
   )
 }
@@ -125,12 +98,8 @@ export function ServiceOrderRouteMap({ route }: { route: ScheduleRoute }) {
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-4 text-xs text-muted">
         <span className="flex items-center gap-1.5">
-          <span className="h-0.5 w-5 rounded-full bg-blue-600" /> Ida
+          <span className="h-0.5 w-5 rounded-full bg-blue-600" /> Deslocamento até o atendimento
         </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-0.5 w-5 rounded-full bg-slate-400" /> Volta
-        </span>
-        <span>A volta segue até a próxima OS ou para a base.</span>
       </div>
       <div className="h-[332px] overflow-hidden rounded-xl">
         <APIProvider apiKey={apiKey}>

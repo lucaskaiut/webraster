@@ -61,13 +61,9 @@ function normalizedLocalStart(value: string | undefined): string | null {
 }
 
 function travelSourceLabel(estimate: ScheduleEstimate): string {
-  const outbound = estimate.travel?.source
-  const returnTrip = estimate.travel_return?.source
-  const isCalculated = (source: string | undefined) => source === 'google' || source === 'osrm'
+  const source = estimate.travel?.source
 
-  return isCalculated(outbound) && isCalculated(returnTrip)
-    ? 'rotas calculadas'
-    : 'estimativa em linha reta'
+  return source === 'google' || source === 'osrm' ? 'rota calculada' : 'estimativa em linha reta'
 }
 
 function originLabel(estimate: ScheduleEstimate): string {
@@ -78,16 +74,6 @@ function originLabel(estimate: ScheduleEstimate): string {
   }
 
   return 'Da base do técnico'
-}
-
-function returnLabel(estimate: ScheduleEstimate): string {
-  if (estimate.travel_return_kind === 'order') {
-    return estimate.travel_return_order_code
-      ? `para a ${estimate.travel_return_order_code}`
-      : 'para a próxima OS'
-  }
-
-  return 'para a base'
 }
 
 interface ServiceOrderSchedulingPanelProps {
@@ -420,8 +406,6 @@ export function ServiceOrderSchedulingPanel({
   }
 
   const travel = summaryEstimate?.travel
-  const returnTravel = summaryEstimate?.travel_return
-  const roundTrip = summaryEstimate?.travel_round_trip
   const routePreviewStart = detailForSelection ? selectedStart : null
   const selectedTimezone = selectedEstimate?.timezone
 
@@ -515,7 +499,7 @@ export function ServiceOrderSchedulingPanel({
 
             <p className="mb-3 text-xs text-muted">
               Os dias mostram a primeira opção da manhã e da tarde. Horários ocupados ou fora da
-              jornada não aparecem; o cálculo considera o deslocamento de ida e volta.
+              jornada não aparecem; o cálculo considera o deslocamento entre os atendimentos.
             </p>
 
             <ServiceOrderAvailabilityBoard
@@ -608,21 +592,14 @@ export function ServiceOrderSchedulingPanel({
 
             <div className="min-w-0">
               <dt className="flex items-center gap-1.5 text-xs text-muted">
-                <Car className="size-3.5" aria-hidden="true" /> Deslocamento (ida e volta)
+                <Car className="size-3.5" aria-hidden="true" /> Deslocamento
               </dt>
               {travel ? (
                 <>
                   <dd className="mt-1 font-semibold text-foreground">
-                    {formatMinutes(roundTrip?.minutes ?? travel.minutes * 2)} ·{' '}
-                    {formatKilometers(
-                      roundTrip?.distance_meters ?? travel.distance_meters * 2,
-                    )}
+                    {formatMinutes(travel.minutes)} · {formatKilometers(travel.distance_meters)}
                   </dd>
-                  <dd className="text-xs text-muted">
-                    Ida {formatMinutes(travel.minutes)} · Volta{' '}
-                    {formatMinutes(returnTravel?.minutes ?? travel.minutes)} ·{' '}
-                    {travelSourceLabel(summaryEstimate)}
-                  </dd>
+                  <dd className="text-xs text-muted">{travelSourceLabel(summaryEstimate)}</dd>
                 </>
               ) : (
                 <dd className="mt-1 text-sm text-muted">Não considerado</dd>
@@ -638,9 +615,6 @@ export function ServiceOrderSchedulingPanel({
                   <dd className="mt-1 text-sm text-foreground">
                     {originLabel(summaryEstimate)}{' '}
                     <span className="text-muted">→ atendimento</span>
-                  </dd>
-                  <dd className="truncate text-xs text-muted">
-                    Retorno {returnLabel(summaryEstimate)}
                   </dd>
                 </>
               ) : (
@@ -679,7 +653,7 @@ export function ServiceOrderSchedulingPanel({
             </summary>
 
             <div className="space-y-4 px-4 pb-4">
-              <dl className="grid gap-2 text-sm sm:grid-cols-3">
+              <dl className="grid gap-2 text-sm sm:grid-cols-2">
                 <div className="min-w-0">
                   <dt className="text-xs text-muted">{originLabel(summaryEstimate)}</dt>
                   <dd className="break-words text-foreground">
@@ -690,12 +664,6 @@ export function ServiceOrderSchedulingPanel({
                   <dt className="text-xs text-muted">Atendimento</dt>
                   <dd className="break-words text-foreground">
                     {summaryEstimate.address ?? '—'}
-                  </dd>
-                </div>
-                <div className="min-w-0">
-                  <dt className="text-xs text-muted">Retorno {returnLabel(summaryEstimate)}</dt>
-                  <dd className="break-words text-foreground">
-                    {summaryEstimate.travel_return_address ?? '—'}
                   </dd>
                 </div>
               </dl>

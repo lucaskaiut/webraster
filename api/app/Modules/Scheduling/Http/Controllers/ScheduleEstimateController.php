@@ -7,7 +7,6 @@ use App\Modules\Scheduling\Http\Requests\ScheduleEstimateRequest;
 use App\Modules\Scheduling\Services\SchedulingService;
 use App\Modules\Scheduling\Support\Coordinates;
 use App\Modules\Scheduling\Support\TimeGrid;
-use App\Modules\Scheduling\Support\TravelEstimate;
 use App\Modules\Shared\Http\Controllers\ApiController;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -91,15 +90,12 @@ class ScheduleEstimateController extends ApiController
             )
             : null;
 
+        // Só o trecho de chegada ao atendimento é exibido; o retorno não.
         $travel = $preview['from_travel'] ?? null;
-        $returnTravel = $preview['to_travel'] ?? null;
         $baseAddress = $technician?->baseAddress() ?: null;
         $originOrder = $preview['from_order'] ?? null;
-        $returnOrder = $preview['to_order'] ?? null;
         $originCoordinates = $preview['from_origin'] ?? null;
-        $returnCoordinates = $preview['to_destination'] ?? null;
         $originAddress = $originOrder?->address ?: $baseAddress;
-        $returnAddress = $returnOrder?->address ?: $baseAddress;
 
         return $this->success([
             'address' => $address !== '' ? $address : null,
@@ -108,21 +104,10 @@ class ScheduleEstimateController extends ApiController
             'duration_minutes' => $duration,
             'duration_source' => $durationSource,
             'travel' => $travel?->toArray(),
-            'travel_return' => $returnTravel?->toArray(),
-            'travel_round_trip' => $travel && $returnTravel ? [
-                'minutes' => $travel->minutes + $returnTravel->minutes,
-                'distance_meters' => $travel->distanceMeters + $returnTravel->distanceMeters,
-                'source' => $travel->source === $returnTravel->source
-                    ? $travel->source
-                    : TravelEstimate::SOURCE_ESTIMATE,
-            ] : null,
             'travel_origin' => $originAddress,
             'travel_origin_kind' => $originOrder !== null ? 'order' : 'base',
             'travel_origin_order_code' => $originOrder?->code,
-            'travel_return_address' => $returnAddress,
-            'travel_return_kind' => $returnOrder !== null ? 'order' : 'base',
-            'travel_return_order_code' => $returnOrder?->code,
-            'route' => $travel || $returnTravel ? [
+            'route' => $travel ? [
                 'origin' => $originCoordinates ? [
                     'latitude' => $originCoordinates->latitude,
                     'longitude' => $originCoordinates->longitude,
@@ -137,15 +122,7 @@ class ScheduleEstimateController extends ApiController
                     'kind' => 'destination',
                     'order_code' => null,
                 ] : null,
-                'return_to' => $returnCoordinates ? [
-                    'latitude' => $returnCoordinates->latitude,
-                    'longitude' => $returnCoordinates->longitude,
-                    'address' => $returnAddress,
-                    'kind' => $returnOrder !== null ? 'order' : 'base',
-                    'order_code' => $returnOrder?->code,
-                ] : null,
-                'outbound' => $travel?->geometry ?? [],
-                'return' => $returnTravel?->geometry ?? [],
+                'outbound' => $travel->geometry,
             ] : null,
             'date' => $data['date'],
             'timezone' => $this->scheduling->timezone(),

@@ -250,21 +250,14 @@ export default function ServiceOrderDetailPage() {
               }
             />
             <Row
-              label="Deslocamento total"
+              label="Deslocamento"
               value={
                 order.estimated_travel_minutes !== null && order.estimated_travel_minutes !== undefined
-                  ? `${formatMinutes(
-                      order.estimated_travel_minutes +
-                        (order.estimated_return_travel_minutes ??
-                          order.estimated_travel_minutes),
-                    )}${
+                  ? `${formatMinutes(order.estimated_travel_minutes)}${
                       order.travel_distance_meters
-                        ? ` · ${(
-                            (order.travel_distance_meters +
-                              (order.return_travel_distance_meters ??
-                                order.travel_distance_meters)) /
-                            1000
-                          ).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} km`
+                        ? ` · ${(order.travel_distance_meters / 1000).toLocaleString('pt-BR', {
+                            maximumFractionDigits: 1,
+                          })} km`
                         : ''
                     }`
                   : '—'
