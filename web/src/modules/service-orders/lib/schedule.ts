@@ -33,7 +33,7 @@ export type SchedulePeriod = 'morning' | 'afternoon'
 export const AFTERNOON_START_MINUTES = 13 * 60
 
 /** Tamanho do lote inicial e dos lotes seguintes, em dias de calendário. */
-export const CALENDAR_DAY_BATCH_SIZE = 10
+export const CALENDAR_DAY_BATCH_SIZE = 5
 
 /**
  * Janela máxima consultada a partir da data de referência. Não existe um limite

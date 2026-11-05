@@ -142,16 +142,17 @@ test('mantém somente dias disponíveis ao montar a lista, em ordem cronológica
   )
 })
 
-test('divide a busca em lotes de 10 dias de calendário sem sobreposição', () => {
+test('divide a busca em lotes de 5 dias de calendário sem sobreposição', () => {
   const firstBatch = calendarDatesFrom('2026-10-25', CALENDAR_DAY_BATCH_SIZE)
-  const secondBatch = calendarDatesFrom(addDaysToIsoDate(firstBatch[9], 1), CALENDAR_DAY_BATCH_SIZE)
+  const secondBatch = calendarDatesFrom(addDaysToIsoDate(firstBatch[4], 1), CALENDAR_DAY_BATCH_SIZE)
 
-  assert.equal(firstBatch.length, 10)
-  assert.equal(secondBatch.length, 10)
+  assert.equal(CALENDAR_DAY_BATCH_SIZE, 5)
+  assert.equal(firstBatch.length, 5)
+  assert.equal(secondBatch.length, 5)
   assert.equal(firstBatch[0], '2026-10-25')
-  assert.equal(firstBatch[9], '2026-11-03')
-  assert.equal(secondBatch[0], '2026-11-04')
-  assert.equal(new Set([...firstBatch, ...secondBatch]).size, 20)
+  assert.equal(firstBatch[4], '2026-10-29')
+  assert.equal(secondBatch[0], '2026-10-30')
+  assert.equal(new Set([...firstBatch, ...secondBatch]).size, 10)
   assert.ok(!firstBatch.some((date) => secondBatch.includes(date)))
 })
 

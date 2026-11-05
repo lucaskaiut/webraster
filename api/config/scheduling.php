@@ -22,6 +22,11 @@ return [
 
     'reminder_minutes' => (int) env('SCHEDULING_REMINDER_MINUTES', 30),
 
+    // Folga mínima, além da duração do serviço, que o intervalo livre entre
+    // OS precisa ter para que o horário seja avaliado. Intervalos menores são
+    // descartados sem calcular rotas (o deslocamento não caberia).
+    'min_travel_gap_minutes' => (int) env('SCHEDULING_MIN_TRAVEL_GAP_MINUTES', 10),
+
     /*
     |--------------------------------------------------------------------------
     | Google Maps Platform

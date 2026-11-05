@@ -287,20 +287,27 @@ class SchedulingService
                     continue;
                 }
 
-                $context = $this->contextForInterval($orders, $base, $destination, $candidate, $end);
+                // Vizinhos e conflitos saem só do banco; as rotas (chamadas
+                // externas) são calculadas apenas quando o horário pode caber.
+                $neighbors = $this->neighborsForInterval($orders, $candidate, $end);
                 $available = true;
                 $reason = null;
                 $blockedOrder = null;
 
-                if ($context['overlap'] !== null) {
+                if ($neighbors['overlap'] !== null) {
                     $available = false;
-                    $blockedOrder = $context['overlap'];
+                    $blockedOrder = $neighbors['overlap'];
                     $reason = sprintf(
                         'Conflito com %s (%s)',
                         $blockedOrder->code,
                         $blockedOrder->client?->name ?? 'OS',
                     );
+                } elseif (! $this->gapFits($neighbors['previous'], $neighbors['next'], $workStart, $workEnd, $durationMinutes)) {
+                    $available = false;
+                    $blockedOrder = $neighbors['previous'] ?? $neighbors['next'];
+                    $reason = $this->insufficientGapReason($neighbors['previous'], $neighbors['next']);
                 } else {
+                    $context = $this->travelContext($neighbors, $base, $destination);
                     $fromMinutes = $context['from_travel']?->minutes ?? 0;
                     $toMinutes = $context['to_travel']?->minutes ?? 0;
 
@@ -608,6 +615,19 @@ class SchedulingService
         CarbonImmutable $start,
         CarbonImmutable $end,
     ): array {
+        $neighbors = $this->neighborsForInterval($orders, $start, $end);
+
+        return $this->travelContext($neighbors, $base, $destination);
+    }
+
+    /**
+     * OS anterior, próxima e conflitante de um intervalo, sem calcular rotas.
+     *
+     * @param  Collection<int, ServiceOrder>  $orders
+     * @return array{previous: ?ServiceOrder, next: ?ServiceOrder, overlap: ?ServiceOrder}
+     */
+    private function neighborsForInterval(Collection $orders, CarbonImmutable $start, CarbonImmutable $end): array
+    {
         $previous = null;
         $next = null;
         $overlap = null;
@@ -632,6 +652,18 @@ class SchedulingService
             }
         }
 
+        return ['previous' => $previous, 'next' => $next, 'overlap' => $overlap];
+    }
+
+    /**
+     * Deslocamentos de chegada (da OS anterior ou base) e saída (até a próxima OS).
+     *
+     * @param  array{previous: ?ServiceOrder, next: ?ServiceOrder, overlap: ?ServiceOrder}  $neighbors
+     */
+    private function travelContext(array $neighbors, ?Coordinates $base, ?Coordinates $destination): array
+    {
+        ['previous' => $previous, 'next' => $next, 'overlap' => $overlap] = $neighbors;
+
         $previousCoordinates = $previous !== null ? $this->orderCoordinates($previous) : null;
         $nextCoordinates = $next !== null ? $this->orderCoordinates($next) : null;
         $fromOrigin = $previousCoordinates ?? $base;
@@ -650,6 +682,45 @@ class SchedulingService
             'from_travel' => $this->routeBetween($fromOrigin, $destination),
             'to_travel' => $this->routeBetween($destination, $toDestination),
         ];
+    }
+
+    /**
+     * O intervalo livre em torno do horário (do fim da OS anterior, ou início
+     * da jornada, até o início da próxima OS, ou fim da jornada) comporta o
+     * serviço mais a folga mínima de deslocamento? Sem OS vizinha não há
+     * deslocamento entre atendimentos e basta caber o serviço.
+     */
+    private function gapFits(
+        ?ServiceOrder $previous,
+        ?ServiceOrder $next,
+        CarbonImmutable $workStart,
+        CarbonImmutable $workEnd,
+        int $durationMinutes,
+    ): bool {
+        if ($previous === null && $next === null) {
+            return true;
+        }
+
+        $gapStart = $previous !== null ? $this->orderInterval($previous)[1] : $workStart;
+        $gapEnd = $next !== null ? $this->orderInterval($next)[0] : $workEnd;
+        $required = $durationMinutes + max(0, (int) config('scheduling.min_travel_gap_minutes', 10));
+
+        return $gapStart->diffInMinutes($gapEnd, false) >= $required;
+    }
+
+    private function insufficientGapReason(?ServiceOrder $previous, ?ServiceOrder $next): string
+    {
+        $describe = fn (ServiceOrder $order) => sprintf('%s (%s)', $order->code, $order->client?->name ?? 'OS');
+
+        return match (true) {
+            $previous !== null && $next !== null => sprintf(
+                'Intervalo insuficiente entre %s e %s',
+                $describe($previous),
+                $describe($next),
+            ),
+            $previous !== null => sprintf('Intervalo insuficiente após %s', $describe($previous)),
+            default => sprintf('Intervalo insuficiente antes de %s', $describe($next)),
+        };
     }
 
     /**

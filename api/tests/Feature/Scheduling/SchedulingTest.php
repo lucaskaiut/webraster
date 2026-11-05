@@ -735,6 +735,69 @@ class SchedulingTest extends TestCase
         ])->assertUnprocessable()->assertJsonValidationErrors('longitude');
     }
 
+    public function test_skips_route_calculation_when_gap_between_orders_cannot_fit_service(): void
+    {
+        $this->fakeGeoServices();
+
+        [$tenant, $client, $technician] = $this->schedulingScenario();
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $previous = ServiceOrder::factory()->for($tenant)->create([
+            'client_id' => $client->getKey(),
+            'technician_id' => $technician->getKey(),
+            'scheduled_start_at' => $this->localTime('09:00'),
+            'scheduled_end_at' => $this->localTime('10:00'),
+            'latitude' => -25.45,
+            'longitude' => -49.31,
+        ]);
+
+        $next = ServiceOrder::factory()->for($tenant)->create([
+            'client_id' => $client->getKey(),
+            'technician_id' => $technician->getKey(),
+            // 55 min livres: não cabem 50 min de serviço + 10 min de folga.
+            'scheduled_start_at' => $this->localTime('10:55'),
+            'scheduled_end_at' => $this->localTime('11:30'),
+            'latitude' => -25.48,
+            'longitude' => -49.33,
+        ]);
+
+        $payload = [
+            'client_id' => $client->uuid,
+            'technician_id' => $technician->uuid,
+            'date' => self::TUESDAY,
+            'address' => 'Rua Destino, 1',
+            'latitude' => -25.47,
+            'longitude' => -49.25,
+            'duration_minutes' => 50,
+        ];
+
+        $slots = collect($this->postJson('/api/scheduling/estimate', $payload)->assertOk()->json('data.slots'));
+        $inGap = $slots->firstWhere('start', $this->localTime('10:00'));
+
+        $this->assertFalse($inGap['available']);
+        $this->assertSame(
+            sprintf('Intervalo insuficiente entre %s (%s) e %s (%s)', $previous->code, $client->name, $next->code, $client->name),
+            $inGap['reason'],
+        );
+
+        $previousToDestination = '-49.310000,-25.450000;-49.250000,-25.470000';
+        $destinationToNext = '-49.250000,-25.470000;-49.330000,-25.480000';
+
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), $previousToDestination));
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), $destinationToNext));
+
+        // Com 60 min livres o intervalo passa a ser avaliado com rotas.
+        $next->update([
+            'scheduled_start_at' => $this->localTime('11:00'),
+            'scheduled_end_at' => $this->localTime('11:30'),
+        ]);
+
+        $this->postJson('/api/scheduling/estimate', $payload)->assertOk();
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), $previousToDestination));
+        Http::assertSent(fn ($request) => str_contains($request->url(), $destinationToNext));
+    }
+
     private function schedulingScenario(): array
     {
         [, $tenant] = $this->createOperationalChild();

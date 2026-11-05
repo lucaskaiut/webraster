@@ -135,7 +135,7 @@ function resolveWindow(options: ScheduleAvailabilityOptions): SearchWindow {
 /**
  * Orquestra o carregamento progressivo da disponibilidade.
  *
- * A API de estimativa trabalha por dia; cada lote consulta 10 dias de calendário
+ * A API de estimativa trabalha por dia; cada lote consulta 5 dias de calendário
  * com concorrência limitada, descarta dias sem horário e continua automaticamente
  * para o próximo lote quando o lote inteiro está indisponível. Os cálculos de
  * grade, deslocamento e conflitos permanecem exclusivamente na API.
