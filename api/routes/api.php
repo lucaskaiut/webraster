@@ -39,6 +39,7 @@ use App\Modules\Dashboard\Http\Controllers\MonitoringDashboardController;
 use App\Modules\DeviceCommand\Http\Controllers\DeviceCommandController;
 use App\Modules\Driver\Http\Controllers\DriverController;
 use App\Modules\Equipment\Http\Controllers\EquipmentController;
+use App\Modules\ExternalApi\Http\Controllers\ExternalApiController;
 use App\Modules\Finance\Http\Controllers\FinanceBillingController;
 use App\Modules\Finance\Http\Controllers\FinanceClientOverviewController;
 use App\Modules\Finance\Http\Controllers\FinanceDashboardController;
@@ -427,6 +428,14 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::get('webhooks/{webhook}/logs', [WebhookController::class, 'logs'])->middleware('permission:webhook.read');
 
     Route::get('audit', [AuditLogController::class, 'index'])->middleware('permission:audit.view');
+
+    // Consumo de APIs externas (Google, ...): dado de plataforma, só no umbrella.
+    Route::middleware(['tenant.umbrella', 'permission:external-api.view'])->prefix('external-apis')->group(function (): void {
+        Route::get('services', [ExternalApiController::class, 'services']);
+        Route::get('metrics', [ExternalApiController::class, 'metrics']);
+        Route::get('requests', [ExternalApiController::class, 'index']);
+        Route::get('requests/{externalApiRequest}', [ExternalApiController::class, 'show']);
+    });
 
     Route::post('uploads', FileUploadController::class);
 

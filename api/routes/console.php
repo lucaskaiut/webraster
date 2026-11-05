@@ -5,6 +5,7 @@ use App\Modules\Billing\Console\Commands\CheckInvoiceStatusCommand;
 use App\Modules\Billing\Console\Commands\GenerateInvoicesCommand;
 use App\Modules\Billing\Console\Commands\SuspendExpiredSubscriptionsCommand;
 use App\Modules\ContractEvidence\Console\Commands\ReconcileContractEvidenceCommand;
+use App\Modules\ExternalApi\Models\ExternalApiRequest;
 use App\Modules\Finance\Console\Commands\GenerateBillingsCommand;
 use App\Modules\Finance\Console\Commands\MarkOverdueBillingsCommand;
 use App\Modules\Finance\Console\Commands\NotifyDueSoonCommand;
@@ -63,3 +64,4 @@ Schedule::job(new CheckPushReceiptsJob)
 */
 Schedule::command(PruneTrackingDataCommand::class)->dailyAt('04:30')->withoutOverlapping();
 Schedule::command('queue:prune-failed --hours=720')->dailyAt('04:45')->withoutOverlapping();
+Schedule::command('model:prune', ['--model' => [ExternalApiRequest::class]])->dailyAt('05:00')->withoutOverlapping();

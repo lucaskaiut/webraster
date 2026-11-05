@@ -36,6 +36,8 @@ export const Permission = {
 
   AUDIT_VIEW: 'audit.view',
 
+  EXTERNAL_API_VIEW: 'external-api.view',
+
   ASSISTANT_VIEW: 'assistant.view',
 
   CLIENT_CREATE: 'client.create',
@@ -224,6 +226,10 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
   {
     label: 'Auditoria',
     permissions: [{ value: Permission.AUDIT_VIEW, label: 'Visualizar auditoria' }],
+  },
+  {
+    label: 'APIs externas',
+    permissions: [{ value: Permission.EXTERNAL_API_VIEW, label: 'Visualizar requisições a APIs externas' }],
   },
   // Assistente de IA oculto no frontend
   // {
@@ -437,8 +443,9 @@ export const PLAN_PERMISSIONS: Permission[] = [
   Permission.PLAN_DELETE,
 ]
 
+/** Permissões que só valem no tenant umbrella (cadastro de planos e dados de plataforma). */
 export function isPlanPermission(permission: Permission | string): boolean {
-  return String(permission).startsWith('plan.')
+  return String(permission).startsWith('plan.') || permission === Permission.EXTERNAL_API_VIEW
 }
 
 export function getPermissionGroups(options?: { includePlanPermissions?: boolean }): PermissionGroup[] {

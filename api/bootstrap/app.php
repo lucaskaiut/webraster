@@ -9,6 +9,7 @@ use App\Modules\ApiToken\Http\Middleware\MultiAuthenticate;
 use App\Modules\Billing\Http\Middleware\EnsureActiveSubscription;
 use App\Modules\Billing\Http\Middleware\EnsureBillingEnabled;
 use App\Modules\Client\Http\Middleware\ResolveClientScope;
+use App\Modules\ExternalApi\Http\Middleware\EnsureUmbrellaTenant;
 use App\Modules\Shared\Http\ApiError;
 use App\Modules\Tenant\Exceptions\TenantAccessForbidden;
 use App\Modules\Tenant\Exceptions\TenantCouldNotBeResolved;
@@ -73,6 +74,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'subscription.active' => EnsureActiveSubscription::class,
             'billing.enabled' => EnsureBillingEnabled::class,
             'tenant.child' => EnsureChildTenant::class,
+            'tenant.umbrella' => EnsureUmbrellaTenant::class,
             'module' => EnsureTenantModule::class,
             'build.token' => EnsureBuildToken::class,
         ]);

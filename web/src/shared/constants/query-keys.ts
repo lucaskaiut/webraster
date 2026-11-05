@@ -42,6 +42,13 @@ export const queryKeys = {
     list: (params: ListParams & { action?: string }) => ['audit', 'list', params] as const,
   },
 
+  externalApis: {
+    services: () => ['external-apis', 'services'] as const,
+    metrics: (params: object) => ['external-apis', 'metrics', params] as const,
+    requests: (params: object) => ['external-apis', 'requests', params] as const,
+    request: (id: number) => ['external-apis', 'request', id] as const,
+  },
+
   tenants: {
     all: ['tenants'] as const,
     current: () => ['tenants', 'current'] as const,

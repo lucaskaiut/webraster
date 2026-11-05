@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { Link, Outlet } from 'react-router'
-import { Bell, BellRing, Building2, Car, ChartColumn, CircleDollarSign, ClipboardCheck, ClipboardList, Cog, Columns3, Contact, Cpu, CreditCard, Database, FileBarChart, FileText, Hammer, Handshake, Hexagon, History, IdCard, Inbox, Kanban, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, MessageCircle, Package, Receipt, Repeat, ScrollText, Search, Send, Settings, ShieldCheck, Terminal, Users, Wallet, Warehouse, Wrench } from 'lucide-react'
+import { Activity, Bell, BellRing, Building2, Car, ChartColumn, CircleDollarSign, ClipboardCheck, ClipboardList, Cog, Columns3, Contact, Cpu, CreditCard, Database, FileBarChart, FileText, Hammer, Handshake, Hexagon, History, IdCard, Inbox, Kanban, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, MessageCircle, Package, Receipt, Repeat, ScrollText, Search, Send, Settings, ShieldCheck, Terminal, Users, Wallet, Warehouse, Wrench } from 'lucide-react'
 import { AppLogo } from '@/shared/brand/AppLogo'
 import { useActiveTenant } from '@/shared/brand/useActiveTenant'
 import { TenantSelector } from '@/modules/auth/components/TenantSelector'
@@ -412,6 +412,9 @@ function SidebarNavigation({
           */}
           {can(Permission.AUDIT_VIEW) && (
             <SidebarItem to="/audit" icon={ScrollText} label="Auditoria" onNavigate={onNavigate} />
+          )}
+          {isUmbrella && can(Permission.EXTERNAL_API_VIEW) && (
+            <SidebarItem to="/external-apis" icon={Activity} label="APIs externas" onNavigate={onNavigate} />
           )}
           {(can(Permission.TENANT_UPDATE) || can(Permission.THEME_MANAGE)) && (
             <SidebarItem to="/settings" icon={Settings} label="Configurações" onNavigate={onNavigate} />

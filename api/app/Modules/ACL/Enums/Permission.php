@@ -41,6 +41,8 @@ enum Permission: string
 
     case AUDIT_VIEW = 'audit.view';
 
+    case EXTERNAL_API_VIEW = 'external-api.view';
+
     case ASSISTANT_VIEW = 'assistant.view';
 
     case CLIENT_CREATE = 'client.create';
@@ -197,6 +199,7 @@ enum Permission: string
             self::PLAN_UPDATE,
             self::PLAN_DELETE,
             self::AUDIT_VIEW,
+            self::EXTERNAL_API_VIEW,
         ];
     }
 

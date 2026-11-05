@@ -38,6 +38,7 @@ const RoleEditPage = lazy(() => import('@/modules/roles/pages/RoleEditPage'))
 // const SubscriptionPage = lazy(() => import('@/modules/billing/pages/SubscriptionPage'))
 // const InvoicesListPage = lazy(() => import('@/modules/billing/pages/InvoicesListPage'))
 const AuditPage = lazy(() => import('@/modules/audit/pages/AuditPage'))
+const ExternalApisPage = lazy(() => import('@/modules/external-apis/pages/ExternalApisPage'))
 // const AssistantPage = lazy(() => import('@/modules/assistant/pages/AssistantPage'))
 const TenantsListPage = lazy(() => import('@/modules/tenants/pages/TenantsListPage'))
 const TenantCreatePage = lazy(() => import('@/modules/tenants/pages/TenantCreatePage'))
@@ -329,6 +330,14 @@ export const router = createBrowserRouter([
             element: (
               <PermissionGuard permission={Permission.AUDIT_VIEW}>
                 <AuditPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/external-apis',
+            element: (
+              <PermissionGuard permission={Permission.EXTERNAL_API_VIEW} requiresUmbrella>
+                <ExternalApisPage />
               </PermissionGuard>
             ),
           },

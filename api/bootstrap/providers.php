@@ -5,6 +5,7 @@ use App\Modules\Chat\Providers\ChatServiceProvider;
 use App\Modules\Client\Providers\ClientServiceProvider;
 use App\Modules\ContractEvidence\Providers\ContractEvidenceServiceProvider;
 use App\Modules\Crm\Providers\CrmServiceProvider;
+use App\Modules\ExternalApi\Providers\ExternalApiServiceProvider;
 use App\Modules\Finance\Providers\FinanceServiceProvider;
 use App\Modules\Scheduling\Providers\SchedulingServiceProvider;
 use App\Modules\Tenant\Providers\TenantServiceProvider;
@@ -20,6 +21,7 @@ return [
     ClientServiceProvider::class,
     ContractEvidenceServiceProvider::class,
     CrmServiceProvider::class,
+    ExternalApiServiceProvider::class,
     FinanceServiceProvider::class,
     SchedulingServiceProvider::class,
     TenantServiceProvider::class,
