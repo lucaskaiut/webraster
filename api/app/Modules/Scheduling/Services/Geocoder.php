@@ -49,16 +49,39 @@ class Geocoder
             return null;
         }
 
+        // O Nominatim é a primeira opção (sem custo); quando ele não encontra
+        // o endereço ou está indisponível, o Google Places assume.
         $coordinates = $this->request($address);
 
-        // Endereços não encontrados também vão para o cache, para não repetir a consulta a cada estimativa.
-        Cache::put(
-            $key,
-            $coordinates ? [$coordinates->latitude, $coordinates->longitude] : false,
-            now()->addDays($coordinates ? (int) config('scheduling.geocoding.cache_days', 30) : 1),
-        );
+        if (! $coordinates instanceof Coordinates && $this->googleApiKey() !== null) {
+            $google = $this->requestGoogleGeocode($address);
+            // "Não encontrado" só vale quando os dois provedores responderam;
+            // se algum falhou, o resultado não é definitivo.
+            $coordinates = match (true) {
+                $google instanceof Coordinates => $google,
+                $google === false && $coordinates === false => false,
+                default => null,
+            };
+        }
 
-        return $coordinates;
+        if ($coordinates instanceof Coordinates) {
+            Cache::put(
+                $key,
+                [$coordinates->latitude, $coordinates->longitude],
+                now()->addDays((int) config('scheduling.geocoding.cache_days', 30)),
+            );
+
+            return $coordinates;
+        }
+
+        // Endereços não encontrados também vão para o cache, para não repetir
+        // a consulta a cada estimativa. Falhas (ex.: 429, timeout) não: a
+        // próxima tentativa precisa consultar o provedor de novo.
+        if ($coordinates === false) {
+            Cache::put($key, false, now()->addDay());
+        }
+
+        return null;
     }
 
     /**
@@ -481,7 +504,13 @@ class Geocoder
         ];
     }
 
-    private function request(string $address): ?Coordinates
+    /**
+     * Consulta o Nominatim.
+     *
+     * @return Coordinates|false|null false quando o endereço não foi
+     *                                encontrado; null quando a consulta falhou.
+     */
+    private function request(string $address): Coordinates|false|null
     {
         try {
             $response = Http::baseUrl(rtrim((string) config('scheduling.geocoding.url'), '/'))
@@ -502,10 +531,69 @@ class Geocoder
             }
 
             $first = $response->json('0');
+            $coordinates = is_array($first) ? Coordinates::tryFrom($first['lat'] ?? null, $first['lon'] ?? null) : null;
 
-            return is_array($first) ? Coordinates::tryFrom($first['lat'] ?? null, $first['lon'] ?? null) : null;
+            if ($coordinates === null) {
+                Log::info('Geocoding sem resultado no Nominatim', ['address' => $address]);
+            }
+
+            return $coordinates ?? false;
         } catch (Throwable $exception) {
             Log::warning('Geocoding indisponível', ['error' => $exception->getMessage(), 'address' => $address]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Consulta o Google Places (Text Search).
+     *
+     * @return Coordinates|false|null false quando o endereço não foi
+     *                                encontrado; null quando a consulta falhou.
+     */
+    private function requestGoogleGeocode(string $address): Coordinates|false|null
+    {
+        $key = $this->googleApiKey();
+
+        if ($key === null) {
+            return null;
+        }
+
+        try {
+            $regions = $this->googleRegions();
+
+            $response = Http::baseUrl(rtrim((string) config('scheduling.google.places_url'), '/'))
+                ->withHeaders([
+                    'X-Goog-Api-Key' => $key,
+                    'X-Goog-FieldMask' => 'places.location',
+                ])
+                ->timeout((int) config('scheduling.google.timeout', 8))
+                ->acceptJson()
+                ->post('/v1/places:searchText', array_filter([
+                    'textQuery' => $address,
+                    'pageSize' => 1,
+                    'languageCode' => (string) config('scheduling.google.language', 'pt-BR'),
+                    'regionCode' => $regions[0] ?? null,
+                ]));
+
+            if ($response->failed()) {
+                Log::warning('Geocoding no Google falhou', ['status' => $response->status(), 'address' => $address]);
+
+                return null;
+            }
+
+            $coordinates = Coordinates::tryFrom(
+                $response->json('places.0.location.latitude'),
+                $response->json('places.0.location.longitude'),
+            );
+
+            if ($coordinates === null) {
+                Log::warning('Endereço não localizado no Nominatim nem no Google', ['address' => $address]);
+            }
+
+            return $coordinates ?? false;
+        } catch (Throwable $exception) {
+            Log::warning('Geocoding no Google indisponível', ['error' => $exception->getMessage(), 'address' => $address]);
 
             return null;
         }

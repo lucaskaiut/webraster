@@ -865,6 +865,7 @@ class ServiceOrderService
             && (int) $payload['client_id'] !== (int) $existing->client_id;
         $coordinates = $existing ? Coordinates::tryFrom($existing->latitude, $existing->longitude) : null;
         $locationChanged = false;
+        $addressFromClient = false;
 
         if (array_key_exists('address', $payload) && $payload['address'] !== null) {
             if ($payload['address'] !== $existing?->address) {
@@ -880,6 +881,7 @@ class ServiceOrderService
             $derived['address'] = $location['address'] !== '' ? $location['address'] : null;
             $coordinates = $location['coordinates'];
             $locationChanged = true;
+            $addressFromClient = true;
         }
 
         if ($locationChanged) {
@@ -924,6 +926,30 @@ class ServiceOrderService
             $derived['reminder_sent_at'] = null;
         }
 
+        $technicianId = array_key_exists('technician_id', $payload) ? $payload['technician_id'] : $existing?->technician_id;
+        $technicianChanged = array_key_exists('technician_id', $payload)
+            && (int) $payload['technician_id'] !== (int) $existing?->technician_id;
+        $address = $locationChanged
+            ? ($addressFromClient ? ($derived['address'] ?? null) : $payload['address'])
+            : $existing?->address;
+
+        // Sem coordenadas o deslocamento até/desde o atendimento não pode ser
+        // calculado e a OS fica "invisível" para as rotas da agenda.
+        if (
+            config('scheduling.geocoding.enabled')
+            && $technicianId
+            && $start !== null
+            && filled($address)
+            && $coordinates === null
+            && ($locationChanged || $startChanged || $technicianChanged)
+        ) {
+            throw ValidationException::withMessages([
+                'address' => [$addressFromClient
+                    ? 'Não foi possível localizar o endereço do cliente no mapa para calcular o deslocamento. Informe o endereço do atendimento escolhendo uma das sugestões.'
+                    : 'Não foi possível localizar este endereço no mapa para calcular o deslocamento. Escolha uma das sugestões da lista ou revise rua, número e cidade.'],
+            ]);
+        }
+
         return $derived;
     }
 
@@ -953,12 +979,23 @@ class ServiceOrderService
         $longitude = array_key_exists('longitude', $payload) ? $payload['longitude'] : $existing?->longitude;
         $coordinates = Coordinates::tryFrom($latitude, $longitude);
 
+        // Os avisos de deslocamento não calculado (OS sem localização) só
+        // valem quando a agenda muda; edições que não mexem em horário,
+        // técnico ou local não são barradas por eles.
+        $scheduleChanged = $existing === null
+            || (int) $technicianId !== (int) $existing->technician_id
+            || $existing->scheduled_start_at === null
+            || ! $startAt->equalTo(CarbonImmutable::parse($existing->scheduled_start_at))
+            || array_key_exists('latitude', $payload)
+            || array_key_exists('longitude', $payload);
+
         $issues = $this->scheduling->availabilityIssues(
             (int) $technicianId,
             $startAt,
             $endAt,
             $coordinates,
             $existing?->getKey(),
+            $scheduleChanged,
         );
 
         if ($issues !== []) {

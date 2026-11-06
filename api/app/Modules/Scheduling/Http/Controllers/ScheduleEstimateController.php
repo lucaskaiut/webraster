@@ -55,6 +55,16 @@ class ScheduleEstimateController extends ApiController
             $warnings[] = 'O técnico está inativo ou não possui endereço-base e jornada; o deslocamento não foi considerado e a jornada padrão é 08:00–18:00.';
         }
 
+        if ($technician !== null) {
+            foreach ($this->scheduling->unlocatedDayOrders($technician->getKey(), $data['date'], $data['service_order_id'] ?? null) as $order) {
+                $warnings[] = sprintf(
+                    'A OS %s (%s) está sem localização no mapa; o deslocamento até e desde ela não é considerado nos horários sugeridos.',
+                    $order->code,
+                    $order->client?->name ?? 'sem cliente',
+                );
+            }
+        }
+
         $slots = $technicianId !== null
             ? $this->scheduling->suggestSlots(
                 $technicianId,

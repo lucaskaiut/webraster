@@ -174,6 +174,7 @@ class SchedulingService
         CarbonImmutable $end,
         ?Coordinates $destination = null,
         ?int $ignoreOrderId = null,
+        bool $warnUnlocated = true,
     ): array {
         $technician = $this->technician($technicianId);
         $base = $technician !== null ? $this->technicianBase($technician) : null;
@@ -208,7 +209,7 @@ class SchedulingService
             ? $this->orderInterval($context['next'])[0]->subMinutes($toMinutes)
             : $interval[1] ?? null;
 
-        $issues = [];
+        $issues = $warnUnlocated ? $this->unlocatedTravelIssues($context, $destination) : [];
 
         if ($earliest !== null && $start->lessThan($earliest)) {
             $issues[] = $context['previous'] !== null
@@ -228,6 +229,62 @@ class SchedulingService
                     $context['next']->client?->name ?? 'OS',
                 )
                 : 'Sem tempo para retornar à base após o atendimento.';
+        }
+
+        return $issues;
+    }
+
+    /**
+     * OS do dia sem coordenadas: o deslocamento até e desde elas não entra no
+     * cálculo dos horários.
+     *
+     * @return Collection<int, ServiceOrder>
+     */
+    public function unlocatedDayOrders(int $technicianId, string $date, ?int $ignoreOrderId = null): Collection
+    {
+        $reference = CarbonImmutable::parse($date, $this->timezone())->startOfDay();
+
+        return $this->dayOrders($technicianId, $reference, $ignoreOrderId)
+            ->filter(fn (ServiceOrder $order) => $this->orderCoordinates($order) === null)
+            ->values();
+    }
+
+    /**
+     * Avisos para trechos que não puderam ser calculados por falta de
+     * coordenadas (do atendimento ou da OS vizinha). Nenhuma folga é
+     * presumida: o usuário decide se confirma o horário.
+     *
+     * @param  array<string, mixed>  $context
+     * @return list<string>
+     */
+    private function unlocatedTravelIssues(array $context, ?Coordinates $destination): array
+    {
+        $previous = $context['previous'];
+        $next = $context['next'];
+
+        if ($previous === null && $next === null) {
+            return [];
+        }
+
+        if ($destination === null) {
+            return ['Este atendimento está sem localização no mapa (endereço ausente ou não localizado); o deslocamento até as OS vizinhas não foi considerado.'];
+        }
+
+        $issues = [];
+        $describe = fn (ServiceOrder $order) => sprintf('%s (%s)', $order->code, $order->client?->name ?? 'OS');
+
+        if ($previous !== null && $this->orderCoordinates($previous) === null) {
+            $issues[] = sprintf(
+                'Deslocamento desde %s não considerado: a OS está sem localização no mapa.',
+                $describe($previous),
+            );
+        }
+
+        if ($next !== null && $this->orderCoordinates($next) === null) {
+            $issues[] = sprintf(
+                'Deslocamento até %s não considerado: a OS está sem localização no mapa.',
+                $describe($next),
+            );
         }
 
         return $issues;
@@ -533,7 +590,9 @@ class SchedulingService
             $previousCoordinates = $previous !== null ? $this->orderCoordinates($previous) : null;
             $nextCoordinates = $next !== null ? $this->orderCoordinates($next) : null;
 
-            $fromOrigin = $previousCoordinates ?? $base;
+            // OS anterior sem localização: o trecho fica sem cálculo (a base
+            // não serve de origem, o técnico não sai de lá).
+            $fromOrigin = $previous !== null ? $previousCoordinates : $base;
 
             $fromTravel = $this->routeBetween($fromOrigin, $orderCoordinates);
             // A volta só é calculada até a próxima OS: o retorno para a base
@@ -666,7 +725,9 @@ class SchedulingService
 
         $previousCoordinates = $previous !== null ? $this->orderCoordinates($previous) : null;
         $nextCoordinates = $next !== null ? $this->orderCoordinates($next) : null;
-        $fromOrigin = $previousCoordinates ?? $base;
+        // OS anterior sem localização: o trecho fica sem cálculo (a base não
+        // serve de origem, o técnico não sai de lá).
+        $fromOrigin = $previous !== null ? $previousCoordinates : $base;
         // Só existe trecho de saída quando há uma próxima OS; o retorno para a
         // base não restringe a jornada e não é calculado.
         $toDestination = $nextCoordinates;

@@ -506,6 +506,108 @@ class SchedulingTest extends TestCase
         ])->assertCreated();
     }
 
+    public function test_blocks_scheduling_when_address_cannot_be_located(): void
+    {
+        [$tenant, $client, $technician] = $this->schedulingScenario();
+
+        config([
+            'scheduling.geocoding.enabled' => true,
+            'scheduling.routing.enabled' => true,
+            'scheduling.google.api_key' => null,
+        ]);
+        Http::fake(['*' => Http::response([])]);
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $response = $this->postJson('/api/service-orders', [
+            'client_id' => $client->uuid,
+            'technician_id' => $technician->uuid,
+            'address' => 'Rua Inexistente, 1173 - Lugar Nenhum',
+            'scheduled_start_at' => $this->localTime('10:00'),
+            'estimated_duration_minutes' => 30,
+            'ignore_schedule_conflict' => true,
+        ])->assertUnprocessable()->assertJsonValidationErrors('address');
+
+        $this->assertStringContainsString('localizar', $response->json('errors.address.0'));
+
+        // Sem agenda (técnico/horário) o deslocamento não importa ainda.
+        $this->postJson('/api/service-orders', [
+            'client_id' => $client->uuid,
+            'address' => 'Rua Inexistente, 1173 - Lugar Nenhum',
+        ])->assertCreated();
+    }
+
+    public function test_warns_when_neighbor_order_has_no_location(): void
+    {
+        [$tenant, $client, $technician] = $this->schedulingScenario();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        // OS legada, gravada sem coordenadas.
+        config(['scheduling.geocoding.enabled' => false]);
+        $this->postJson('/api/service-orders', [
+            'client_id' => $client->uuid,
+            'technician_id' => $technician->uuid,
+            'scheduled_start_at' => $this->localTime('10:00'),
+            'estimated_duration_minutes' => 30,
+        ])->assertCreated();
+
+        $unlocated = ServiceOrder::query()->firstOrFail();
+        $this->assertNull($unlocated->latitude);
+
+        $this->fakeGeoServices();
+
+        $this->postJson('/api/scheduling/estimate', [
+            'technician_id' => $technician->uuid,
+            'address' => 'Av. Sete de Setembro, 2775 - Rebouças, Curitiba - PR',
+            'latitude' => -25.4400,
+            'longitude' => -49.2650,
+            'date' => self::TUESDAY,
+            'duration_minutes' => 30,
+        ])
+            ->assertOk()
+            ->assertJsonFragment(['warnings' => [sprintf(
+                'A OS %s (%s) está sem localização no mapa; o deslocamento até e desde ela não é considerado nos horários sugeridos.',
+                $unlocated->code,
+                $client->name,
+            )]]);
+
+        $payload = [
+            'client_id' => $client->uuid,
+            'technician_id' => $technician->uuid,
+            'address' => 'Av. Sete de Setembro, 2775 - Rebouças, Curitiba - PR',
+            'latitude' => -25.4400,
+            'longitude' => -49.2650,
+            'estimated_duration_minutes' => 30,
+        ];
+
+        // Antes e depois da OS sem localização (10:00–10:30): nenhuma folga
+        // é presumida, o usuário só é avisado.
+        $before = $this->postJson('/api/service-orders', $payload + ['scheduled_start_at' => $this->localTime('09:30')])
+            ->assertUnprocessable()
+            ->json('errors.scheduled_start_at.0');
+
+        $this->assertStringContainsString(sprintf('Deslocamento até %s', $unlocated->code), $before);
+        $this->assertStringNotContainsString('Sem tempo', $before);
+
+        $after = $this->postJson('/api/service-orders', $payload + ['scheduled_start_at' => $this->localTime('10:30')])
+            ->assertUnprocessable()
+            ->json('errors.scheduled_start_at.0');
+
+        $this->assertStringContainsString(sprintf('Deslocamento desde %s', $unlocated->code), $after);
+        $this->assertStringNotContainsString('insuficiente', $after);
+
+        $id = $this->postJson('/api/service-orders', $payload + [
+            'scheduled_start_at' => $this->localTime('10:30'),
+            'ignore_schedule_conflict' => true,
+        ])
+            ->assertCreated()
+            ->json('data.id');
+
+        // Edições que não mexem na agenda não são barradas pelo aviso.
+        $this->patchJson('/api/service-orders/'.$id, ['notes' => 'Portão azul'])->assertOk();
+    }
+
     public function test_reminder_is_sent_once_and_reset_when_rescheduled(): void
     {
         [, $tenant] = $this->createOperationalChild();
