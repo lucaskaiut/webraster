@@ -27,7 +27,15 @@ return [
         )) ?: [],
     ))),
 
-    'allowed_origins_patterns' => [],
+    // Regex extras separados por vírgula (CORS_ALLOWED_ORIGIN_PATTERNS). Com
+    // TENANT_DOMAINS_ENABLED, os subdomínios dos tenants ({x}.TENANT_DOMAINS_BASE)
+    // são liberados automaticamente.
+    'allowed_origins_patterns' => array_values(array_filter([
+        ...array_map(trim(...), explode(',', (string) env('CORS_ALLOWED_ORIGIN_PATTERNS', ''))),
+        env('TENANT_DOMAINS_ENABLED', false)
+            ? '#^https://[a-z0-9-]+\\.'.preg_quote(trim((string) env('TENANT_DOMAINS_BASE', 'nuvemax.srv.br'), '. '), '#').'$#'
+            : null,
+    ])),
 
     'allowed_headers' => ['*'],
 

@@ -8,6 +8,7 @@ use App\Modules\ApiToken\Models\ApiToken;
 use App\Modules\Billing\Models\Plan;
 use App\Modules\Billing\Models\Subscription;
 use App\Modules\Shared\Models\Concerns\HasUuid;
+use App\Modules\Tenant\Enums\TenantDomainStatus;
 use App\Modules\Tenant\Enums\TenantModule;
 use App\Modules\User\Models\User;
 use Database\Factories\TenantFactory;
@@ -60,6 +61,8 @@ class Tenant extends Model
             'late_fine_percent' => 'decimal:2',
             'late_interest_percent' => 'decimal:2',
             'require_equipment_loan_acceptance' => 'boolean',
+            'domain_status' => TenantDomainStatus::class,
+            'domain_provisioned_at' => 'datetime',
         ];
     }
 
@@ -195,6 +198,14 @@ class Tenant extends Model
         }
 
         return false;
+    }
+
+    /**
+     * Endereço do painel web da empresa (subdomínio provisionado).
+     */
+    public function domainUrl(): ?string
+    {
+        return $this->domain ? "https://{$this->domain}" : null;
     }
 
     public function logoUrl(): ?string

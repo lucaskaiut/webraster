@@ -18,6 +18,7 @@ class TenantService
     public function __construct(
         private readonly RoleService $roles,
         private readonly UserService $users,
+        private readonly TenantDomainService $domains,
     ) {}
 
     /**
@@ -105,6 +106,8 @@ class TenantService
      * Provisiona um tenant filho sob o umbrella: tenant + perfis padrão +
      * usuário administrador (não master). O acesso é controlado
      * manualmente pela situação e pelos módulos; nenhuma cobrança é gerada.
+     * O subdomínio do painel ({identifier}.{base}) é provisionado em fila
+     * após o commit (ver TenantDomainService).
      *
      * @param  array{name: string, document: string, email: string, phone: ?string, is_active?: bool, modules?: list<string>}  $tenantData
      * @param  array{name: string, email: string, phone?: ?string, document?: ?string, password: string}  $userData
@@ -122,6 +125,8 @@ class TenantService
 
             $user = $this->users->createForTenant($tenant, $userData);
             $user->assignRole($roles[DefaultRole::ADMINISTRATOR->value]);
+
+            $this->domains->schedule($tenant);
 
             return [
                 'tenant' => $tenant->refresh(),

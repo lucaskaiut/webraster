@@ -23,12 +23,14 @@ class PublicTenantResource extends JsonResource
             'identifier' => $this->identifier,
             'name' => $this->name,
             'app_name' => $this->app_name,
+            'domain' => $this->domain,
             'logo_url' => $this->logoUrl(),
             'favicon_url' => $this->faviconUrl(),
             'app_icon_url' => $this->appIconUrl(),
             'app_logo_url' => $this->appLogoUrl(),
             'app_primary_color' => $this->app_primary_color,
             'app_secondary_color' => $this->app_secondary_color,
+            'theme' => $this->themeSettings(),
         ];
     }
 }

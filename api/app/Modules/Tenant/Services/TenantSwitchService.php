@@ -5,8 +5,10 @@ namespace App\Modules\Tenant\Services;
 use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogService;
 use App\Modules\Tenant\Exceptions\TenantAccessForbidden;
+use App\Modules\Tenant\Exceptions\TenantDomainMismatch;
 use App\Modules\Tenant\Exceptions\TenantInactive;
 use App\Modules\Tenant\Models\Tenant;
+use App\Modules\Tenant\Support\TenantDomainContext;
 use App\Modules\User\Models\User;
 
 class TenantSwitchService
@@ -14,11 +16,13 @@ class TenantSwitchService
     public function __construct(
         private readonly MasterTenantAccessService $access,
         private readonly AuditLogService $audit,
+        private readonly TenantDomainContext $domain,
     ) {}
 
     /**
      * @throws TenantAccessForbidden
      * @throws TenantInactive
+     * @throws TenantDomainMismatch
      */
     public function select(User $user, string $tenantIdentifier): Tenant
     {
@@ -27,6 +31,13 @@ class TenantSwitchService
         }
 
         $tenant = $this->access->resolveAccessibleTenant($user, $tenantIdentifier);
+
+        // No domínio de outra empresa não há troca.
+        $locked = $this->domain->lockedTenant(request(), $user);
+
+        if ($locked !== null && ! $locked->is($tenant)) {
+            throw TenantDomainMismatch::make();
+        }
 
         if (! $tenant->isActive()) {
             throw TenantInactive::make();

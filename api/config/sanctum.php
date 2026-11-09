@@ -18,12 +18,18 @@ return [
     |
     */
 
-    'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', sprintf(
-        '%s%s',
-        'localhost,localhost:3000,127.0.0.1,127.0.0.1:8000,::1',
-        Sanctum::currentApplicationUrlWithPort(),
-        // Sanctum::currentRequestHost(),
-    ))),
+    'stateful' => array_values(array_filter([
+        ...explode(',', env('SANCTUM_STATEFUL_DOMAINS', sprintf(
+            '%s%s',
+            'localhost,localhost:3000,127.0.0.1,127.0.0.1:8000,::1',
+            Sanctum::currentApplicationUrlWithPort(),
+            // Sanctum::currentRequestHost(),
+        ))),
+        // Subdomínios dos tenants (TenantDomainService).
+        env('TENANT_DOMAINS_ENABLED', false)
+            ? '*.'.trim((string) env('TENANT_DOMAINS_BASE', 'nuvemax.srv.br'), '. ')
+            : null,
+    ])),
 
     /*
     |--------------------------------------------------------------------------

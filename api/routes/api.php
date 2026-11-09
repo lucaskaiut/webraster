@@ -106,6 +106,7 @@ Route::get('billing/gateways', [SubscriptionController::class, 'gateways']);
 Route::get('payment-methods', [PaymentMethodController::class, 'index']);
 
 Route::get('public/tenants/{identifier}', PublicTenantController::class)->middleware('throttle:api');
+Route::get('public/domains/{domain}', [PublicTenantController::class, 'byDomain'])->middleware('throttle:api');
 Route::get('public/contract-signatures/{code}', PublicSignatureVerificationController::class)->middleware('throttle:30,1');
 Route::get('public/tracking/{token}', PublicTrackingShareController::class)->middleware('throttle:60,1');
 Route::get('build/tenants', BuildTenantController::class)->middleware('build.token');

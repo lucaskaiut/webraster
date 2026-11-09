@@ -13,6 +13,7 @@ use App\Modules\ExternalApi\Http\Middleware\EnsureUmbrellaTenant;
 use App\Modules\Shared\Http\ApiError;
 use App\Modules\Tenant\Exceptions\TenantAccessForbidden;
 use App\Modules\Tenant\Exceptions\TenantCouldNotBeResolved;
+use App\Modules\Tenant\Exceptions\TenantDomainMismatch;
 use App\Modules\Tenant\Exceptions\TenantInactive;
 use App\Modules\Tenant\Http\Middleware\EnsureBuildToken;
 use App\Modules\Tenant\Http\Middleware\EnsureChildTenant;
@@ -108,6 +109,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (TenantAccessForbidden $e, Request $request) {
             if (ApiError::shouldRender($request)) {
                 return ApiError::response($e->getMessage(), 403);
+            }
+        });
+
+        $exceptions->render(function (TenantDomainMismatch $e, Request $request) {
+            if (ApiError::shouldRender($request)) {
+                return ApiError::response($e->getMessage(), 403, [TenantDomainMismatch::ERROR_KEY => [$e->getMessage()]]);
             }
         });
 

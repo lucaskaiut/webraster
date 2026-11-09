@@ -22,6 +22,7 @@ use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Tenant\Services\MasterTenantAccessService;
 use App\Modules\Tenant\Services\TenantService;
 use App\Modules\Tenant\Support\CurrentTenant;
+use App\Modules\Tenant\Support\TenantDomainContext;
 use App\Modules\User\Models\User;
 use App\Modules\User\Services\UserService;
 use Carbon\CarbonImmutable;
@@ -51,6 +52,7 @@ class AuthService
         private readonly BillingService $billing,
         private readonly PlanService $plans,
         private readonly PaymentGatewayResolver $gateways,
+        private readonly TenantDomainContext $domain,
     ) {}
 
     public function register(
@@ -131,7 +133,7 @@ class AuthService
         ?string $tenantIdentifier = null,
         ?Panel $panel = null,
     ): AuthenticatedUser {
-        $tenant = $this->findTenantByIdentifier($tenantIdentifier);
+        $tenant = $this->resolveLoginTenant($tenantIdentifier);
         $user = $this->findUserForLogin($email, $tenant);
 
         if ($user === null || ! Hash::check($password, $user->password)) {
@@ -152,7 +154,7 @@ class AuthService
             throw new AuthorizationException($panel->deniedMessage());
         }
 
-        $availableTenants = $this->masterAccess->availableTenants($user);
+        $availableTenants = $this->availableTenantsFor($user);
 
         $this->context->set($tenant);
 
@@ -166,6 +168,30 @@ class AuthService
             token: $this->authenticate($user, $tenant),
             availableTenants: $availableTenants,
         );
+    }
+
+    /**
+     * No domínio de uma empresa, o login fica restrito a ela (usuários dela e
+     * masters do umbrella); um identificador diferente do domínio é recusado.
+     *
+     * @throws ValidationException
+     */
+    private function resolveLoginTenant(?string $identifier): ?Tenant
+    {
+        $tenant = $this->findTenantByIdentifier($identifier);
+        $domainTenant = $this->domain->tenant(request());
+
+        if ($domainTenant === null) {
+            return $tenant;
+        }
+
+        if ($tenant !== null && ! $tenant->is($domainTenant)) {
+            throw ValidationException::withMessages([
+                'tenant_identifier' => ['O identificador informado não corresponde a esta empresa.'],
+            ]);
+        }
+
+        return $domainTenant;
     }
 
     /**
@@ -294,10 +320,17 @@ class AuthService
     }
 
     /**
+     * Empresas que o master pode selecionar. No domínio de outra empresa não
+     * há troca: a sessão fica presa a ela.
+     *
      * @return Collection<int, Tenant>
      */
     public function availableTenantsFor(User $user): Collection
     {
+        if ($this->domain->lockedTenant(request(), $user) !== null) {
+            return new Collection;
+        }
+
         return $this->masterAccess->availableTenants($user);
     }
 

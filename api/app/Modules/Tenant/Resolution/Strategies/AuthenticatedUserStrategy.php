@@ -6,6 +6,7 @@ use App\Modules\Tenant\Exceptions\TenantAccessForbidden;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Tenant\Resolution\Contracts\ResolutionStrategy;
 use App\Modules\Tenant\Services\MasterTenantAccessService;
+use App\Modules\Tenant\Support\TenantDomainContext;
 use App\Modules\User\Models\User;
 use Illuminate\Http\Request;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -16,6 +17,7 @@ class AuthenticatedUserStrategy implements ResolutionStrategy
 
     public function __construct(
         private readonly MasterTenantAccessService $access,
+        private readonly TenantDomainContext $domain,
     ) {}
 
     /**
@@ -31,6 +33,13 @@ class AuthenticatedUserStrategy implements ResolutionStrategy
 
         if (! $user->is_master) {
             return $user->tenant;
+        }
+
+        // No domínio de uma empresa filha, o master do grupo opera somente nela.
+        $locked = $this->domain->lockedTenant($request, $user);
+
+        if ($locked !== null) {
+            return $this->access->canAccess($user, $locked) ? $locked : $user->tenant;
         }
 
         $header = $request->header(self::HEADER);

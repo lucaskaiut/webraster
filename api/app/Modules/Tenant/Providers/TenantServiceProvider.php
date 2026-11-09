@@ -2,11 +2,13 @@
 
 namespace App\Modules\Tenant\Providers;
 
+use App\Modules\Tenant\Console\Commands\ProvisionTenantDomainCommand;
 use App\Modules\Tenant\Resolution\Contracts\TenantResolverInterface;
 use App\Modules\Tenant\Resolution\Strategies\ApiTokenStrategy;
 use App\Modules\Tenant\Resolution\Strategies\AuthenticatedUserStrategy;
 use App\Modules\Tenant\Resolution\TenantResolver;
 use App\Modules\Tenant\Support\CurrentTenant;
+use App\Modules\Tenant\Support\TenantDomainContext;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 
@@ -15,6 +17,7 @@ class TenantServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->scoped(CurrentTenant::class);
+        $this->app->scoped(TenantDomainContext::class);
 
         $this->app->bind(TenantResolverInterface::class, TenantResolver::class);
 
@@ -27,5 +30,14 @@ class TenantServiceProvider extends ServiceProvider
                 $app->make(CurrentTenant::class),
             );
         });
+    }
+
+    public function boot(): void
+    {
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                ProvisionTenantDomainCommand::class,
+            ]);
+        }
     }
 }
