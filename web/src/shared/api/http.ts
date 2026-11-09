@@ -11,6 +11,9 @@ const GUEST_ENDPOINTS = ['/auth/login', '/auth/register', '/auth/me']
 /** Chave em "errors" do 403 de empresa inativa (TenantInactive na API). */
 const TENANT_INACTIVE_ERROR = 'tenant_inactive'
 
+/** Chave em "errors" do 403 de sessão de outra empresa neste domínio (TenantDomainMismatch). */
+export const TENANT_DOMAIN_MISMATCH_ERROR = 'tenant_domain_mismatch'
+
 /**
  * Instância central de HTTP.
  * Autenticação via cookie HttpOnly (Sanctum stateful) — nenhum token
@@ -63,8 +66,12 @@ http.interceptors.response.use(
       }
     }
 
-    // Empresa inativada pelo umbrella: encerra a sessão local.
-    if (apiError.status === 403 && apiError.fieldErrors[TENANT_INACTIVE_ERROR] && !isGuestEndpoint) {
+    // Empresa inativada pelo umbrella, ou sessão de outra empresa neste
+    // domínio: encerra a sessão local.
+    const endsSession =
+      apiError.fieldErrors[TENANT_INACTIVE_ERROR] || apiError.fieldErrors[TENANT_DOMAIN_MISMATCH_ERROR]
+
+    if (apiError.status === 403 && endsSession && !isGuestEndpoint) {
       const store = useSessionStore.getState()
 
       if (store.status === 'authenticated') {

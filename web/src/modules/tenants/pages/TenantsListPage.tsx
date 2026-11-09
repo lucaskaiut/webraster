@@ -75,6 +75,7 @@ export default function TenantsListPage() {
       render: (tenant) => (
         <div className="min-w-0">
           <p className="truncate font-medium text-foreground">{tenant.name}</p>
+          <TenantDomain tenant={tenant} />
         </div>
       ),
     },
@@ -191,5 +192,33 @@ export default function TenantsListPage() {
         )}
       </PageContent>
     </Page>
+  )
+}
+
+function TenantDomain({ tenant }: { tenant: Tenant }) {
+  if (!tenant.domain) return null
+
+  if (tenant.domain_status === 'failed') {
+    return (
+      <p className="truncate text-xs text-danger" title={tenant.domain_error ?? undefined}>
+        Falha ao configurar {tenant.domain}
+      </p>
+    )
+  }
+
+  if (tenant.domain_status !== 'active') {
+    return <p className="truncate text-xs text-muted">Configurando {tenant.domain}…</p>
+  }
+
+  return (
+    <a
+      href={tenant.domain_url ?? `https://${tenant.domain}`}
+      target="_blank"
+      rel="noreferrer"
+      className="block truncate text-xs text-primary hover:underline"
+      onClick={(event) => event.stopPropagation()}
+    >
+      {tenant.domain}
+    </a>
   )
 }

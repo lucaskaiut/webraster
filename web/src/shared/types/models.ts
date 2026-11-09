@@ -54,6 +54,11 @@ export interface Tenant {
   id: string
   name: string
   identifier: string
+  /** Subdomínio do painel ({identifier}.nuvemax.srv.br), provisionado na criação. */
+  domain?: string | null
+  domain_url?: string | null
+  domain_status?: 'pending' | 'active' | 'failed' | null
+  domain_error?: string | null
   document: string
   email: string
   phone: string | null

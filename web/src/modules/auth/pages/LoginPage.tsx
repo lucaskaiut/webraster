@@ -1,15 +1,18 @@
 import { useForm } from 'react-hook-form'
+import { useQuery } from '@tanstack/react-query'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Link } from 'react-router'
 import { AppLogo } from '@/shared/brand/AppLogo'
 import { Alert, Button, Card, CardContent, Form, TextField } from '@/shared/design-system'
 import { isApiError } from '@/shared/api/errors'
+import { domainTenantQueryOptions } from '@/shared/api/tenant-domain'
 import { applyApiErrorsToForm } from '@/shared/utils/forms'
 import { loginSchema, type LoginFormValues } from '../schemas/auth.schema'
 import { useLogin } from '../hooks/useAuth'
 
 export default function LoginPage() {
   const login = useLogin()
+  const { data: domainTenant } = useQuery(domainTenantQueryOptions)
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -34,7 +37,11 @@ export default function LoginPage() {
             <AppLogo size="lg" />
           </div>
           <h1 className="text-lg font-semibold text-foreground">Entrar</h1>
-          <p className="mt-1 text-sm text-muted">Acesse o painel da sua organização.</p>
+          <p className="mt-1 text-sm text-muted">
+            {domainTenant
+              ? `Acesse o painel da ${domainTenant.name}.`
+              : 'Acesse o painel da sua organização.'}
+          </p>
         </div>
 
         {login.isError && isApiError(login.error) && login.error.status !== 422 && (

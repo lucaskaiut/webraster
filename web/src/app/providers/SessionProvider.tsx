@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { sessionQueryOptions } from '@/modules/auth/services/auth.service'
 import { isApiError } from '@/shared/api/errors'
+import { domainTenantQueryOptions } from '@/shared/api/tenant-domain'
 import { applyFavicon } from '@/shared/brand/favicon'
 import { applyTheme, normalizeTheme } from '@/shared/theme/theme'
 import { useSessionStore } from '@/shared/stores/session.store'
@@ -22,6 +23,7 @@ import { toast } from '@/shared/stores/toast.store'
 export function SessionProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
   const { data, isSuccess, isError, error } = useQuery(sessionQueryOptions)
+  const { data: domainTenant } = useQuery(domainTenantQueryOptions)
   const setSession = useSessionStore((state) => state.setSession)
   const setGuest = useSessionStore((state) => state.setGuest)
   const setBranding = useTenantBrandingStore((state) => state.setBranding)
@@ -47,6 +49,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isSuccess || !data) {
+      // No domínio de uma empresa, a tela de login usa a marca dela.
+      if (domainTenant && getTenantBranding()?.id !== domainTenant.id) {
+        setBranding({
+          id: domainTenant.id,
+          name: domainTenant.name,
+          logo_url: domainTenant.logo_url,
+          favicon_url: domainTenant.favicon_url,
+          theme: normalizeTheme(domainTenant.theme),
+        })
+      }
+
       applyFavicon(getTenantBranding()?.favicon_url)
       applyTheme(getTenantBranding()?.theme)
       return
@@ -78,7 +91,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     applyFavicon(branding.favicon_url)
     applyTheme(branding.theme)
-  }, [isSuccess, data, selectedTenantId, setBranding])
+  }, [isSuccess, data, domainTenant, selectedTenantId, setBranding])
 
   useEffect(() => {
     if (!isSuccess || !data) return
