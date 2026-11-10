@@ -42,6 +42,7 @@ use App\Modules\Equipment\Http\Controllers\EquipmentController;
 use App\Modules\ExternalApi\Http\Controllers\ExternalApiController;
 use App\Modules\Finance\Http\Controllers\FinanceBillingController;
 use App\Modules\Finance\Http\Controllers\FinanceClientOverviewController;
+use App\Modules\Finance\Http\Controllers\FinanceCollectionSettingController;
 use App\Modules\Finance\Http\Controllers\FinanceDashboardController;
 use App\Modules\Finance\Http\Controllers\FinancePaymentGatewayConfigController;
 use App\Modules\Finance\Http\Controllers\FinancePlanController;
@@ -142,7 +143,8 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::delete('billing/plans/{plan}', [PlanController::class, 'destroy'])->middleware('permission:plan.delete');
 });
 
-Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(function (): void {
+// client.finance-access: cliente inadimplente (régua de cobrança) só usa o financeiro.
+Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope', 'client.finance-access'])->group(function (): void {
     Route::get('tenant', [TenantController::class, 'show'])->middleware('permission:tenant.read');
     Route::match(['put', 'patch'], 'tenant', [TenantController::class, 'update'])->middleware('permission:tenant.update');
     Route::get('tenant/theme', [TenantThemeController::class, 'show'])->middleware('permission:theme.manage');
@@ -341,9 +343,13 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope'])->group(funct
     Route::get('finance/payment-gateway-config', [FinancePaymentGatewayConfigController::class, 'show'])->middleware('permission:finance-gateway-config.read');
     Route::match(['put', 'patch'], 'finance/payment-gateway-config', [FinancePaymentGatewayConfigController::class, 'update'])->middleware('permission:finance-gateway-config.update');
 
+    Route::get('finance/collection-settings', [FinanceCollectionSettingController::class, 'show'])->middleware('permission:finance-collection-config.read');
+    Route::match(['put', 'patch'], 'finance/collection-settings', [FinanceCollectionSettingController::class, 'update'])->middleware('permission:finance-collection-config.update');
+
     Route::get('finance/dashboard', [FinanceDashboardController::class, 'index'])->middleware('permission:finance-dashboard.read');
     Route::get('finance/reports', [FinanceReportController::class, 'index'])->middleware('permission:finance-report.read');
 
+    Route::get('finance/portal/access', [FinancePortalController::class, 'access'])->middleware('permission:finance-portal.view');
     Route::get('finance/portal/subscription', [FinancePortalController::class, 'subscription'])->middleware('permission:finance-portal.view');
     Route::get('finance/portal/billings', [FinancePortalController::class, 'billings'])->middleware('permission:finance-portal.view');
     Route::get('finance/portal/billings/{financeBilling}', [FinancePortalController::class, 'showBilling'])->middleware('permission:finance-portal.view');

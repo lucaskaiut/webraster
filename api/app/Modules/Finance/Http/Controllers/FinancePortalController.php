@@ -9,6 +9,7 @@ use App\Modules\Finance\Http\Resources\FinanceSubscriptionResource;
 use App\Modules\Finance\Models\FinanceBilling;
 use App\Modules\Finance\Models\FinanceSubscription;
 use App\Modules\Finance\Services\BillingChargeService;
+use App\Modules\Finance\Services\ClientFinancialBlockService;
 use App\Modules\Finance\Services\FinanceBillingService;
 use App\Modules\Finance\Services\LateFeeService;
 use App\Modules\Shared\Http\Controllers\ApiController;
@@ -21,7 +22,18 @@ class FinancePortalController extends ApiController
         private readonly FinanceBillingService $billings,
         private readonly BillingChargeService $chargeService,
         private readonly LateFeeService $lateFees,
+        private readonly ClientFinancialBlockService $blocks,
     ) {}
+
+    /**
+     * Situação de acesso do cliente: bloqueado por inadimplência ou não.
+     */
+    public function access(Request $request): JsonResponse
+    {
+        $status = $this->blocks->forUser($request->user()) ?? ['blocked' => false];
+
+        return $this->success($status);
+    }
 
     public function subscription(Request $request): JsonResponse
     {

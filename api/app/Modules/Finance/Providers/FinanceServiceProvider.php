@@ -2,11 +2,13 @@
 
 namespace App\Modules\Finance\Providers;
 
+use App\Modules\ACL\Contracts\PermissionRestriction;
 use App\Modules\Finance\Channels\EmailFinanceNotificationChannel;
 use App\Modules\Finance\Console\Commands\GenerateBillingsCommand;
 use App\Modules\Finance\Console\Commands\MarkOverdueBillingsCommand;
 use App\Modules\Finance\Console\Commands\NotifyDueSoonCommand;
 use App\Modules\Finance\Console\Commands\ProcessDelinquencyCommand;
+use App\Modules\Finance\Console\Commands\SendCollectionRemindersCommand;
 use App\Modules\Finance\Contracts\DeviceSuspensionProvider;
 use App\Modules\Finance\Contracts\FinanceNotificationChannel;
 use App\Modules\Finance\Events\InvoiceCanceled;
@@ -18,8 +20,10 @@ use App\Modules\Finance\Events\SubscriptionCanceled;
 use App\Modules\Finance\Events\SubscriptionCreated;
 use App\Modules\Finance\Events\SubscriptionRenewed;
 use App\Modules\Finance\Listeners\SendFinanceNotifications;
+use App\Modules\Finance\Services\ClientFinancialBlockService;
 use App\Modules\Finance\Services\FinanceNotificationService;
 use App\Modules\Finance\Services\TraccarDeviceSuspensionProvider;
+use App\Modules\Finance\Support\FinancialBlockPermissionRestriction;
 use App\Modules\Finance\Support\PaymentGatewayResolver;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
@@ -29,6 +33,8 @@ class FinanceServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(PaymentGatewayResolver::class);
+        $this->app->scoped(ClientFinancialBlockService::class);
+        $this->app->tag([FinancialBlockPermissionRestriction::class], PermissionRestriction::TAG);
         $this->app->bind(DeviceSuspensionProvider::class, TraccarDeviceSuspensionProvider::class);
 
         $this->app->bind(FinanceNotificationChannel::class, EmailFinanceNotificationChannel::class);
@@ -57,6 +63,7 @@ class FinanceServiceProvider extends ServiceProvider
                 MarkOverdueBillingsCommand::class,
                 ProcessDelinquencyCommand::class,
                 NotifyDueSoonCommand::class,
+                SendCollectionRemindersCommand::class,
             ]);
         }
     }

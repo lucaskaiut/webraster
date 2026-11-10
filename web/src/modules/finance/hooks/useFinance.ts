@@ -2,6 +2,9 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { queryKeys } from '@/shared/constants/query-keys'
 import { toast } from '@/shared/stores/toast.store'
 import { isApiError } from '@/shared/api/errors'
+import { Permission } from '@/shared/constants/permissions'
+import { usePermissions } from '@/shared/hooks/usePermissions'
+import { useSessionStore } from '@/shared/stores/session.store'
 import { formatDate } from '@/shared/utils/format'
 import {
   financeService,
@@ -14,6 +17,7 @@ import {
   type FinanceSubscriptionListParams,
   type GenerateBillingPayload,
   type PaymentGatewayConfigPayload,
+  type FinanceCollectionSettingsPayload,
   type UpdateFinanceSubscriptionPayload,
 } from '../services/finance.service'
 
@@ -287,6 +291,28 @@ export function useUpdatePaymentGatewayConfig() {
   })
 }
 
+export function useFinanceCollectionSettingsQuery() {
+  return useQuery({
+    queryKey: queryKeys.finance.collectionSettings(),
+    queryFn: () => financeService.getCollectionSettings(),
+  })
+}
+
+export function useUpdateFinanceCollectionSettings() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: FinanceCollectionSettingsPayload) =>
+      financeService.updateCollectionSettings(payload),
+    onSuccess: (data) => {
+      queryClient.setQueryData(queryKeys.finance.collectionSettings(), data)
+      toast.success('Régua de cobrança salva')
+    },
+    onError: (error) => {
+      if (isApiError(error) && error.status !== 422) toast.error(error.message)
+    },
+  })
+}
+
 export function useFinanceDashboardQuery(enabled = true) {
   return useQuery({
     queryKey: queryKeys.finance.dashboard(),
@@ -301,6 +327,29 @@ export function useFinanceReportsQuery(params: FinanceReportParams, enabled = tr
     queryFn: () => financeService.reports(params),
     enabled: enabled && !!params.type,
   })
+}
+
+/** Bloqueio por inadimplência do cliente logado no portal. */
+export function useFinancePortalAccessQuery(enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.finance.portal.access(),
+    queryFn: () => financeService.portalAccess(),
+    enabled,
+    staleTime: 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+  })
+}
+
+/**
+ * Situação do usuário-cliente logado; para a equipe da empresa a consulta
+ * nem é feita e o resultado é sempre "não bloqueado".
+ */
+export function useClientFinancialAccess() {
+  const { can } = usePermissions()
+  const isClientUser = useSessionStore((state) => Boolean(state.user?.client_id))
+  const query = useFinancePortalAccessQuery(isClientUser && can(Permission.FINANCE_PORTAL_VIEW))
+
+  return { ...query, blocked: query.data?.blocked ?? false }
 }
 
 export function useFinancePortalSubscriptionQuery() {

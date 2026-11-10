@@ -149,6 +149,9 @@ enum Permission: string
     case FINANCE_GATEWAY_CONFIG_READ = 'finance-gateway-config.read';
     case FINANCE_GATEWAY_CONFIG_UPDATE = 'finance-gateway-config.update';
 
+    case FINANCE_COLLECTION_CONFIG_READ = 'finance-collection-config.read';
+    case FINANCE_COLLECTION_CONFIG_UPDATE = 'finance-collection-config.update';
+
     case FINANCE_DASHBOARD_READ = 'finance-dashboard.read';
     case FINANCE_REPORT_READ = 'finance-report.read';
     case FINANCE_PORTAL_VIEW = 'finance-portal.view';

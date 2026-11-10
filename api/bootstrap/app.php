@@ -10,6 +10,8 @@ use App\Modules\Billing\Http\Middleware\EnsureActiveSubscription;
 use App\Modules\Billing\Http\Middleware\EnsureBillingEnabled;
 use App\Modules\Client\Http\Middleware\ResolveClientScope;
 use App\Modules\ExternalApi\Http\Middleware\EnsureUmbrellaTenant;
+use App\Modules\Finance\Exceptions\ClientFinanciallyBlocked;
+use App\Modules\Finance\Http\Middleware\EnsureClientFinancialAccess;
 use App\Modules\Shared\Http\ApiError;
 use App\Modules\Tenant\Exceptions\TenantAccessForbidden;
 use App\Modules\Tenant\Exceptions\TenantCouldNotBeResolved;
@@ -77,12 +79,19 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.child' => EnsureChildTenant::class,
             'tenant.umbrella' => EnsureUmbrellaTenant::class,
             'module' => EnsureTenantModule::class,
+            'client.finance-access' => EnsureClientFinancialAccess::class,
             'build.token' => EnsureBuildToken::class,
         ]);
 
         $middleware->prependToPriorityList(
             SubstituteBindings::class,
             ResolveClientScope::class,
+        );
+
+        // O bloqueio por inadimplência depende do cliente resolvido.
+        $middleware->appendToPriorityList(
+            ResolveClientScope::class,
+            EnsureClientFinancialAccess::class,
         );
 
         $middleware->prependToPriorityList(
@@ -121,6 +130,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (TenantInactive $e, Request $request) {
             if (ApiError::shouldRender($request)) {
                 return ApiError::response($e->getMessage(), 403, [TenantInactive::ERROR_KEY => [$e->getMessage()]]);
+            }
+        });
+
+        $exceptions->render(function (ClientFinanciallyBlocked $e, Request $request) {
+            if (ApiError::shouldRender($request)) {
+                return ApiError::response($e->getMessage(), 403, [ClientFinanciallyBlocked::ERROR_KEY => [$e->getMessage()]]);
             }
         });
 

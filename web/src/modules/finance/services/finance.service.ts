@@ -12,6 +12,8 @@ import type {
   FinanceReportType,
   FinanceSubscription,
   PaymentGatewayConfig,
+  FinanceCollectionSettings,
+  FinancePortalAccess,
 } from '@/shared/types/models'
 
 export interface FinancePlanListParams extends ListParams {
@@ -79,6 +81,11 @@ export interface PaymentGatewayConfigPayload {
   is_active?: boolean
   credentials: Record<string, string>
 }
+
+export type FinanceCollectionSettingsPayload = Omit<
+  FinanceCollectionSettings,
+  'default_messages' | 'updated_at'
+>
 
 export interface FinanceReportParams {
   type: FinanceReportType | string
@@ -245,6 +252,23 @@ export const financeService = {
     return response.data.data
   },
 
+  async getCollectionSettings(): Promise<FinanceCollectionSettings> {
+    const response = await http.get<ApiResponse<FinanceCollectionSettings>>(
+      '/finance/collection-settings',
+    )
+    return response.data.data
+  },
+
+  async updateCollectionSettings(
+    payload: FinanceCollectionSettingsPayload,
+  ): Promise<FinanceCollectionSettings> {
+    const response = await http.put<ApiResponse<FinanceCollectionSettings>>(
+      '/finance/collection-settings',
+      payload,
+    )
+    return response.data.data
+  },
+
   async dashboard(): Promise<FinanceDashboardMetrics> {
     const response = await http.get<ApiResponse<FinanceDashboardMetrics>>('/finance/dashboard')
     return response.data.data
@@ -254,6 +278,11 @@ export const financeService = {
     const response = await http.get<ApiResponse<FinanceReportResult>>('/finance/reports', {
       params,
     })
+    return response.data.data
+  },
+
+  async portalAccess(): Promise<FinancePortalAccess> {
+    const response = await http.get<ApiResponse<FinancePortalAccess>>('/finance/portal/access')
     return response.data.data
   },
 

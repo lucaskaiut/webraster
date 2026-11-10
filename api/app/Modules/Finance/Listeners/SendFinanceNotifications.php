@@ -2,7 +2,6 @@
 
 namespace App\Modules\Finance\Listeners;
 
-use App\Modules\Client\Models\Client;
 use App\Modules\Finance\Events\InvoiceCanceled;
 use App\Modules\Finance\Events\InvoiceCreated;
 use App\Modules\Finance\Events\InvoiceDueSoon;
@@ -13,19 +12,14 @@ use App\Modules\Finance\Events\SubscriptionCreated;
 use App\Modules\Finance\Events\SubscriptionRenewed;
 use App\Modules\Finance\Models\FinanceBilling;
 use App\Modules\Finance\Models\FinanceSubscription;
-use App\Modules\Finance\Services\FinanceNotificationService;
-use App\Modules\Finance\Support\FinanceNotificationMessage;
-use App\Modules\Notification\DTOs\NotificationMessage;
-use App\Modules\Notification\Enums\NotificationSource;
-use App\Modules\Notification\Services\NotificationEngine;
-use App\Modules\Notification\Services\NotificationRecipientResolver;
+use App\Modules\Finance\Services\FinanceClientNotifier;
+use App\Modules\Finance\Services\FinanceCollectionSettingService;
 
 class SendFinanceNotifications
 {
     public function __construct(
-        private readonly FinanceNotificationService $notifications,
-        private readonly NotificationEngine $engine,
-        private readonly NotificationRecipientResolver $recipients,
+        private readonly FinanceClientNotifier $notifier,
+        private readonly FinanceCollectionSettingService $collection,
     ) {}
 
     public function handleInvoiceCreated(InvoiceCreated $event): void
@@ -42,6 +36,12 @@ class SendFinanceNotifications
     public function handleInvoiceDueSoon(InvoiceDueSoon $event): void
     {
         $billing = $event->billing;
+
+        // Com a régua de cobrança ativa, os avisos de vencimento seguem a régua.
+        if ($this->collection->isActiveForCurrentTenant()) {
+            return;
+        }
+
         $this->notifyBilling(
             $billing,
             'finance_invoice_due_soon',
@@ -53,6 +53,12 @@ class SendFinanceNotifications
     public function handleInvoiceOverdue(InvoiceOverdue $event): void
     {
         $billing = $event->billing;
+
+        // Com a régua de cobrança ativa, os avisos de atraso seguem a régua.
+        if ($this->collection->isActiveForCurrentTenant()) {
+            return;
+        }
+
         $this->notifyBilling(
             $billing,
             'finance_invoice_overdue',
@@ -138,21 +144,7 @@ class SendFinanceNotifications
             'status' => $billing->status?->value,
         ];
 
-        $this->notifyClientUsers($client, $type, $subject, $body, $data);
-
-        $to = $client?->financial_email ?: $client?->email;
-
-        if (blank($to)) {
-            return;
-        }
-
-        $this->notifications->notify(new FinanceNotificationMessage(
-            to: (string) $to,
-            subject: $subject,
-            body: $body,
-            data: $data,
-            clientId: $client?->getKey(),
-        ));
+        $this->notifier->notify($client, $type, $subject, $body, $data);
     }
 
     private function notifySubscription(
@@ -176,46 +168,6 @@ class SendFinanceNotifications
             'status' => $subscription->status?->value,
         ];
 
-        $this->notifyClientUsers($client, $type, $subject, $body, $data);
-
-        $to = $client?->financial_email ?: $client?->email;
-
-        if (blank($to)) {
-            return;
-        }
-
-        $this->notifications->notify(new FinanceNotificationMessage(
-            to: (string) $to,
-            subject: $subject,
-            body: $body,
-            data: $data,
-            clientId: $client?->getKey(),
-        ));
-    }
-
-    /**
-     * In-app + push para os usuários do portal do cliente.
-     *
-     * @param  array<string, mixed>  $data
-     */
-    private function notifyClientUsers(
-        ?Client $client,
-        string $type,
-        string $title,
-        string $body,
-        array $data,
-    ): void {
-        if ($client === null) {
-            return;
-        }
-
-        $this->engine->send($this->recipients->forClient($client), new NotificationMessage(
-            type: $type,
-            title: $title,
-            body: $body,
-            data: $data,
-            source: NotificationSource::FINANCE,
-            push: true,
-        ));
+        $this->notifier->notify($client, $type, $subject, $body, $data);
     }
 }

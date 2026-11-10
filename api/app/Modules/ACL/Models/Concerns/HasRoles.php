@@ -2,10 +2,12 @@
 
 namespace App\Modules\ACL\Models\Concerns;
 
+use App\Modules\ACL\Contracts\PermissionRestriction;
 use App\Modules\ACL\Enums\Permission;
 use App\Modules\ACL\Models\Role;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Tenant\Support\Facades\TenantContext;
+use App\Modules\User\Models\User;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Collection;
 
@@ -79,11 +81,33 @@ trait HasRoles
                 ->values();
         }
 
-        return $this->loadedRoles()
+        $permissions = $this->loadedRoles()
             ->flatMap(fn (Role $role) => $role->permissionValues())
             ->unique()
             ->filter(fn (string $permission): bool => $tenant === null || $tenant->allowsPermission($permission))
             ->values();
+
+        return $this->applyPermissionRestrictions($permissions);
+    }
+
+    /**
+     * Aplica as restrições registradas pelos módulos (PermissionRestriction).
+     *
+     * @param  Collection<int, string>  $permissions
+     * @return Collection<int, string>
+     */
+    protected function applyPermissionRestrictions(Collection $permissions): Collection
+    {
+        if (! $this instanceof User) {
+            return $permissions;
+        }
+
+        foreach (app()->tagged(PermissionRestriction::TAG) as $restriction) {
+            /** @var PermissionRestriction $restriction */
+            $permissions = $restriction->restrict($this, $permissions)->values();
+        }
+
+        return $permissions;
     }
 
     /**

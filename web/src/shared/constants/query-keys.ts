@@ -315,6 +315,7 @@ export const queryKeys = {
       detail: (id: string) => ['finance', 'billings', 'detail', id] as const,
     },
     gatewayConfig: () => ['finance', 'gateway-config'] as const,
+    collectionSettings: () => ['finance', 'collection-settings'] as const,
     dashboard: () => ['finance', 'dashboard'] as const,
     reports: (params: { type: string; from?: string; to?: string; status?: string }) =>
       ['finance', 'reports', params] as const,
@@ -325,6 +326,7 @@ export const queryKeys = {
         params: ListParams & { status?: string; due_from?: string; due_to?: string },
       ) => ['finance', 'portal', 'billings', params] as const,
       billing: (id: string) => ['finance', 'portal', 'billing', id] as const,
+      access: () => ['finance', 'portal', 'access'] as const,
     },
   },
 } as const

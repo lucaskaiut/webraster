@@ -143,6 +143,9 @@ export const Permission = {
   FINANCE_GATEWAY_CONFIG_READ: 'finance-gateway-config.read',
   FINANCE_GATEWAY_CONFIG_UPDATE: 'finance-gateway-config.update',
 
+  FINANCE_COLLECTION_CONFIG_READ: 'finance-collection-config.read',
+  FINANCE_COLLECTION_CONFIG_UPDATE: 'finance-collection-config.update',
+
   FINANCE_DASHBOARD_READ: 'finance-dashboard.read',
   FINANCE_REPORT_READ: 'finance-report.read',
   FINANCE_PORTAL_VIEW: 'finance-portal.view',
@@ -428,6 +431,8 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { value: Permission.FINANCE_BILLING_CHARGE, label: 'Cobrar via gateway' },
       { value: Permission.FINANCE_GATEWAY_CONFIG_READ, label: 'Visualizar configuração do gateway' },
       { value: Permission.FINANCE_GATEWAY_CONFIG_UPDATE, label: 'Editar configuração do gateway' },
+      { value: Permission.FINANCE_COLLECTION_CONFIG_READ, label: 'Visualizar régua de cobrança' },
+      { value: Permission.FINANCE_COLLECTION_CONFIG_UPDATE, label: 'Editar régua de cobrança' },
       { value: Permission.FINANCE_DASHBOARD_READ, label: 'Visualizar dashboard financeiro' },
       { value: Permission.FINANCE_REPORT_READ, label: 'Visualizar relatórios financeiros' },
       { value: Permission.FINANCE_PORTAL_VIEW, label: 'Acessar portal financeiro do cliente' },

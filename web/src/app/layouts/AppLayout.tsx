@@ -1,7 +1,9 @@
 import { Suspense } from 'react'
 import { Link, Outlet } from 'react-router'
-import { Activity, Bell, BellRing, Building2, Car, ChartColumn, CircleDollarSign, ClipboardCheck, ClipboardList, Cog, Columns3, Contact, Cpu, CreditCard, Database, FileBarChart, FileText, Hammer, Handshake, Hexagon, History, IdCard, Inbox, Kanban, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, MessageCircle, Package, Receipt, Repeat, ScrollText, Search, Send, Settings, ShieldCheck, Terminal, Users, Wallet, Warehouse, Wrench } from 'lucide-react'
+import { Activity, Bell, BellRing, Building2, CalendarClock, Car, ChartColumn, CircleDollarSign, ClipboardCheck, ClipboardList, Cog, Columns3, Contact, Cpu, CreditCard, Database, FileBarChart, FileText, Hammer, Handshake, Hexagon, History, IdCard, Inbox, Kanban, LayoutDashboard, LogOut, MapPin, MapPinned, Menu, MessageCircle, Package, Receipt, Repeat, ScrollText, Search, Send, Settings, ShieldCheck, Terminal, Users, Wallet, Warehouse, Wrench } from 'lucide-react'
 import { AppLogo } from '@/shared/brand/AppLogo'
+import { FinancialAccessGate } from '@/modules/finance/components/FinancialAccessGate'
+import { useClientFinancialAccess } from '@/modules/finance/hooks/useFinance'
 import { useActiveTenant } from '@/shared/brand/useActiveTenant'
 import { TenantSelector } from '@/modules/auth/components/TenantSelector'
 import { NotificationBell } from '@/modules/notifications/components/NotificationBell'
@@ -108,18 +110,22 @@ function SidebarNavigation({
   const showCrmGroup =
     showCrmInbox || showCrmKanban || showCrmLeads || showCrmPipelines || showCrmSettings
 
+  // Cliente inadimplente só vê o financeiro (as permissões já vêm restritas).
+  const { blocked: financiallyBlocked } = useClientFinancialAccess()
   const showFinanceDashboard = isOperatingTenant && can(Permission.FINANCE_DASHBOARD_READ)
   const showFinancePlans = isOperatingTenant && can(Permission.FINANCE_PLAN_READ)
   const showFinanceBillings = isOperatingTenant && can(Permission.FINANCE_BILLING_READ)
   const showFinanceSubscriptions = isOperatingTenant && can(Permission.FINANCE_SUBSCRIPTION_READ)
   const showFinanceReports = isOperatingTenant && can(Permission.FINANCE_REPORT_READ)
   const showFinanceGateway = isOperatingTenant && can(Permission.FINANCE_GATEWAY_CONFIG_READ)
+  const showFinanceCollection = isOperatingTenant && can(Permission.FINANCE_COLLECTION_CONFIG_READ)
   const showFinanceOperatorGroup =
     showFinancePlans ||
     showFinanceBillings ||
     showFinanceSubscriptions ||
     showFinanceReports ||
-    showFinanceGateway
+    showFinanceGateway ||
+    showFinanceCollection
   const showFinancePortal = isOperatingTenant && can(Permission.FINANCE_PORTAL_VIEW) && !showFinanceOperatorGroup
   const showManagementGroup =
     isUmbrella ||
@@ -132,30 +138,32 @@ function SidebarNavigation({
 
   return (
     <Sidebar header={<Brand collapsed={collapsed} onNavigate={onNavigate} />} collapsed={collapsed}>
-      <SidebarGroup label="Dashboard" icon={LayoutDashboard} collapsible defaultOpen>
-        <SidebarItem
-          to="/dashboard"
-          icon={LayoutDashboard}
-          label={isUmbrella ? 'Visão geral' : 'Dashboard de Monitoramento'}
-          onNavigate={onNavigate}
-        />
-        {showTracking && (
+      {!financiallyBlocked && (
+        <SidebarGroup label="Dashboard" icon={LayoutDashboard} collapsible defaultOpen>
           <SidebarItem
-            to="/monitoring"
-            icon={MapPinned}
-            label="Painel de Monitoramento"
+            to="/dashboard"
+            icon={LayoutDashboard}
+            label={isUmbrella ? 'Visão geral' : 'Dashboard de Monitoramento'}
             onNavigate={onNavigate}
           />
-        )}
-        {showFinanceDashboard && (
-          <SidebarItem
-            to="/finance/dashboard"
-            icon={Wallet}
-            label="Dashboard Financeiro"
-            onNavigate={onNavigate}
-          />
-        )}
-      </SidebarGroup>
+          {showTracking && (
+            <SidebarItem
+              to="/monitoring"
+              icon={MapPinned}
+              label="Painel de Monitoramento"
+              onNavigate={onNavigate}
+            />
+          )}
+          {showFinanceDashboard && (
+            <SidebarItem
+              to="/finance/dashboard"
+              icon={Wallet}
+              label="Dashboard Financeiro"
+              onNavigate={onNavigate}
+            />
+          )}
+        </SidebarGroup>
+      )}
 
       {showCadastrosGroup && (
         <SidebarGroup label="Cadastros" icon={Database} collapsible>
@@ -237,6 +245,14 @@ function SidebarNavigation({
                   to="/finance/reports"
                   icon={FileBarChart}
                   label="Relatórios"
+                  onNavigate={onNavigate}
+                />
+              )}
+              {showFinanceCollection && (
+                <SidebarItem
+                  to="/finance/collection-settings"
+                  icon={CalendarClock}
+                  label="Régua de cobrança"
                   onNavigate={onNavigate}
                 />
               )}
@@ -531,7 +547,9 @@ function AppLayoutShell() {
           <Container className="flex min-h-0 flex-1 flex-col overflow-hidden pt-1.5 pb-2">
             <Suspense fallback={<Loading />}>
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                <Outlet />
+                <FinancialAccessGate>
+                  <Outlet />
+                </FinancialAccessGate>
               </div>
             </Suspense>
           </Container>

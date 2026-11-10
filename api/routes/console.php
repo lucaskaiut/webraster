@@ -10,6 +10,7 @@ use App\Modules\Finance\Console\Commands\GenerateBillingsCommand;
 use App\Modules\Finance\Console\Commands\MarkOverdueBillingsCommand;
 use App\Modules\Finance\Console\Commands\NotifyDueSoonCommand;
 use App\Modules\Finance\Console\Commands\ProcessDelinquencyCommand;
+use App\Modules\Finance\Console\Commands\SendCollectionRemindersCommand;
 use App\Modules\Notification\Jobs\CheckPushReceiptsJob;
 use App\Modules\ServiceOrder\Console\Commands\SendServiceOrderRemindersCommand;
 use App\Modules\Tracking\Console\Commands\PruneTrackingDataCommand;
@@ -36,6 +37,11 @@ Schedule::command(GenerateBillingsCommand::class)->hourly();
 Schedule::command(MarkOverdueBillingsCommand::class)->hourly();
 Schedule::command(ProcessDelinquencyCommand::class)->daily();
 Schedule::command(NotifyDueSoonCommand::class)->daily();
+// Régua de cobrança: avisos no horário comercial; o registro por cobrança evita repetição no dia.
+Schedule::command(SendCollectionRemindersCommand::class)
+    ->dailyAt('09:00')
+    ->timezone((string) config('scheduling.timezone'))
+    ->withoutOverlapping();
 
 Schedule::command(SendServiceOrderRemindersCommand::class)->everyMinute()->withoutOverlapping();
 

@@ -11,6 +11,12 @@ const GUEST_ENDPOINTS = ['/auth/login', '/auth/register', '/auth/me']
 /** Chave em "errors" do 403 de empresa inativa (TenantInactive na API). */
 const TENANT_INACTIVE_ERROR = 'tenant_inactive'
 
+/** Chave em "errors" do 403 de cliente bloqueado por inadimplência (ClientFinanciallyBlocked). */
+export const CLIENT_FINANCIAL_BLOCK_ERROR = 'client_financial_block'
+
+/** Evento disparado quando a API recusa uma ação por inadimplência do cliente. */
+export const CLIENT_FINANCIAL_BLOCK_EVENT = 'client-financial-block'
+
 /** Chave em "errors" do 403 de sessão de outra empresa neste domínio (TenantDomainMismatch). */
 export const TENANT_DOMAIN_MISMATCH_ERROR = 'tenant_domain_mismatch'
 
@@ -79,6 +85,13 @@ http.interceptors.response.use(
         useTenantContextStore.getState().clearSelectedTenantId()
         toast.warning('Acesso suspenso', apiError.message)
       }
+
+      return Promise.reject(apiError)
+    }
+
+    // Cliente inadimplente: o layout redireciona para o financeiro, sem toast.
+    if (apiError.status === 403 && apiError.fieldErrors[CLIENT_FINANCIAL_BLOCK_ERROR]) {
+      window.dispatchEvent(new Event(CLIENT_FINANCIAL_BLOCK_EVENT))
 
       return Promise.reject(apiError)
     }

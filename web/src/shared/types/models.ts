@@ -1322,6 +1322,36 @@ export interface PaymentGatewayCatalogItem {
   ready: boolean
 }
 
+export type CollectionReminderStage = 'before_due' | 'due_date' | 'overdue'
+
+/** Régua de cobrança: avisos ao cliente antes, no dia e depois do vencimento. */
+export interface FinanceCollectionSettings {
+  is_active: boolean
+  before_due_enabled: boolean
+  before_due_days: number
+  before_due_message: string
+  due_date_enabled: boolean
+  due_date_message: string
+  overdue_enabled: boolean
+  overdue_interval_days: number
+  overdue_max_reminders: number | null
+  overdue_message: string
+  block_access_enabled: boolean
+  block_access_after_days: number
+  default_messages: Record<CollectionReminderStage, string>
+  updated_at: string | null
+}
+
+/** Situação de acesso do cliente no portal (bloqueio por inadimplência). */
+export interface FinancePortalAccess {
+  blocked: boolean
+  message: string | null
+  overdue_count: number
+  overdue_total_cents: number
+  oldest_due_at: string | null
+  billing_id: string | null
+}
+
 export interface PaymentGatewayConfig {
   gateway: string
   label: string

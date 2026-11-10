@@ -4,6 +4,7 @@ namespace App\Modules\Finance\Console\Commands;
 
 use App\Modules\Finance\Events\InvoiceDueSoon;
 use App\Modules\Finance\Models\FinanceBilling;
+use App\Modules\Finance\Services\FinanceCollectionSettingService;
 use App\Modules\Shared\Subscription\Enums\BillingStatus;
 use App\Modules\Tenant\Enums\TenantModule;
 use App\Modules\Tenant\Models\Tenant;
@@ -16,19 +17,24 @@ class NotifyDueSoonCommand extends Command
 
     protected $description = 'Notifica cobranças que vencem em N dias';
 
-    public function handle(): int
+    public function handle(FinanceCollectionSettingService $collection): int
     {
         $days = max(1, (int) $this->option('days'));
         $target = now()->addDays($days)->toDateString();
         $count = 0;
 
-        Tenant::query()->orderBy('id')->each(function (Tenant $tenant) use ($target, &$count): void {
+        Tenant::query()->orderBy('id')->each(function (Tenant $tenant) use ($collection, $target, &$count): void {
             // Empresas inativas ou sem o módulo financeiro não geram cobranças nem avisos.
             if (! $tenant->isActive() || ! $tenant->hasModule(TenantModule::FINANCE)) {
                 return;
             }
 
             TenantContext::set($tenant);
+
+            // Empresas com régua de cobrança ativa recebem os avisos pela régua.
+            if ($collection->isActiveForCurrentTenant()) {
+                return;
+            }
 
             FinanceBilling::query()
                 ->whereIn('status', [

@@ -107,6 +107,9 @@ const FinanceBillingsListPage = lazy(() => import('@/modules/finance/pages/Finan
 const FinanceBillingDetailPage = lazy(() => import('@/modules/finance/pages/FinanceBillingDetailPage'))
 const FinanceReportsPage = lazy(() => import('@/modules/finance/pages/FinanceReportsPage'))
 const FinanceGatewayConfigPage = lazy(() => import('@/modules/finance/pages/FinanceGatewayConfigPage'))
+const FinanceCollectionSettingsPage = lazy(
+  () => import('@/modules/finance/pages/FinanceCollectionSettingsPage'),
+)
 const FinancePortalBillingsPage = lazy(() => import('@/modules/finance/pages/FinancePortalBillingsPage'))
 const FinancePortalBillingDetailPage = lazy(
   () => import('@/modules/finance/pages/FinancePortalBillingDetailPage'),
@@ -845,6 +848,14 @@ export const router = createBrowserRouter([
             element: (
               <PermissionGuard permission={Permission.FINANCE_GATEWAY_CONFIG_READ} requiresChildTenant>
                 <FinanceGatewayConfigPage />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: '/finance/collection-settings',
+            element: (
+              <PermissionGuard permission={Permission.FINANCE_COLLECTION_CONFIG_READ} requiresChildTenant>
+                <FinanceCollectionSettingsPage />
               </PermissionGuard>
             ),
           },
