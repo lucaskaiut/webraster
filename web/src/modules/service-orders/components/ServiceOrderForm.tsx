@@ -279,6 +279,7 @@ export function ServiceOrderForm({
       scheduled_start_at: toFormDateTime(initial?.scheduled_start_at),
       scheduled_end_at: toFormDateTime(initial?.scheduled_end_at),
       address: initial?.address ?? '',
+      address_reference: initial?.address_reference ?? '',
       latitude: initial?.latitude ?? null,
       longitude: initial?.longitude ?? null,
       estimated_duration_minutes: initial?.estimated_duration_minutes
@@ -288,6 +289,7 @@ export function ServiceOrderForm({
       notes: initial?.notes ?? '',
       installation_location: initial?.installation_location ?? '',
       cancellation_reason: initial?.cancellation_reason ?? '',
+      frustration_reason: initial?.frustration_reason ?? '',
       ignore_schedule_conflict: false,
     },
   })
@@ -393,6 +395,7 @@ export function ServiceOrderForm({
       scheduled_start_at: fromFormDateTime(values.scheduled_start_at ?? ''),
       scheduled_end_at: fromFormDateTime(values.scheduled_end_at ?? ''),
       address: values.address?.trim() || null,
+      address_reference: values.address_reference?.trim() || null,
       ...coordinatesPayload(values),
       estimated_duration_minutes: values.estimated_duration_minutes
         ? Number(values.estimated_duration_minutes)
@@ -409,6 +412,8 @@ export function ServiceOrderForm({
       payload.status = values.status
       payload.cancellation_reason =
         values.status === 'cancelled' ? values.cancellation_reason || null : null
+      payload.frustration_reason =
+        values.status === 'frustrated' ? values.frustration_reason || null : null
     }
 
     try {
@@ -517,6 +522,15 @@ export function ServiceOrderForm({
                   required
                   className="sm:col-span-2 xl:col-span-4"
                   placeholder="Descreva o motivo do cancelamento"
+                />
+              )}
+              {showStatusField && statusValue === 'frustrated' && (
+                <TextareaField
+                  name="frustration_reason"
+                  label="Motivo da frustração"
+                  required
+                  className="sm:col-span-2 xl:col-span-4"
+                  placeholder="O técnico foi ao local, mas não conseguiu realizar o serviço. Descreva o motivo."
                 />
               )}
             </div>

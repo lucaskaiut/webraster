@@ -21,6 +21,8 @@ function formatBytes(bytes: number): string {
 interface AttachmentDropzoneProps {
   files: File[]
   onChange: (files: File[]) => void
+  /** Quantidade máxima de arquivos aceitos (padrão: MAX_ATTACHMENTS). */
+  maxFiles?: number
   label?: string
   hint?: string
   error?: string | null
@@ -35,6 +37,7 @@ interface AttachmentDropzoneProps {
 export function AttachmentDropzone({
   files,
   onChange,
+  maxFiles = MAX_ATTACHMENTS,
   label = 'Documento',
   hint = 'Opcional · PDF, imagens, Word, Excel ou texto, até 10 MB por arquivo.',
   error,
@@ -62,8 +65,12 @@ export function AttachmentDropzone({
       return
     }
 
-    if (files.length + selected.length > MAX_ATTACHMENTS) {
-      setRejection(`Envie no máximo ${MAX_ATTACHMENTS} arquivos.`)
+    if (files.length + selected.length > maxFiles) {
+      setRejection(
+        maxFiles === 1
+          ? 'Envie apenas 1 arquivo. Remova o atual para trocar.'
+          : `Envie no máximo ${maxFiles} arquivos.`,
+      )
       return
     }
 
@@ -87,6 +94,7 @@ export function AttachmentDropzone({
       {/* `relative` ancora o input `sr-only` (absolute) aqui; sem isso, o foco ao
           clicar no label rola os contêineres overflow-hidden do layout. */}
       <div className="relative space-y-2">
+        {files.length < maxFiles && (
         <label
           htmlFor={inputId}
           onDragOver={(event) => {
@@ -107,12 +115,13 @@ export function AttachmentDropzone({
           </span>
           <span className="text-xs">PDF, JPG, PNG, WEBP, HEIC, DOC, DOCX, XLS, XLSX ou TXT</span>
         </label>
+        )}
         <input
           id={inputId}
           type="file"
           accept={ACCEPT}
-          multiple
-          disabled={disabled}
+          multiple={maxFiles > 1}
+          disabled={disabled || files.length >= maxFiles}
           className="sr-only"
           onChange={(event) => {
             addFiles(event.target.files)

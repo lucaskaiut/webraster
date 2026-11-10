@@ -68,6 +68,7 @@ class ServiceOrderResource extends JsonResource
                 'name' => $this->technician->name,
             ] : null),
             'address' => $this->address,
+            'address_reference' => $this->address_reference,
             'latitude' => $this->latitude,
             'longitude' => $this->longitude,
             'scheduled_start_at' => $this->scheduled_start_at?->toIso8601String(),
@@ -86,6 +87,7 @@ class ServiceOrderResource extends JsonResource
                 : null,
             'execution_notes' => $this->execution_notes,
             'cancellation_reason' => $this->cancellation_reason,
+            'frustration_reason' => $this->frustration_reason,
             'created_by' => $this->whenLoaded('creator', fn () => $this->creator ? [
                 'id' => $this->creator->uuid,
                 'name' => $this->creator->name,
@@ -98,8 +100,13 @@ class ServiceOrderResource extends JsonResource
                 'id' => $this->canceller->uuid,
                 'name' => $this->canceller->name,
             ] : null),
+            'frustrated_by' => $this->whenLoaded('frustrator', fn () => $this->frustrator ? [
+                'id' => $this->frustrator->uuid,
+                'name' => $this->frustrator->name,
+            ] : null),
             'completed_at' => $this->completed_at?->toIso8601String(),
             'cancelled_at' => $this->cancelled_at?->toIso8601String(),
+            'frustrated_at' => $this->frustrated_at?->toIso8601String(),
             'items' => ServiceOrderItemResource::collection($this->whenLoaded('items')),
             'items_total_cents' => $this->whenLoaded('items', fn () => $this->itemsTotalCents()),
             'items_total' => $this->whenLoaded(

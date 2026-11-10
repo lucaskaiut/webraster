@@ -8,6 +8,7 @@ import {
   CardContent,
   Form,
   SearchSelectField,
+  TextField,
   TextareaField,
   type SearchSelectOption,
 } from '@/shared/design-system'
@@ -98,6 +99,7 @@ export function ServiceOrderForm({ submitting, onSubmit }: ServiceOrderFormProps
     resolver: zodResolver(serviceOrderSchema),
     defaultValues: {
       address: '',
+      address_reference: '',
       service_id: '',
       technician_id: '',
       scheduled_start_at: '',
@@ -127,6 +129,7 @@ export function ServiceOrderForm({ submitting, onSubmit }: ServiceOrderFormProps
   const handleSubmit = async (values: ServiceOrderFormValues) => {
     const payload: ServiceOrderPayload = {
       address: values.address.trim(),
+      address_reference: values.address_reference?.trim() || null,
       technician_id: values.technician_id || null,
       scheduled_start_at: fromFormDateTime(values.scheduled_start_at),
       scheduled_end_at: fromFormDateTime(values.scheduled_end_at),
@@ -192,6 +195,14 @@ export function ServiceOrderForm({ submitting, onSubmit }: ServiceOrderFormProps
                 placeholder="Digite ao menos 2 palavras do endereço"
                 hint="Selecione uma sugestão para gravar o endereço completo."
               />
+              <TextField
+                name="address_reference"
+                label="Ponto de referência"
+                className="lg:col-span-2 lg:row-start-2"
+                maxLength={1000}
+                placeholder="Ex.: portão azul ao lado da padaria, ou cole o link do Google Maps"
+                hint="Se for um link de localização, o técnico abre direto no mapa."
+              />
               <SearchSelectField
                 name="service_id"
                 label="Serviço"
@@ -220,7 +231,7 @@ export function ServiceOrderForm({ submitting, onSubmit }: ServiceOrderFormProps
           <FormStep
             step={3}
             title="Descrição e documento"
-            description="Descreva o atendimento e anexe o documento, se houver.">
+            description="Descreva o atendimento e anexe o documento do serviço, se houver.">
             <TextareaField
               name="description"
               label="Descrição"
@@ -234,6 +245,8 @@ export function ServiceOrderForm({ submitting, onSubmit }: ServiceOrderFormProps
                 setAttachmentsError(null)
                 setAttachments(files)
               }}
+              maxFiles={1}
+              hint="Opcional · 1 arquivo (cada documento corresponde a um serviço). Depois que o técnico iniciar a OS, outros arquivos podem ser anexados."
               error={attachmentsError}
               disabled={submitting}
             />

@@ -24,7 +24,8 @@ enum CommissionStatus: string
         return match ($status) {
             ServiceOrderStatus::OPEN, ServiceOrderStatus::IN_PROGRESS => self::FORECAST,
             ServiceOrderStatus::COMPLETED => self::FINALIZED,
-            ServiceOrderStatus::CANCELLED => self::CANCELLED,
+            // Frustrada: o serviço não foi realizado, então não gera comissão.
+            ServiceOrderStatus::FRUSTRATED, ServiceOrderStatus::CANCELLED => self::CANCELLED,
         };
     }
 

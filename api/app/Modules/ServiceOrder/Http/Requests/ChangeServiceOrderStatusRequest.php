@@ -21,6 +21,7 @@ class ChangeServiceOrderStatusRequest extends FormRequest
         return [
             'status' => ['required', Rule::enum(ServiceOrderStatus::class)],
             'cancellation_reason' => ['nullable', 'string', 'max:2000'],
+            'frustration_reason' => ['nullable', 'string', 'max:2000'],
             'execution_notes' => ['nullable', 'string', 'max:5000'],
         ];
     }

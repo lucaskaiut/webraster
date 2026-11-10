@@ -58,15 +58,8 @@ class ServiceOrderNotificationService
 
     public function notifyCancelled(ServiceOrder $order): void
     {
-        $recipients = collect([$order->technician_id, $order->created_by])
-            ->filter()
-            ->map(fn ($id) => (int) $id)
-            ->unique()
-            ->values()
-            ->all();
-
         $this->send(
-            $recipients,
+            $this->involvedUsers($order),
             $order,
             'service_order.cancelled',
             'OS cancelada',
@@ -76,6 +69,39 @@ class ServiceOrderNotificationService
                 $order->cancellation_reason ? ': '.$order->cancellation_reason : '.',
             ),
         );
+    }
+
+    /**
+     * Avisa que o técnico foi ao local, mas não conseguiu realizar o serviço.
+     */
+    public function notifyFrustrated(ServiceOrder $order): void
+    {
+        $this->send(
+            $this->involvedUsers($order),
+            $order,
+            'service_order.frustrated',
+            'OS frustrada',
+            sprintf(
+                'OS %s foi frustrada%s',
+                $order->code,
+                $order->frustration_reason ? ': '.$order->frustration_reason : '.',
+            ),
+        );
+    }
+
+    /**
+     * Técnico e quem lançou a OS, sem repetir.
+     *
+     * @return list<int>
+     */
+    private function involvedUsers(ServiceOrder $order): array
+    {
+        return collect([$order->technician_id, $order->created_by])
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     public function notifyReminder(ServiceOrder $order): void

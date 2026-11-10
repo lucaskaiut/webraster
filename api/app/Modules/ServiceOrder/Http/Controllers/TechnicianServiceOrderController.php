@@ -75,7 +75,7 @@ class TechnicianServiceOrderController extends ApiController
             ->where('technician_id', $request->user()->getKey());
 
         if ($history) {
-            $query->whereIn('status', [ServiceOrderStatus::COMPLETED->value, ServiceOrderStatus::CANCELLED->value])
+            $query->whereIn('status', array_map(fn (ServiceOrderStatus $s) => $s->value, ServiceOrderStatus::terminal()))
                 ->orderByDesc('scheduled_start_at')
                 ->orderByDesc('id');
         } else {
@@ -126,6 +126,7 @@ class TechnicianServiceOrderController extends ApiController
             'open' => 0,
             'in_progress' => 0,
             'completed' => 0,
+            'frustrated' => 0,
             'cancelled' => 0,
             'overdue' => 0,
         ];
@@ -140,6 +141,7 @@ class TechnicianServiceOrderController extends ApiController
 
             $category = match (true) {
                 $status === ServiceOrderStatus::COMPLETED->value => 'completed',
+                $status === ServiceOrderStatus::FRUSTRATED->value => 'frustrated',
                 $status === ServiceOrderStatus::CANCELLED->value => 'cancelled',
                 in_array($status, [
                     ServiceOrderStatus::OPEN->value,
@@ -317,11 +319,16 @@ class TechnicianServiceOrderController extends ApiController
         $this->assertOwn($request, $serviceOrder);
 
         $data = $request->validated();
+        $next = ServiceOrderStatus::from((string) $data['status']);
         $order = $this->service->changeStatus(
             $serviceOrder,
-            ServiceOrderStatus::from((string) $data['status']),
+            $next,
             $request->user(),
-            null,
+            match ($next) {
+                ServiceOrderStatus::CANCELLED => $data['cancellation_reason'] ?? null,
+                ServiceOrderStatus::FRUSTRATED => $data['frustration_reason'] ?? null,
+                default => null,
+            },
             $data['execution_notes'] ?? null,
         );
 

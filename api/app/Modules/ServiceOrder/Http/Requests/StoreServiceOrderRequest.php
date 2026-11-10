@@ -38,6 +38,7 @@ class StoreServiceOrderRequest extends FormRequest
             'scheduled_start_at' => ['nullable', 'date'],
             'scheduled_end_at' => ['nullable', 'date', 'after:scheduled_start_at'],
             'address' => ['nullable', 'string', 'max:500'],
+            'address_reference' => ['nullable', 'string', 'max:1000'],
             // Coordenadas da sugestão de endereço escolhida; evitam uma nova
             // geocodificação e garantem o mesmo ponto usado nas estimativas.
             'latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitude'],
@@ -57,7 +58,14 @@ class StoreServiceOrderRequest extends FormRequest
             'items.*.quantity' => ['sometimes', 'integer', 'min:1', 'max:9999'],
             'items.*.unit_amount_cents' => ['required', 'integer', 'min:0', 'max:99999999'],
             'ignore_schedule_conflict' => ['sometimes', 'boolean'],
-            'attachments' => ['sometimes', 'array', 'max:10'],
+            // OS aberta aceita só 1 anexo (ver ServiceOrderAttachmentService::MAX_WHILE_OPEN).
+            'attachments' => [
+                'sometimes',
+                'array',
+                'max:'.($this->input('status') === ServiceOrderStatus::IN_PROGRESS->value
+                    ? 10
+                    : ServiceOrderAttachmentService::MAX_WHILE_OPEN),
+            ],
             'attachments.*' => [
                 'file',
                 'extensions:'.implode(',', ServiceOrderAttachmentService::ALLOWED_EXTENSIONS),
@@ -72,6 +80,7 @@ class StoreServiceOrderRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'attachments.max' => ServiceOrderAttachmentService::OPEN_LIMIT_MESSAGE,
             'attachments.*.extensions' => 'Formato não permitido. Envie PDF, imagem, Word, Excel ou texto.',
             'attachments.*.max' => 'Cada arquivo deve ter no máximo 10 MB.',
         ];

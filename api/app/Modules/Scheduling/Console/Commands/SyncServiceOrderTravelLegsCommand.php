@@ -23,10 +23,7 @@ class SyncServiceOrderTravelLegsCommand extends Command
     public function handle(SchedulingService $scheduling): int
     {
         $query = ServiceOrder::query()
-            ->whereNotIn('status', [
-                ServiceOrderStatus::CANCELLED->value,
-                ServiceOrderStatus::COMPLETED->value,
-            ])
+            ->whereNotIn('status', array_map(fn (ServiceOrderStatus $status) => $status->value, ServiceOrderStatus::terminal()))
             ->whereNotNull('technician_id')
             ->whereNotNull('scheduled_start_at');
 

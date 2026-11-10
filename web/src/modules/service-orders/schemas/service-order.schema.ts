@@ -4,7 +4,7 @@ import { parseLocalDateTime } from '@/shared/utils/date'
 export const serviceOrderSchema = z
   .object({
     priority: z.enum(['low', 'normal', 'high', 'urgent']),
-    status: z.enum(['open', 'in_progress', 'completed', 'cancelled']),
+    status: z.enum(['open', 'in_progress', 'completed', 'frustrated', 'cancelled']),
     client_id: z.string().min(1, 'Selecione o cliente'),
     vehicle_id: z.string().optional().or(z.literal('')),
     equipment_id: z.string().optional().or(z.literal('')),
@@ -12,6 +12,7 @@ export const serviceOrderSchema = z
     scheduled_start_at: z.string().optional().or(z.literal('')),
     scheduled_end_at: z.string().optional().or(z.literal('')),
     address: z.string().max(500, 'Máximo de 500 caracteres').optional().or(z.literal('')),
+    address_reference: z.string().max(1000, 'Máximo de 1000 caracteres').optional().or(z.literal('')),
     // Coordenadas da sugestão de endereço escolhida (null para texto livre).
     latitude: z.number().nullable().optional(),
     longitude: z.number().nullable().optional(),
@@ -25,6 +26,7 @@ export const serviceOrderSchema = z
     notes: z.string().max(5000).optional().or(z.literal('')),
     installation_location: z.string().max(2000).optional().or(z.literal('')),
     cancellation_reason: z.string().max(2000).optional().or(z.literal('')),
+    frustration_reason: z.string().max(2000).optional().or(z.literal('')),
     ignore_schedule_conflict: z.boolean().optional(),
   })
   .superRefine((values, ctx) => {
@@ -44,6 +46,14 @@ export const serviceOrderSchema = z
         code: 'custom',
         path: ['cancellation_reason'],
         message: 'Informe o motivo do cancelamento.',
+      })
+    }
+
+    if (values.status === 'frustrated' && !values.frustration_reason?.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['frustration_reason'],
+        message: 'Informe por que o serviço não pôde ser realizado.',
       })
     }
   })

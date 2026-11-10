@@ -29,6 +29,7 @@ import {
   priorityLabel,
   SERVICE_ORDER_PRIORITY_OPTIONS,
   SERVICE_ORDER_STATUS_OPTIONS,
+  isTerminalStatus,
   statusBadgeVariant,
   statusLabel,
 } from '../lib/labels'
@@ -137,7 +138,7 @@ export default function ServiceOrdersListPage() {
           >
             <Eye className="size-4" />
           </Button>
-          {can(Permission.SERVICE_ORDER_UPDATE) && item.status !== 'completed' && item.status !== 'cancelled' && (
+          {can(Permission.SERVICE_ORDER_UPDATE) && !isTerminalStatus(item.status) && (
             <Button
               variant="ghost"
               size="sm"

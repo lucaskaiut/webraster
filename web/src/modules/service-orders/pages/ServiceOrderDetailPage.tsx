@@ -44,6 +44,7 @@ import {
   historyFieldLabel,
   historyValueLabel,
   isReadableHistoryValue,
+  isTerminalStatus,
   priorityBadgeVariant,
   priorityLabel,
   statusBadgeVariant,
@@ -51,6 +52,7 @@ import {
 } from '../lib/labels'
 import { serviceOrdersService } from '../services/service-orders.service'
 import { ServiceOrderAttachmentsCard } from '../components/ServiceOrderAttachmentsCard'
+import { AddressReference } from '../components/AddressReference'
 import { ServiceOrderChecklistsCard } from '../components/ServiceOrderChecklistsCard'
 import { formatMinutes } from '../lib/duration'
 
@@ -66,6 +68,8 @@ export default function ServiceOrderDetailPage() {
   const [completeOpen, setCompleteOpen] = useState(false)
   const [billingOpen, setBillingOpen] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
+  const [frustrateOpen, setFrustrateOpen] = useState(false)
+  const [frustrationReason, setFrustrationReason] = useState('')
   const [executionNotes, setExecutionNotes] = useState('')
   const [billingDueDate, setBillingDueDate] = useState(toLocalIsoDate())
   const [downloadingPdf, setDownloadingPdf] = useState(false)
@@ -92,10 +96,7 @@ export default function ServiceOrderDetailPage() {
     )
   }
 
-  const canEdit =
-    can(Permission.SERVICE_ORDER_UPDATE) &&
-    order.status !== 'completed' &&
-    order.status !== 'cancelled'
+  const canEdit = can(Permission.SERVICE_ORDER_UPDATE) && !isTerminalStatus(order.status)
   const canChangeStatus = can(Permission.SERVICE_ORDER_CHANGE_STATUS)
   const canCancel = can(Permission.SERVICE_ORDER_CANCEL)
   const items = order.items ?? []
@@ -108,7 +109,11 @@ export default function ServiceOrderDetailPage() {
 
   const transition = (
     status: ServiceOrderStatus,
-    extras?: { cancellation_reason?: string; execution_notes?: string | null },
+    extras?: {
+      cancellation_reason?: string
+      frustration_reason?: string
+      execution_notes?: string | null
+    },
   ) => {
     changeStatus.mutate(
       { id: order.id, payload: { status, ...extras } },
@@ -116,7 +121,9 @@ export default function ServiceOrderDetailPage() {
         onSuccess: () => {
           setCancelOpen(false)
           setCompleteOpen(false)
+          setFrustrateOpen(false)
           setCancelReason('')
+          setFrustrationReason('')
           setExecutionNotes('')
 
           // A OS concluída é um estado terminal: volta para a listagem em vez
@@ -182,6 +189,11 @@ export default function ServiceOrderDetailPage() {
             {canChangeStatus && order.status === 'in_progress' && (
               <Button onClick={() => setCompleteOpen(true)}>Concluir</Button>
             )}
+            {canChangeStatus && (order.status === 'open' || order.status === 'in_progress') && (
+              <Button variant="secondary" onClick={() => setFrustrateOpen(true)}>
+                Frustrar
+              </Button>
+            )}
             {canCancel && (order.status === 'open' || order.status === 'in_progress') && (
               <Button variant="secondary" onClick={() => setCancelOpen(true)}>
                 Cancelar
@@ -241,6 +253,7 @@ export default function ServiceOrderDetailPage() {
               value={order.scheduled_end_at ? formatDateTime(order.scheduled_end_at) : '—'}
             />
             <Row label="Endereço" value={order.address || '—'} />
+            <Row label="Ponto de referência" value={<AddressReference value={order.address_reference} />} />
             <Row
               label="Duração estimada"
               value={
@@ -267,6 +280,9 @@ export default function ServiceOrderDetailPage() {
             <Row label="Observações" value={order.notes || '—'} />
             {order.cancellation_reason && (
               <Row label="Motivo cancelamento" value={order.cancellation_reason} />
+            )}
+            {order.frustration_reason && (
+              <Row label="Motivo frustração" value={order.frustration_reason} />
             )}
           </CardContent>
         </Card>
@@ -357,6 +373,12 @@ export default function ServiceOrderDetailPage() {
               <Row
                 label="Concluída"
                 value={`${formatDateTime(order.completed_at)}${order.completed_by ? ` · ${order.completed_by.name}` : ''}`}
+              />
+            )}
+            {order.frustrated_at && (
+              <Row
+                label="Frustrada"
+                value={`${formatDateTime(order.frustrated_at)}${order.frustrated_by ? ` · ${order.frustrated_by.name}` : ''}`}
               />
             )}
             {order.cancelled_at && (
@@ -457,6 +479,33 @@ export default function ServiceOrderDetailPage() {
           </div>
         }
         confirmLabel="Cancelar OS"
+        variant="danger"
+      />
+
+      <ConfirmDialog
+        open={frustrateOpen}
+        onClose={() => setFrustrateOpen(false)}
+        onConfirm={() => {
+          if (!frustrationReason.trim()) return
+          transition('frustrated', { frustration_reason: frustrationReason.trim() })
+        }}
+        loading={changeStatus.isPending}
+        title="Frustrar OS"
+        description={
+          <div className="space-y-3">
+            <p>
+              Use quando o técnico foi até o endereço, mas não foi possível realizar o serviço.
+              Informe o motivo.
+            </p>
+            <Textarea
+              value={frustrationReason}
+              onChange={(event) => setFrustrationReason(event.target.value)}
+              placeholder="Motivo..."
+              rows={3}
+            />
+          </div>
+        }
+        confirmLabel="Frustrar OS"
         variant="danger"
       />
 

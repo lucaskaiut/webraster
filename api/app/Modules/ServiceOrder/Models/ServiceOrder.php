@@ -2,6 +2,7 @@
 
 namespace App\Modules\ServiceOrder\Models;
 
+use App\Modules\ACL\Enums\Permission;
 use App\Modules\Checklist\Models\ServiceOrderChecklist;
 use App\Modules\Client\Models\Concerns\BelongsToClient;
 use App\Modules\Commission\Models\Commission;
@@ -13,7 +14,6 @@ use App\Modules\Shared\Models\Concerns\HasUuid;
 use App\Modules\Tenant\Models\Concerns\BelongsToTenant;
 use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Models\Vehicle;
-use App\Modules\ACL\Enums\Permission;
 use Database\Factories\ServiceOrderFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -44,6 +44,7 @@ class ServiceOrder extends Model
         'travel_from_order_id',
         'travel_to_order_id',
         'address',
+        'address_reference',
         'latitude',
         'longitude',
         'scheduled_start_at',
@@ -65,11 +66,14 @@ class ServiceOrder extends Model
         'loan_term_text',
         'loan_term_text_hash',
         'cancellation_reason',
+        'frustration_reason',
         'created_by',
         'completed_by',
         'cancelled_by',
+        'frustrated_by',
         'completed_at',
         'cancelled_at',
+        'frustrated_at',
     ];
 
     protected function casts(): array
@@ -90,6 +94,7 @@ class ServiceOrder extends Model
             'reminder_sent_at' => 'datetime',
             'completed_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            'frustrated_at' => 'datetime',
             'loan_term_accepted_at' => 'datetime',
         ];
     }
@@ -164,6 +169,11 @@ class ServiceOrder extends Model
     public function canceller(): BelongsTo
     {
         return $this->belongsTo(User::class, 'cancelled_by');
+    }
+
+    public function frustrator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'frustrated_by');
     }
 
     public function loanTermCollectedBy(): BelongsTo

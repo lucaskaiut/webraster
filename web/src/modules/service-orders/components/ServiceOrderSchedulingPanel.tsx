@@ -435,6 +435,14 @@ export function ServiceOrderSchedulingPanel({
           placeholder="Automática"
           hint="Em branco, soma o tempo estimado dos serviços."
         />
+        <TextField
+          name="address_reference"
+          label="Ponto de referência"
+          className="lg:col-span-2"
+          maxLength={1000}
+          placeholder="Ex.: portão azul ao lado da padaria, ou cole o link do Google Maps"
+          hint="Opcional · se for um link de localização, o técnico abre direto no mapa."
+        />
       </div>
 
       <div className="rounded-xl bg-surface-2/60 p-4 sm:p-5">

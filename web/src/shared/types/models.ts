@@ -1047,7 +1047,7 @@ export interface NotificationLog {
   deliveries: NotificationDelivery[]
 }
 
-export type ServiceOrderStatus = 'open' | 'in_progress' | 'completed' | 'cancelled'
+export type ServiceOrderStatus = 'open' | 'in_progress' | 'completed' | 'frustrated' | 'cancelled'
 export type ServiceOrderPriority = 'low' | 'normal' | 'high' | 'urgent'
 
 export interface ServiceOrderHistory {
@@ -1132,6 +1132,8 @@ export interface ServiceOrder {
   technician_id?: string | null
   technician?: Pick<User, 'id' | 'name'> | null
   address?: string | null
+  /** Ponto de referência do endereço; pode ser um link do Google Maps. */
+  address_reference?: string | null
   latitude?: number | null
   longitude?: number | null
   scheduled_start_at: string | null
@@ -1154,6 +1156,7 @@ export interface ServiceOrder {
   loan_term_collected_by?: Pick<User, 'id' | 'name'> | null
   execution_notes: string | null
   cancellation_reason: string | null
+  frustration_reason?: string | null
   items?: ServiceOrderItem[]
   items_total_cents?: number
   items_total?: string
@@ -1163,8 +1166,10 @@ export interface ServiceOrder {
   created_by?: Pick<User, 'id' | 'name'> | null
   completed_by?: Pick<User, 'id' | 'name'> | null
   cancelled_by?: Pick<User, 'id' | 'name'> | null
+  frustrated_by?: Pick<User, 'id' | 'name'> | null
   completed_at: string | null
   cancelled_at: string | null
+  frustrated_at?: string | null
   created_at: string | null
   updated_at: string | null
   histories?: ServiceOrderHistory[]

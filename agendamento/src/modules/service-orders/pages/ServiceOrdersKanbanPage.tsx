@@ -61,7 +61,7 @@ export default function ServiceOrdersKanbanPage() {
             <Spinner />
           </div>
         ) : (
-          <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
             {KANBAN_COLUMNS.map((status) => {
               const items = query.data?.[status] ?? []
               return (

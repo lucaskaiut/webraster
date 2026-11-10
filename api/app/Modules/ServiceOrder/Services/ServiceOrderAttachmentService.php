@@ -23,9 +23,19 @@ class ServiceOrderAttachmentService
 
     public const MAX_KILOBYTES = 10240;
 
+    /**
+     * Enquanto a OS está aberta, cada anexo representa um serviço agendado
+     * para o horário. Limitar a um evita encaixar vários serviços no mesmo
+     * horário; depois que o técnico inicia a OS, os anexos ficam liberados.
+     */
+    public const MAX_WHILE_OPEN = 1;
+
+    public const OPEN_LIMIT_MESSAGE = 'Antes de o técnico iniciar a OS, só é possível anexar 1 arquivo (cada anexo corresponde a um serviço).';
+
     public function store(ServiceOrder $order, UploadedFile $file, User $actor): ServiceOrderAttachment
     {
         $this->assertMutable($order);
+        $this->assertWithinOpenLimit($order);
 
         $path = $file->store("service-orders/{$order->uuid}", self::DISK);
 
@@ -65,6 +75,17 @@ class ServiceOrderAttachmentService
 
         Storage::disk($attachment->disk)->delete($attachment->path);
         $attachment->delete();
+    }
+
+    private function assertWithinOpenLimit(ServiceOrder $order): void
+    {
+        if ($order->status !== ServiceOrderStatus::OPEN) {
+            return;
+        }
+
+        if ($order->attachments()->count() >= self::MAX_WHILE_OPEN) {
+            throw ValidationException::withMessages(['file' => [self::OPEN_LIMIT_MESSAGE]]);
+        }
     }
 
     private function assertBelongs(ServiceOrder $order, ServiceOrderAttachment $attachment): void

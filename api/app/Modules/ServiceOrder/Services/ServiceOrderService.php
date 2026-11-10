@@ -69,6 +69,7 @@ class ServiceOrderService
                 ServiceOrderStatus::OPEN->value,
                 ServiceOrderStatus::IN_PROGRESS->value,
                 ServiceOrderStatus::COMPLETED->value,
+                ServiceOrderStatus::FRUSTRATED->value,
                 ServiceOrderStatus::CANCELLED->value,
             ])
             ->orderByDesc('scheduled_start_at')
@@ -80,6 +81,7 @@ class ServiceOrderService
             ServiceOrderStatus::OPEN->value => collect(),
             ServiceOrderStatus::IN_PROGRESS->value => collect(),
             ServiceOrderStatus::COMPLETED->value => collect(),
+            ServiceOrderStatus::FRUSTRATED->value => collect(),
             ServiceOrderStatus::CANCELLED->value => collect(),
         ]);
 
@@ -170,7 +172,7 @@ class ServiceOrderService
     {
         if ($order->status->isTerminal()) {
             throw ValidationException::withMessages([
-                'status' => ['Ordens concluídas ou canceladas não podem ser editadas.'],
+                'status' => ['Ordens concluídas, frustradas ou canceladas não podem ser editadas.'],
             ]);
         }
 
@@ -269,7 +271,9 @@ class ServiceOrderService
                 $order,
                 $nextStatus,
                 $actor,
-                $data['cancellation_reason'] ?? null,
+                $nextStatus === ServiceOrderStatus::FRUSTRATED
+                    ? ($data['frustration_reason'] ?? null)
+                    : ($data['cancellation_reason'] ?? null),
                 $data['execution_notes'] ?? null,
             );
         }
@@ -337,29 +341,34 @@ class ServiceOrderService
         return $order->refresh();
     }
 
+    /**
+     * @param  string|null  $reason  motivo do cancelamento ou da frustração
+     */
     public function changeStatus(
         ServiceOrder $order,
         ServiceOrderStatus $next,
         User $actor,
-        ?string $cancellationReason = null,
+        ?string $reason = null,
         ?string $executionNotes = null,
     ): ServiceOrder {
-        $this->applyStatusChange($order, $next, $actor, $cancellationReason, $executionNotes);
+        $this->applyStatusChange($order, $next, $actor, $reason, $executionNotes);
 
         $this->syncTravelLegsFor($order);
         $order->refresh();
 
-        return $order->load(['client', 'vehicle', 'equipment', 'technician', 'creator', 'completer', 'canceller', 'items.service', 'photos', 'attachments', 'billings', 'commission', 'equipmentTests.user', 'equipmentTests.equipment', 'loanTermCollectedBy']);
+        return $order->load(['client', 'vehicle', 'equipment', 'technician', 'creator', 'completer', 'canceller', 'frustrator', 'items.service', 'photos', 'attachments', 'billings', 'commission', 'equipmentTests.user', 'equipmentTests.equipment', 'loanTermCollectedBy']);
     }
 
     private function applyStatusChange(
         ServiceOrder $order,
         ServiceOrderStatus $next,
         User $actor,
-        ?string $cancellationReason = null,
+        ?string $reason = null,
         ?string $executionNotes = null,
     ): void {
-        DB::transaction(function () use ($order, $next, $actor, $cancellationReason, $executionNotes): void {
+        $reason = filled($reason) ? trim((string) $reason) : null;
+
+        DB::transaction(function () use ($order, $next, $actor, $reason, $executionNotes): void {
             if (! $order->status->canTransitionTo($next)) {
                 throw ValidationException::withMessages([
                     'status' => [sprintf(
@@ -370,9 +379,15 @@ class ServiceOrderService
                 ]);
             }
 
-            if ($next === ServiceOrderStatus::CANCELLED && blank($cancellationReason)) {
+            if ($next === ServiceOrderStatus::CANCELLED && $reason === null) {
                 throw ValidationException::withMessages([
                     'cancellation_reason' => ['Informe o motivo do cancelamento.'],
+                ]);
+            }
+
+            if ($next === ServiceOrderStatus::FRUSTRATED && $reason === null) {
+                throw ValidationException::withMessages([
+                    'frustration_reason' => ['Informe por que o serviço não pôde ser realizado.'],
                 ]);
             }
 
@@ -405,13 +420,23 @@ class ServiceOrderService
             if ($next === ServiceOrderStatus::CANCELLED) {
                 $order->cancelled_at = now();
                 $order->cancelled_by = $actor->getKey();
-                $order->cancellation_reason = $cancellationReason;
+                $order->cancellation_reason = $reason;
+            }
+
+            if ($next === ServiceOrderStatus::FRUSTRATED) {
+                $order->frustrated_at = now();
+                $order->frustrated_by = $actor->getKey();
+                $order->frustration_reason = $reason;
+                if ($executionNotes !== null) {
+                    $order->execution_notes = $executionNotes;
+                }
             }
 
             $order->save();
 
             $action = match ($next) {
                 ServiceOrderStatus::COMPLETED => ServiceOrderHistoryAction::COMPLETED,
+                ServiceOrderStatus::FRUSTRATED => ServiceOrderHistoryAction::FRUSTRATED,
                 ServiceOrderStatus::CANCELLED => ServiceOrderHistoryAction::CANCELLED,
                 default => ServiceOrderHistoryAction::STATUS_CHANGED,
             };
@@ -423,17 +448,23 @@ class ServiceOrderService
                 'status',
                 $previous,
                 $next,
-                $next === ServiceOrderStatus::CANCELLED
-                    ? ['cancellation_reason' => $cancellationReason]
-                    : null,
+                match ($next) {
+                    ServiceOrderStatus::CANCELLED => ['cancellation_reason' => $reason],
+                    ServiceOrderStatus::FRUSTRATED => ['frustration_reason' => $reason],
+                    default => null,
+                },
             );
 
             $this->commissions->syncForOrder($order);
 
             // Atualizações de status não geram mais notificação (push ou
-            // painel). Apenas o cancelamento continua sendo avisado.
+            // painel). Apenas cancelamento e frustração continuam sendo avisados.
             if ($next === ServiceOrderStatus::CANCELLED) {
                 $this->notifications->notifyCancelled($order);
+            }
+
+            if ($next === ServiceOrderStatus::FRUSTRATED) {
+                $this->notifications->notifyFrustrated($order);
             }
         });
     }
@@ -737,6 +768,7 @@ class ServiceOrderService
             'equipment_id',
             'technician_id',
             'address',
+            'address_reference',
             'scheduled_start_at',
             'scheduled_end_at',
             'estimated_duration_minutes',
@@ -751,7 +783,7 @@ class ServiceOrderService
             $payload['address'] = filled($payload['address']) ? trim((string) $payload['address']) : null;
         }
 
-        foreach (['installation_location', 'installation_location_photo_path'] as $field) {
+        foreach (['address_reference', 'installation_location', 'installation_location_photo_path'] as $field) {
             if (array_key_exists($field, $payload)) {
                 $payload[$field] = filled($payload[$field]) ? trim((string) $payload[$field]) : null;
             }

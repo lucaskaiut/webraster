@@ -322,7 +322,7 @@ class ServiceOrderChecklistService
 
     private function assertOrderMutable(ServiceOrder $order): void
     {
-        if (in_array($order->status, [ServiceOrderStatus::COMPLETED, ServiceOrderStatus::CANCELLED], true)) {
+        if ($order->status->isTerminal()) {
             throw ValidationException::withMessages([
                 'status' => ['Esta OS está encerrada e não permite alterações no checklist.'],
             ]);

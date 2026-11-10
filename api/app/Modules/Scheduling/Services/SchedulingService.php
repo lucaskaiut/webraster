@@ -473,10 +473,7 @@ class SchedulingService
         return ServiceOrder::query()
             ->with('client')
             ->where('technician_id', $technicianId)
-            ->whereNotIn('status', [
-                ServiceOrderStatus::CANCELLED->value,
-                ServiceOrderStatus::COMPLETED->value,
-            ])
+            ->whereNotIn('status', array_map(fn (ServiceOrderStatus $status) => $status->value, ServiceOrderStatus::terminal()))
             ->when($ignoreOrderId, fn ($query) => $query->where('id', '!=', $ignoreOrderId))
             ->whereNotNull('scheduled_start_at')
             ->whereBetween('scheduled_start_at', [$dayStart, $dayEnd])
@@ -511,10 +508,7 @@ class SchedulingService
 
         $ordersByDay = ServiceOrder::query()
             ->where('technician_id', $technicianId)
-            ->whereNotIn('status', [
-                ServiceOrderStatus::CANCELLED->value,
-                ServiceOrderStatus::COMPLETED->value,
-            ])
+            ->whereNotIn('status', array_map(fn (ServiceOrderStatus $status) => $status->value, ServiceOrderStatus::terminal()))
             ->when($ignoreOrderId, fn ($query) => $query->where('id', '!=', $ignoreOrderId))
             ->whereNotNull('scheduled_start_at')
             ->whereBetween('scheduled_start_at', [$first->utc(), $last->endOfDay()->utc()])

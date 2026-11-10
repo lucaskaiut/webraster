@@ -37,6 +37,7 @@ export interface ServiceOrderPayload {
   scheduled_start_at?: string | null
   scheduled_end_at?: string | null
   address?: string | null
+  address_reference?: string | null
   estimated_duration_minutes?: number | null
   description?: string | null
   notes?: string | null
@@ -44,6 +45,7 @@ export interface ServiceOrderPayload {
   installation_location_photo_path?: string | null
   execution_notes?: string | null
   cancellation_reason?: string | null
+  frustration_reason?: string | null
   items?: ServiceOrderItemPayload[]
   ignore_schedule_conflict?: boolean
 }
@@ -145,6 +147,7 @@ export interface AddressSuggestion {
 export interface ChangeStatusPayload {
   status: ServiceOrderStatus | string
   cancellation_reason?: string | null
+  frustration_reason?: string | null
   execution_notes?: string | null
 }
 

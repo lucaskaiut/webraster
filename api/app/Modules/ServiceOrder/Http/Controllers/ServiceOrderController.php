@@ -86,6 +86,7 @@ class ServiceOrderController extends ApiController
             'creator',
             'completer',
             'canceller',
+            'frustrator',
             'items.service',
             'photos',
             'attachments.uploader',
@@ -150,7 +151,9 @@ class ServiceOrderController extends ApiController
             $serviceOrder,
             $next,
             $request->user(),
-            $data['cancellation_reason'] ?? null,
+            $next === ServiceOrderStatus::FRUSTRATED
+                ? ($data['frustration_reason'] ?? null)
+                : ($data['cancellation_reason'] ?? null),
             $data['execution_notes'] ?? null,
         );
 

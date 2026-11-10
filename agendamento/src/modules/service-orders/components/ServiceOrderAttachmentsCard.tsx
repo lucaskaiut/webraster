@@ -15,6 +15,7 @@ import {
 } from '../hooks/useServiceOrders'
 
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
+const MAX_ATTACHMENTS_WHILE_OPEN = 1
 const ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,.heic,.doc,.docx,.xls,.xlsx,.txt'
 
 function formatBytes(bytes: number): string {
@@ -33,6 +34,10 @@ export function ServiceOrderAttachmentsCard({ order }: { order: ServiceOrder }) 
   const remove = useRemoveServiceOrderAttachment(order.id)
   const attachments = order.attachments ?? []
   const canManage = can(Permission.SERVICE_ORDER_UPDATE) && order.status !== 'cancelled'
+  // Enquanto a OS está aberta, cada anexo representa um serviço: só 1 é aceito.
+  // Depois que o técnico inicia a OS, os anexos ficam liberados.
+  const openLimitReached = order.status === 'open' && attachments.length >= MAX_ATTACHMENTS_WHILE_OPEN
+  const canUpload = canManage && !openLimitReached
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return
@@ -40,6 +45,14 @@ export function ServiceOrderAttachmentsCard({ order }: { order: ServiceOrder }) 
     const selected = Array.from(files)
     if (inputRef.current) {
       inputRef.current.value = ''
+    }
+
+    if (order.status === 'open' && attachments.length + selected.length > MAX_ATTACHMENTS_WHILE_OPEN) {
+      toast.error(
+        'Limite de anexos',
+        'Antes de o técnico iniciar a OS, só é possível anexar 1 arquivo (cada anexo corresponde a um serviço).',
+      )
+      return
     }
 
     if (selected.some((file) => file.size > MAX_ATTACHMENT_BYTES)) {
@@ -80,9 +93,13 @@ export function ServiceOrderAttachmentsCard({ order }: { order: ServiceOrder }) 
     <Card>
       <CardHeader
         title="Anexos"
-        description="Documentos da OS: PDF, imagens, DOC e planilhas (até 10 MB)."
+        description={
+          order.status === 'open'
+            ? 'Documento do serviço (1 arquivo até o técnico iniciar a OS). PDF, imagens, DOC e planilhas, até 10 MB.'
+            : 'Documentos da OS: PDF, imagens, DOC e planilhas (até 10 MB).'
+        }
         actions={
-          canManage ? (
+          canUpload ? (
             <Button
               size="sm"
               variant="secondary"
@@ -139,7 +156,7 @@ export function ServiceOrderAttachmentsCard({ order }: { order: ServiceOrder }) 
           ref={inputRef}
           type="file"
           accept={ACCEPT}
-          multiple
+          multiple={order.status !== 'open'}
           className="hidden"
           onChange={(event) => void handleFiles(event.target.files)}
         />

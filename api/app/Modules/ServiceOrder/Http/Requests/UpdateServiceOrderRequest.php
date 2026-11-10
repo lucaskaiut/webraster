@@ -34,6 +34,7 @@ class UpdateServiceOrderRequest extends FormRequest
             'scheduled_start_at' => ['nullable', 'date'],
             'scheduled_end_at' => ['nullable', 'date', 'after:scheduled_start_at'],
             'address' => ['nullable', 'string', 'max:500'],
+            'address_reference' => ['nullable', 'string', 'max:1000'],
             // Coordenadas da sugestão de endereço escolhida; evitam uma nova
             // geocodificação e garantem o mesmo ponto usado nas estimativas.
             'latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitude'],
@@ -50,6 +51,7 @@ class UpdateServiceOrderRequest extends FormRequest
             ],
             'execution_notes' => ['nullable', 'string', 'max:5000'],
             'cancellation_reason' => ['nullable', 'string', 'max:2000'],
+            'frustration_reason' => ['nullable', 'string', 'max:2000'],
             'items' => ['sometimes', 'array', 'max:50'],
             'items.*.service_id' => ['required', 'integer', Rule::exists('services', 'id')->whereNull('deleted_at')],
             'items.*.quantity' => ['sometimes', 'integer', 'min:1', 'max:9999'],

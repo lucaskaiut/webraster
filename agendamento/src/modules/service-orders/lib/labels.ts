@@ -4,6 +4,7 @@ export const SERVICE_ORDER_STATUS_OPTIONS: Array<{ value: ServiceOrderStatus; la
   { value: 'open', label: 'Aberta' },
   { value: 'in_progress', label: 'Em andamento' },
   { value: 'completed', label: 'Concluída' },
+  { value: 'frustrated', label: 'Frustrada' },
   { value: 'cancelled', label: 'Cancelada' },
 ]
 
@@ -14,7 +15,20 @@ export const SERVICE_ORDER_PRIORITY_OPTIONS: Array<{ value: ServiceOrderPriority
   { value: 'urgent', label: 'Urgente' },
 ]
 
-export const KANBAN_COLUMNS: ServiceOrderStatus[] = ['open', 'in_progress', 'completed', 'cancelled']
+export const KANBAN_COLUMNS: ServiceOrderStatus[] = [
+  'open',
+  'in_progress',
+  'completed',
+  'frustrated',
+  'cancelled',
+]
+
+/** Situações finais: a OS não pode mais ser editada nem executada. */
+export const SERVICE_ORDER_TERMINAL_STATUSES: ServiceOrderStatus[] = ['completed', 'frustrated', 'cancelled']
+
+export function isTerminalStatus(status: ServiceOrderStatus): boolean {
+  return SERVICE_ORDER_TERMINAL_STATUSES.includes(status)
+}
 
 /** Situações possíveis ao criar uma OS (antes dela entrar no fluxo). */
 export const SERVICE_ORDER_INITIAL_STATUSES: ServiceOrderStatus[] = ['open', 'in_progress']
@@ -24,9 +38,10 @@ export const SERVICE_ORDER_INITIAL_STATUSES: ServiceOrderStatus[] = ['open', 'in
  * permitidas pelo fluxo (mesmas regras validadas no backend).
  */
 export const SERVICE_ORDER_STATUS_TRANSITIONS: Record<ServiceOrderStatus, ServiceOrderStatus[]> = {
-  open: ['open', 'in_progress', 'cancelled'],
-  in_progress: ['in_progress', 'completed', 'cancelled'],
+  open: ['open', 'in_progress', 'frustrated', 'cancelled'],
+  in_progress: ['in_progress', 'completed', 'frustrated', 'cancelled'],
   completed: ['completed'],
+  frustrated: ['frustrated'],
   cancelled: ['cancelled'],
 }
 
@@ -42,6 +57,7 @@ const HISTORY_ACTION_LABELS: Record<string, string> = {
   schedule_changed: 'Agendamento alterado',
   services_changed: 'Serviços alterados',
   completed: 'Concluída',
+  frustrated: 'Frustrada',
   cancelled: 'Cancelada',
   billing_generated: 'Cobrança gerada',
   equipment_tested: 'Teste de equipamento',
@@ -57,6 +73,8 @@ const HISTORY_FIELD_LABELS: Record<string, string> = {
   vehicle_id: 'Veículo',
   equipment_id: 'Dispositivo',
   technician_id: 'Técnico',
+  address: 'Endereço',
+  address_reference: 'Ponto de referência',
   scheduled_start_at: 'Início',
   scheduled_end_at: 'Fim',
   description: 'Descrição',
@@ -131,6 +149,8 @@ export function statusBadgeVariant(
       return 'warning'
     case 'completed':
       return 'success'
+    case 'frustrated':
+      return 'danger'
     case 'cancelled':
       return 'neutral'
   }

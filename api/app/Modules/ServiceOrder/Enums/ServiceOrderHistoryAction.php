@@ -11,6 +11,7 @@ enum ServiceOrderHistoryAction: string
     case SCHEDULE_CHANGED = 'schedule_changed';
     case SERVICES_CHANGED = 'services_changed';
     case COMPLETED = 'completed';
+    case FRUSTRATED = 'frustrated';
     case CANCELLED = 'cancelled';
     case BILLING_GENERATED = 'billing_generated';
     case EQUIPMENT_TESTED = 'equipment_tested';
