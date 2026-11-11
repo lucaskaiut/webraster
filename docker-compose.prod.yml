@@ -70,6 +70,8 @@ services:
   mysql:
     image: mysql:8.4
     restart: unless-stopped
+    # Shutdown limpo do InnoDB ao recriar o container (padrão do compose é 10s).
+    stop_grace_period: 120s
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?defina MYSQL_ROOT_PASSWORD no .env.prod}
       MYSQL_DATABASE: ${DB_DATABASE:-webraster}
@@ -81,6 +83,8 @@ services:
       - --max-connections=300
       - --innodb-buffer-pool-size=2G
       - --innodb-flush-log-at-trx-commit=2
+      # Sem réplica e o backup é via mysqldump: binlog só enchia o disco (~2,3 GB/dia).
+      - --skip-log-bin
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
