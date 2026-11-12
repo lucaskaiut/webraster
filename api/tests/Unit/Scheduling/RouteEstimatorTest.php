@@ -212,4 +212,126 @@ class RouteEstimatorTest extends TestCase
 
         Http::assertSentCount(2);
     }
+
+    private function useValhalla(string $fallback = 'google'): void
+    {
+        config([
+            'scheduling.routing.provider' => 'valhalla',
+            'scheduling.valhalla.url' => 'http://rotas.test',
+            'scheduling.valhalla.token' => 'api_token-de-teste',
+            'scheduling.valhalla.timeout' => 2,
+            'scheduling.valhalla.fallback' => $fallback,
+        ]);
+    }
+
+    #[Test]
+    public function valhalla_route_uses_the_authenticated_proxy(): void
+    {
+        $this->useValhalla();
+
+        Http::fake([
+            'http://rotas.test/v1/route' => Http::response([
+                'trip' => [
+                    'summary' => ['time' => 1261.4, 'length' => 10.194],
+                    // polyline6 de (-25.4284, -49.2733) → (-25.4, -49.3)
+                    'legs' => [['shape' => '~y_oo@f|k~|A_nv@vcs@']],
+                ],
+            ]),
+        ]);
+
+        $estimate = app(RouteEstimator::class)->estimate(
+            new Coordinates(self::FROM_LAT, self::FROM_LNG),
+            new Coordinates(self::TO_LAT, self::TO_LNG),
+        );
+
+        $this->assertSame(TravelEstimate::SOURCE_VALHALLA, $estimate->source);
+        $this->assertSame(25, $estimate->minutes);
+        $this->assertSame(10194, $estimate->distanceMeters);
+        $this->assertEqualsWithDelta(self::FROM_LAT, $estimate->geometry[0][0], 0.0001);
+        $this->assertEqualsWithDelta(self::TO_LNG, $estimate->geometry[1][1], 0.0001);
+
+        Http::assertSent(fn ($request): bool => $request->url() === 'http://rotas.test/v1/route'
+            && $request->hasHeader('Authorization', 'Bearer api_token-de-teste')
+            && $request['costing'] === 'auto'
+            && $request['locations'][0]['lat'] === self::FROM_LAT
+            && $request['locations'][1]['lon'] === self::TO_LNG);
+        Http::assertSentCount(1);
+    }
+
+    #[Test]
+    public function valhalla_failure_falls_back_to_google_and_is_cached_briefly(): void
+    {
+        $this->useValhalla();
+
+        Http::fake([
+            'http://rotas.test/v1/route' => Http::sequence()
+                ->push(['error' => 'Servidor de rotas indisponível.'], 502)
+                ->push(['trip' => ['summary' => ['time' => 300, 'length' => 4]]]),
+            'http://google-routes.test/directions/v2:computeRoutes' => Http::response([
+                'routes' => [['duration' => '600s', 'distanceMeters' => 5000]],
+            ]),
+        ]);
+
+        $estimate = app(RouteEstimator::class)->estimate(
+            new Coordinates(self::FROM_LAT, self::FROM_LNG),
+            new Coordinates(self::TO_LAT, self::TO_LNG),
+        );
+
+        $this->assertSame(TravelEstimate::SOURCE_GOOGLE, $estimate->source);
+        $this->assertSame(10, $estimate->minutes);
+
+        // A reserva fica pouco tempo em cache: depois disso o Valhalla é tentado de novo.
+        $this->travel((int) config('scheduling.routing.fallback_cache_minutes') + 1)->minutes();
+
+        $retry = (new RouteEstimator)->estimate(
+            new Coordinates(self::FROM_LAT, self::FROM_LNG),
+            new Coordinates(self::TO_LAT, self::TO_LNG),
+        );
+
+        $this->assertSame(TravelEstimate::SOURCE_VALHALLA, $retry->source);
+        $this->assertSame(5, $retry->minutes);
+    }
+
+    #[Test]
+    public function valhalla_can_fall_back_straight_to_osrm(): void
+    {
+        $this->useValhalla('osrm');
+
+        Http::fake([
+            'http://rotas.test/v1/route' => Http::response(['error' => 'down'], 503),
+            'http://osrm.test/route/v1/driving/*' => Http::response([
+                'code' => 'Ok',
+                'routes' => [['duration' => 900, 'distance' => 7000, 'geometry' => ['coordinates' => []]]],
+            ]),
+        ]);
+
+        $estimate = app(RouteEstimator::class)->estimate(
+            new Coordinates(self::FROM_LAT, self::FROM_LNG),
+            new Coordinates(self::TO_LAT, self::TO_LNG),
+        );
+
+        $this->assertSame(TravelEstimate::SOURCE_OSRM, $estimate->source);
+        Http::assertNotSent(fn ($request): bool => str_contains($request->url(), 'google-routes.test'));
+    }
+
+    #[Test]
+    public function valhalla_without_token_uses_google(): void
+    {
+        $this->useValhalla();
+        config(['scheduling.valhalla.token' => '']);
+
+        Http::fake([
+            'http://google-routes.test/directions/v2:computeRoutes' => Http::response([
+                'routes' => [['duration' => '600s', 'distanceMeters' => 5000]],
+            ]),
+        ]);
+
+        $estimate = app(RouteEstimator::class)->estimate(
+            new Coordinates(self::FROM_LAT, self::FROM_LNG),
+            new Coordinates(self::TO_LAT, self::TO_LNG),
+        );
+
+        $this->assertSame(TravelEstimate::SOURCE_GOOGLE, $estimate->source);
+        Http::assertNotSent(fn ($request): bool => str_contains($request->url(), 'rotas.test'));
+    }
 }

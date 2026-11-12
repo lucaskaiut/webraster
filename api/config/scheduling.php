@@ -68,15 +68,28 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Rotas (Google Routes / OSRM)
+    | Rotas (Valhalla / Google Routes / OSRM)
     |--------------------------------------------------------------------------
     |
-    | As rotas do Google são solicitadas com TRAFFIC_UNAWARE: o tempo ignora
-    | completamente as condições de trânsito e usa apenas a malha viária.
-    | Se o Google falhar, o OSRM é usado; em último caso, a estimativa usa a
-    | distância em linha reta × fator de correção ÷ velocidade média.
+    | ROUTING_PROVIDER escolhe o provedor principal:
+    | - valhalla: servidor próprio (Nuvemax Rotas), sem custo por chamada;
+    | - google: Routes API com TRAFFIC_UNAWARE (ignora o trânsito);
+    | - osrm: servidor OSRM (o público é só para testes).
+    | Se o principal falhar, entra a reserva (Valhalla → VALHALLA_FALLBACK;
+    | Google → OSRM); em último caso, a estimativa usa a distância em linha
+    | reta × fator de correção ÷ velocidade média.
     |
     */
+
+    'valhalla' => [
+        // Proxy autenticado do Nuvemax Rotas (repassa /v1/{ação} ao Valhalla).
+        'url' => env('VALHALLA_URL', 'https://rotas.nuvemax.srv.br'),
+        // Token com acesso "Somente rotas", criado no painel do Nuvemax Rotas.
+        'token' => env('VALHALLA_TOKEN'),
+        'timeout' => (int) env('VALHALLA_TIMEOUT', 8),
+        // Reserva quando o Valhalla falhar: google (se houver chave) ou osrm.
+        'fallback' => env('VALHALLA_FALLBACK', 'google'),
+    ],
 
     'routing' => [
         'enabled' => (bool) env('ROUTING_ENABLED', true),
@@ -90,8 +103,8 @@ return [
         // Casas decimais das coordenadas na chave do cache: 4 ≈ 11 m, o que
         // faz pequenos ajustes de pin reaproveitarem a mesma rota.
         'cache_precision' => (int) env('ROUTING_CACHE_PRECISION', 4),
-        // Quando o Google falha e o OSRM assume, o resultado (menos preciso)
-        // fica pouco tempo em cache para o Google ser tentado de novo logo.
+        // Quando o provedor principal falha e a reserva assume, o resultado
+        // fica pouco tempo em cache para o principal ser tentado de novo logo.
         'fallback_cache_minutes' => (int) env('ROUTING_FALLBACK_CACHE_MINUTES', 60),
         'fallback_speed_kmh' => (float) env('ROUTING_FALLBACK_SPEED_KMH', 35),
         'fallback_road_factor' => (float) env('ROUTING_FALLBACK_ROAD_FACTOR', 1.3),

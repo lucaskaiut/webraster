@@ -35,6 +35,7 @@ return [
 
     'providers' => [
         'google' => 'Google',
+        'nuvemax' => 'Nuvemax Rotas',
     ],
 
     /*
@@ -44,6 +45,13 @@ return [
     | por ambiente é respeitada); "base_url" é usado quando não houver.
     */
     'services' => [
+        'nuvemax.routes' => [
+            'provider' => 'nuvemax',
+            'label' => 'Rotas (Valhalla)',
+            'base_url_config' => 'scheduling.valhalla.url',
+            'base_url' => 'https://rotas.nuvemax.srv.br',
+            'path' => '#^/v1/#',
+        ],
         'google.routes' => [
             'provider' => 'google',
             'label' => 'Routes API',

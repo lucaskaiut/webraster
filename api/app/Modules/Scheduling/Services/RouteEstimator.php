@@ -13,11 +13,12 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Tempo e distância de deslocamento via Google Routes ou OSRM, com estimativa
- * em linha reta como último fallback.
+ * Tempo e distância de deslocamento via Valhalla (servidor próprio), Google
+ * Routes ou OSRM, com estimativa em linha reta como último fallback.
  *
  * No Google usamos a preferência TRAFFIC_UNAWARE: o cálculo ignora
  * completamente as condições de trânsito e considera apenas a malha viária.
+ * O Valhalla também calcula sem trânsito.
  */
 class RouteEstimator
 {
@@ -67,18 +68,24 @@ class RouteEstimator
             return new TravelEstimate(
                 $cached['minutes'],
                 $cached['distance_meters'],
-                $cached['source'] ?? ($provider === 'google' ? TravelEstimate::SOURCE_GOOGLE : TravelEstimate::SOURCE_OSRM),
+                $cached['source'] ?? $this->sourceFor($provider),
                 $cached['geometry'] ?? [],
             );
         }
 
-        $estimate = $provider === 'google'
-            ? $this->requestGoogle($from, $to)
-            : $this->request($from, $to);
+        $estimate = match ($provider) {
+            'valhalla' => $this->requestValhalla($from, $to),
+            'google' => $this->requestGoogle($from, $to),
+            default => $this->request($from, $to),
+        };
 
-        // A rota do Google é preferencial, mas uma indisponibilidade não pode
-        // travar o agendamento: o OSRM assume até nova tentativa.
-        if ($estimate === null && $provider === 'google') {
+        // Uma indisponibilidade do provedor principal não pode travar o
+        // agendamento: a reserva assume até nova tentativa.
+        if ($estimate === null && $provider === 'valhalla' && $this->valhallaFallback() === 'google') {
+            $estimate = $this->requestGoogle($from, $to);
+        }
+
+        if ($estimate === null && $provider !== 'osrm') {
             $estimate = $this->request($from, $to);
         }
 
@@ -121,18 +128,47 @@ class RouteEstimator
 
     private function cacheExpiration(string $provider, TravelEstimate $estimate): DateTimeInterface
     {
-        if ($provider === 'google' && $estimate->source !== TravelEstimate::SOURCE_GOOGLE) {
+        if ($provider !== 'osrm' && $estimate->source !== $this->sourceFor($provider)) {
             return now()->addMinutes((int) config('scheduling.routing.fallback_cache_minutes', 60));
         }
 
         return now()->addHours((int) config('scheduling.routing.cache_hours', 720));
     }
 
+    /**
+     * Provedor principal. Sem credencial, cai para o próximo disponível
+     * (Valhalla → Google → OSRM).
+     */
     private function provider(): string
     {
         $configured = mb_strtolower(trim((string) config('scheduling.routing.provider', 'google')));
 
-        return $configured === 'google' && $this->googleApiKey() !== null ? 'google' : 'osrm';
+        if ($configured === 'valhalla' && $this->valhallaToken() !== null) {
+            return 'valhalla';
+        }
+
+        return in_array($configured, ['valhalla', 'google'], true) && $this->googleApiKey() !== null ? 'google' : 'osrm';
+    }
+
+    private function sourceFor(string $provider): string
+    {
+        return match ($provider) {
+            'valhalla' => TravelEstimate::SOURCE_VALHALLA,
+            'google' => TravelEstimate::SOURCE_GOOGLE,
+            default => TravelEstimate::SOURCE_OSRM,
+        };
+    }
+
+    private function valhallaToken(): ?string
+    {
+        $token = trim((string) config('scheduling.valhalla.token'));
+
+        return $token === '' ? null : $token;
+    }
+
+    private function valhallaFallback(): string
+    {
+        return mb_strtolower(trim((string) config('scheduling.valhalla.fallback', 'google'))) === 'osrm' ? 'osrm' : 'google';
     }
 
     private function googleApiKey(): ?string
@@ -157,6 +193,67 @@ class RouteEstimator
                 [$to->latitude, $to->longitude],
             ],
         );
+    }
+
+    /**
+     * Rota de carro no Valhalla (via proxy do Nuvemax Rotas), sem trânsito.
+     */
+    private function requestValhalla(Coordinates $from, Coordinates $to): ?TravelEstimate
+    {
+        $token = $this->valhallaToken();
+
+        if ($token === null) {
+            return null;
+        }
+
+        try {
+            $response = Http::baseUrl(rtrim((string) config('scheduling.valhalla.url'), '/'))
+                ->withToken($token)
+                ->timeout((int) config('scheduling.valhalla.timeout', 8))
+                ->acceptJson()
+                ->post('/v1/route', [
+                    'locations' => [
+                        ['lat' => $from->latitude, 'lon' => $from->longitude],
+                        ['lat' => $to->latitude, 'lon' => $to->longitude],
+                    ],
+                    'costing' => 'auto',
+                    'directions_type' => 'none',
+                    'units' => 'kilometers',
+                ]);
+
+            if ($response->failed()) {
+                Log::warning('Valhalla falhou', [
+                    'status' => $response->status(),
+                    'error' => $response->json('error'),
+                ]);
+
+                return null;
+            }
+
+            $seconds = $response->json('trip.summary.time');
+            $kilometers = $response->json('trip.summary.length');
+
+            if (! is_numeric($seconds) || ! is_numeric($kilometers)) {
+                return null;
+            }
+
+            $shape = $response->json('trip.legs.0.shape');
+            $geometry = is_string($shape) ? $this->decodePolyline($shape, 6) : null;
+
+            return new TravelEstimate(
+                TimeGrid::minutes((int) ceil(((float) $seconds) / 60)),
+                (int) round(((float) $kilometers) * 1000),
+                TravelEstimate::SOURCE_VALHALLA,
+                $geometry ?? [
+                    [$from->latitude, $from->longitude],
+                    [$to->latitude, $to->longitude],
+                ],
+            );
+        } catch (Throwable $exception) {
+            Log::warning('Valhalla indisponível', ['error' => $exception->getMessage()]);
+
+            return null;
+        }
     }
 
     private function requestGoogle(Coordinates $from, Coordinates $to): ?TravelEstimate
@@ -240,11 +337,12 @@ class RouteEstimator
     }
 
     /**
-     * Decodifica a polyline compacta do Google para [latitude, longitude].
+     * Decodifica uma polyline compacta para [latitude, longitude]. O Google
+     * usa precisão 5 e o Valhalla, 6.
      *
      * @return list<array{0: float, 1: float}>|null
      */
-    private function decodePolyline(string $encoded): ?array
+    private function decodePolyline(string $encoded, int $precision = 5): ?array
     {
         if ($encoded === '') {
             return null;
@@ -287,7 +385,7 @@ class RouteEstimator
 
             $longitude += ($result & 1) ? ~($result >> 1) : ($result >> 1);
 
-            $points[] = [$latitude / 1e5, $longitude / 1e5];
+            $points[] = [$latitude / 10 ** $precision, $longitude / 10 ** $precision];
         }
 
         return $points === [] ? null : $points;
