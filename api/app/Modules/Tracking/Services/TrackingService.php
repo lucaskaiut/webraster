@@ -28,6 +28,8 @@ class TrackingService
      */
     private const POSITION_ONLINE_MINUTES = 15;
 
+    private const PACKET_TIME_KEY = '_packetTime';
+
     public function __construct(
         private readonly TraccarGateway $traccar,
         private readonly GeofenceDetectionService $geofenceDetection,
@@ -482,7 +484,10 @@ class TrackingService
         // Protocolos como o GT06 enviam pacotes distintos com o mesmo horário
         // (heartbeat + posição, dois alarmes no mesmo segundo). Em vez de
         // sobrescrever ou descartar, mescla o pacote na linha existente.
-        if ($existing !== null && $this->isDistinctPacket($existing, $position)) {
+        // Um pacote mais antigo que o já mesclado (resync) também passa pela
+        // mescla, para não reverter o estado mais recente.
+        if ($existing !== null
+            && ($this->isDistinctPacket($existing, $position) || $this->isOlderThanRow($existing, $position))) {
             return $this->mergeDistinctPacket($existing, $equipment, $position, $vehicle);
         }
 
@@ -511,9 +516,12 @@ class TrackingService
                 'valid' => $position->valid,
                 // Reentrega/resync do mesmo pacote não pode apagar o que outro
                 // pacote do mesmo horário já mesclou na linha.
-                'attributes' => $existing !== null
-                    ? self::mergeAttributes($existing->attributes, $position->attributes, preferIncoming: true)
-                    : $position->attributes,
+                'attributes' => self::withPacketTime(
+                    $existing !== null
+                        ? self::mergeAttributes($existing->attributes, $position->attributes, preferIncoming: true)
+                        : $position->attributes,
+                    $position,
+                ),
             ],
         );
 
@@ -572,11 +580,21 @@ class TrackingService
             && $existingRaw !== $incomingRaw;
     }
 
+    private function isOlderThanRow(GpsPosition $existing, TraccarPosition $position): bool
+    {
+        $packetTime = is_array($existing->attributes) ? ($existing->attributes[self::PACKET_TIME_KEY] ?? null) : null;
+
+        return is_string($packetTime) && $position->recordedAt->lessThan(CarbonImmutable::parse($packetTime));
+    }
+
     /**
-     * Completa a linha existente com o que o novo pacote traz a mais
-     * (status, bateria, sinal, resultado de comando) e une os alarmes. Os
-     * dados de localização da linha existente são mantidos. Idempotente:
-     * reprocessar o mesmo pacote não altera nada.
+     * Mescla na linha existente o que o novo pacote traz (status, bateria,
+     * sinal, resultado de comando) e une os alarmes. Em conflito vale o pacote
+     * mais recente pelo horário com milissegundos — a coluna `recorded_at` só
+     * guarda segundos, e um heartbeat "bloqueado" seguido de outro
+     * "desbloqueado" no mesmo segundo precisa terminar desbloqueado. Os dados
+     * de localização da linha existente são mantidos. Reprocessar um pacote
+     * mais antigo (resync) não altera nada.
      */
     private function mergeDistinctPacket(
         GpsPosition $existing,
@@ -586,10 +604,25 @@ class TrackingService
     ): GpsPosition {
         $previousAlarms = TraccarAttributeReader::parseAlarmCodes($existing->attributes['alarm'] ?? null);
 
+        $existingPacketTime = $existing->attributes[self::PACKET_TIME_KEY] ?? null;
+        $incomingIsNewer = ! is_string($existingPacketTime)
+            || $position->recordedAt->greaterThanOrEqualTo(CarbonImmutable::parse($existingPacketTime));
+
+        $attributes = self::mergeAttributes($existing->attributes, $position->attributes, preferIncoming: $incomingIsNewer);
+
+        // A linha mantém o frame da localização gravada primeiro.
+        if (isset($existing->attributes['raw'])) {
+            $attributes['raw'] = $existing->attributes['raw'];
+        }
+
         $existing->forceFill([
-            'attributes' => self::mergeAttributes($existing->attributes, $position->attributes, preferIncoming: false),
-            'ignition' => $existing->ignition ?? $position->ignition,
-            'battery' => $existing->battery ?? $position->battery,
+            'attributes' => $incomingIsNewer ? self::withPacketTime($attributes, $position) : $attributes,
+            'ignition' => $incomingIsNewer
+                ? ($position->ignition ?? $existing->ignition)
+                : ($existing->ignition ?? $position->ignition),
+            'battery' => $incomingIsNewer
+                ? ($position->battery ?? $existing->battery)
+                : ($existing->battery ?? $position->battery),
         ]);
 
         $this->equipmentRawLogs->appendFromPositionAttributes(
@@ -656,6 +689,20 @@ class TrackingService
         }
 
         return $merged;
+    }
+
+    /**
+     * Horário do pacote com milissegundos, para decidir qual pacote prevalece
+     * quando vários caem no mesmo segundo de `recorded_at`.
+     *
+     * @param  array<string, mixed>  $attributes
+     * @return array<string, mixed>
+     */
+    private static function withPacketTime(array $attributes, TraccarPosition $position): array
+    {
+        $attributes[self::PACKET_TIME_KEY] = $position->recordedAt->format('Y-m-d\TH:i:s.vP');
+
+        return $attributes;
     }
 
     private function broadcastPosition(Equipment $equipment, ?Vehicle $vehicle, GpsPosition $gpsPosition): void

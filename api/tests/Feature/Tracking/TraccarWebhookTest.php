@@ -170,7 +170,7 @@ class TraccarWebhookTest extends TestCase
             'raw' => 'hex:787826220a',
         ];
 
-        $alarm = $this->positionPayload(0, 42);
+        $alarm = $this->positionPayload(0, 42, '2026-09-14T21:00:00.500+00:00');
         $alarm['position']['protocol'] = 'gt06';
         $alarm['position']['attributes'] = [
             'type' => 38,
@@ -190,7 +190,7 @@ class TraccarWebhookTest extends TestCase
         $this->assertSame(1, GpsPosition::query()->count());
 
         $position = GpsPosition::query()->firstOrFail();
-        $this->assertFalse($position->ignition);
+        $this->assertTrue($position->ignition);
         $this->assertSame(16.0, (float) $position->battery);
         $this->assertSame('hex:787826220a', $position->attributes['raw']);
         $this->assertFalse($position->attributes['charge']);
@@ -214,8 +214,50 @@ class TraccarWebhookTest extends TestCase
 
         $position->refresh();
         $this->assertSame(1, GpsPosition::query()->count());
+        $this->assertTrue($position->ignition);
         $this->assertFalse($position->attributes['charge']);
         $this->assertSame('powerCut', $position->attributes['alarm']);
+    }
+
+    public function test_latest_packet_in_the_same_second_wins_on_conflict(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create();
+        Equipment::factory()->assignedTo($vehicle)->create(['traccar_device_id' => 42]);
+
+        $packet = function (string $time, bool $blocked, string $raw, array $extra = []): array {
+            $payload = $this->positionPayload(0, 42, $time);
+            $payload['position']['protocol'] = 'gt06';
+            $payload['position']['attributes'] = ['type' => 19, 'blocked' => $blocked, 'raw' => $raw, ...$extra];
+
+            return $payload;
+        };
+
+        // Heartbeat bloqueado, resposta do desbloqueio e heartbeat desbloqueado no mesmo segundo.
+        $blockedHeartbeat = $packet('2026-09-14T21:00:12.262+00:00', true, 'hex:78780a13c6');
+        $result = $packet('2026-09-14T21:00:12.496+00:00', true, 'hex:7878161552', ['result' => 'RELAY 0 OK']);
+        $unblockedHeartbeat = $packet('2026-09-14T21:00:12.519+00:00', false, 'hex:78780a1346');
+
+        $this->postJson('/api/webhooks/traccar', $blockedHeartbeat)->assertOk();
+        $this->postJson('/api/webhooks/traccar', $result)->assertOk();
+        $this->postJson('/api/webhooks/traccar', $unblockedHeartbeat)->assertOk();
+
+        $position = GpsPosition::query()->sole();
+        $this->assertFalse($position->attributes['blocked']);
+        $this->assertSame('RELAY 0 OK', $position->attributes['result']);
+
+        // Resync do heartbeat bloqueado (mais antigo) não reverte o estado.
+        $equipment = Equipment::query()->where('traccar_device_id', 42)->firstOrFail();
+        TenantContext::set($equipment->tenant);
+        app(TrackingService::class)->persistPosition(
+            $vehicle,
+            $equipment,
+            TraccarPosition::fromArray($blockedHeartbeat['position']),
+        );
+        TenantContext::forget();
+
+        $this->assertFalse($position->refresh()->attributes['blocked']);
     }
 
     public function test_unassigned_device_records_position_for_stock_equipment(): void
