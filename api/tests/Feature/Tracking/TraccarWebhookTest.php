@@ -4,11 +4,14 @@ namespace Tests\Feature\Tracking;
 
 use App\Modules\Client\Models\Client;
 use App\Modules\Equipment\Models\Equipment;
+use App\Modules\Tenant\Support\Facades\TenantContext;
+use App\Modules\Tracking\DTOs\TraccarPosition;
 use App\Modules\Tracking\Enums\TraccarEventStatus;
 use App\Modules\Tracking\Jobs\DispatchPendingTraccarEventsJob;
 use App\Modules\Tracking\Jobs\ProcessTraccarEvent;
 use App\Modules\Tracking\Models\GpsPosition;
 use App\Modules\Tracking\Models\TraccarEvent;
+use App\Modules\Tracking\Services\TrackingService;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
@@ -150,6 +153,69 @@ class TraccarWebhookTest extends TestCase
 
         $this->assertSame(2, GpsPosition::query()->count());
         $this->assertSame(2, GpsPosition::query()->whereNull('traccar_position_id')->count());
+    }
+
+    public function test_distinct_packets_with_same_time_are_merged(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        $client = Client::factory()->for($tenant)->create();
+        $vehicle = Vehicle::factory()->forClient($client)->create();
+        Equipment::factory()->assignedTo($vehicle)->create(['traccar_device_id' => 42]);
+
+        $location = $this->positionPayload(0, 42);
+        $location['position']['protocol'] = 'gt06';
+        $location['position']['attributes'] = [
+            'type' => 34,
+            'ignition' => false,
+            'raw' => 'hex:787826220a',
+        ];
+
+        $alarm = $this->positionPayload(0, 42);
+        $alarm['position']['protocol'] = 'gt06';
+        $alarm['position']['attributes'] = [
+            'type' => 38,
+            'ignition' => true,
+            'charge' => false,
+            'blocked' => false,
+            'rssi' => 3,
+            'batteryLevel' => 16,
+            'alarm' => 'powerCut,powerCut',
+            'raw' => 'hex:787829260b',
+        ];
+
+        $this->postJson('/api/webhooks/traccar', $location)->assertOk();
+        $this->postJson('/api/webhooks/traccar', $alarm)->assertOk();
+
+        $this->assertSame(2, TraccarEvent::query()->count());
+        $this->assertSame(1, GpsPosition::query()->count());
+
+        $position = GpsPosition::query()->firstOrFail();
+        $this->assertFalse($position->ignition);
+        $this->assertSame(16.0, (float) $position->battery);
+        $this->assertSame('hex:787826220a', $position->attributes['raw']);
+        $this->assertFalse($position->attributes['charge']);
+        $this->assertSame(3, $position->attributes['rssi']);
+        $this->assertSame('powerCut', $position->attributes['alarm']);
+
+        // Reentrega idêntica é deduplicada no webhook.
+        $this->postJson('/api/webhooks/traccar', $location)->assertOk();
+        $this->assertSame(2, TraccarEvent::query()->count());
+
+        // Resync do primeiro pacote (SyncTraccarPositionsJob) não apaga o que foi mesclado.
+        $equipment = Equipment::query()->where('traccar_device_id', 42)->firstOrFail();
+        $location['position']['id'] = 777;
+        TenantContext::set($equipment->tenant);
+        app(TrackingService::class)->persistPosition(
+            $vehicle,
+            $equipment,
+            TraccarPosition::fromArray($location['position']),
+        );
+        TenantContext::forget();
+
+        $position->refresh();
+        $this->assertSame(1, GpsPosition::query()->count());
+        $this->assertFalse($position->attributes['charge']);
+        $this->assertSame('powerCut', $position->attributes['alarm']);
     }
 
     public function test_unassigned_device_records_position_for_stock_equipment(): void

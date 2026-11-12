@@ -72,6 +72,19 @@ class TraccarWebhookService
         $position = $payload['position'] ?? null;
 
         if (is_array($position) && filled($position['deviceTime'] ?? null)) {
+            // Pacotes distintos podem compartilhar o horário (GT06: heartbeat e
+            // posição no mesmo segundo); o frame bruto os diferencia.
+            $raw = $position['attributes']['raw'] ?? null;
+
+            if (is_string($raw) && $raw !== '') {
+                return hash('sha256', sprintf(
+                    'position|%s|%s|%s',
+                    (string) ($position['deviceId'] ?? ''),
+                    (string) $position['deviceTime'],
+                    $raw,
+                ));
+            }
+
             return hash('sha256', sprintf(
                 'position|%s|%s',
                 (string) ($position['deviceId'] ?? ''),

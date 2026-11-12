@@ -3,6 +3,7 @@
 namespace App\Modules\Tracking\Services;
 
 use App\Modules\Alert\Services\AlertEngine;
+use App\Modules\Alert\Support\TraccarAttributeReader;
 use App\Modules\Client\Support\ClientAuthorization;
 use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Geofence\Services\GeofenceDetectionService;
@@ -473,6 +474,18 @@ class TrackingService
 
     private function persist(Equipment $equipment, TraccarPosition $position, ?Vehicle $vehicle): GpsPosition
     {
+        $existing = GpsPosition::query()
+            ->where('equipment_id', $equipment->getKey())
+            ->where('recorded_at', $position->recordedAt)
+            ->first();
+
+        // Protocolos como o GT06 enviam pacotes distintos com o mesmo horário
+        // (heartbeat + posição, dois alarmes no mesmo segundo). Em vez de
+        // sobrescrever ou descartar, mescla o pacote na linha existente.
+        if ($existing !== null && $this->isDistinctPacket($existing, $position)) {
+            return $this->mergeDistinctPacket($existing, $equipment, $position, $vehicle);
+        }
+
         // O forward do Traccar chega antes do ID do banco ser atribuído (id=0),
         // então a idempotência usa a chave natural equipamento + horário.
         $gpsPosition = GpsPosition::query()->updateOrCreate(
@@ -496,7 +509,11 @@ class TrackingService
                 'altitude' => $position->altitude,
                 'address' => $position->address,
                 'valid' => $position->valid,
-                'attributes' => $position->attributes,
+                // Reentrega/resync do mesmo pacote não pode apagar o que outro
+                // pacote do mesmo horário já mesclou na linha.
+                'attributes' => $existing !== null
+                    ? self::mergeAttributes($existing->attributes, $position->attributes, preferIncoming: true)
+                    : $position->attributes,
             ],
         );
 
@@ -535,19 +552,124 @@ class TrackingService
                 }
             }
 
-            PositionUpdated::dispatch(
-                $equipment->tenant?->uuid,
-                $vehicle?->client?->uuid,
-                [
-                    'vehicle_id' => $vehicle?->uuid,
-                    'equipment_id' => $equipment->uuid,
-                    'online' => true,
-                    'position' => GpsPositionResource::make($gpsPosition)->resolve(),
-                ],
-            );
+            $this->broadcastPosition($equipment, $vehicle, $gpsPosition);
         }
 
         return $gpsPosition;
+    }
+
+    /**
+     * Pacotes diferentes só são distinguíveis pelo frame bruto (`raw`); sem
+     * ele, mantém o comportamento de reentrega do mesmo pacote.
+     */
+    private function isDistinctPacket(GpsPosition $existing, TraccarPosition $position): bool
+    {
+        $existingRaw = is_array($existing->attributes) ? ($existing->attributes['raw'] ?? null) : null;
+        $incomingRaw = $position->attributes['raw'] ?? null;
+
+        return is_string($existingRaw) && $existingRaw !== ''
+            && is_string($incomingRaw) && $incomingRaw !== ''
+            && $existingRaw !== $incomingRaw;
+    }
+
+    /**
+     * Completa a linha existente com o que o novo pacote traz a mais
+     * (status, bateria, sinal, resultado de comando) e une os alarmes. Os
+     * dados de localização da linha existente são mantidos. Idempotente:
+     * reprocessar o mesmo pacote não altera nada.
+     */
+    private function mergeDistinctPacket(
+        GpsPosition $existing,
+        Equipment $equipment,
+        TraccarPosition $position,
+        ?Vehicle $vehicle,
+    ): GpsPosition {
+        $previousAlarms = TraccarAttributeReader::parseAlarmCodes($existing->attributes['alarm'] ?? null);
+
+        $existing->forceFill([
+            'attributes' => self::mergeAttributes($existing->attributes, $position->attributes, preferIncoming: false),
+            'ignition' => $existing->ignition ?? $position->ignition,
+            'battery' => $existing->battery ?? $position->battery,
+        ]);
+
+        $this->equipmentRawLogs->appendFromPositionAttributes(
+            $equipment,
+            $position->attributes,
+            $position->recordedAt,
+        );
+
+        if (! $existing->isDirty()) {
+            return $existing;
+        }
+
+        $existing->save();
+
+        $newAlarms = array_diff(
+            TraccarAttributeReader::parseAlarmCodes($existing->attributes['alarm'] ?? null),
+            $previousAlarms,
+        );
+
+        if ($newAlarms !== [] && $vehicle !== null) {
+            try {
+                $this->alertEngine->process($existing);
+            } catch (\Throwable $exception) {
+                Log::warning('alert.detection_failed', [
+                    'position_id' => $existing->getKey(),
+                    'vehicle_id' => $vehicle->getKey(),
+                    'message' => $exception->getMessage(),
+                ]);
+            }
+        }
+
+        $this->broadcastPosition($equipment, $vehicle, $existing);
+
+        return $existing;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $current
+     * @param  array<string, mixed>  $incoming
+     * @return array<string, mixed>
+     */
+    private static function mergeAttributes(?array $current, array $incoming, bool $preferIncoming): array
+    {
+        $current ??= [];
+
+        $merged = $preferIncoming
+            ? array_merge($current, $incoming)
+            : array_merge($incoming, $current);
+
+        $alarms = [];
+
+        foreach ([$current['alarm'] ?? null, $incoming['alarm'] ?? null] as $value) {
+            foreach (preg_split('/\s*,\s*/', (string) $value) ?: [] as $alarm) {
+                $alarm = trim($alarm);
+
+                if ($alarm !== '' && ! in_array(strtolower($alarm), array_map('strtolower', $alarms), true)) {
+                    $alarms[] = $alarm;
+                }
+            }
+        }
+
+        if ($alarms !== []) {
+            $merged['alarm'] = implode(',', $alarms);
+        }
+
+        return $merged;
+    }
+
+    private function broadcastPosition(Equipment $equipment, ?Vehicle $vehicle, GpsPosition $gpsPosition): void
+    {
+        PositionUpdated::dispatch(
+            $equipment->tenant?->uuid,
+            $vehicle?->client?->uuid,
+            [
+                'vehicle_id' => $vehicle?->uuid,
+                'equipment_id' => $equipment->uuid,
+                'online' => true,
+                'position' => GpsPositionResource::make($gpsPosition)->resolve(),
+            ],
+        );
     }
 
     /**
