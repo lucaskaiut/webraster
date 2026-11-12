@@ -63,7 +63,7 @@ function normalizedLocalStart(value: string | undefined): string | null {
 function travelSourceLabel(estimate: ScheduleEstimate): string {
   const source = estimate.travel?.source
 
-  return source === 'google' || source === 'osrm' ? 'rota calculada' : 'estimativa em linha reta'
+  return source && source !== 'estimate' ? 'rota calculada' : 'estimativa em linha reta'
 }
 
 function originLabel(estimate: ScheduleEstimate): string {

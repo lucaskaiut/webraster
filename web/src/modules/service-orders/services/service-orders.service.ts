@@ -77,7 +77,7 @@ export interface ScheduleAgendaSignatureParams {
 export interface ScheduleTravel {
   minutes: number
   distance_meters: number
-  source: 'google' | 'osrm' | 'estimate'
+  source: 'valhalla' | 'google' | 'osrm' | 'estimate'
 }
 
 
