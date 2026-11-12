@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
-import { Cpu, FlaskConical, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { Cpu, FlaskConical, Map as MapIcon, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import {
   Badge,
   Button,
@@ -15,6 +15,7 @@ import {
   Pagination,
   SearchInput,
   Select,
+  buttonClasses,
   type Column,
 } from '@/shared/design-system'
 import { Can } from '@/app/guards/PermissionGuard'
@@ -172,7 +173,7 @@ export default function EquipmentsListPage() {
   const canMutate = can(Permission.EQUIPMENT_UPDATE) || can(Permission.EQUIPMENT_DELETE)
   const canViewDetails = can(Permission.EQUIPMENT_DETAILS_READ)
   const canTest = can(Permission.DEVICE_COMMANDS_SEND)
-  const showActions = canMutate || canTest
+  const showActions = canMutate || canTest || canTrack
 
   const columns: Array<Column<Equipment>> = [
     ...(canViewDetails
@@ -291,43 +292,62 @@ export default function EquipmentsListPage() {
           {
             key: 'actions',
             header: <span className="sr-only">Ações</span>,
-            className: 'w-28 text-right',
-            render: (equipment: Equipment) => (
-              <div className="flex items-center justify-end gap-1">
-                {canTest && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setEquipmentToTest(equipment)}
-                    aria-label={`Testar ${equipment.imei ?? 'equipamento'}`}
-                    title="Testar equipamento"
-                  >
-                    <FlaskConical className="size-4" />
-                  </Button>
-                )}
-                {can(Permission.EQUIPMENT_UPDATE) && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => navigate(`/equipments/${equipment.id}/edit`)}
-                    aria-label={`Editar ${equipment.imei ?? 'equipamento'}`}
-                  >
-                    <Pencil className="size-4" />
-                  </Button>
-                )}
-                {can(Permission.EQUIPMENT_DELETE) && !equipment.is_assigned && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setEquipmentToDelete(equipment)}
-                    aria-label={`Excluir ${equipment.imei ?? 'equipamento'}`}
-                    className="text-danger hover:bg-danger-soft hover:text-danger"
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                )}
-              </div>
-            ),
+            className: 'w-36 text-right',
+            render: (equipment: Equipment) => {
+              const position = canTrack ? liveByEquipment.get(equipment.id)?.position : null
+              const mapsUrl = position
+                ? `https://www.google.com/maps/search/?api=1&query=${position.latitude},${position.longitude}`
+                : null
+
+              return (
+                <div className="flex items-center justify-end gap-1">
+                  {mapsUrl && (
+                    <a
+                      href={mapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Ver no Google Maps"
+                      aria-label={`Ver ${equipment.imei ?? 'equipamento'} no Google Maps`}
+                      className={buttonClasses('ghost', 'sm')}
+                    >
+                      <MapIcon className="size-4" aria-hidden="true" />
+                    </a>
+                  )}
+                  {canTest && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEquipmentToTest(equipment)}
+                      aria-label={`Testar ${equipment.imei ?? 'equipamento'}`}
+                      title="Testar equipamento"
+                    >
+                      <FlaskConical className="size-4" />
+                    </Button>
+                  )}
+                  {can(Permission.EQUIPMENT_UPDATE) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigate(`/equipments/${equipment.id}/edit`)}
+                      aria-label={`Editar ${equipment.imei ?? 'equipamento'}`}
+                    >
+                      <Pencil className="size-4" />
+                    </Button>
+                  )}
+                  {can(Permission.EQUIPMENT_DELETE) && !equipment.is_assigned && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEquipmentToDelete(equipment)}
+                      aria-label={`Excluir ${equipment.imei ?? 'equipamento'}`}
+                      className="text-danger hover:bg-danger-soft hover:text-danger"
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  )}
+                </div>
+              )
+            },
           } satisfies Column<Equipment>,
         ]
       : []),
