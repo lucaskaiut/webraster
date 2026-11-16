@@ -86,7 +86,35 @@ class ClientFinancialBlockTest extends TestCase
     {
         [$tenant, $client, $user] = $this->clientUser();
         $this->configure($tenant, ['block_access_enabled' => false]);
-        $this->billing($client, '2026-10-01', BillingStatus::OVERDUE);
+        $this->billing($client, '2026-10-01', BillingStatus::OVERDUE, ['block_on_overdue' => false]);
+
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/vehicles')->assertOk();
+    }
+
+    public function test_subscription_rule_blocks_without_collection_settings(): void
+    {
+        [, $client, $user] = $this->clientUser();
+        $billing = $this->billing($client, '2026-11-05', BillingStatus::OVERDUE);
+
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/vehicles')
+            ->assertForbidden()
+            ->assertJsonStructure(['errors' => ['client_financial_block']]);
+
+        $this->getJson('/api/finance/portal/access')
+            ->assertOk()
+            ->assertJsonPath('data.blocked', true)
+            ->assertJsonPath('data.billing_id', $billing->uuid);
+    }
+
+    public function test_subscription_rule_respects_its_grace_period(): void
+    {
+        [, $client, $user] = $this->clientUser();
+        $this->billing($client, '2026-11-06', BillingStatus::OVERDUE);
+        $this->billing($client, '2026-10-01', BillingStatus::OVERDUE, ['block_after_days' => 60]);
 
         Sanctum::actingAs($user);
 
@@ -158,10 +186,13 @@ class ClientFinancialBlockTest extends TestCase
         $setting->save();
     }
 
-    private function billing(Client $client, string $dueAt, BillingStatus $status): FinanceBilling
+    /**
+     * @param  array<string, mixed>  $subscription
+     */
+    private function billing(Client $client, string $dueAt, BillingStatus $status, array $subscription = []): FinanceBilling
     {
         $plan = FinancePlan::factory()->forTenant($client->tenant)->create();
-        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create();
+        $subscription = FinanceSubscription::factory()->forClient($client, $plan)->create($subscription);
 
         return FinanceBilling::factory()->forSubscription($subscription)->create([
             'status' => $status,

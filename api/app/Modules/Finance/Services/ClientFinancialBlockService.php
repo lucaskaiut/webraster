@@ -12,9 +12,10 @@ use App\Modules\User\Models\User;
 use Carbon\CarbonImmutable;
 
 /**
- * Bloqueio por inadimplência: com a opção ligada na régua de cobrança, o
- * usuário do portal cujo cliente tem cobrança em aberto vencida há N dias ou
- * mais só acessa o financeiro. O pagamento libera o acesso na hora.
+ * Bloqueio por inadimplência: o usuário do portal cujo cliente tem cobrança
+ * em aberto vencida há N dias ou mais só acessa o financeiro. O prazo vem da
+ * régua de cobrança (quando a opção está ligada) ou do contrato com
+ * "bloquear em atraso". O pagamento libera o acesso na hora.
  *
  * O resultado é calculado uma vez por requisição (cache atrelado à
  * requisição atual, seguro também em workers de longa duração).
@@ -77,21 +78,41 @@ class ClientFinancialBlockService
         }
 
         $setting = FinanceCollectionSetting::query()->first();
-
-        if ($setting === null || ! $setting->block_access_enabled) {
-            return $this->cache[$key] = $this->unblocked();
-        }
-
         $today = CarbonImmutable::now((string) config('scheduling.timezone'))->startOfDay();
-        $limit = $today->subDays(max(1, $setting->block_access_after_days));
 
+        // Régua de cobrança: vale para todos os clientes da empresa.
+        $settingLimit = $setting !== null && $setting->block_access_enabled
+            ? $today->subDays(max(1, $setting->block_access_after_days))->toDateString()
+            : null;
+
+        // Contrato com "bloquear em atraso": o mesmo prazo que suspende os
+        // rastreadores (DelinquencyService) também restringe o acesso.
         $overdue = FinanceBilling::query()
             ->withoutClientScope()
+            ->with('subscription:id,block_on_overdue,block_after_days')
             ->where('client_id', $key)
             ->whereIn('status', array_map(fn (BillingStatus $status) => $status->value, self::OPEN_STATUSES))
-            ->whereDate('due_at', '<=', $limit->toDateString())
+            ->whereDate('due_at', '<', $today->toDateString())
             ->orderBy('due_at')
-            ->get(['id', 'uuid', 'number', 'due_at', 'amount_cents', 'discount_cents', 'fine_cents', 'interest_cents']);
+            ->get(['id', 'uuid', 'number', 'due_at', 'subscription_id', 'amount_cents', 'discount_cents', 'fine_cents', 'interest_cents'])
+            ->filter(function (FinanceBilling $billing) use ($today, $settingLimit): bool {
+                $dueAt = CarbonImmutable::parse($billing->due_at)->toDateString();
+
+                if ($settingLimit !== null && $dueAt <= $settingLimit) {
+                    return true;
+                }
+
+                $subscription = $billing->subscription;
+
+                if ($subscription === null || ! $subscription->block_on_overdue) {
+                    return false;
+                }
+
+                $limit = $today->subDays(max(1, (int) ($subscription->block_after_days ?? 0)))->toDateString();
+
+                return $dueAt <= $limit;
+            })
+            ->values();
 
         if ($overdue->isEmpty()) {
             return $this->cache[$key] = $this->unblocked();
