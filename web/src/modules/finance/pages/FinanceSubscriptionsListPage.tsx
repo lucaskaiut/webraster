@@ -32,14 +32,14 @@ import {
   subscriptionStatusBadgeVariant,
   subscriptionStatusLabel,
 } from '../lib/labels'
-
-const PER_PAGE = 10
+import { useTablePerPage } from '@/shared/hooks/useTablePerPage'
 
 export default function FinanceSubscriptionsListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState(searchParams.get('search') ?? '')
   const debouncedSearch = useDebounce(search)
   const page = Number(searchParams.get('page') ?? 1)
+  const { perPage, perPageProps } = useTablePerPage()
   const status = searchParams.get('status') ?? ''
   const { can } = usePermissions()
   const [toCancel, setToCancel] = useState<FinanceSubscription | null>(null)
@@ -48,7 +48,7 @@ export default function FinanceSubscriptionsListPage() {
 
   const query = useFinanceSubscriptionsQuery({
     page,
-    per_page: PER_PAGE,
+    per_page: perPage,
     search: debouncedSearch || undefined,
     status: status || undefined,
   })
@@ -204,6 +204,7 @@ export default function FinanceSubscriptionsListPage() {
                 { replace: true },
               )
             }
+            {...perPageProps}
           />
         )}
       </PageContent>

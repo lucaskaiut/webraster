@@ -7,6 +7,7 @@ use App\Modules\Client\Http\Resources\SharedVehicleResource;
 use App\Modules\Client\Models\Client;
 use App\Modules\Client\Services\ClientVehicleShareService;
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\Vehicle\Models\Vehicle;
 use App\Modules\Vehicle\Models\VehicleShare;
 use Illuminate\Http\JsonResponse;
@@ -20,7 +21,7 @@ class ClientVehicleShareController extends ApiController
     {
         $this->authorize('view', $client);
 
-        $shares = $this->service->paginate($client, (int) $request->integer('per_page', 15));
+        $shares = $this->service->paginate($client, PerPage::fromRequest($request, 15));
 
         return $this->paginated(SharedVehicleResource::collection($shares));
     }

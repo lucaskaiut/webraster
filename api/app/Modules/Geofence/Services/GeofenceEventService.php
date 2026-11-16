@@ -5,6 +5,7 @@ namespace App\Modules\Geofence\Services;
 use App\Modules\Client\Models\Client;
 use App\Modules\Geofence\Models\Geofence;
 use App\Modules\Geofence\Models\GeofenceEvent;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\Vehicle\Models\Vehicle;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -12,7 +13,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 class GeofenceEventService
 {
     public function paginate(
-        int $perPage = 15,
+        int|string $perPage = 15,
         ?int $vehicleId = null,
         ?int $geofenceId = null,
         ?int $clientId = null,
@@ -29,7 +30,7 @@ class GeofenceEventService
             ->when($from !== null, fn ($query) => $query->where('recorded_at', '>=', $from))
             ->when($to !== null, fn ($query) => $query->where('recorded_at', '<=', $to))
             ->orderByDesc('recorded_at')
-            ->paginate(min(max($perPage, 1), 100));
+            ->paginate(PerPage::size($perPage));
     }
 
     /**

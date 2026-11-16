@@ -5,6 +5,7 @@ namespace App\Modules\Finance\Services;
 use App\Modules\Finance\Enums\PlanPricingType;
 use App\Modules\Finance\Models\FinancePlan;
 use App\Modules\Shared\Subscription\Enums\BillingPeriodicity;
+use App\Modules\Shared\Support\PerPage;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\ValidationException;
@@ -14,7 +15,7 @@ class FinancePlanService
     /**
      * @param  array<string, mixed>  $filters
      */
-    public function paginate(int $perPage = 15, array $filters = []): LengthAwarePaginator
+    public function paginate(int|string $perPage = 15, array $filters = []): LengthAwarePaginator
     {
         $query = FinancePlan::query();
 
@@ -32,7 +33,7 @@ class FinancePlanService
 
         return $query
             ->orderBy('name')
-            ->paginate(min(max($perPage, 1), 100));
+            ->paginate(PerPage::size($perPage));
     }
 
     public function find(FinancePlan $plan): FinancePlan

@@ -21,18 +21,18 @@ import {
   billingStatusLabel,
   paymentMethodLabel,
 } from '../lib/labels'
-
-const PER_PAGE = 10
+import { useTablePerPage } from '@/shared/hooks/useTablePerPage'
 
 export default function FinancePortalHistoryPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const page = Number(searchParams.get('page') ?? 1)
+  const { perPage, perPageProps } = useTablePerPage()
   const status = searchParams.get('status') ?? 'paid'
   const navigate = useNavigate()
 
   const query = useFinancePortalBillingsQuery({
     page,
-    per_page: PER_PAGE,
+    per_page: perPage,
     status: status || undefined,
   })
 
@@ -155,6 +155,7 @@ export default function FinancePortalHistoryPage() {
                 { replace: true },
               )
             }
+            {...perPageProps}
           />
         )}
       </PageContent>

@@ -3,6 +3,7 @@
 namespace App\Modules\ExternalApi\Http\Requests;
 
 use App\Modules\ExternalApi\Services\ExternalApiMetricsService;
+use App\Modules\Shared\Support\PerPage;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -29,7 +30,11 @@ class ExternalApiPeriodRequest extends FormRequest
             'service' => ['nullable', 'string', 'max:80'],
             'status' => ['nullable', Rule::in(['success', 'error'])],
             'search' => ['nullable', 'string', 'max:200'],
-            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'per_page' => ['nullable', function (string $attribute, mixed $value, \Closure $fail): void {
+                if ($value !== PerPage::ALL && (filter_var($value, FILTER_VALIDATE_INT) === false || $value < 1 || $value > 100)) {
+                    $fail('A quantidade por página deve ser de 1 a 100 ou "all".');
+                }
+            }],
         ];
     }
 

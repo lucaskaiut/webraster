@@ -14,8 +14,7 @@ import {
 import { formatDateTime } from '@/shared/utils/format'
 import type { AuditLog } from '@/shared/types/models'
 import { useAuditQuery } from '../hooks/useAudit'
-
-const PER_PAGE = 15
+import { useTablePerPage } from '@/shared/hooks/useTablePerPage'
 
 const ACTION_LABELS: Record<string, { label: string; variant: 'neutral' | 'primary' | 'success' | 'warning' | 'danger' }> = {
   master_login: { label: 'Login', variant: 'primary' },
@@ -32,9 +31,10 @@ const ACTION_LABELS: Record<string, { label: string; variant: 'neutral' | 'prima
 export default function AuditPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const page = Number(searchParams.get('page') ?? 1)
+  const { perPage, perPageProps } = useTablePerPage()
   const action = searchParams.get('action') ?? ''
 
-  const query = useAuditQuery({ page, per_page: PER_PAGE, action: action || undefined })
+  const query = useAuditQuery({ page, per_page: perPage, action: action || undefined })
 
   const columns: Array<Column<AuditLog>> = [
     {
@@ -98,7 +98,7 @@ export default function AuditPage() {
           emptyState={<EmptyState icon={ScrollText} title="Nenhum registro de auditoria" />}
         />
 
-        {query.data && <Pagination meta={query.data.meta} onPageChange={(next) => setSearchParams((p) => { next > 1 ? p.set('page', String(next)) : p.delete('page'); return p })} />}
+        {query.data && <Pagination meta={query.data.meta} onPageChange={(next) => setSearchParams((p) => { next > 1 ? p.set('page', String(next)) : p.delete('page'); return p })} {...perPageProps} />}
       </PageContent>
     </Page>
   )

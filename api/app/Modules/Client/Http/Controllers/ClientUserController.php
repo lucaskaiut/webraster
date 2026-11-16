@@ -7,6 +7,7 @@ use App\Modules\Client\Http\Requests\UpdateClientUserRequest;
 use App\Modules\Client\Models\Client;
 use App\Modules\Client\Services\ClientUserService;
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\User\Http\Resources\UserResource;
 use App\Modules\User\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -22,7 +23,7 @@ class ClientUserController extends ApiController
 
         $users = $this->service->paginate(
             $client,
-            (int) $request->integer('per_page', 15),
+            PerPage::fromRequest($request, 15),
             $request->string('search')->toString() ?: null,
             $request->string('sort')->toString() ?: null,
         );

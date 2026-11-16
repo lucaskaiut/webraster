@@ -13,17 +13,17 @@ import {
 } from '@/shared/design-system'
 import type { GeofenceEvent } from '@/shared/types/models'
 import { useGeofenceEventsQuery } from '../hooks/useGeofences'
-
-const PER_PAGE = 15
+import { useTablePerPage } from '@/shared/hooks/useTablePerPage'
 
 export default function GeofenceEventsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const page = Number(searchParams.get('page') ?? 1)
+  const { perPage, perPageProps } = useTablePerPage()
   const type = searchParams.get('type') ?? ''
 
   const query = useGeofenceEventsQuery({
     page,
-    per_page: PER_PAGE,
+    per_page: perPage,
     type: type === 'entry' || type === 'exit' ? type : undefined,
   })
 
@@ -129,6 +129,7 @@ export default function GeofenceEventsPage() {
                 { replace: true },
               )
             }
+            {...perPageProps}
           />
         )}
       </PageContent>

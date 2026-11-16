@@ -12,6 +12,7 @@ use App\Modules\Finance\Models\FinanceSubscription;
 use App\Modules\Shared\Subscription\Enums\BillingPeriodicity;
 use App\Modules\Shared\Subscription\Enums\SubscriptionStatus;
 use App\Modules\Shared\Subscription\Support\NextBillingDate;
+use App\Modules\Shared\Support\PerPage;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -28,7 +29,7 @@ class FinanceSubscriptionService
     /**
      * @param  array<string, mixed>  $filters
      */
-    public function paginate(int $perPage = 15, array $filters = []): LengthAwarePaginator
+    public function paginate(int|string $perPage = 15, array $filters = []): LengthAwarePaginator
     {
         $query = FinanceSubscription::query()->with(['client', 'plan']);
 
@@ -49,7 +50,7 @@ class FinanceSubscriptionService
 
         return $query
             ->orderByDesc('created_at')
-            ->paginate(min(max($perPage, 1), 100));
+            ->paginate(PerPage::size($perPage));
     }
 
     public function syncForClient(Client $client, ?FinancePlan $plan = null): ?FinanceSubscription

@@ -8,6 +8,7 @@ use App\Modules\ACL\Http\Resources\RoleResource;
 use App\Modules\ACL\Models\Role;
 use App\Modules\ACL\Services\RoleService;
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\Shared\Support\PerPage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -19,7 +20,7 @@ class RoleController extends ApiController
     {
         $this->authorize('viewAny', Role::class);
 
-        $roles = $this->service->paginate((int) $request->integer('per_page', 15));
+        $roles = $this->service->paginate(PerPage::fromRequest($request, 15));
 
         return $this->paginated(RoleResource::collection($roles));
     }

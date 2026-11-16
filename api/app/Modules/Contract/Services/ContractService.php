@@ -3,13 +3,14 @@
 namespace App\Modules\Contract\Services;
 
 use App\Modules\Contract\Models\Contract;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\Shared\Support\QuerySort;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
 
 class ContractService
 {
-    public function paginate(int $perPage = 15, ?string $search = null, ?string $sort = null): LengthAwarePaginator
+    public function paginate(int|string $perPage = 15, ?string $search = null, ?string $sort = null): LengthAwarePaginator
     {
         $query = Contract::query()
             ->when(filled($search), function ($query) use ($search): void {
@@ -17,7 +18,7 @@ class ContractService
             });
 
         return QuerySort::apply($query, $sort, ['name', 'created_at'], 'name:asc')
-            ->paginate(min(max($perPage, 1), 100));
+            ->paginate(PerPage::size($perPage));
     }
 
     /**

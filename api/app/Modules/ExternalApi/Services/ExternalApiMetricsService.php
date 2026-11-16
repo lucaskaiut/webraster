@@ -4,6 +4,7 @@ namespace App\Modules\ExternalApi\Services;
 
 use App\Modules\ExternalApi\Models\ExternalApiRequest;
 use App\Modules\ExternalApi\Support\ExternalApiCatalog;
+use App\Modules\Shared\Support\PerPage;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -110,7 +111,7 @@ class ExternalApiMetricsService
     /**
      * @param  array{service?: string|null, status?: string|null, search?: string|null}  $filters
      */
-    public function paginate(CarbonImmutable $from, CarbonImmutable $to, array $filters, int $perPage): LengthAwarePaginator
+    public function paginate(CarbonImmutable $from, CarbonImmutable $to, array $filters, int|string $perPage): LengthAwarePaginator
     {
         $services = filled($filters['service'] ?? null) ? [(string) $filters['service']] : [];
 
@@ -128,7 +129,7 @@ class ExternalApiMetricsService
             })
             ->orderByDesc('created_at')
             ->orderByDesc('id')
-            ->paginate(min(max($perPage, 1), 100));
+            ->paginate(PerPage::size($perPage));
     }
 
     /**

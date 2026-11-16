@@ -4,6 +4,7 @@ namespace App\Modules\Audit\Services;
 
 use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Models\AuditLog;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Tenant\Support\Facades\TenantContext;
 use App\Modules\User\Models\User;
@@ -55,7 +56,7 @@ class AuditLogService
         ]);
     }
 
-    public function paginate(int $perPage = 15, ?string $action = null): LengthAwarePaginator
+    public function paginate(int|string $perPage = 15, ?string $action = null): LengthAwarePaginator
     {
         return AuditLog::query()
             ->where('selected_tenant_id', TenantContext::tenantId())
@@ -63,6 +64,6 @@ class AuditLogService
             ->when(filled($action), fn ($query) => $query->where('action', $action))
             ->orderByDesc('created_at')
             ->orderByDesc('id')
-            ->paginate(min(max($perPage, 1), 100));
+            ->paginate(PerPage::size($perPage));
     }
 }

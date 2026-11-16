@@ -27,14 +27,14 @@ import {
   getFictionalContractValues,
   substituteContractVariables,
 } from '../lib/variables'
-
-const PER_PAGE = 10
+import { useTablePerPage } from '@/shared/hooks/useTablePerPage'
 
 export default function ContractsListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState(searchParams.get('search') ?? '')
   const debouncedSearch = useDebounce(search)
   const page = Number(searchParams.get('page') ?? 1)
+  const { perPage, perPageProps } = useTablePerPage()
 
   const navigate = useNavigate()
   const { can } = usePermissions()
@@ -46,7 +46,7 @@ export default function ContractsListPage() {
   const { sort, sortParam, toggleSort } = useTableSort()
   const query = useContractsQuery({
     page,
-    per_page: PER_PAGE,
+    per_page: perPage,
     search: debouncedSearch || undefined,
     sort: sortParam,
   })
@@ -200,7 +200,7 @@ export default function ContractsListPage() {
         />
 
         {query.data && (
-          <Pagination meta={query.data.meta} onPageChange={(next) => updateParams({ page: next })} />
+          <Pagination meta={query.data.meta} onPageChange={(next) => updateParams({ page: next })} {...perPageProps} />
         )}
       </PageContent>
 

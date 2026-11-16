@@ -4,6 +4,7 @@ namespace App\Modules\Poi\Services;
 
 use App\Modules\Poi\Models\Poi;
 use App\Modules\Poi\Models\PoiCategory;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\Shared\Support\QuerySort;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Tenant\Support\Facades\TenantContext;
@@ -61,7 +62,7 @@ class PoiService
     }
 
     public function paginate(
-        int $perPage = 15,
+        int|string $perPage = 15,
         ?string $search = null,
         ?int $clientId = null,
         ?int $categoryId = null,
@@ -84,7 +85,7 @@ class PoiService
             });
 
         return QuerySort::apply($query, $sort, ['name', 'is_active', 'created_at'], 'name:asc')
-            ->paginate(min(max($perPage, 1), 100));
+            ->paginate(PerPage::size($perPage));
     }
 
     /**

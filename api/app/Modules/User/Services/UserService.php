@@ -6,6 +6,7 @@ use App\Modules\ACL\Enums\DefaultRole;
 use App\Modules\ACL\Enums\Permission;
 use App\Modules\ACL\Models\Role;
 use App\Modules\Scheduling\Services\Geocoder;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\Shared\Support\QuerySort;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\User\Enums\UserType;
@@ -19,7 +20,7 @@ class UserService
     public function __construct(private readonly Geocoder $geocoder) {}
 
     public function paginate(
-        int $perPage = 15,
+        int|string $perPage = 15,
         ?string $search = null,
         ?string $sort = null,
         ?UserType $type = null,
@@ -38,7 +39,7 @@ class UserService
             });
 
         return QuerySort::apply($query, $sort, ['name', 'email', 'created_at'], 'name:asc')
-            ->paginate(min(max($perPage, 1), 100));
+            ->paginate(PerPage::size($perPage));
     }
 
     /**

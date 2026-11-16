@@ -5,6 +5,7 @@ namespace App\Modules\ACL\Services;
 use App\Modules\ACL\Enums\DefaultRole;
 use App\Modules\ACL\Enums\Permission;
 use App\Modules\ACL\Models\Role;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\Tenant\Models\Tenant;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
@@ -32,12 +33,12 @@ class RoleService
         return $roles;
     }
 
-    public function paginate(int $perPage = 15): LengthAwarePaginator
+    public function paginate(int|string $perPage = 15): LengthAwarePaginator
     {
         return Role::query()
             ->with('permissions')
             ->orderBy('name')
-            ->paginate(min(max($perPage, 1), 100));
+            ->paginate(PerPage::size($perPage));
     }
 
     /**

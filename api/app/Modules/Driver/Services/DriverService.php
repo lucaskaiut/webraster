@@ -3,6 +3,7 @@
 namespace App\Modules\Driver\Services;
 
 use App\Modules\Driver\Models\Driver;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\Shared\Support\QuerySort;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -12,7 +13,7 @@ use Illuminate\Validation\ValidationException;
 class DriverService
 {
     public function paginate(
-        int $perPage = 15,
+        int|string $perPage = 15,
         ?string $search = null,
         ?int $clientId = null,
         ?string $sort = null,
@@ -33,7 +34,7 @@ class DriverService
             $sort,
             ['name', 'document', 'cnh_number', 'cnh_expires_at', 'is_active', 'created_at'],
             'name:asc',
-        )->paginate(min(max($perPage, 1), 100));
+        )->paginate(PerPage::size($perPage));
     }
 
     /**

@@ -5,6 +5,7 @@ namespace App\Modules\Geofence\Services;
 use App\Modules\Geofence\Enums\GeofenceType;
 use App\Modules\Geofence\Models\Geofence;
 use App\Modules\Geofence\Support\GeoMath;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\Shared\Support\QuerySort;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
@@ -20,7 +21,7 @@ class GeofenceService
     public const MAX_POLYGON_POINTS = 100;
 
     public function paginate(
-        int $perPage = 15,
+        int|string $perPage = 15,
         ?string $search = null,
         ?int $clientId = null,
         ?string $type = null,
@@ -41,7 +42,7 @@ class GeofenceService
             });
 
         return QuerySort::apply($query, $sort, ['name', 'type', 'is_active', 'created_at'], 'name:asc')
-            ->paginate(min(max($perPage, 1), 100));
+            ->paginate(PerPage::size($perPage));
     }
 
     /**

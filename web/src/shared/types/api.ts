@@ -22,7 +22,7 @@ export interface PaginatedResponse<T> {
 
 export interface ListParams {
   page?: number
-  per_page?: number
+  per_page?: number | 'all'
   search?: string
   sort?: string
   delinquent?: boolean

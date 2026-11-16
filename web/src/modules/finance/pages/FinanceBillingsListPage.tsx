@@ -29,14 +29,14 @@ import {
   canDeleteBilling,
   paymentMethodLabel,
 } from '../lib/labels'
-
-const PER_PAGE = 10
+import { useTablePerPage } from '@/shared/hooks/useTablePerPage'
 
 export default function FinanceBillingsListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState(searchParams.get('search') ?? '')
   const debouncedSearch = useDebounce(search)
   const page = Number(searchParams.get('page') ?? 1)
+  const { perPage, perPageProps } = useTablePerPage()
   const status = searchParams.get('status') ?? ''
   const navigate = useNavigate()
   const { can } = usePermissions()
@@ -45,7 +45,7 @@ export default function FinanceBillingsListPage() {
 
   const query = useFinanceBillingsQuery({
     page,
-    per_page: PER_PAGE,
+    per_page: perPage,
     search: debouncedSearch || undefined,
     status: status || undefined,
   })
@@ -201,6 +201,7 @@ export default function FinanceBillingsListPage() {
                 { replace: true },
               )
             }
+            {...perPageProps}
           />
         )}
       </PageContent>

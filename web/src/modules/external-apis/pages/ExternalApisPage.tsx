@@ -41,8 +41,8 @@ import {
   resolvePeriod,
   type PeriodPreset,
 } from '../utils/period'
+import { useTablePerPage } from '@/shared/hooks/useTablePerPage'
 
-const PER_PAGE = 20
 const AUTO_REFRESH_MS = 60_000
 
 function minuteAnchor(): Date {
@@ -69,6 +69,7 @@ export default function ExternalApisPage() {
   const service = searchParams.get('service') ?? ''
   const status = (searchParams.get('status') ?? '') as '' | 'success' | 'error'
   const page = Number(searchParams.get('page') ?? 1)
+  const { perPage, perPageProps } = useTablePerPage()
   const [search, setSearch] = useState(searchParams.get('search') ?? '')
   const debouncedSearch = useDebounce(search)
   const [selectedId, setSelectedId] = useState<number | null>(null)
@@ -123,7 +124,7 @@ export default function ExternalApisPage() {
     to: period.to,
     timezone,
     page,
-    per_page: PER_PAGE,
+    per_page: perPage,
     service: service || undefined,
     status: status || undefined,
     search: debouncedSearch || undefined,
@@ -380,6 +381,7 @@ export default function ExternalApisPage() {
               <Pagination
                 meta={requestsQuery.data.meta}
                 onPageChange={(next) => update({ page: next > 1 ? String(next) : null })}
+                {...perPageProps}
               />
             )}
           </CardContent>

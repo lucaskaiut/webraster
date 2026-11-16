@@ -4,6 +4,7 @@ namespace App\Modules\Billing\Services;
 
 use App\Modules\Billing\Enums\RecurrenceUnit;
 use App\Modules\Billing\Models\Plan;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\Tenant\Support\Facades\TenantContext;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -63,11 +64,11 @@ class PlanService
         return $this->update($plan, ['active' => false]);
     }
 
-    public function paginate(int $perPage = 15): LengthAwarePaginator
+    public function paginate(int|string $perPage = 15): LengthAwarePaginator
     {
         return Plan::query()
             ->orderBy('name')
-            ->paginate(min(max($perPage, 1), 100));
+            ->paginate(PerPage::size($perPage));
     }
 
     /**

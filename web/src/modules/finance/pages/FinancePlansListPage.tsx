@@ -25,14 +25,14 @@ import { formatCurrency } from '@/shared/utils/format'
 import type { FinancePlan } from '@/shared/types/models'
 import { useDeleteFinancePlan, useFinancePlansQuery } from '../hooks/useFinance'
 import { periodicityLabel, pricingTypeLabel } from '../lib/labels'
-
-const PER_PAGE = 10
+import { useTablePerPage } from '@/shared/hooks/useTablePerPage'
 
 export default function FinancePlansListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState(searchParams.get('search') ?? '')
   const debouncedSearch = useDebounce(search)
   const page = Number(searchParams.get('page') ?? 1)
+  const { perPage, perPageProps } = useTablePerPage()
   const isActive = searchParams.get('is_active') ?? ''
   const navigate = useNavigate()
   const { can } = usePermissions()
@@ -41,7 +41,7 @@ export default function FinancePlansListPage() {
 
   const query = useFinancePlansQuery({
     page,
-    per_page: PER_PAGE,
+    per_page: perPage,
     search: debouncedSearch || undefined,
     is_active: isActive || undefined,
   })
@@ -206,6 +206,7 @@ export default function FinancePlansListPage() {
                 { replace: true },
               )
             }
+            {...perPageProps}
           />
         )}
       </PageContent>

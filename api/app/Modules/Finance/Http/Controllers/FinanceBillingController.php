@@ -12,6 +12,7 @@ use App\Modules\Finance\Services\BillingChargeService;
 use App\Modules\Finance\Services\FinanceBillingService;
 use App\Modules\Finance\Services\LateFeeService;
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\Shared\Support\PerPage;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -29,7 +30,7 @@ class FinanceBillingController extends ApiController
         $this->authorize('viewAny', FinanceBilling::class);
 
         $billings = $this->service->paginate(
-            (int) $request->integer('per_page', 15),
+            PerPage::fromRequest($request, 15),
             [
                 'search' => $request->string('search')->toString() ?: null,
                 'status' => $request->string('status')->toString() ?: null,

@@ -10,6 +10,7 @@ use App\Modules\Billing\Models\Invoice;
 use App\Modules\Billing\Models\Plan;
 use App\Modules\Billing\Models\Subscription;
 use App\Modules\Billing\Support\PaymentGatewayResolver;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\Tenant\Models\Tenant;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -212,12 +213,12 @@ class SubscriptionService
             ->first();
     }
 
-    public function paginate(int $perPage = 15): LengthAwarePaginator
+    public function paginate(int|string $perPage = 15): LengthAwarePaginator
     {
         return Subscription::query()
             ->with('plan')
             ->orderByDesc('created_at')
-            ->paginate(min(max($perPage, 1), 100));
+            ->paginate(PerPage::size($perPage));
     }
 
     /**

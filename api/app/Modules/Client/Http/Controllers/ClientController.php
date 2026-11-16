@@ -8,6 +8,7 @@ use App\Modules\Client\Http\Resources\ClientResource;
 use App\Modules\Client\Models\Client;
 use App\Modules\Client\Services\ClientService;
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\Shared\Support\PerPage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -20,7 +21,7 @@ class ClientController extends ApiController
         $this->authorize('viewAny', Client::class);
 
         $clients = $this->service->paginate(
-            (int) $request->integer('per_page', 15),
+            PerPage::fromRequest($request, 15),
             $request->string('search')->toString() ?: null,
             $request->filled('delinquent') ? $request->boolean('delinquent') : null,
             $request->string('sort')->toString() ?: null,

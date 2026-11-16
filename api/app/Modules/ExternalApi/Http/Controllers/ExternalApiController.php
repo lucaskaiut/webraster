@@ -8,6 +8,7 @@ use App\Modules\ExternalApi\Models\ExternalApiRequest;
 use App\Modules\ExternalApi\Services\ExternalApiMetricsService;
 use App\Modules\ExternalApi\Support\ExternalApiCatalog;
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\Shared\Support\PerPage;
 use Illuminate\Http\JsonResponse;
 
 class ExternalApiController extends ApiController
@@ -43,7 +44,7 @@ class ExternalApiController extends ApiController
                 'status' => $request->validated('status'),
                 'search' => $request->validated('search'),
             ],
-            (int) ($request->validated('per_page') ?? 20),
+            PerPage::fromRequest($request, 20),
         );
 
         return $this->paginated(ExternalApiRequestResource::collection($requests));

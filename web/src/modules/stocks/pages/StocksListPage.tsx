@@ -24,14 +24,14 @@ import { useDebounce } from '@/shared/hooks/useDebounce'
 import { useTableSort } from '@/shared/hooks/useTableSort'
 import type { Stock } from '@/shared/types/models'
 import { useDeleteStock, useStocksQuery } from '../hooks/useStocks'
-
-const PER_PAGE = 10
+import { useTablePerPage } from '@/shared/hooks/useTablePerPage'
 
 export default function StocksListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState(searchParams.get('search') ?? '')
   const debouncedSearch = useDebounce(search)
   const page = Number(searchParams.get('page') ?? 1)
+  const { perPage, perPageProps } = useTablePerPage()
   const statusParam = searchParams.get('is_active')
 
   const navigate = useNavigate()
@@ -43,7 +43,7 @@ export default function StocksListPage() {
 
   const query = useStocksQuery({
     page,
-    per_page: PER_PAGE,
+    per_page: perPage,
     search: debouncedSearch || undefined,
     is_active: statusParam === null ? undefined : statusParam === '1',
     sort: sortParam,
@@ -240,7 +240,7 @@ export default function StocksListPage() {
         />
 
         {query.data && (
-          <Pagination meta={query.data.meta} onPageChange={(next) => updateParams({ page: next })} />
+          <Pagination meta={query.data.meta} onPageChange={(next) => updateParams({ page: next })} {...perPageProps} />
         )}
       </PageContent>
 

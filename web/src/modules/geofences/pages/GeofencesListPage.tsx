@@ -23,14 +23,14 @@ import { useDebounce } from '@/shared/hooks/useDebounce'
 import { useTableSort } from '@/shared/hooks/useTableSort'
 import type { Geofence } from '@/shared/types/models'
 import { useDeleteGeofence, useGeofencesQuery } from '../hooks/useGeofences'
-
-const PER_PAGE = 10
+import { useTablePerPage } from '@/shared/hooks/useTablePerPage'
 
 export default function GeofencesListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState(searchParams.get('search') ?? '')
   const debouncedSearch = useDebounce(search)
   const page = Number(searchParams.get('page') ?? 1)
+  const { perPage, perPageProps } = useTablePerPage()
   const navigate = useNavigate()
   const { can } = usePermissions()
   const [toDelete, setToDelete] = useState<Geofence | null>(null)
@@ -39,7 +39,7 @@ export default function GeofencesListPage() {
   const { sort, sortParam, toggleSort } = useTableSort()
   const query = useGeofencesQuery({
     page,
-    per_page: PER_PAGE,
+    per_page: perPage,
     search: debouncedSearch || undefined,
     sort: sortParam,
   })
@@ -198,7 +198,7 @@ export default function GeofencesListPage() {
         />
 
         {query.data && (
-          <Pagination meta={query.data.meta} onPageChange={(next) => updateParams({ page: next })} />
+          <Pagination meta={query.data.meta} onPageChange={(next) => updateParams({ page: next })} {...perPageProps} />
         )}
       </PageContent>
 

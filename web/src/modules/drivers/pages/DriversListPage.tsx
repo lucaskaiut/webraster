@@ -25,14 +25,14 @@ import { formatDate } from '@/shared/utils/format'
 import { formatDocument } from '@/shared/utils/document'
 import type { Driver } from '@/shared/types/models'
 import { useDeleteDriver, useDriversQuery } from '../hooks/useDrivers'
-
-const PER_PAGE = 10
+import { useTablePerPage } from '@/shared/hooks/useTablePerPage'
 
 export default function DriversListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState(searchParams.get('search') ?? '')
   const debouncedSearch = useDebounce(search)
   const page = Number(searchParams.get('page') ?? 1)
+  const { perPage, perPageProps } = useTablePerPage()
   const clientId = searchParams.get('client_id') ?? undefined
 
   const navigate = useNavigate()
@@ -44,7 +44,7 @@ export default function DriversListPage() {
 
   const query = useDriversQuery({
     page,
-    per_page: PER_PAGE,
+    per_page: perPage,
     search: debouncedSearch || undefined,
     client_id: clientId,
     sort: sortParam,
@@ -214,7 +214,7 @@ export default function DriversListPage() {
         />
 
         {query.data && (
-          <Pagination meta={query.data.meta} onPageChange={(next) => updateParams({ page: next })} />
+          <Pagination meta={query.data.meta} onPageChange={(next) => updateParams({ page: next })} {...perPageProps} />
         )}
       </PageContent>
 

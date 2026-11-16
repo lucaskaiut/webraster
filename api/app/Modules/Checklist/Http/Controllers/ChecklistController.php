@@ -13,6 +13,7 @@ use App\Modules\Checklist\Services\ChecklistService;
 use App\Modules\Checklist\Services\ServiceOrderChecklistService;
 use App\Modules\ServiceOrder\Models\ServiceOrder;
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\Shared\Support\PerPage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -39,7 +40,7 @@ class ChecklistController extends ApiController
         }
 
         $checklists = $this->service->paginate(
-            (int) $request->integer('per_page', 15),
+            PerPage::fromRequest($request, 15),
             $filters,
         );
 

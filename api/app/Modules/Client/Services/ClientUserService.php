@@ -5,6 +5,7 @@ namespace App\Modules\Client\Services;
 use App\Modules\ACL\Enums\DefaultRole;
 use App\Modules\ACL\Models\Role;
 use App\Modules\Client\Models\Client;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\Shared\Support\QuerySort;
 use App\Modules\User\Enums\UserType;
 use App\Modules\User\Models\User;
@@ -66,7 +67,7 @@ class ClientUserService
 
     public function paginate(
         Client $client,
-        int $perPage = 15,
+        int|string $perPage = 15,
         ?string $search = null,
         ?string $sort = null,
     ): LengthAwarePaginator {
@@ -81,7 +82,7 @@ class ClientUserService
             });
 
         return QuerySort::apply($query, $sort, ['name', 'email', 'created_at'], 'name:asc')
-            ->paginate(min(max($perPage, 1), 100));
+            ->paginate(PerPage::size($perPage));
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Modules\User\Http\Controllers;
 
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\User\Enums\UserType;
 use App\Modules\User\Http\Requests\StoreUserRequest;
 use App\Modules\User\Http\Requests\UpdateUserRequest;
@@ -21,7 +22,7 @@ class UserController extends ApiController
         $this->authorize('viewAny', User::class);
 
         $users = $this->service->paginate(
-            (int) $request->integer('per_page', 15),
+            PerPage::fromRequest($request, 15),
             $request->string('search')->toString() ?: null,
             $request->string('sort')->toString() ?: null,
             UserType::tryFrom($request->string('type')->toString()),

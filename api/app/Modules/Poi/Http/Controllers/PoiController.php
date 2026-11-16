@@ -10,6 +10,7 @@ use App\Modules\Poi\Http\Resources\PoiResource;
 use App\Modules\Poi\Models\Poi;
 use App\Modules\Poi\Services\PoiService;
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\Shared\Support\PerPage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -33,7 +34,7 @@ class PoiController extends ApiController
             : null;
 
         $pois = $this->service->paginate(
-            (int) $request->integer('per_page', 15),
+            PerPage::fromRequest($request, 15),
             $request->string('search')->toString() ?: null,
             $clientId,
             $this->service->resolveCategoryId($request->string('category_id')->toString() ?: null),

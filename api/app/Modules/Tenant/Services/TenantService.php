@@ -4,6 +4,7 @@ namespace App\Modules\Tenant\Services;
 
 use App\Modules\ACL\Enums\DefaultRole;
 use App\Modules\ACL\Services\RoleService;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\Tenant\Enums\TenantModule;
 use App\Modules\Tenant\Models\Tenant;
 use App\Modules\User\Models\User;
@@ -50,7 +51,7 @@ class TenantService
      * Lista os tenants filhos do umbrella informado. A contagem de usuários
      * ignora o escopo do tenant em contexto (o umbrella).
      */
-    public function paginateChildren(Tenant $umbrella, int $perPage = 15, ?string $search = null): LengthAwarePaginator
+    public function paginateChildren(Tenant $umbrella, int|string $perPage = 15, ?string $search = null): LengthAwarePaginator
     {
         return Tenant::query()
             ->where('parent_id', $umbrella->getKey())
@@ -62,7 +63,7 @@ class TenantService
                 });
             })
             ->orderBy('name')
-            ->paginate(min(max($perPage, 1), 100));
+            ->paginate(PerPage::size($perPage));
     }
 
     /**

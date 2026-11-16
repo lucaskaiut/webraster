@@ -3,6 +3,7 @@
 namespace App\Modules\Client\Services;
 
 use App\Modules\Client\Models\Client;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Models\Vehicle;
 use App\Modules\Vehicle\Models\VehicleShare;
@@ -16,13 +17,13 @@ use Illuminate\Validation\ValidationException;
  */
 class ClientVehicleShareService
 {
-    public function paginate(Client $client, int $perPage = 15): LengthAwarePaginator
+    public function paginate(Client $client, int|string $perPage = 15): LengthAwarePaginator
     {
         return VehicleShare::query()
             ->with(['vehicle.client', 'vehicle.equipment', 'creator'])
             ->where('client_id', $client->getKey())
             ->orderByDesc('created_at')
-            ->paginate(min(max($perPage, 1), 100));
+            ->paginate(PerPage::size($perPage));
     }
 
     public function attach(Client $client, Vehicle $vehicle, ?User $user): VehicleShare

@@ -24,6 +24,7 @@ use App\Modules\ServiceOrder\Services\ServiceOrderLoanAcceptanceService;
 use App\Modules\ServiceOrder\Services\ServiceOrderPdfService;
 use App\Modules\ServiceOrder\Services\ServiceOrderService;
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Models\Vehicle;
 use Illuminate\Http\JsonResponse;
@@ -46,7 +47,7 @@ class ServiceOrderController extends ApiController
         $this->authorize('viewAny', ServiceOrder::class);
 
         $orders = $this->service->paginate(
-            (int) $request->integer('per_page', 15),
+            PerPage::fromRequest($request, 15),
             $this->filters($request),
             $request->user(),
         );

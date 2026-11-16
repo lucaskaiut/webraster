@@ -64,7 +64,7 @@ export interface ExternalApiMetricsParams extends ExternalApiPeriodParams {
 
 export interface ExternalApiRequestsParams extends ExternalApiPeriodParams {
   page?: number
-  per_page?: number
+  per_page?: number | 'all'
   service?: string
   status?: 'success' | 'error'
   search?: string

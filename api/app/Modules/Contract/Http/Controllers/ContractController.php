@@ -8,6 +8,7 @@ use App\Modules\Contract\Http\Resources\ContractResource;
 use App\Modules\Contract\Models\Contract;
 use App\Modules\Contract\Services\ContractService;
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\Shared\Support\PerPage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -20,7 +21,7 @@ class ContractController extends ApiController
         $this->authorize('viewAny', Contract::class);
 
         $contracts = $this->service->paginate(
-            (int) $request->integer('per_page', 15),
+            PerPage::fromRequest($request, 15),
             $request->string('search')->toString() ?: null,
             $request->string('sort')->toString() ?: null,
         );

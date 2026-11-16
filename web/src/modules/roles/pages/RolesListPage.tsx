@@ -18,10 +18,12 @@ import { Permission } from '@/shared/constants/permissions'
 import { usePermissions } from '@/shared/hooks/usePermissions'
 import type { Role } from '@/shared/types/models'
 import { useDeleteRole, useRolesQuery } from '../hooks/useRoles'
+import { useTablePerPage } from '@/shared/hooks/useTablePerPage'
 
 export default function RolesListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const page = Number(searchParams.get('page') ?? 1)
+  const { perPage, perPageProps } = useTablePerPage()
 
   const navigate = useNavigate()
   const { can } = usePermissions()
@@ -29,7 +31,7 @@ export default function RolesListPage() {
   const [roleToDelete, setRoleToDelete] = useState<Role | null>(null)
   const deleteRole = useDeleteRole()
 
-  const query = useRolesQuery({ page, per_page: 10 })
+  const query = useRolesQuery({ page, per_page: perPage })
 
   const confirmDelete = () => {
     if (!roleToDelete) return
@@ -136,6 +138,7 @@ export default function RolesListPage() {
                 return params
               })
             }
+            {...perPageProps}
           />
         )}
       </PageContent>

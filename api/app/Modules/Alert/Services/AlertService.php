@@ -8,6 +8,7 @@ use App\Modules\Alert\Models\Alert;
 use App\Modules\Alert\Models\UserNotification;
 use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogService;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Models\Vehicle;
 use Carbon\CarbonImmutable;
@@ -20,7 +21,7 @@ class AlertService
     public function __construct(private readonly AuditLogService $audit) {}
 
     public function paginate(
-        int $perPage = 15,
+        int|string $perPage = 15,
         ?int $vehicleId = null,
         ?string $type = null,
         ?string $status = null,
@@ -38,7 +39,7 @@ class AlertService
             ->when($from !== null, fn ($q) => $q->where('occurred_at', '>=', $from))
             ->when($to !== null, fn ($q) => $q->where('occurred_at', '<=', $to))
             ->orderBy('occurred_at', $sort === 'asc' ? 'asc' : 'desc')
-            ->paginate(min(max($perPage, 1), 100));
+            ->paginate(PerPage::size($perPage));
     }
 
     /**

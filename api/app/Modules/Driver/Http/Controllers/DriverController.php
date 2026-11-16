@@ -8,6 +8,7 @@ use App\Modules\Driver\Http\Resources\DriverResource;
 use App\Modules\Driver\Models\Driver;
 use App\Modules\Driver\Services\DriverService;
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\Shared\Support\PerPage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -27,7 +28,7 @@ class DriverController extends ApiController
         }
 
         $drivers = $this->service->paginate(
-            (int) $request->integer('per_page', 15),
+            PerPage::fromRequest($request, 15),
             $request->string('search')->toString() ?: null,
             $clientId,
             $request->string('sort')->toString() ?: null,

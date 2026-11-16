@@ -9,6 +9,7 @@ use App\Modules\Checklist\Models\Checklist;
 use App\Modules\Checklist\Models\ServiceOrderChecklist;
 use App\Modules\ServiceOrder\Enums\ServiceOrderStatus;
 use App\Modules\ServiceOrder\Models\ServiceOrder;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\Shared\Support\QuerySort;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
@@ -21,7 +22,7 @@ class ChecklistService
     /**
      * @param  array<string, mixed>  $filters
      */
-    public function paginate(int $perPage = 15, array $filters = []): LengthAwarePaginator
+    public function paginate(int|string $perPage = 15, array $filters = []): LengthAwarePaginator
     {
         $query = Checklist::query()
             ->withCount('questions')
@@ -35,7 +36,7 @@ class ChecklistService
                 ->where('is_active', (bool) $filters['is_active']));
 
         return QuerySort::apply($query, $filters['sort'] ?? null, ['name', 'type', 'is_active', 'created_at'], 'name:asc')
-            ->paginate(min(max($perPage, 1), 100));
+            ->paginate(PerPage::size($perPage));
     }
 
     /**

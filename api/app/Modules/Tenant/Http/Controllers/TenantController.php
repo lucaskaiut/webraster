@@ -3,6 +3,7 @@
 namespace App\Modules\Tenant\Http\Controllers;
 
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\Tenant\Enums\TenantModule;
 use App\Modules\Tenant\Http\Requests\StoreChildTenantRequest;
 use App\Modules\Tenant\Http\Requests\UpdateChildTenantRequest;
@@ -27,7 +28,7 @@ class TenantController extends ApiController
 
         $children = $this->service->paginateChildren(
             $umbrella,
-            (int) $request->integer('per_page', 15),
+            PerPage::fromRequest($request, 15),
             $request->string('search')->toString() ?: null,
         );
 

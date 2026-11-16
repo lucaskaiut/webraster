@@ -6,6 +6,7 @@ use App\Modules\Alert\Http\Resources\AlertResource;
 use App\Modules\Alert\Models\Alert;
 use App\Modules\Alert\Services\AlertService;
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\Vehicle\Models\Vehicle;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -34,7 +35,7 @@ class AlertController extends ApiController
             : null;
 
         $alerts = $this->service->paginate(
-            (int) $request->integer('per_page', 15),
+            PerPage::fromRequest($request, 15),
             $vehicleId,
             $request->string('type')->toString() ?: null,
             $request->string('status')->toString() ?: null,

@@ -7,6 +7,7 @@ use App\Modules\Alert\Http\Resources\UserNotificationResource;
 use App\Modules\Alert\Models\UserNotification;
 use App\Modules\Alert\Services\NotificationService;
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\Shared\Support\PerPage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -25,7 +26,7 @@ class NotificationController extends ApiController
 
         $notifications = $this->service->paginate(
             (int) $request->user()->getKey(),
-            (int) $request->integer('per_page', 20),
+            PerPage::fromRequest($request, 20),
             $unreadOnly,
         );
 

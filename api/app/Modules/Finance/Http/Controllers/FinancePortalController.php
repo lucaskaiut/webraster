@@ -13,6 +13,7 @@ use App\Modules\Finance\Services\ClientFinancialBlockService;
 use App\Modules\Finance\Services\FinanceBillingService;
 use App\Modules\Finance\Services\LateFeeService;
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\Shared\Support\PerPage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -58,7 +59,7 @@ class FinancePortalController extends ApiController
         $this->authorize('viewAny', FinanceBilling::class);
 
         $items = $this->billings->paginate(
-            (int) $request->integer('per_page', 15),
+            PerPage::fromRequest($request, 15),
             [
                 'status' => $request->string('status')->toString() ?: null,
                 'due_from' => $request->string('due_from')->toString() ?: null,

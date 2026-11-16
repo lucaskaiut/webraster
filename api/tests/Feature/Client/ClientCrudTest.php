@@ -276,6 +276,25 @@ class ClientCrudTest extends TestCase
         $this->getJson("/api/clients/{$foreign->uuid}")->assertNotFound();
     }
 
+    public function test_lists_all_clients_when_per_page_is_all(): void
+    {
+        [, $tenant] = $this->createOperationalChild();
+        Client::factory()->for($tenant)->count(105)->create();
+
+        Sanctum::actingAs($this->createAdmin($tenant));
+
+        $this->getJson('/api/clients?per_page=100')
+            ->assertOk()
+            ->assertJsonCount(100, 'data')
+            ->assertJsonPath('meta.last_page', 2);
+
+        $this->getJson('/api/clients?per_page=all')
+            ->assertOk()
+            ->assertJsonCount(105, 'data')
+            ->assertJsonPath('meta.total', 105)
+            ->assertJsonPath('meta.last_page', 1);
+    }
+
     public function test_member_without_permission_cannot_manage_clients(): void
     {
         [, $tenant] = $this->createOperationalChild();

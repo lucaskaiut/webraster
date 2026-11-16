@@ -9,6 +9,7 @@ use App\Modules\Geofence\Http\Resources\GeofenceResource;
 use App\Modules\Geofence\Models\Geofence;
 use App\Modules\Geofence\Services\GeofenceService;
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\Shared\Support\PerPage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -32,7 +33,7 @@ class GeofenceController extends ApiController
             : null;
 
         $geofences = $this->service->paginate(
-            (int) $request->integer('per_page', 15),
+            PerPage::fromRequest($request, 15),
             $request->string('search')->toString() ?: null,
             $clientId,
             $request->string('type')->toString() ?: null,

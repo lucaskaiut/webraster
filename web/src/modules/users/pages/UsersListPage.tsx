@@ -27,8 +27,7 @@ import { formatDate } from '@/shared/utils/format'
 import { formatDocument } from '@/shared/utils/document'
 import type { User, UserType } from '@/shared/types/models'
 import { useDeleteUser, useUsersQuery } from '../hooks/useUsers'
-
-const PER_PAGE = 10
+import { useTablePerPage } from '@/shared/hooks/useTablePerPage'
 
 const USER_TYPE_LABELS: Record<UserType, string> = {
   staff: 'Equipe',
@@ -41,6 +40,7 @@ export default function UsersListPage() {
   const [search, setSearch] = useState(searchParams.get('search') ?? '')
   const debouncedSearch = useDebounce(search)
   const page = Number(searchParams.get('page') ?? 1)
+  const { perPage, perPageProps } = useTablePerPage()
 
   const navigate = useNavigate()
   const { can } = usePermissions()
@@ -52,7 +52,7 @@ export default function UsersListPage() {
 
   const query = useUsersQuery({
     page,
-    per_page: PER_PAGE,
+    per_page: perPage,
     search: debouncedSearch || undefined,
     sort: sortParam,
   })
@@ -245,7 +245,7 @@ export default function UsersListPage() {
         />
 
         {query.data && (
-          <Pagination meta={query.data.meta} onPageChange={(next) => updateParams({ page: next })} />
+          <Pagination meta={query.data.meta} onPageChange={(next) => updateParams({ page: next })} {...perPageProps} />
         )}
       </PageContent>
 

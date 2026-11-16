@@ -9,6 +9,7 @@ use App\Modules\Service\Enums\CommissionType;
 use App\Modules\ServiceOrder\Enums\ServiceOrderStatus;
 use App\Modules\ServiceOrder\Models\ServiceOrder;
 use App\Modules\ServiceOrder\Models\ServiceOrderItem;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\Shared\Support\QuerySort;
 use App\Modules\User\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -19,7 +20,7 @@ class CommissionService
     /**
      * @param  array<string, mixed>  $filters
      */
-    public function paginate(int $perPage = 15, array $filters = [], ?User $user = null): LengthAwarePaginator
+    public function paginate(int|string $perPage = 15, array $filters = [], ?User $user = null): LengthAwarePaginator
     {
         $query = Commission::query()
             ->with(['serviceOrder.client', 'technician'])
@@ -69,7 +70,7 @@ class CommissionService
             $filters['sort'] ?? null,
             ['status', 'base_amount_cents', 'amount_cents', 'finalized_at', 'created_at'],
             'created_at:desc',
-        )->paginate(min(max($perPage, 1), 100));
+        )->paginate(PerPage::size($perPage));
     }
 
     /**

@@ -24,14 +24,14 @@ import { useDebounce } from '@/shared/hooks/useDebounce'
 import { useTableSort } from '@/shared/hooks/useTableSort'
 import type { Poi } from '@/shared/types/models'
 import { useDeletePoi, usePoiCategoriesQuery, usePoisQuery } from '../hooks/usePois'
-
-const PER_PAGE = 10
+import { useTablePerPage } from '@/shared/hooks/useTablePerPage'
 
 export default function PoisListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState(searchParams.get('search') ?? '')
   const debouncedSearch = useDebounce(search)
   const page = Number(searchParams.get('page') ?? 1)
+  const { perPage, perPageProps } = useTablePerPage()
   const categoryId = searchParams.get('category_id') ?? ''
   const navigate = useNavigate()
   const { can } = usePermissions()
@@ -42,7 +42,7 @@ export default function PoisListPage() {
   const { sort, sortParam, toggleSort } = useTableSort()
   const query = usePoisQuery({
     page,
-    per_page: PER_PAGE,
+    per_page: perPage,
     search: debouncedSearch || undefined,
     category_id: categoryId || undefined,
     sort: sortParam,
@@ -207,7 +207,7 @@ export default function PoisListPage() {
         />
 
         {query.data && (
-          <Pagination meta={query.data.meta} onPageChange={(next) => updateParams({ page: next })} />
+          <Pagination meta={query.data.meta} onPageChange={(next) => updateParams({ page: next })} {...perPageProps} />
         )}
       </PageContent>
 

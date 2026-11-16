@@ -32,14 +32,14 @@ import {
   statusBadgeVariant,
   statusLabel,
 } from '../lib/labels'
-
-const PER_PAGE = 10
+import { useTablePerPage } from '@/shared/hooks/useTablePerPage'
 
 export default function ServiceOrdersListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState(searchParams.get('search') ?? '')
   const debouncedSearch = useDebounce(search)
   const page = Number(searchParams.get('page') ?? 1)
+  const { perPage, perPageProps } = useTablePerPage()
   const status = searchParams.get('status') ?? ''
   const priority = searchParams.get('priority') ?? ''
   const navigate = useNavigate()
@@ -49,7 +49,7 @@ export default function ServiceOrdersListPage() {
 
   const query = useServiceOrdersQuery({
     page,
-    per_page: PER_PAGE,
+    per_page: perPage,
     search: debouncedSearch || undefined,
     status: status || undefined,
     priority: priority || undefined,
@@ -237,6 +237,7 @@ export default function ServiceOrdersListPage() {
                 { replace: true },
               )
             }
+            {...perPageProps}
           />
         )}
       </PageContent>

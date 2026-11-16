@@ -25,18 +25,18 @@ import { formatDate } from '@/shared/utils/format'
 import { formatDocument } from '@/shared/utils/document'
 import type { Tenant } from '@/shared/types/models'
 import { useTenantChildrenQuery, useTenantModulesQuery } from '../hooks/useTenants'
-
-const PER_PAGE = 10
+import { useTablePerPage } from '@/shared/hooks/useTablePerPage'
 
 export default function TenantsListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState(searchParams.get('search') ?? '')
   const debouncedSearch = useDebounce(search)
   const page = Number(searchParams.get('page') ?? 1)
+  const { perPage, perPageProps } = useTablePerPage()
   const navigate = useNavigate()
   const { can } = usePermissions()
 
-  const query = useTenantChildrenQuery({ page, per_page: PER_PAGE, search: debouncedSearch || undefined })
+  const query = useTenantChildrenQuery({ page, per_page: perPage, search: debouncedSearch || undefined })
   const modulesQuery = useTenantModulesQuery()
   const totalModules = modulesQuery.data?.length
 
@@ -188,7 +188,7 @@ export default function TenantsListPage() {
         />
 
         {query.data && (
-          <Pagination meta={query.data.meta} onPageChange={(next) => updateParams({ page: next })} />
+          <Pagination meta={query.data.meta} onPageChange={(next) => updateParams({ page: next })} {...perPageProps} />
         )}
       </PageContent>
     </Page>

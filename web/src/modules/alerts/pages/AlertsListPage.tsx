@@ -22,8 +22,7 @@ import { usePermissions } from '@/shared/hooks/usePermissions'
 import type { Alert } from '@/shared/types/models'
 import { SpeedAlertDetailModal } from '../components/SpeedAlertDetailModal'
 import { useAcknowledgeAlert, useAlertsQuery, useResolveAlert } from '../hooks/useAlerts'
-
-const PER_PAGE = 15
+import { useTablePerPage } from '@/shared/hooks/useTablePerPage'
 
 async function loadVehicleOptions(search: string) {
   const response = await vehiclesService.list({ search: search || undefined, per_page: 20 })
@@ -66,6 +65,7 @@ export default function AlertsListPage() {
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const page = Number(searchParams.get('page') ?? 1)
+  const { perPage, perPageProps } = useTablePerPage()
   const type = searchParams.get('type') ?? ''
   const status = searchParams.get('status') ?? ''
   const severity = searchParams.get('severity') ?? ''
@@ -83,7 +83,7 @@ export default function AlertsListPage() {
 
   const query = useAlertsQuery({
     page,
-    per_page: PER_PAGE,
+    per_page: perPage,
     vehicle_id: vehicleId || undefined,
     type: type || undefined,
     status: status || undefined,
@@ -338,6 +338,7 @@ export default function AlertsListPage() {
                 { replace: true },
               )
             }
+            {...perPageProps}
           />
         )}
       </PageContent>

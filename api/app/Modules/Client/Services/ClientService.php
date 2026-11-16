@@ -11,6 +11,7 @@ use App\Modules\Geofence\Models\Geofence;
 use App\Modules\Poi\Models\Poi;
 use App\Modules\ServiceOrder\Models\ServiceOrder;
 use App\Modules\Shared\Subscription\Enums\BillingStatus;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\Shared\Support\QuerySort;
 use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Models\Vehicle;
@@ -27,7 +28,7 @@ class ClientService
     ) {}
 
     public function paginate(
-        int $perPage = 15,
+        int|string $perPage = 15,
         ?string $search = null,
         ?bool $delinquent = null,
         ?string $sort = null,
@@ -64,7 +65,7 @@ class ClientService
             $sort,
             ['name', 'document', 'email', 'phone', 'city', 'state', 'is_active', 'created_at'],
             'name:asc',
-        )->paginate(min(max($perPage, 1), 100));
+        )->paginate(PerPage::size($perPage));
     }
 
     /**

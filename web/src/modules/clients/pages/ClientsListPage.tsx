@@ -26,14 +26,14 @@ import { formatDate } from '@/shared/utils/format'
 import { formatDocument } from '@/shared/utils/document'
 import type { Client } from '@/shared/types/models'
 import { useClientsQuery, useDeleteClient } from '../hooks/useClients'
-
-const PER_PAGE = 10
+import { useTablePerPage } from '@/shared/hooks/useTablePerPage'
 
 export default function ClientsListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState(searchParams.get('search') ?? '')
   const debouncedSearch = useDebounce(search)
   const page = Number(searchParams.get('page') ?? 1)
+  const { perPage, perPageProps } = useTablePerPage()
   const delinquentParam = searchParams.get('delinquent')
   const delinquencyFilter = delinquentParam === '1' ? 'delinquent' : ''
 
@@ -46,7 +46,7 @@ export default function ClientsListPage() {
 
   const query = useClientsQuery({
     page,
-    per_page: PER_PAGE,
+    per_page: perPage,
     search: debouncedSearch || undefined,
     delinquent: delinquentParam === '1' ? true : undefined,
     sort: sortParam,
@@ -239,7 +239,7 @@ export default function ClientsListPage() {
         />
 
         {query.data && (
-          <Pagination meta={query.data.meta} onPageChange={(next) => updateParams({ page: next })} />
+          <Pagination meta={query.data.meta} onPageChange={(next) => updateParams({ page: next })} {...perPageProps} />
         )}
       </PageContent>
 

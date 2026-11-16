@@ -16,6 +16,7 @@ use App\Modules\ServiceOrder\Models\ServiceOrder;
 use App\Modules\Shared\Subscription\Enums\BillingPeriodicity;
 use App\Modules\Shared\Subscription\Enums\BillingStatus;
 use App\Modules\Shared\Subscription\Support\NextBillingDate;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\Tenant\Support\Facades\TenantContext;
 use App\Modules\User\Models\User;
 use Carbon\Carbon;
@@ -38,13 +39,13 @@ class FinanceBillingService
     /**
      * @param  array<string, mixed>  $filters
      */
-    public function paginate(int $perPage = 15, array $filters = []): LengthAwarePaginator
+    public function paginate(int|string $perPage = 15, array $filters = []): LengthAwarePaginator
     {
         return $this->filteredQuery($filters)
             ->with(['client', 'subscription.plan', 'serviceOrder'])
             ->orderByDesc('due_at')
             ->orderByDesc('id')
-            ->paginate(min(max($perPage, 1), 100));
+            ->paginate(PerPage::size($perPage));
     }
 
     public function generateForSubscription(

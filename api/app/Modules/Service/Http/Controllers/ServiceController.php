@@ -8,6 +8,7 @@ use App\Modules\Service\Http\Resources\ServiceResource;
 use App\Modules\Service\Models\Service;
 use App\Modules\Service\Services\ServiceService;
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\Shared\Support\PerPage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -20,7 +21,7 @@ class ServiceController extends ApiController
         $this->authorize('viewAny', Service::class);
 
         $services = $this->service->paginate(
-            (int) $request->integer('per_page', 15),
+            PerPage::fromRequest($request, 15),
             $request->string('search')->toString() ?: null,
             $request->string('sort')->toString() ?: null,
         );

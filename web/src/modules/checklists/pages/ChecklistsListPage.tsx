@@ -25,14 +25,14 @@ import { useTableSort } from '@/shared/hooks/useTableSort'
 import type { Checklist } from '@/shared/types/models'
 import { useDeleteChecklist, useChecklistsQuery } from '../hooks/useChecklists'
 import { checklistTypeBadgeVariant, checklistTypeLabel } from '../lib/labels'
-
-const PER_PAGE = 10
+import { useTablePerPage } from '@/shared/hooks/useTablePerPage'
 
 export default function ChecklistsListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState(searchParams.get('search') ?? '')
   const debouncedSearch = useDebounce(search)
   const page = Number(searchParams.get('page') ?? 1)
+  const { perPage, perPageProps } = useTablePerPage()
   const type = searchParams.get('type') ?? ''
   const active = searchParams.get('is_active') ?? ''
 
@@ -45,7 +45,7 @@ export default function ChecklistsListPage() {
 
   const query = useChecklistsQuery({
     page,
-    per_page: PER_PAGE,
+    per_page: perPage,
     search: debouncedSearch || undefined,
     type: type || undefined,
     is_active: active === '' ? undefined : active === '1',
@@ -254,6 +254,7 @@ export default function ChecklistsListPage() {
                 { replace: true },
               )
             }
+            {...perPageProps}
           />
         )}
       </PageContent>

@@ -4,17 +4,18 @@ namespace App\Modules\Alert\Services;
 
 use App\Modules\Alert\Models\UserNotification;
 use App\Modules\Notification\Enums\NotificationChannel;
+use App\Modules\Shared\Support\PerPage;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class NotificationService
 {
-    public function paginate(int $userId, int $perPage = 20, ?bool $unreadOnly = null): LengthAwarePaginator
+    public function paginate(int $userId, int|string $perPage = 20, ?bool $unreadOnly = null): LengthAwarePaginator
     {
         return $this->inboxQuery($userId)
             ->with(['alert.vehicle'])
             ->when($unreadOnly === true, fn ($q) => $q->whereNull('read_at'))
             ->orderByDesc('created_at')
-            ->paginate(min(max($perPage, 1), 100));
+            ->paginate(PerPage::size($perPage));
     }
 
     public function unreadCount(int $userId): int

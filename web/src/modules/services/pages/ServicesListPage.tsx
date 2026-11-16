@@ -23,14 +23,14 @@ import { useTableSort } from '@/shared/hooks/useTableSort'
 import { formatCurrency } from '@/shared/utils/format'
 import type { CatalogService } from '@/shared/types/models'
 import { useDeleteService, useServicesQuery } from '../hooks/useServices'
-
-const PER_PAGE = 10
+import { useTablePerPage } from '@/shared/hooks/useTablePerPage'
 
 export default function ServicesListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState(searchParams.get('search') ?? '')
   const debouncedSearch = useDebounce(search)
   const page = Number(searchParams.get('page') ?? 1)
+  const { perPage, perPageProps } = useTablePerPage()
 
   const navigate = useNavigate()
   const { can } = usePermissions()
@@ -41,7 +41,7 @@ export default function ServicesListPage() {
   const { sort, sortParam, toggleSort } = useTableSort()
   const query = useServicesQuery({
     page,
-    per_page: PER_PAGE,
+    per_page: perPage,
     search: debouncedSearch || undefined,
     sort: sortParam,
   })
@@ -183,7 +183,7 @@ export default function ServicesListPage() {
         />
 
         {query.data && (
-          <Pagination meta={query.data.meta} onPageChange={(next) => updateParams({ page: next })} />
+          <Pagination meta={query.data.meta} onPageChange={(next) => updateParams({ page: next })} {...perPageProps} />
         )}
       </PageContent>
 

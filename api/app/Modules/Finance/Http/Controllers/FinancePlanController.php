@@ -8,6 +8,7 @@ use App\Modules\Finance\Http\Resources\FinancePlanResource;
 use App\Modules\Finance\Models\FinancePlan;
 use App\Modules\Finance\Services\FinancePlanService;
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\Shared\Support\PerPage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -20,7 +21,7 @@ class FinancePlanController extends ApiController
         $this->authorize('viewAny', FinancePlan::class);
 
         $plans = $this->service->paginate(
-            (int) $request->integer('per_page', 15),
+            PerPage::fromRequest($request, 15),
             [
                 'search' => $request->string('search')->toString() ?: null,
                 'is_active' => $request->has('is_active') ? $request->input('is_active') : null,

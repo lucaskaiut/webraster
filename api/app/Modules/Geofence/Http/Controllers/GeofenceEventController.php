@@ -6,6 +6,7 @@ use App\Modules\Geofence\Http\Resources\GeofenceEventResource;
 use App\Modules\Geofence\Models\GeofenceEvent;
 use App\Modules\Geofence\Services\GeofenceEventService;
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\Shared\Support\PerPage;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,7 +27,7 @@ class GeofenceEventController extends ApiController
             : null;
 
         $events = $this->service->paginate(
-            (int) $request->integer('per_page', 15),
+            PerPage::fromRequest($request, 15),
             $this->service->resolveVehicleId($request->string('vehicle_id')->toString() ?: null),
             $this->service->resolveGeofenceId($request->string('geofence_id')->toString() ?: null),
             $this->service->resolveClientId($request->string('client_id')->toString() ?: null),

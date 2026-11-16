@@ -3,6 +3,7 @@
 namespace App\Modules\Service\Services;
 
 use App\Modules\Service\Models\Service;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\Shared\Support\QuerySort;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
@@ -10,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 
 class ServiceService
 {
-    public function paginate(int $perPage = 15, ?string $search = null, ?string $sort = null): LengthAwarePaginator
+    public function paginate(int|string $perPage = 15, ?string $search = null, ?string $sort = null): LengthAwarePaginator
     {
         $query = Service::query()
             ->with('linkedServices')
@@ -19,7 +20,7 @@ class ServiceService
             });
 
         return QuerySort::apply($query, $sort, ['name', 'amount_cents', 'created_at'], 'name:asc')
-            ->paginate(min(max($perPage, 1), 100));
+            ->paginate(PerPage::size($perPage));
     }
 
     /**

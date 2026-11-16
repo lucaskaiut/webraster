@@ -14,8 +14,7 @@ import {
 import { formatDateTime } from '@/shared/utils/format'
 import type { NotificationDelivery, NotificationLog } from '@/shared/types/models'
 import { useSentNotificationsQuery } from '../hooks/useNotifications'
-
-const PER_PAGE = 20
+import { useTablePerPage } from '@/shared/hooks/useTablePerPage'
 
 const SOURCE_LABELS: Record<string, { label: string; variant: 'neutral' | 'primary' | 'success' | 'warning' | 'danger' }> = {
   alert: { label: 'Alerta', variant: 'warning' },
@@ -50,12 +49,13 @@ function DeliveryBadges({ deliveries }: { deliveries: NotificationDelivery[] }) 
 export default function NotificationHistoryPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const page = Number(searchParams.get('page') ?? 1)
+  const { perPage, perPageProps } = useTablePerPage()
   const source = searchParams.get('source') ?? ''
   const clicked = searchParams.get('clicked') ?? ''
 
   const query = useSentNotificationsQuery({
     page,
-    per_page: PER_PAGE,
+    per_page: perPage,
     source: source || undefined,
     clicked: clicked === 'true' ? true : clicked === 'false' ? false : undefined,
   })
@@ -203,6 +203,7 @@ export default function NotificationHistoryPage() {
                 { replace: true },
               )
             }
+            {...perPageProps}
           />
         )}
       </PageContent>

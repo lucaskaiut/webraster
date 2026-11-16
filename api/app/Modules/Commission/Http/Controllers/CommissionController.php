@@ -6,6 +6,7 @@ use App\Modules\Commission\Http\Resources\CommissionResource;
 use App\Modules\Commission\Models\Commission;
 use App\Modules\Commission\Services\CommissionService;
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\User\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,7 +28,7 @@ class CommissionController extends ApiController
         }
 
         $commissions = $this->service->paginate(
-            (int) $request->integer('per_page', 15),
+            PerPage::fromRequest($request, 15),
             [
                 'search' => $request->string('search')->toString() ?: null,
                 'status' => $request->string('status')->toString() ?: null,

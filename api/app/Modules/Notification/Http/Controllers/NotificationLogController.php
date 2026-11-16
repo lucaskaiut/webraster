@@ -6,6 +6,7 @@ use App\Modules\Alert\Models\UserNotification;
 use App\Modules\Notification\Http\Requests\NotificationLogRequest;
 use App\Modules\Notification\Http\Resources\NotificationLogResource;
 use App\Modules\Shared\Http\Controllers\ApiController;
+use App\Modules\Shared\Support\PerPage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -46,10 +47,10 @@ class NotificationLogController extends ApiController
             $query->where('created_at', '<=', $to);
         }
 
-        $perPage = (int) $request->integer('per_page', 20);
+        $perPage = PerPage::fromRequest($request, 20);
 
         return $this->paginated(
-            NotificationLogResource::collection($query->paginate(max(1, min(100, $perPage)))),
+            NotificationLogResource::collection($query->paginate(PerPage::size($perPage))),
         );
     }
 
