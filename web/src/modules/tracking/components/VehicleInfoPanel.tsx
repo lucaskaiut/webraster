@@ -10,7 +10,6 @@ import {
   Navigation,
   Pencil,
   Share2,
-  Terminal,
   View,
   X,
   type LucideIcon,
@@ -200,8 +199,8 @@ export function VehicleInfoPanel({
   ]
 
   return (
-    <div className="relative">
-      <section className="max-h-[80vh] overflow-y-auto rounded-2xl bg-surface p-4 shadow-pop">
+    <div className="flex min-h-0 flex-col">
+      <section className="min-h-0 overflow-y-auto overscroll-contain rounded-2xl bg-surface p-4 shadow-pop">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <h2 className="flex items-center gap-2 text-sm font-bold text-foreground">
@@ -367,22 +366,6 @@ export function VehicleInfoPanel({
               <Info label="Cliente" value={vehicle.client?.name ?? 'Não informado'} />
               <Info label="Protocolo" value={position?.protocol ?? 'Não informado'} />
               <Info label="Alimentação Externa" value={externalPowerValue} />
-              {canViewEquipmentDetails && vehicle.equipment?.id ? (
-                <div className="col-span-3">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() =>
-                      navigate(
-                        `/monitoring/device-logs?equipment=${encodeURIComponent(vehicle.equipment!.id)}`,
-                      )
-                    }
-                  >
-                    <Terminal className="size-4" aria-hidden="true" />
-                    Log bruto do dispositivo
-                  </Button>
-                </div>
-              ) : null}
             </dl>
           )}
   
@@ -432,11 +415,6 @@ export function VehicleInfoPanel({
           )}
         </div>
       </section>
-
-      <div
-        className="absolute -bottom-2 left-1/2 size-4 -translate-x-1/2 rotate-45 bg-surface"
-        aria-hidden="true"
-      />
 
       {lightboxUrl && (
         <div

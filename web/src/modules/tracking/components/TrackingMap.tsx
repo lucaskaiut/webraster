@@ -246,6 +246,7 @@ export function TrackingMap({
   onSelectGeofence,
   onSelectPoi,
   layersAction,
+  sidePanel,
 }: {
   vehicles: TrackingLiveVehicle[]
   selectedId: string | null
@@ -271,6 +272,8 @@ export function TrackingMap({
   onSelectGeofence?: (id: string) => void
   onSelectPoi?: (id: string) => void
   layersAction?: ReactNode
+  /** Painel fixo no canto direito do mapa (abaixo dos botões de centralizar); não bloqueia zoom nem arrasto. */
+  sidePanel?: ReactNode
 }) {
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined
 
@@ -354,11 +357,11 @@ export function TrackingMap({
         />
       )}
 
-      <div className="absolute top-3 right-3 flex flex-col gap-2">
+      <div className="pointer-events-none absolute top-3 right-3 bottom-3 flex w-[min(28rem,calc(100%-1.5rem))] flex-col items-end gap-2">
         <button
           type="button"
           onClick={onFitFleet}
-          className="flex items-center gap-1.5 rounded-lg bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground shadow-card"
+          className="pointer-events-auto flex items-center gap-1.5 rounded-lg bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground shadow-card"
           aria-label="Centralizar frota"
         >
           <Locate className="size-3.5" />
@@ -368,12 +371,15 @@ export function TrackingMap({
           type="button"
           onClick={onFitSelected}
           disabled={!selectedId}
-          className="flex items-center gap-1.5 rounded-lg bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground shadow-card disabled:opacity-50"
+          className="pointer-events-auto flex items-center gap-1.5 rounded-lg bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground shadow-card disabled:opacity-50"
           aria-label="Centralizar veículo selecionado"
         >
           <Crosshair className="size-3.5" />
           Centralizar veículo
         </button>
+        {sidePanel && (
+          <div className="pointer-events-auto flex min-h-0 w-full flex-col">{sidePanel}</div>
+        )}
       </div>
     </div>
   )

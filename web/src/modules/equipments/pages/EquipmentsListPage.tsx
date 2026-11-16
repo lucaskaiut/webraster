@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
-import { Cpu, FlaskConical, Map as MapIcon, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { Cpu, FlaskConical, Map as MapIcon, Pencil, Plus, RefreshCw, ScrollText, Trash2 } from 'lucide-react'
 import {
   Badge,
   Button,
@@ -32,6 +32,17 @@ import { useDeleteEquipment, useEquipmentsQuery } from '../hooks/useEquipments'
 import { useStocksQuery } from '@/modules/stocks/hooks/useStocks'
 import { EquipmentTestModal } from '../components/EquipmentTestModal'
 import { equipmentLiveAsVehicle } from '../lib/live'
+
+function buildDeviceRawLogsUrl(equipment: Equipment): string {
+  const params = new URLSearchParams({ equipment: equipment.id })
+  const label = [equipment.imei, equipment.vehicle?.plate].filter(Boolean).join(' · ')
+
+  if (label) {
+    params.set('equipment_label', label)
+  }
+
+  return `/monitoring/device-logs?${params.toString()}`
+}
 
 export default function EquipmentsListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -173,7 +184,7 @@ export default function EquipmentsListPage() {
   const canMutate = can(Permission.EQUIPMENT_UPDATE) || can(Permission.EQUIPMENT_DELETE)
   const canViewDetails = can(Permission.EQUIPMENT_DETAILS_READ)
   const canTest = can(Permission.DEVICE_COMMANDS_SEND)
-  const showActions = canMutate || canTest || canTrack
+  const showActions = canMutate || canTest || canTrack || canViewDetails
 
   const columns: Array<Column<Equipment>> = [
     ...(canViewDetails
@@ -292,7 +303,7 @@ export default function EquipmentsListPage() {
           {
             key: 'actions',
             header: <span className="sr-only">Ações</span>,
-            className: 'w-36 text-right',
+            className: 'w-44 text-right',
             render: (equipment: Equipment) => {
               const position = canTrack ? liveByEquipment.get(equipment.id)?.position : null
               const mapsUrl = position
@@ -312,6 +323,17 @@ export default function EquipmentsListPage() {
                     >
                       <MapIcon className="size-4" aria-hidden="true" />
                     </a>
+                  )}
+                  {canViewDetails && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigate(buildDeviceRawLogsUrl(equipment))}
+                      aria-label={`Log do dispositivo ${equipment.imei ?? 'equipamento'}`}
+                      title="Log do dispositivo"
+                    >
+                      <ScrollText className="size-4" />
+                    </Button>
                   )}
                   {canTest && (
                     <Button

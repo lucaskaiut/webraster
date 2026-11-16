@@ -193,6 +193,28 @@ export default function MonitoringPage() {
             setSelectedPoiId(id)
             setSelectedGeofenceId(null)
           }}
+          sidePanel={
+            selected ? (
+              <VehicleInfoPanel
+                vehicle={selected}
+                now={now}
+                follow={follow}
+                onFollowChange={setFollow}
+                onCenter={() => requestFit('vehicle')}
+                onHistory={() => {
+                  setShowEvents(false)
+                  setHistoryOpen(true)
+                }}
+                onEvents={() => {
+                  setShowEvents(true)
+                  setHistoryOpen(true)
+                }}
+                onClose={handleClose}
+                onlySelected={onlySelected}
+                onOnlySelectedChange={setOnlySelected}
+              />
+            ) : null
+          }
           layersAction={
             fleetOpen ? null : (
               <FleetPanelToggle count={vehicles.length} onClick={() => setFleetOpen(true)} />
@@ -217,36 +239,6 @@ export default function MonitoringPage() {
           loading={liveQuery.isPending}
           now={now}
         />
-
-        {selected && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div
-              className="animate-fade-in absolute inset-0 bg-overlay"
-              onClick={handleClose}
-              aria-hidden="true"
-            />
-            <div className="relative z-10 w-full max-w-md">
-              <VehicleInfoPanel
-                vehicle={selected}
-                now={now}
-                follow={follow}
-                onFollowChange={setFollow}
-                onCenter={() => requestFit('vehicle')}
-                onHistory={() => {
-                  setShowEvents(false)
-                  setHistoryOpen(true)
-                }}
-                onEvents={() => {
-                  setShowEvents(true)
-                  setHistoryOpen(true)
-                }}
-                onClose={handleClose}
-                onlySelected={onlySelected}
-                onOnlySelectedChange={setOnlySelected}
-              />
-            </div>
-          </div>
-        )}
       </div>
 
       <HistoryDrawer

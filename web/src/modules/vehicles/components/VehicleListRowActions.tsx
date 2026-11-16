@@ -1,11 +1,10 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router'
 import {
   FileBarChart,
+  Map as MapIcon,
   MapPinned,
   MoreHorizontal,
   Pencil,
-  ScrollText,
   Share2,
   Terminal,
   Trash2,
@@ -25,6 +24,7 @@ import { DriverForm } from '@/modules/drivers/forms/DriverForm'
 import { useCreateDriver } from '@/modules/drivers/hooks/useDrivers'
 import { VehicleCommandsPanel } from '@/modules/tracking/components/VehicleCommandsPanel'
 import { ShareTrackingModal } from '@/modules/tracking/components/ShareTrackingModal'
+import { googleMapsLinks } from '@/modules/tracking/lib/google-maps'
 
 function buildMonitoringUrl(vehicleId: string): string {
   const params = new URLSearchParams({ vehicle: vehicleId, only: '1' })
@@ -55,34 +55,19 @@ function buildPositionsReportUrl(vehicle: Vehicle): string {
   return `/reports?${params.toString()}`
 }
 
-function buildDeviceRawLogsUrl(vehicle: Vehicle): string | null {
-  const equipmentId = vehicle.equipment?.id
-
-  if (!equipmentId) {
-    return null
-  }
-
-  const params = new URLSearchParams({ equipment: equipmentId })
-  const label = [vehicle.equipment?.imei, vehicle.plate].filter(Boolean).join(' · ')
-
-  if (label) {
-    params.set('equipment_label', label)
-  }
-
-  return `/monitoring/device-logs?${params.toString()}`
-}
-
 export function VehicleListRowActions({
   vehicle,
+  position,
   onEdit,
   onDelete,
 }: {
   vehicle: Vehicle
+  /** Última posição conhecida (rastreamento ao vivo), para o atalho do Google Maps. */
+  position?: { latitude: number; longitude: number } | null
   onEdit?: () => void
   onDelete?: () => void
 }) {
   const { can } = usePermissions()
-  const navigate = useNavigate()
   const createDriver = useCreateDriver()
 
   const [commandsOpen, setCommandsOpen] = useState(false)
@@ -97,8 +82,7 @@ export function VehicleListRowActions({
   const canCommands =
     can(Permission.DEVICE_COMMANDS_SEND) && Boolean(vehicle.equipment?.id)
   const canCreateDriver = can(Permission.DRIVER_CREATE) && Boolean(vehicle.client_id)
-  const deviceRawLogsUrl = buildDeviceRawLogsUrl(vehicle)
-  const canDeviceRawLog = can(Permission.EQUIPMENT_DETAILS_READ) && deviceRawLogsUrl !== null
+  const mapsUrl = canMonitor && position ? googleMapsLinks(position).place : null
 
   const hasMenu =
     canEdit ||
@@ -108,7 +92,7 @@ export function VehicleListRowActions({
     canReport ||
     canCommands ||
     canCreateDriver ||
-    canDeviceRawLog
+    mapsUrl !== null
 
   const shareVehicles = useMemo(
     () => [{ id: vehicle.id, plate: vehicle.plate, brand: vehicle.brand, model: vehicle.model }],
@@ -142,6 +126,14 @@ export function VehicleListRowActions({
             Monitorar
           </DropdownItem>
         )}
+        {mapsUrl && (
+          <DropdownItem
+            icon={MapIcon}
+            onSelect={() => window.open(mapsUrl, '_blank', 'noopener,noreferrer')}
+          >
+            Ver no Google Maps
+          </DropdownItem>
+        )}
         {canShare && (
           <DropdownItem icon={Share2} onSelect={() => setShareOpen(true)}>
             Compartilhar localização
@@ -165,11 +157,6 @@ export function VehicleListRowActions({
         {canCommands && (
           <DropdownItem icon={Terminal} onSelect={() => setCommandsOpen(true)}>
             Comandos
-          </DropdownItem>
-        )}
-        {canDeviceRawLog && deviceRawLogsUrl && (
-          <DropdownItem icon={ScrollText} onSelect={() => navigate(deviceRawLogsUrl)}>
-            Log do dispositivo
           </DropdownItem>
         )}
         {canDelete && (

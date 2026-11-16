@@ -186,15 +186,25 @@ export default function VehiclesListPage() {
     {
       key: 'equipment',
       header: 'Equipamento',
-      render: (vehicle) => (
-        <span className="text-muted">
-          {!vehicle.equipment
-            ? 'Sem equipamento'
-            : canViewEquipmentDetails
-              ? (vehicle.equipment.imei ?? 'Rastreador')
-              : 'Rastreador'}
-        </span>
-      ),
+      render: (vehicle) => {
+        if (!vehicle.equipment) {
+          return <span className="text-muted">Sem equipamento</span>
+        }
+
+        // Detalhes do rastreador (IMEI e modelo) só para a equipe do tenant.
+        if (!canViewEquipmentDetails) {
+          return <span className="text-muted">Rastreador</span>
+        }
+
+        return (
+          <div className="min-w-0">
+            <p className="truncate text-muted">{vehicle.equipment.imei ?? 'Rastreador'}</p>
+            {vehicle.equipment.model && (
+              <p className="truncate text-[13px] text-muted">{vehicle.equipment.model}</p>
+            )}
+          </div>
+        )
+      },
     },
     {
       key: 'last_connection',
@@ -266,6 +276,7 @@ export default function VehiclesListPage() {
               <div className="flex justify-end">
                 <VehicleListRowActions
                   vehicle={vehicle}
+                  position={liveByVehicle.get(vehicle.id)?.position}
                   onEdit={
                     can(Permission.VEHICLE_UPDATE)
                       ? () => navigate(`/vehicles/${vehicle.id}/edit`)

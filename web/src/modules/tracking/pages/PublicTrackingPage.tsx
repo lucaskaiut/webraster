@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Clock, LinkIcon, MapPin, X } from 'lucide-react'
+import { Clock, LinkIcon, Map as MapIcon, MapPin, Navigation, Satellite, View, X, type LucideIcon } from 'lucide-react'
 import { isApiError } from '@/shared/api/errors'
 import { queryKeys } from '@/shared/constants/query-keys'
 import { Loading, ThemeToggle } from '@/shared/design-system'
@@ -11,6 +11,7 @@ import { formatDateTime } from '@/shared/utils/format'
 import type { PublicTrackingVehicle, TrackingLiveVehicle } from '@/shared/types/models'
 import { TrackingMap } from '../components/TrackingMap'
 import { connectionStatus, formatSpeed, formatUpdatedAt } from '../lib/tracking'
+import { googleMapsLinks } from '../lib/google-maps'
 import { trackingService } from '../services/tracking.service'
 
 const REFRESH_MS = 15_000
@@ -46,6 +47,20 @@ function remaining(expiresAt: string, now: number): string {
   if (hours === 0) return `${minutes} min`
 
   return `${hours}h ${String(minutes % 60).padStart(2, '0')}min`
+}
+
+function MapsLink({ href, icon: Icon, label }: { href: string; icon: LucideIcon; label: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex flex-col items-center gap-1 rounded-lg bg-surface-2 px-1 py-2 text-[12px] font-medium text-foreground hover:bg-surface-3"
+    >
+      <Icon className="size-4" aria-hidden="true" />
+      {label}
+    </a>
+  )
 }
 
 function Message({ title, description }: { title: string; description: string }) {
@@ -94,6 +109,7 @@ export default function PublicTrackingPage() {
 
   const vehicles = useMemo(() => (data?.vehicles ?? []).map(toMapVehicle), [data])
   const selected = vehicles.find((vehicle) => vehicle.id === selectedId) ?? null
+  const mapsLinks = selected?.position ? googleMapsLinks(selected.position) : null
   const expired = data ? new Date(data.expires_at).getTime() <= now : false
 
   if (query.isPending) return <Loading />
@@ -193,6 +209,14 @@ export default function PublicTrackingPage() {
                   </div>
                 )}
               </dl>
+              {mapsLinks && (
+                <div className="mt-3 grid grid-cols-4 gap-1.5" aria-label="Abrir no Google Maps">
+                  <MapsLink href={mapsLinks.place} icon={MapIcon} label="Maps" />
+                  <MapsLink href={mapsLinks.satellite} icon={Satellite} label="Satélite" />
+                  <MapsLink href={mapsLinks.streetView} icon={View} label="Street View" />
+                  <MapsLink href={mapsLinks.directions} icon={Navigation} label="Rota" />
+                </div>
+              )}
             </section>
           ) : (
             vehicles.length > 1 && (
