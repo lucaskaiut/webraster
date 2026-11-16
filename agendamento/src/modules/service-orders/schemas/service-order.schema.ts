@@ -12,6 +12,11 @@ export const serviceOrderSchema = z.object({
     .max(1000, 'Máximo de 1000 caracteres')
     .optional()
     .or(z.literal('')),
+  // Telefone do cliente: o técnico confirma o atendimento pelo WhatsApp no dia.
+  contact_phone: z
+    .string()
+    .trim()
+    .refine((value) => value.replace(/\D/g, '').length >= 10, 'Informe o telefone do cliente com DDD'),
   service_id: z.string().min(1, 'Selecione o serviço'),
   technician_id: z.string().optional().or(z.literal('')),
   scheduled_start_at: z.string().min(1, 'Selecione um horário'),

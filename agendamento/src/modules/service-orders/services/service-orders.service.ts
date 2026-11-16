@@ -38,6 +38,7 @@ export interface ServiceOrderPayload {
   scheduled_end_at?: string | null
   address?: string | null
   address_reference?: string | null
+  contact_phone?: string | null
   estimated_duration_minutes?: number | null
   description?: string | null
   notes?: string | null

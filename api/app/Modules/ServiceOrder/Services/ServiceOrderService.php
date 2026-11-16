@@ -20,6 +20,7 @@ use App\Modules\ServiceOrder\Models\ServiceOrder;
 use App\Modules\ServiceOrder\Models\ServiceOrderItem;
 use App\Modules\ServiceOrder\Models\ServiceOrderPhoto;
 use App\Modules\Shared\Subscription\Enums\BillingStatus;
+use App\Modules\Shared\Support\PerPage;
 use App\Modules\Tenant\Support\Facades\TenantContext;
 use App\Modules\User\Models\User;
 use App\Modules\Vehicle\Models\Vehicle;
@@ -49,12 +50,12 @@ class ServiceOrderService
     /**
      * @param  array<string, mixed>  $filters
      */
-    public function paginate(int $perPage = 15, array $filters = [], ?User $viewer = null): LengthAwarePaginator
+    public function paginate(int|string $perPage = 15, array $filters = [], ?User $viewer = null): LengthAwarePaginator
     {
         return $this->filteredQuery($filters, $viewer)
             ->with(['client', 'vehicle', 'equipment', 'technician', 'creator'])
             ->orderByDesc('created_at')
-            ->paginate(min(max($perPage, 1), 100));
+            ->paginate(PerPage::size($perPage));
     }
 
     /**
@@ -769,6 +770,7 @@ class ServiceOrderService
             'technician_id',
             'address',
             'address_reference',
+            'contact_phone',
             'scheduled_start_at',
             'scheduled_end_at',
             'estimated_duration_minutes',
@@ -781,6 +783,11 @@ class ServiceOrderService
 
         if (array_key_exists('address', $payload)) {
             $payload['address'] = filled($payload['address']) ? trim((string) $payload['address']) : null;
+        }
+
+        if (array_key_exists('contact_phone', $payload)) {
+            $digits = preg_replace('/\D+/', '', (string) $payload['contact_phone']);
+            $payload['contact_phone'] = $digits !== '' ? $digits : null;
         }
 
         foreach (['address_reference', 'installation_location', 'installation_location_photo_path'] as $field) {

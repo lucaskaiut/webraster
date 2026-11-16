@@ -16,6 +16,7 @@ use App\Modules\Auth\Http\Requests\RegisterRequest;
 use App\Modules\Auth\Http\Requests\ResetPasswordRequest;
 use App\Modules\Auth\Http\Requests\SelectTenantRequest;
 use App\Modules\Auth\Http\Requests\StoreUserSignatureRequest;
+use App\Modules\Auth\Http\Requests\UpdateServiceOrderGreetingRequest;
 use App\Modules\Auth\Services\AuthService;
 use App\Modules\Billing\Http\Resources\InvoiceResource;
 use App\Modules\Shared\Http\Controllers\ApiController;
@@ -160,6 +161,19 @@ class AuthController extends ApiController
         }
 
         return $this->success(UserResource::make($user->refresh()), 'Assinatura removida com sucesso.');
+    }
+
+    /**
+     * Mensagem que o técnico envia ao cliente pelo WhatsApp a partir da OS.
+     */
+    public function updateServiceOrderGreeting(UpdateServiceOrderGreetingRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $greeting = trim((string) $request->validated('service_order_greeting'));
+
+        $user->forceFill(['service_order_greeting' => $greeting !== '' ? $greeting : null])->save();
+
+        return $this->success(UserResource::make($user->refresh()), 'Mensagem de saudação salva.');
     }
 
     public function signatureImage(Request $request): StreamedResponse

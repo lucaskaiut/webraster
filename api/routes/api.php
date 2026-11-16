@@ -97,6 +97,7 @@ Route::prefix('auth')->group(function (): void {
         Route::get('signature/image', [AuthController::class, 'signatureImage']);
         Route::post('signature', [AuthController::class, 'storeSignature']);
         Route::delete('signature', [AuthController::class, 'destroySignature']);
+        Route::put('service-order-greeting', [AuthController::class, 'updateServiceOrderGreeting']);
         Route::post('select-tenant', [AuthController::class, 'selectTenant']);
     });
 });

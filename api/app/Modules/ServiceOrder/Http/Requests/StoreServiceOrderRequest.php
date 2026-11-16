@@ -2,6 +2,7 @@
 
 namespace App\Modules\ServiceOrder\Http\Requests;
 
+use App\Modules\ACL\Enums\Panel;
 use App\Modules\Client\Models\Client;
 use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Service\Models\Service;
@@ -39,6 +40,15 @@ class StoreServiceOrderRequest extends FormRequest
             'scheduled_end_at' => ['nullable', 'date', 'after:scheduled_start_at'],
             'address' => ['nullable', 'string', 'max:500'],
             'address_reference' => ['nullable', 'string', 'max:1000'],
+            // No agendamento o telefone do cliente é obrigatório: o técnico o
+            // usa para confirmar o atendimento pelo WhatsApp no dia do serviço.
+            'contact_phone' => [
+                Rule::requiredIf(Panel::fromRequest($this) === Panel::SCHEDULING),
+                'nullable',
+                'string',
+                'max:20',
+                'regex:/^[\d\s()+\-.]*$/',
+            ],
             // Coordenadas da sugestão de endereço escolhida; evitam uma nova
             // geocodificação e garantem o mesmo ponto usado nas estimativas.
             'latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitude'],
@@ -83,6 +93,8 @@ class StoreServiceOrderRequest extends FormRequest
             'attachments.max' => ServiceOrderAttachmentService::OPEN_LIMIT_MESSAGE,
             'attachments.*.extensions' => 'Formato não permitido. Envie PDF, imagem, Word, Excel ou texto.',
             'attachments.*.max' => 'Cada arquivo deve ter no máximo 10 MB.',
+            'contact_phone.required' => 'Informe o telefone de contato do cliente.',
+            'contact_phone.regex' => 'Informe um telefone válido.',
         ];
     }
 

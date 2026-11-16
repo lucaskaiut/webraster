@@ -45,6 +45,7 @@ class ServiceOrder extends Model
         'travel_to_order_id',
         'address',
         'address_reference',
+        'contact_phone',
         'latitude',
         'longitude',
         'scheduled_start_at',

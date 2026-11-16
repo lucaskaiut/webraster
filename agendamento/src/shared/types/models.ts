@@ -1054,6 +1054,7 @@ export interface ServiceOrder {
   address?: string | null
   /** Ponto de referência do endereço; pode ser um link do Google Maps. */
   address_reference?: string | null
+  contact_phone?: string | null
   latitude?: number | null
   longitude?: number | null
   scheduled_start_at: string | null

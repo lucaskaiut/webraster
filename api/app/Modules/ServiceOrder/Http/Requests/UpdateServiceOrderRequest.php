@@ -2,6 +2,7 @@
 
 namespace App\Modules\ServiceOrder\Http\Requests;
 
+use App\Modules\ACL\Enums\Panel;
 use App\Modules\Client\Models\Client;
 use App\Modules\Equipment\Models\Equipment;
 use App\Modules\Service\Models\Service;
@@ -35,6 +36,14 @@ class UpdateServiceOrderRequest extends FormRequest
             'scheduled_end_at' => ['nullable', 'date', 'after:scheduled_start_at'],
             'address' => ['nullable', 'string', 'max:500'],
             'address_reference' => ['nullable', 'string', 'max:1000'],
+            'contact_phone' => [
+                'sometimes',
+                Rule::requiredIf(Panel::fromRequest($this) === Panel::SCHEDULING),
+                'nullable',
+                'string',
+                'max:20',
+                'regex:/^[\d\s()+\-.]*$/',
+            ],
             // Coordenadas da sugestão de endereço escolhida; evitam uma nova
             // geocodificação e garantem o mesmo ponto usado nas estimativas.
             'latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitude'],
@@ -103,5 +112,16 @@ class UpdateServiceOrderRequest extends FormRequest
         if ($input !== []) {
             $this->merge($input);
         }
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'contact_phone.required' => 'Informe o telefone de contato do cliente.',
+            'contact_phone.regex' => 'Informe um telefone válido.',
+        ];
     }
 }

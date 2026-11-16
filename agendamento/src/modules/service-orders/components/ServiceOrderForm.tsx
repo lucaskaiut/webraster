@@ -15,6 +15,7 @@ import {
 import { isApiError } from '@/shared/api/errors'
 import { applyApiErrorsToForm } from '@/shared/utils/forms'
 import { formatCurrency } from '@/shared/utils/format'
+import { maskPhone } from '@/shared/utils/mask'
 import { parseLocalDateTime } from '@/shared/utils/date'
 import { servicesService } from '@/modules/services/services/services.service'
 import { AddressAutocompleteField } from './AddressAutocompleteField'
@@ -100,6 +101,7 @@ export function ServiceOrderForm({ submitting, onSubmit }: ServiceOrderFormProps
     defaultValues: {
       address: '',
       address_reference: '',
+      contact_phone: '',
       service_id: '',
       technician_id: '',
       scheduled_start_at: '',
@@ -130,6 +132,7 @@ export function ServiceOrderForm({ submitting, onSubmit }: ServiceOrderFormProps
     const payload: ServiceOrderPayload = {
       address: values.address.trim(),
       address_reference: values.address_reference?.trim() || null,
+      contact_phone: values.contact_phone.replace(/\D/g, ''),
       technician_id: values.technician_id || null,
       scheduled_start_at: fromFormDateTime(values.scheduled_start_at),
       scheduled_end_at: fromFormDateTime(values.scheduled_end_at),
@@ -202,6 +205,16 @@ export function ServiceOrderForm({ submitting, onSubmit }: ServiceOrderFormProps
                 maxLength={1000}
                 placeholder="Ex.: portão azul ao lado da padaria, ou cole o link do Google Maps"
                 hint="Se for um link de localização, o técnico abre direto no mapa."
+              />
+              <TextField
+                name="contact_phone"
+                label="Telefone do cliente"
+                required
+                type="tel"
+                inputMode="tel"
+                mask={maskPhone}
+                placeholder="(00) 00000-0000"
+                hint="O técnico usa para lembrar o cliente pelo WhatsApp no dia do serviço."
               />
               <SearchSelectField
                 name="service_id"

@@ -69,6 +69,7 @@ class ServiceOrderResource extends JsonResource
             ] : null),
             'address' => $this->address,
             'address_reference' => $this->address_reference,
+            'contact_phone' => $this->contact_phone,
             'latitude' => $this->latitude,
             'longitude' => $this->longitude,
             'scheduled_start_at' => $this->scheduled_start_at?->toIso8601String(),

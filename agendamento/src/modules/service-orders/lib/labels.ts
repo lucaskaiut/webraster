@@ -75,6 +75,7 @@ const HISTORY_FIELD_LABELS: Record<string, string> = {
   technician_id: 'Técnico',
   address: 'Endereço',
   address_reference: 'Ponto de referência',
+  contact_phone: 'Telefone do cliente',
   scheduled_start_at: 'Início',
   scheduled_end_at: 'Fim',
   description: 'Descrição',

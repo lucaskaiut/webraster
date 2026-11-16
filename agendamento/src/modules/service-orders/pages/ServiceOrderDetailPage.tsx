@@ -55,6 +55,7 @@ import { ServiceOrderAttachmentsCard } from '../components/ServiceOrderAttachmen
 import { AddressReference } from '../components/AddressReference'
 import { ServiceOrderChecklistsCard } from '../components/ServiceOrderChecklistsCard'
 import { formatMinutes } from '../lib/duration'
+import { maskPhone } from '@/shared/utils/mask'
 
 export default function ServiceOrderDetailPage() {
   const { id } = useParams()
@@ -256,6 +257,10 @@ export default function ServiceOrderDetailPage() {
             />
             <Row label="Endereço" value={order.address || '—'} />
             <Row label="Ponto de referência" value={<AddressReference value={order.address_reference} />} />
+            <Row
+              label="Telefone do cliente"
+              value={order.contact_phone ? maskPhone(order.contact_phone) : '—'}
+            />
             <Row
               label="Duração estimada"
               value={
