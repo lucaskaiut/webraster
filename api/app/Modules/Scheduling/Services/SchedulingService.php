@@ -11,6 +11,7 @@ use App\Modules\ServiceOrder\Enums\ServiceOrderStatus;
 use App\Modules\ServiceOrder\Models\ServiceOrder;
 use App\Modules\User\Enums\UserType;
 use App\Modules\User\Models\User;
+use App\Modules\User\Models\UserWorkDayOverride;
 use App\Modules\User\Models\UserWorkHour;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -433,15 +434,10 @@ class SchedulingService
     {
         $day = CarbonImmutable::parse($date, $this->timezone())->startOfDay();
 
-        $hours = $technician?->workHours->isNotEmpty()
-            ? $technician->workHours->where('weekday', $day->dayOfWeek)
-                ->map(fn (UserWorkHour $hour) => [
-                    UserWorkHour::normalizeTime((string) $hour->starts_at),
-                    UserWorkHour::normalizeTime((string) $hour->ends_at),
-                ])
-                ->values()
-                ->all()
-            : [['08:00', '18:00']];
+        $hours = $this->applyWorkDayOverride(
+            $this->regularWorkHours($technician, $date),
+            $technician !== null ? $this->workDayOverride($technician, $date) : null,
+        );
 
         $intervals = [];
 
@@ -457,6 +453,80 @@ class SchedulingService
         usort($intervals, fn (array $a, array $b) => $a[0] <=> $b[0]);
 
         return $intervals;
+    }
+
+    /**
+     * Jornada semanal do dia (horário local HH:MM), sem ajustes pontuais e em
+     * ordem cronológica. Sem jornada cadastrada, usa 08:00–18:00.
+     *
+     * @return list<array{0: string, 1: string}>
+     */
+    public function regularWorkHours(?User $technician, string $date): array
+    {
+        $weekday = CarbonImmutable::parse($date, $this->timezone())->dayOfWeek;
+
+        if (! $technician?->workHours->isNotEmpty()) {
+            return [['08:00', '18:00']];
+        }
+
+        return $technician->workHours->where('weekday', $weekday)
+            ->map(fn (UserWorkHour $hour) => [
+                UserWorkHour::normalizeTime((string) $hour->starts_at),
+                UserWorkHour::normalizeTime((string) $hour->ends_at),
+            ])
+            ->sortBy(fn (array $hour) => $hour[0])
+            ->values()
+            ->all();
+    }
+
+    public function workDayOverride(User $technician, string $date): ?UserWorkDayOverride
+    {
+        return $technician->workDayOverrides()->whereDate('date', $date)->first();
+    }
+
+    /**
+     * Aplica a antecipação ao primeiro intervalo e a extensão ao último.
+     * Ajustes que encurtariam a jornada são ignorados.
+     *
+     * @param  list<array{0: string, 1: string}>  $hours
+     * @return list<array{0: string, 1: string}>
+     */
+    public function applyWorkDayOverride(array $hours, ?UserWorkDayOverride $override): array
+    {
+        if ($hours === [] || $override === null) {
+            return $hours;
+        }
+
+        $last = count($hours) - 1;
+
+        if ($override->starts_at !== null) {
+            $startsAt = UserWorkHour::normalizeTime((string) $override->starts_at);
+
+            if ($startsAt < $hours[0][0]) {
+                $hours[0][0] = $startsAt;
+            }
+        }
+
+        if ($override->ends_at !== null) {
+            $endsAt = UserWorkHour::normalizeTime((string) $override->ends_at);
+
+            if ($endsAt > $hours[$last][1]) {
+                $hours[$last][1] = $endsAt;
+            }
+        }
+
+        return $hours;
+    }
+
+    /**
+     * Horário do atendimento (início agendado → fim agendado ou estimado), em UTC,
+     * sem os deslocamentos.
+     *
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable}
+     */
+    public function serviceInterval(ServiceOrder $order): array
+    {
+        return $this->orderInterval($order);
     }
 
     /**

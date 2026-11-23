@@ -60,6 +60,7 @@ use App\Modules\Report\Http\Controllers\ReportController;
 use App\Modules\Scheduling\Http\Controllers\AddressSearchController;
 use App\Modules\Scheduling\Http\Controllers\ScheduleAgendaSignatureController;
 use App\Modules\Scheduling\Http\Controllers\ScheduleEstimateController;
+use App\Modules\Scheduling\Http\Controllers\TechnicianWorkDayController;
 use App\Modules\Service\Http\Controllers\ServiceController;
 use App\Modules\ServiceOrder\Http\Controllers\ServiceOrderController;
 use App\Modules\ServiceOrder\Http\Controllers\TechnicianServiceOrderController;
@@ -312,6 +313,11 @@ Route::middleware(['auth.multi:sanctum', 'tenant', 'client.scope', 'client.finan
         Route::post('{serviceOrder}/attachments', [TechnicianServiceOrderController::class, 'storeAttachment']);
         Route::get('{serviceOrder}/attachments/{attachment}', [TechnicianServiceOrderController::class, 'downloadAttachment']);
     });
+
+    Route::get('technician/work-day', [TechnicianWorkDayController::class, 'show'])
+        ->middleware('permission:service-order.execute');
+    Route::put('technician/work-day', [TechnicianWorkDayController::class, 'update'])
+        ->middleware('permission:service-order.execute');
 
     Route::get('technician/checklist-photos/{photo}', [TechnicianChecklistController::class, 'downloadPhoto'])
         ->middleware('permission:service-order.execute');

@@ -94,6 +94,11 @@ class User extends Authenticatable
             ->orderBy('starts_at');
     }
 
+    public function workDayOverrides(): HasMany
+    {
+        return $this->hasMany(UserWorkDayOverride::class);
+    }
+
     public function baseAddress(): string
     {
         return Geocoder::formatAddress($this->only([
